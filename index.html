@@ -5969,7 +5969,7 @@ function importPreview(){
     `;
     /* v3.5.1 fix: বড় JSON blob (5000+ cells) inline attribute-এ dump করলে HTML parser cut করে দিত এবং কর্মচারী নাম-এ apostrophe থাকলে single-quote attribute break হত।
        এখন module-scope memory-তে রাখি — attribute শুধু ছোট function call। */
-    window.__importPendingType = type;
+    window.__importPendingType = t;
     window.__importPendingRows = mapped;
   };
   reader.readAsText(file, 'utf-8');

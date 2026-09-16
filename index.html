@@ -351,20 +351,20 @@ tbody tr.clickable { cursor: pointer; }
 
 /* ============ TOAST ============ */
 .toast-wrap {
-  position: fixed; bottom: 20px; right: 20px; z-index: 200;
+  position: fixed; top: 20px; right: 20px; z-index: 200;
   display: flex; flex-direction: column; gap: 10px;
 }
 .toast {
   background: white; padding: 12px 18px; border-radius: 8px;
   box-shadow: var(--shadow-lg); border-left: 4px solid var(--primary);
   font-size: 13px; min-width: 260px; max-width: 380px;
-  animation: slideIn .25s;
+  animation: slideDown .25s;
   display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
 }
 .toast.success { border-left-color: var(--success); }
 .toast.error   { border-left-color: var(--danger); }
 .toast.warning { border-left-color: var(--warning); }
-@keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes slideDown { from { transform: translateY(-20px); opacity: 0; } to { transform: none; opacity: 1; } }
 
 /* ============ PAGES ============ */
 .page { display: none; }
@@ -728,6 +728,13 @@ tbody tr.clickable { cursor: pointer; }
 .mt-tile.present .mt-check { background: var(--success); border-color: var(--success); color: white; }
 .mt-tile h5 { font-size: 12.5px; font-weight: 700; padding-right: 26px; line-height: 1.35; }
 .mt-tile .mt-members { margin-top: 6px; font-size: 11px; color: var(--text-2); line-height: 1.5; }
+.mt-tile .mt-note-box { margin-top: 8px; }
+.mt-tile .mt-note-box textarea {
+  width: 100%; padding: 6px 8px; border: 1px solid var(--border-strong); border-radius: 6px;
+  font-family: inherit; font-size: 12px; resize: vertical; background: white; color: var(--text-1);
+  min-height: 44px;
+}
+.mt-tile .mt-note-box textarea:focus { outline: 2px solid var(--success); border-color: var(--success); }
 .mt-day {
   text-align: center; padding: 7px 2px; border-radius: 8px; font-size: 11.5px;
   border: 1px solid var(--border); background: white; cursor: pointer; font-weight: 600;
@@ -1601,6 +1608,11 @@ input:focus, select:focus, textarea:focus {
       <span data-i18n="nav_notifications">Notifications</span>
       <span class="badge" id="navNotifBadge" style="display:none"></span>
     </div>
+    <div class="nav-item" data-nav="todo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      <span>টু-ডু / ফলো-আপ</span>
+      <span class="badge" id="navTodoBadge" style="display:none;background:var(--warning)"></span>
+    </div>
 
     <div class="nav-section" data-i18n="nav_workforce">Workforce</div>
     <div class="nav-item" data-nav="employees">
@@ -1662,12 +1674,6 @@ input:focus, select:focus, textarea:focus {
     <div class="nav-item" data-nav="reports">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
       <span data-i18n="nav_reports_all">All Reports</span>
-    </div>
-
-    <div class="nav-section">কাজ ও ফলো-আপ</div>
-    <div class="nav-item" data-nav="todo">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-      <span>টু-ডু / ফলো-আপ</span>
     </div>
 
     <div class="nav-section" data-i18n="nav_system">System</div>
@@ -2664,11 +2670,24 @@ function toggleVerifyTick(rid){
 }
 
 function openEmpDetail(recordId){
-  const e = DATA.employees.find(x=>x.RecordID===recordId);
+  const e = DATA.employees.find(x=>String(x.RecordID)===String(recordId));
   if(!e) return;
-  const empTransfers = DATA.transfers.filter(t=>t.EmployeeID===e.EmployeeID).sort((a,b)=>parseDate(b.TransferDate)-parseDate(a.TransferDate));
-  const empDisc = DATA.disciplinary.filter(d=>d.EmployeeID===e.EmployeeID).sort((a,b)=>parseDate(b.IssueDate)-parseDate(a.IssueDate));
-  const empCareer = DATA.career.filter(c=>c.EmployeeID===e.EmployeeID);
+  /* v3.5 bug fix: EmployeeID missing হলে undefined===undefined match হয়ে সবার সব দেখাচ্ছিল।
+     এখন RecordID = প্রধান key + EmployeeID যদি থাকে সেটাও চেক, তবে ফাঁকা string match হবে না। */
+  const ematch = (rec, keyE, keyR) => {
+     const rRid = String(rec[keyR||'RecordID']||'');
+     const rEid = String(rec[keyE||'EmployeeID']||'');
+     const eRid = String(e.RecordID||'');
+     const eEid = String(e.EmployeeID||'');
+     if(rRid && eRid && rRid===eRid) return true;
+     if(rEid && eEid && rEid===eEid) return true;
+     return false;
+  };
+  const empTransfers = DATA.transfers.filter(t=>ematch(t)).sort((a,b)=>parseDate(b.TransferDate)-parseDate(a.TransferDate));
+  const empDisc = DATA.disciplinary.filter(d=>ematch(d)).sort((a,b)=>parseDate(b.IssueDate)-parseDate(a.IssueDate));
+  const empCareer = DATA.career.filter(c=>ematch(c));
+  const empExits = (DATA.exits||[]).filter(x=>ematch(x)).sort((a,b)=>parseDate(b.ExitDate)-parseDate(a.ExitDate));
+  const empLeaves = (DATA.leaves||[]).filter(l=>ematch(l, 'EmployeeID','RecordID')).sort((a,b)=>parseDate(b.start||b.startDate)-parseDate(a.start||a.startDate));
 
   const html = `
     <div class="emp-header">
@@ -2696,7 +2715,7 @@ function openEmpDetail(recordId){
       <div class="tab active" onclick="switchTab('empTabs','info')">${LANG==='bn'?'ব্যক্তিগত':'Personal'}</div>
       <div class="tab" onclick="switchTab('empTabs','job')">${LANG==='bn'?'চাকরি':'Job'}</div>
       <div class="tab" onclick="switchTab('empTabs','docs')">${LANG==='bn'?'ডকুমেন্ট':'Documents'}</div>
-      <div class="tab" onclick="switchTab('empTabs','history')">${LANG==='bn'?'ইতিহাস':'History'} <span class="chip">${num(empTransfers.length+empDisc.length+empCareer.length)}</span></div>
+      <div class="tab" onclick="switchTab('empTabs','history')">${LANG==='bn'?'ইতিহাস':'History'} <span class="chip">${num(empTransfers.length+empDisc.length+empCareer.length+empExits.length+empLeaves.length)}</span></div>
     </div>
 
     <div id="tab-info" class="tab-panel active">
@@ -2756,14 +2775,16 @@ function openEmpDetail(recordId){
 
     <div id="tab-history" class="tab-panel">
       ${(e.EmploymentHistory&&e.EmploymentHistory.length) ? `<h4 style="font-size:13px;margin:4px 0 10px">${LANG==='bn'?'↻ চাকরির মেয়াদসমূহ (যোগদান → ত্যাগ → পুনর্নিয়োগ)':'↻ Employment spells (join → exit → re-join)'}</h4><div class="timeline">${employmentSpellsHTML(e)}</div><div class="divider"></div>` : ''}
-      ${(empTransfers.length||empDisc.length||empCareer.length||(e.EmploymentHistory&&e.EmploymentHistory.length)) ? `
-        ${(empTransfers.length||empDisc.length||empCareer.length)?`<div class="timeline">
+      ${(empTransfers.length||empDisc.length||empCareer.length||empExits.length||empLeaves.length||(e.EmploymentHistory&&e.EmploymentHistory.length)) ? `
+        ${(empTransfers.length||empDisc.length||empCareer.length||empExits.length||empLeaves.length)?`<div class="timeline">
           ${[
-            ...empTransfers.map(x=>({date:x.TransferDate,type:'transfer',title:LANG==='bn'?'ট্রান্সফার':'Transfer',detail:`${x.CurrentProject} → ${x.NewProject}`})),
-            ...empDisc.map(x=>({date:x.IssueDate,type:'disc',title:x.ActionType,detail:x.Description?x.Description.slice(0,150)+'…':''})),
-            ...empCareer.map(x=>({date:x.EffectiveDate,type:'career',title:x.ChangeType,detail:`${x.CurrentDesignation||''} → ${x.NewDesignation}`})),
+            ...empTransfers.map(x=>({date:x.TransferDate,type:'transfer',title:LANG==='bn'?'ট্রান্সফার':'Transfer',detail:`${x.CurrentProject||''} → ${x.NewProject||''}`})),
+            ...empDisc.map(x=>({date:x.IssueDate,type:'disc',title:x.ActionType||'Disciplinary',detail:x.Description?x.Description.slice(0,150)+'…':''})),
+            ...empCareer.map(x=>({date:x.EffectiveDate,type:'career',title:x.ChangeType||'Career change',detail:`${x.CurrentDesignation||''} → ${x.NewDesignation||''}`})),
+            ...empExits.map(x=>({date:x.ExitDate,type:'exit',title:(LANG==='bn'?'চাকরি ত্যাগ — ':'Exit — ')+(x.ExitType||x.ExitReason||''),detail:x.ExitReason||''})),
+            ...empLeaves.map(x=>({date:(x.start||x.startDate||x.appliedDate),type:'leave',title:(LANG==='bn'?'ছুটি — ':'Leave — ')+(x.type||''),detail:(x.days?num(x.days)+(LANG==='bn'?' দিন · ':' days · '):'')+(x.reason||'')+(x.status?' ['+x.status+']':'')})),
           ].sort((a,b)=>parseDate(b.date)-parseDate(a.date)).map(x=>`
-            <div class="tl-item ${x.type==='disc'?'warning':x.type==='career'?'success':''}">
+            <div class="tl-item ${x.type==='disc'||x.type==='exit'?'warning':x.type==='career'?'success':''}">
               <div class="tl-dot"></div>
               <h5>${x.title}</h5>
               <div class="date">${fmtDateLong(x.date)}</div>
@@ -4128,7 +4149,18 @@ function openTransferPopup(tid){
   const t = DATA.transfers.find(x=>String(x.TransferID)===String(tid)); if(!t) return;
   const bn = LANG==='bn';
   const memo = 'MG/SEC/TR/'+String(t.TransferID).padStart(4,'0');
-  const statusPill = `<span class="pill ${t.Status==='Cancelled'?'inactive':t.IsProceed==='1'?'completed':'scheduled'}">${t.Status||(t.IsProceed==='1'?'Completed':'Scheduled')}</span>`;
+  /* v3.5: legacy Access-import ডেটাতে transfer date past হলে অনেকের status='Awaiting Confirmation'/'Scheduled' রয়ে গেছে — কিন্তু আসলে অনেকদিন আগে join হয়ে গেছে। তবে auto-mark করা v3.4 নিয়মের বিরুদ্ধে যাবে। তাই status pill user-friendly করি + action buttons দিই। */
+  const status = t.Status || (t.IsProceed==='1'?'Completed':'Scheduled');
+  const isCancelled = status==='Cancelled';
+  const isCompleted = status==='Completed' || t.IsProceed==='1';
+  const pillCls = isCancelled ? 'inactive' : isCompleted ? 'completed' : (status==='Awaiting Confirmation' ? 'warning' : 'scheduled');
+  const pillTxt = bn ? ({
+    'Cancelled':'বাতিল', 'Completed':'সম্পন্ন (জয়েন করেছেন)',
+    'Awaiting Confirmation':'যোগদানের অপেক্ষায়', 'Scheduled':'নির্ধারিত', 'Recorded':'রেকর্ডকৃত'
+  })[status] || status : status;
+  const statusPill = `<span class="pill ${pillCls}">${pillTxt}</span>`;
+  const emp = DATA.employees.find(x=>String(x.EmployeeID)===String(t.EmployeeID) || String(x.RecordID)===String(t.RecordID));
+  const empActive = emp && emp.Status==='Active';
   openModal(bn?`ট্রান্সফার #${num(t.TransferID)}`:`Transfer #${t.TransferID}`,
     `<div class="pop-detail">
       <div class="pop-row"><span>${bn?'স্মারক নং':'Memo No.'}</span><b>${memo}</b></div>
@@ -4139,13 +4171,66 @@ function openTransferPopup(tid){
       <div class="pop-row"><span>${bn?'ট্রান্সফার তারিখ':'Transfer Date'}</span><b>${fmtDate(t.TransferDate)}</b></div>
       <div class="pop-row"><span>${bn?'ইস্যু তারিখ':'Issue Date'}</span><b>${fmtDate(t['Issues Date']||t.IssueDate||'')}</b></div>
       <div class="pop-row"><span>${bn?'অবস্থা':'Status'}</span>${statusPill}</div>
+      ${emp?`<div class="pop-row"><span>${bn?'বর্তমান প্রজেক্ট (Employeetbl)':'Current Project (Employeetbl)'}</span><b>${projName(emp.ProjectName)}</b></div>`:''}
       ${t.Notes?`<div class="pop-row"><span>${bn?'নোট':'Notes'}</span><b>${t.Notes}</b></div>`:''}
     </div>
-    <div class="pop-hint">${bn?'⚠ Employeetbl-ই বর্তমান প্রজেক্টের একমাত্র সোর্স। এই ট্রান্সফার ইতিহাসে থাকবে, কিন্তু Employees ট্যাব থেকে না বদলানো পর্যন্ত কর্মীর প্রজেক্ট বদলাবে না।':'⚠ Employeetbl is the only source of truth for current project. Editing this transfer does NOT touch Employee.ProjectName.'}</div>`,
+    <div class="pop-hint">${bn?'💡 "যোগদান নিশ্চিত" চাপলে Employeetbl.ProjectName আপডেট হবে ও status "সম্পন্ন" হবে। "বাতিল" চাপলে শুধু হিস্ট্রি রেকর্ড "Cancelled" হবে; Employeetbl অপরিবর্তিত।':'💡 "Confirm Joined" updates Employeetbl.ProjectName and marks Completed. "Cancel" only marks the history record — Employeetbl is not touched.'}</div>`,
     `<button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>
      <button class="btn" onclick="reprintTransfer(${jsQ(t.TransferID)})">${ico('print')} ${bn?'পুনঃপ্রিন্ট':'Reprint'}</button>
-     ${t.Status!=='Cancelled'?`<button class="btn" style="background:var(--warning);color:#fff" onclick="cancelTransferOrder(${jsQ(t.TransferID)})">${bn?'বাতিল করুন':'Cancel Order'}</button>`:''}
-     <button class="btn primary" onclick="editTransferNewProject(${jsQ(t.TransferID)})">${bn?'গন্তব্য বদলান':'Change Destination'}</button>`);
+     ${!isCancelled && !isCompleted && empActive ? `<button class="btn success" onclick="markTransferJoined(${jsQ(t.TransferID)})">${bn?'✓ যোগদান নিশ্চিত (Complete)':'✓ Confirm Joined (Complete)'}</button>` : ''}
+     ${isCompleted && !isCancelled ? `<button class="btn" onclick="revertTransferComplete(${jsQ(t.TransferID)})" title="${bn?'ভুল করে Complete হয়ে গেলে ফেরত আনুন':'Revert if marked complete by mistake'}">↺ ${bn?'Complete পূর্বাবস্থায়':'Undo Complete'}</button>` : ''}
+     ${!isCancelled?`<button class="btn" style="background:var(--warning);color:#fff" onclick="cancelTransferOrder(${jsQ(t.TransferID)})">${bn?'✗ বাতিল করুন':'✗ Cancel Order'}</button>`:''}
+     ${isCancelled?`<button class="btn" onclick="restoreTransferOrder(${jsQ(t.TransferID)})">${bn?'↺ পুনরুদ্ধার':'↺ Restore'}</button>`:''}
+     <button class="btn" onclick="editTransferNewProject(${jsQ(t.TransferID)})">${bn?'গন্তব্য বদলান':'Change Destination'}</button>
+     <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteTransferRecord(${jsQ(t.TransferID)})">${bn?'🗑 রেকর্ড ডিলিট':'🗑 Delete Record'}</button>`);
+}
+function markTransferJoined(tid){
+  if(!guardEdit()) return;
+  const t = DATA.transfers.find(x=>String(x.TransferID)===String(tid)); if(!t) return;
+  const bn = LANG==='bn';
+  const emp = DATA.employees.find(x=>String(x.EmployeeID)===String(t.EmployeeID) || String(x.RecordID)===String(t.RecordID));
+  if(!emp){ toast(bn?'কর্মচারী পাওয়া যায়নি':'Employee not found','error'); return; }
+  if(emp.Status!=='Active'){ toast(bn?'নিষ্ক্রিয় কর্মচারীর ট্রান্সফার সম্পন্ন করা যাবে না — আগে পুনর্বহাল করুন':'Cannot complete transfer of inactive employee — reactivate first','error'); return; }
+  if(!confirm(bn?`"${t.FullName}" নতুন প্রজেক্ট "${t.NewProject}" এ যোগদান করেছেন — নিশ্চিত?\n\nএতে Employeetbl.ProjectName বদলে যাবে এবং ট্রান্সফার Complete হিসেবে চিহ্নিত হবে।`:`Confirm "${t.FullName}" joined "${t.NewProject}"?\n\nThis updates Employeetbl.ProjectName and marks the transfer Complete.`)) return;
+  emp.ProjectName = t.NewProject;   /* একমাত্র বৈধ পথ */
+  t.Status='Completed'; t.IsProceed='1'; t._applied=true;
+  /* সংশ্লিষ্ট notification থাকলে সরাই */
+  if(typeof NOTIFICATIONS!=='undefined'){
+    const ni = NOTIFICATIONS.findIndex(n=>n.type==='transfer_join' && String(n.transferId)===String(tid));
+    if(ni>=0) NOTIFICATIONS.splice(ni,1);
+  }
+  logActivity('complete','transfers', tid, `Joined: ProjectName → ${t.NewProject}`);
+  toast(bn?'যোগদান নিশ্চিত হয়েছে — কর্মীর প্রজেক্ট আপডেট':'Joined — employee project updated','success');
+  persist(); closeModal(); renderTransfer();
+}
+function revertTransferComplete(tid){
+  if(!guardEdit()) return;
+  const t = DATA.transfers.find(x=>String(x.TransferID)===String(tid)); if(!t) return;
+  const bn = LANG==='bn';
+  if(!confirm(bn?'এই ট্রান্সফার "Scheduled" এ ফেরাবেন? Employeetbl.ProjectName এই ফাংশনে আর অটো বদলাবে না — প্রয়োজন হলে Employees ট্যাবে ম্যানুয়ালি ঠিক করুন।':'Revert this transfer to "Scheduled"? Employeetbl.ProjectName is NOT auto-reverted — edit manually in Employees tab if needed.')) return;
+  t.Status='Scheduled'; t.IsProceed='0'; delete t._applied;
+  logActivity('update','transfers', tid, 'Complete → Scheduled (undo)');
+  toast(bn?'পূর্বাবস্থায় ফেরানো হয়েছে — Employeetbl অপরিবর্তিত':'Reverted — Employeetbl unchanged','warning');
+  persist(); closeModal(); renderTransfer();
+}
+function restoreTransferOrder(tid){
+  if(!guardEdit()) return;
+  const t = DATA.transfers.find(x=>String(x.TransferID)===String(tid)); if(!t) return;
+  if(!confirm(LANG==='bn'?'বাতিল ট্রান্সফার পুনরুদ্ধার করবেন? এটি আবার "Scheduled" হবে।':'Restore cancelled transfer to Scheduled?')) return;
+  t.Status='Scheduled'; t.IsProceed='0'; delete t._applied;
+  logActivity('restore','transfers', tid, 'Cancelled → Scheduled');
+  toast(LANG==='bn'?'পুনরুদ্ধার সম্পন্ন':'Restored','success');
+  persist(); closeModal(); renderTransfer();
+}
+function deleteTransferRecord(tid){
+  if(!guardEdit()) return;
+  if(!confirm(LANG==='bn'?'সতর্কতা: এই ট্রান্সফার রেকর্ড স্থায়ীভাবে মুছে যাবে। এটি ফেরানো যাবে না।':'WARNING: this transfer record will be permanently deleted. Cannot be undone.')) return;
+  const idx = DATA.transfers.findIndex(x=>String(x.TransferID)===String(tid)); if(idx<0) return;
+  const t = DATA.transfers[idx];
+  DATA.transfers.splice(idx,1);
+  logActivity('delete','transfers', tid, `Transfer of ${t.FullName||''} deleted`);
+  toast(LANG==='bn'?'রেকর্ড ডিলিট সম্পন্ন':'Record deleted','success');
+  persist(); closeModal(); renderTransfer();
 }
 function cancelTransferOrder(tid){
   if(!guardEdit()) return;
@@ -4444,25 +4529,26 @@ function renderDisciplinary(){
     </div>
 
     <div class="card">
-      <div class="card-header"><h3>${LANG==='bn'?'সাম্প্রতিক শৃঙ্খলাভঙ্গের ব্যবস্থা':'Recent Actions'}</h3></div>
+      <div class="card-header"><h3>${LANG==='bn'?'সাম্প্রতিক শৃঙ্খলাভঙ্গের ব্যবস্থা':'Recent Actions'}</h3><span class="sub">${num(DATA.disciplinary.length)} ${LANG==='bn'?'টি রেকর্ড':'records'}</span></div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>${LANG==='bn'?'স্মারক':'Ref'}</th><th>${LANG==='bn'?'কর্মচারী':'Employee'}</th><th>${LANG==='bn'?'ধরন':'Type'}</th><th>${LANG==='bn'?'তারিখ':'Date'}</th><th></th></tr></thead>
+          <thead><tr><th style="width:50px">${LANG==='bn'?'ক্রম':'#'}</th><th>${LANG==='bn'?'স্মারক':'Ref'}</th><th>${LANG==='bn'?'কর্মচারী':'Employee'}</th><th>${LANG==='bn'?'ধরন':'Type'}</th><th>${LANG==='bn'?'তারিখ':'Date'}</th><th></th></tr></thead>
           <tbody id="dcTableBody"></tbody>
         </table>
       </div>
     </div>
   `;
   fillEmpSelect('dcEmp');
-  const rows = DATA.disciplinary.slice().sort((a,b)=>+b.ActionID-+a.ActionID).slice(0,60);
-  document.getElementById('dcTableBody').innerHTML = rows.map(d=>`
+  const rows = DATA.disciplinary.slice().sort((a,b)=>+b.ActionID-+a.ActionID).slice(0,200);
+  document.getElementById('dcTableBody').innerHTML = rows.map((d,i)=>`
     <tr class="row-click" onclick="openDisciplinaryPopup(${jsQ(d.ActionID)})" style="cursor:pointer">
+      <td>${num(i+1)}</td>
       <td><strong>${num(d.RefNo||'')}</strong></td>
       <td>${d.FullName||''}</td>
       <td>${d.ActionType||''}</td>
       <td>${fmtDate(d.IssueDate)}</td>
       <td onclick="event.stopPropagation()"><button class="btn ghost sm" onclick="reprintDisc(${jsQ(d.ActionID)})">${ico('print')}</button></td>
-    </tr>`).join('');
+    </tr>`).join('') || `<tr><td colspan="6" class="small-mute" style="text-align:center;padding:20px">${LANG==='bn'?'কোনো শৃঙ্খলা রেকর্ড নেই':'No disciplinary records'}</td></tr>`;
 }
 /* v3.4: Disciplinary রো ক্লিক → পপআপ (এডিটেবল বডি) */
 function openDisciplinaryPopup(aid){
@@ -4481,9 +4567,9 @@ function openDisciplinaryPopup(aid){
     <div class="field wide" style="margin-top:12px"><label>${bn?'চিঠির বডি (সম্পাদনযোগ্য)':'Letter body (editable)'}</label><textarea id="_dcDescEdit" rows="10" style="width:100%">${(d.Description||'').replace(/</g,'&lt;')}</textarea></div>
     <p class="small-mute" style="margin-top:6px">${bn?'শুধু লেখা সম্পাদনযোগ্য; স্মারক নং ও ইস্যু তারিখ অপরিবর্তিত থাকবে।':'Only the letter body is editable; ref no. and dates stay unchanged.'}</p>`,
     `<button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>
-     <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteDisciplinary(${jsQ(d.ActionID)})">${bn?'ডিলিট':'Delete'}</button>
      <button class="btn" onclick="reprintDisc(${jsQ(d.ActionID)})">${ico('print')} ${bn?'প্রিন্ট':'Print'}</button>
-     <button class="btn primary" onclick="saveDisciplinaryEdit(${jsQ(d.ActionID)})">${bn?'সেভ':'Save'}</button>`);
+     <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteDisciplinary(${jsQ(d.ActionID)})">${bn?'🗑 ডিলিট':'🗑 Delete'}</button>
+     <button class="btn success" style="background:var(--success);color:#fff;font-weight:700" onclick="saveDisciplinaryEdit(${jsQ(d.ActionID)})">💾 ${bn?'সেভ করুন':'Save Changes'}</button>`);
 }
 function saveDisciplinaryEdit(aid){
   if(!guardEdit()) return;
@@ -4775,15 +4861,18 @@ function renderExit(){
     </div>
 
     <div class="card">
-      <div class="card-header"><h3>${LANG==='bn'?'সাম্প্রতিক চাকরি ত্যাগ':'Recent Exits'}</h3></div>
+      <div class="card-header"><h3>${LANG==='bn'?'সাম্প্রতিক চাকরি ত্যাগ':'Recent Exits'}</h3><span class="sub">${num(DATA.exits.length)} ${LANG==='bn'?'টি রেকর্ড':'records'}</span></div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>${LANG==='bn'?'আইডি':'ID'}</th><th>${LANG==='bn'?'নাম':'Name'}</th><th>${LANG==='bn'?'পদবি':'Designation'}</th><th>${LANG==='bn'?'ধরন':'Type'}</th><th>${LANG==='bn'?'ত্যাগের তারিখ':'Exit Date'}</th><th>${LANG==='bn'?'কারণ':'Reason'}</th></tr></thead>
-          <tbody>${DATA.exits.slice(0,60).map(x=>`<tr class="row-click" onclick="openExitPopup(${jsQ(x.ExitID)})" style="cursor:pointer">
-            <td>${num(x.EmployeeID||'')}</td><td>${x.FullName||''}</td><td>${desig(x.Designation||'')}</td>
-            <td><span class="chip">${x.ExitType||x.ExitReason||'—'}</span></td>
+          <thead><tr><th style="width:50px">${LANG==='bn'?'ক্রম':'#'}</th><th>${LANG==='bn'?'আইডি':'ID'}</th><th>${LANG==='bn'?'নাম':'Name'}</th><th>${LANG==='bn'?'পদবি':'Designation'}</th><th>${LANG==='bn'?'প্রজেক্ট':'Project'}</th><th>${LANG==='bn'?'ত্যাগের তারিখ':'Exit Date'}</th><th>${LANG==='bn'?'কারণ':'Reason'}</th></tr></thead>
+          <tbody>${DATA.exits.slice(0,200).map((x,i)=>`<tr class="row-click" onclick="openExitPopup(${jsQ(x.ExitID)})" style="cursor:pointer">
+            <td>${num(i+1)}</td>
+            <td>${num(x.EmployeeID||'')}</td>
+            <td><strong>${x.FullName||''}</strong></td>
+            <td>${desig(x.Designation||'')}</td>
+            <td>${projName(x.CurrentProject||x.ProjectName||'')}</td>
             <td>${fmtDate(x.ExitDate)}</td>
-            <td class="small-mute" style="max-width:280px">${x.ExitReason||''}</td></tr>`).join('')}</tbody>
+            <td class="small-mute" style="max-width:280px">${x.ExitReason||x.ExitType||''}</td></tr>`).join('') || `<tr><td colspan="7" class="small-mute" style="text-align:center;padding:20px">${LANG==='bn'?'কোনো এক্সিট রেকর্ড নেই':'No exit records'}</td></tr>`}</tbody>
         </table>
       </div>
     </div>
@@ -5773,7 +5862,217 @@ function renderSettings(){
         </div>
       </div>
     </div>
+
+    <!-- === v3.5: ডেটা ইম্পোর্ট মডিউল === -->
+    <div class="card" style="margin-top:14px;border:2px solid var(--purple)">
+      <div class="card-header"><h3>📥 ${LANG==='bn'?'ডেটা ইম্পোর্ট (CSV / TSV / TXT / Excel)':'Data Import (CSV / TSV / TXT / Excel)'}</h3>
+        <span class="sub">${LANG==='bn'?'Access থেকে এক্সপোর্ট করা ফাইল সরাসরি অ্যাপে বসান':'Directly bring in files exported from Access'}</span>
+      </div>
+      <div class="card-body">
+        <div class="form-grid">
+          <div class="field"><label>${LANG==='bn'?'১. কী ধরনের ডেটা?':'1. Data type?'} *</label>
+            <select id="imType" onchange="importHint()">
+              <option value="">— ${LANG==='bn'?'নির্বাচন করুন':'select'} —</option>
+              <option value="employees">${LANG==='bn'?'কর্মচারী (Employee Table)':'Employees'}</option>
+              <option value="projects">${LANG==='bn'?'প্রজেক্ট (Project List)':'Projects'}</option>
+              <option value="transfers">${LANG==='bn'?'ট্রান্সফার হিস্ট্রি':'Transfer History'}</option>
+              <option value="disciplinary">${LANG==='bn'?'শৃঙ্খলা অ্যাকশন':'Disciplinary Actions'}</option>
+              <option value="exits">${LANG==='bn'?'চাকরি ত্যাগ / এক্সিট':'Exit History'}</option>
+              <option value="leaves">${LANG==='bn'?'ছুটির রেকর্ড':'Leave Records'}</option>
+              <option value="career">${LANG==='bn'?'ক্যারিয়ার / ইনক্রিমেন্ট':'Career / Increment'}</option>
+            </select>
+          </div>
+          <div class="field"><label>${LANG==='bn'?'২. ফাইল আপলোড (.csv / .tsv / .txt / .xlsx)':'2. Upload file (.csv / .tsv / .txt / .xlsx)'}</label>
+            <input type="file" id="imFile" accept=".csv,.tsv,.txt,.xlsx,.xls" onchange="importPreview()">
+          </div>
+        </div>
+        <div id="imHint" class="small-mute" style="margin-top:8px"></div>
+        <div id="imPreview" style="margin-top:12px"></div>
+      </div>
+    </div>
+
+    <!-- === v3.5: সম্পূর্ণ ডেটাবেস খালি করার section === -->
+    <div class="card" style="margin-top:14px;border:2px solid var(--danger)">
+      <div class="card-header"><h3>⚠️ ${LANG==='bn'?'বিপজ্জনক জোন — ডেটাবেস খালি':'Danger Zone — Blank Database'}</h3>
+        <span class="sub" style="color:var(--danger)">${LANG==='bn'?'সব ডেটা মুছে ফেলে ইম্পোর্টের জন্য প্রস্তুত করবে':'Wipes all data to prepare for fresh import'}</span>
+      </div>
+      <div class="card-body">
+        <p style="margin-bottom:10px">${LANG==='bn'?'এই বাটন চাপলে <strong>কর্মচারী · প্রজেক্ট · ট্রান্সফার · শৃঙ্খলা · এক্সিট · ছুটি · ক্যারিয়ার · প্যারেড · ইউনিফর্ম · টু-ডু · মিটিং</strong> — সব খালি হয়ে যাবে। কোম্পানি প্রোফাইল, বেতন কাঠামো ও সেটিংস অক্ষত থাকবে।':'This wipes <strong>Employees · Projects · Transfers · Disciplinary · Exits · Leaves · Career · Parade · Uniform · To-Do · Meetings</strong>. Company profile, salary structure and settings are preserved.'}</p>
+        <p style="margin-bottom:12px;color:var(--danger);font-weight:600">${LANG==='bn'?'✓ চালানোর আগে একটি JSON ব্যাকআপ ডাউনলোড হবে — সেটি সংরক্ষণ করুন।':'✓ A JSON backup downloads before wipe — keep it safe.'}</p>
+        <div class="btn-row">
+          <button class="btn" onclick="exportBackupFile()">⬇ ${LANG==='bn'?'আগে ব্যাকআপ নিন':'Backup first'}</button>
+          <button class="btn" style="background:var(--danger);color:#fff;font-weight:700" onclick="wipeAllData()">🗑 ${LANG==='bn'?'সব ডেটা খালি করুন':'Blank all data'}</button>
+        </div>
+      </div>
+    </div>
   `;
+}
+/* v3.5: ডেটা ইম্পোর্ট — CSV/TSV/TXT/XLSX parser + type-aware mapping + duplicate merge + persist */
+function importHint(){
+  const t = document.getElementById('imType').value;
+  const bn = LANG==='bn';
+  const hints = {
+    employees: bn?'হেডার: RecordID (বা সিরিয়াল), EmployeeID, FullName, FatherName, MotherName, DOB, NID, PhoneNumber, Designation, ProjectName, JoinDate, Salary, Status, Address, DivisionID, DistrictID, UpazilaID':'Headers: RecordID (or Serial), EmployeeID, FullName, FatherName, MotherName, DOB, NID, PhoneNumber, Designation, ProjectName, JoinDate, Salary, Status, Address, ...',
+    projects: bn?'হেডার: ProjectID, ProjectName, ProjectNameBangla, StartDate, Location, Status':'Headers: ProjectID, ProjectName, ProjectNameBangla, StartDate, Location, Status',
+    transfers: bn?'হেডার: TransferID, EmployeeID, FullName, Designation, CurrentProject, NewProject, TransferDate, IssueDate, Status':'Headers: TransferID, EmployeeID, FullName, Designation, CurrentProject, NewProject, TransferDate, IssueDate, Status',
+    disciplinary: bn?'হেডার: ActionID, RefNo, EmployeeID, FullName, Designation, ProjectName, ActionType, IncidentDate, IssueDate, Description':'Headers: ActionID, RefNo, EmployeeID, FullName, Designation, ProjectName, ActionType, IncidentDate, IssueDate, Description',
+    exits: bn?'হেডার: ExitID, EmployeeID, FullName, Designation, CurrentProject, JoinDate, ExitDate, IssueDate, ExitType, ExitReason':'Headers: ExitID, EmployeeID, FullName, Designation, CurrentProject, JoinDate, ExitDate, IssueDate, ExitType, ExitReason',
+    leaves: bn?'হেডার: id (বা LeaveID), EmployeeID, name, type, start, end, days, reason, status':'Headers: id, EmployeeID, name, type, start, end, days, reason, status',
+    career: bn?'হেডার: CareerID, EmployeeID, FullName, ChangeType, CurrentDesignation, NewDesignation, CurrentSalary, NewSalary, EffectiveDate':'Headers: CareerID, EmployeeID, FullName, ChangeType, CurrentDesignation, NewDesignation, CurrentSalary, NewSalary, EffectiveDate',
+  };
+  document.getElementById('imHint').innerHTML = t ? `<div style="background:var(--bg-dim);padding:10px 12px;border-radius:6px;border-left:3px solid var(--purple)"><strong>${bn?'প্রত্যাশিত হেডার:':'Expected headers:'}</strong> <code style="font-size:11px">${hints[t]||''}</code><br><span class="small-mute">${bn?'হেডার নাম না মিললেও একই অর্থের বিকল্প নাম (যেমন FullName↔Name, PhoneNumber↔Mobile) auto-detect হবে।':'Alternate header names auto-detected (e.g. FullName↔Name, PhoneNumber↔Mobile).'}</span></div>` : '';
+}
+function importPreview(){
+  const t = document.getElementById('imType').value;
+  const fileEl = document.getElementById('imFile');
+  const file = fileEl && fileEl.files && fileEl.files[0];
+  const box = document.getElementById('imPreview');
+  if(!t){ box.innerHTML = '<p style="color:var(--danger)">'+(LANG==='bn'?'আগে ডেটা টাইপ নির্বাচন করুন।':'Select data type first.')+'</p>'; return; }
+  if(!file){ box.innerHTML = ''; return; }
+  const name = file.name.toLowerCase();
+  const isXlsx = name.endsWith('.xlsx') || name.endsWith('.xls');
+  if(isXlsx){
+    box.innerHTML = `<p style="color:var(--warning);background:var(--warning-soft);padding:10px;border-radius:6px">⚠ ${LANG==='bn'?'.xlsx সরাসরি সমর্থিত নয় — Excel থেকে "Save As → CSV UTF-8" করে আবার আপলোড করুন। এটি সবচেয়ে নিরাপদ, ইউনিকোড ঠিক থাকবে।':'.xlsx not directly supported — in Excel, "Save As → CSV UTF-8" then upload. Safest, keeps Unicode intact.'}</p>`;
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(e){
+    let text = e.target.result;
+    if(text.charCodeAt(0)===0xFEFF) text = text.slice(1);  /* strip BOM */
+    const rows = parseCSVLike(text);
+    if(!rows.length){ box.innerHTML = '<p style="color:var(--danger)">'+(LANG==='bn'?'ফাইল খালি বা পড়া যাচ্ছে না।':'File is empty or unreadable.')+'</p>'; return; }
+    const headers = rows[0].map(h=>String(h||'').trim());
+    const data = rows.slice(1).filter(r=>r.some(v=>String(v||'').trim()));
+    const mapped = data.map(r=>{
+      const obj = {};
+      headers.forEach((h,i)=>{ if(h) obj[h] = String(r[i]||'').trim(); });
+      return normalizeImportRow(t, obj);
+    });
+    const bn = LANG==='bn';
+    const preview = mapped.slice(0,10);
+    const previewHeaders = Object.keys(preview[0]||{}).slice(0,8);
+    box.innerHTML = `
+      <div class="alert-item info" style="margin-bottom:10px">${ico('check')}
+        <div><h5>${bn?'ফাইল পড়া হয়েছে':'File parsed'} — ${num(mapped.length)} ${bn?'সারি':'rows'}, ${num(headers.length)} ${bn?'কলাম':'columns'}</h5>
+        <p>${bn?'নিচে প্রথম ১০ সারি প্রিভিউ। মিলে গেলে "ইম্পোর্ট নিশ্চিত" চাপুন।':'First 10 rows preview below. If correct, click Confirm Import.'}</p></div>
+      </div>
+      <div class="table-wrap" style="max-height:280px;overflow:auto">
+        <table style="font-size:11px">
+          <thead><tr>${previewHeaders.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+          <tbody>${preview.map(r=>`<tr>${previewHeaders.map(h=>`<td>${String(r[h]||'').replace(/</g,'&lt;').slice(0,80)}</td>`).join('')}</tr>`).join('')}</tbody>
+        </table>
+      </div>
+      <div class="btn-row" style="margin-top:12px">
+        <button class="btn success" style="font-weight:700" onclick='importConfirm(${JSON.stringify(t)}, ${JSON.stringify(mapped)})'>✓ ${bn?'ইম্পোর্ট নিশ্চিত করুন':'Confirm Import'} (${num(mapped.length)})</button>
+        <span class="small-mute">${bn?'বিদ্যমান রেকর্ডের সাথে ID মিললে আপডেট হবে; না মিললে নতুন যোগ হবে।':'Rows with matching ID update in place; others are added new.'}</span>
+      </div>
+    `;
+  };
+  reader.readAsText(file, 'utf-8');
+}
+function parseCSVLike(text){
+  /* CSV/TSV/TXT auto-detect delimiter (comma / tab / semicolon) with quoted-field support */
+  const firstLine = (text.split(/\r?\n/)[0]||'');
+  const delim = firstLine.indexOf('\t')>=0 ? '\t' : firstLine.indexOf(';')>=0 ? ';' : ',';
+  const rows = []; let cur=[]; let field=''; let inQ=false;
+  for(let i=0; i<text.length; i++){
+    const c = text[i];
+    if(inQ){
+      if(c==='"'){ if(text[i+1]==='"'){ field+='"'; i++; } else inQ=false; }
+      else field+=c;
+    } else {
+      if(c==='"'){ inQ=true; }
+      else if(c===delim){ cur.push(field); field=''; }
+      else if(c==='\n'){ cur.push(field); rows.push(cur); cur=[]; field=''; }
+      else if(c==='\r'){ /* skip */ }
+      else field+=c;
+    }
+  }
+  if(field.length || cur.length){ cur.push(field); rows.push(cur); }
+  return rows;
+}
+function normalizeImportRow(type, raw){
+  /* header alias mapping — Bengali + English */
+  const alias = {
+    'name':'FullName','পূর্ণ নাম':'FullName','নাম':'FullName',
+    'mobile':'PhoneNumber','phone':'PhoneNumber','মোবাইল':'PhoneNumber','ফোন':'PhoneNumber',
+    'nid':'NID','জাতীয় পরিচয়':'NID',
+    'designation':'Designation','পদবি':'Designation','pad':'Designation',
+    'project':'ProjectName','প্রজেক্ট':'ProjectName',
+    'joindate':'JoinDate','যোগদান':'JoinDate',
+    'exitdate':'ExitDate','ছাঁটাই তারিখ':'ExitDate','ত্যাগের তারিখ':'ExitDate',
+    'exitreason':'ExitReason','reason':'ExitReason','কারণ':'ExitReason',
+    'exittype':'ExitType','type':'ExitType','ধরন':'ExitType',
+    'salary':'Salary','বেতন':'Salary',
+    'status':'Status','অবস্থা':'Status',
+    'transferdate':'TransferDate','বদলি তারিখ':'TransferDate',
+    'currentproject':'CurrentProject','from':'CurrentProject',
+    'newproject':'NewProject','to':'NewProject',
+    'refno':'RefNo','ref':'RefNo','স্মারক':'RefNo',
+    'actiontype':'ActionType','action':'ActionType',
+    'incidentdate':'IncidentDate','issuedate':'IssueDate',
+    'description':'Description','বর্ণনা':'Description',
+    'serial':'RecordID','ক্রম':'RecordID','#':'RecordID',
+    'employeeid':'EmployeeID','id':'EmployeeID','আইডি':'EmployeeID',
+  };
+  const out = {};
+  Object.keys(raw).forEach(k=>{
+    const key = alias[k.toLowerCase().replace(/[\s_\-\.]/g,'')] || k;
+    out[key] = raw[k];
+  });
+  return out;
+}
+function importConfirm(type, rows){
+  if(!guardEdit()) return;
+  if(!confirm((LANG==='bn'?'নিশ্চিত? ':'Confirm? ')+num(rows.length)+(LANG==='bn'?' সারি ইম্পোর্ট হবে।':' rows will be imported.'))) return;
+  const bucket = { employees:'employees', projects:'projects', transfers:'transfers', disciplinary:'disciplinary', exits:'exits', leaves:'leaves', career:'career' }[type];
+  if(!bucket){ toast('Unknown type','error'); return; }
+  DATA[bucket] = DATA[bucket] || [];
+  const pkMap = { employees:'RecordID', projects:'ProjectID', transfers:'TransferID', disciplinary:'ActionID', exits:'ExitID', leaves:'id', career:'CareerID' };
+  const pk = pkMap[type];
+  let added=0, updated=0;
+  rows.forEach(r=>{
+    if(pk && r[pk]){
+      const i = DATA[bucket].findIndex(x=>String(x[pk])===String(r[pk]));
+      if(i>=0){ Object.assign(DATA[bucket][i], r); updated++; return; }
+    }
+    /* assign new PK if missing */
+    if(pk && !r[pk]){
+      const maxId = Math.max(0, ...DATA[bucket].map(x=>parseInt(x[pk])||0));
+      r[pk] = String(maxId+1);
+    }
+    DATA[bucket].unshift(r); added++;
+  });
+  logActivity('import', bucket, '', `imported ${rows.length} rows (${added} added, ${updated} updated)`);
+  toast((LANG==='bn'?'ইম্পোর্ট সম্পন্ন — ':'Import done — ')+num(added)+(LANG==='bn'?' নতুন, ':' added, ')+num(updated)+(LANG==='bn'?' আপডেট':' updated'),'success');
+  persist();
+  /* re-index employees if that was the type */
+  if(bucket==='employees' && typeof DATA.employees.forEach==='function'){
+    DATA.employees.forEach(e=>{
+      const d = parseDate(e.JoinDate);
+      e._joinDays = d ? Math.floor((Date.now()-d)/86400000) : Infinity;
+    });
+  }
+  renderSettings();
+  if(typeof renderAll==='function') renderAll();
+}
+function wipeAllData(){
+  if(!guardEdit()) return;
+  const bn = LANG==='bn';
+  const step1 = prompt(bn?'সতর্কতা: সব ডেটা মুছে ফেলবেন? নিশ্চিত করতে টাইপ করুন: DELETE ALL':'WARNING: Wipe ALL data? To confirm, type exactly: DELETE ALL');
+  if(step1!=='DELETE ALL'){ toast(bn?'বাতিল করা হয়েছে':'Cancelled','warning'); return; }
+  /* auto-download backup first */
+  try{ if(typeof exportBackupFile==='function') exportBackupFile(); }catch(e){}
+  if(!confirm(bn?'শেষ সতর্কতা: ব্যাকআপ ডাউনলোড হয়ে গেছে (সম্ভবত)। এখন সব wipe হবে — এগোবেন?':'Final warning: backup downloaded (probably). Wipe now?')) return;
+  DATA.employees=[]; DATA.projects=[]; DATA.transfers=[]; DATA.disciplinary=[];
+  DATA.exits=[]; DATA.leaves=[]; DATA.career=[]; DATA.uniforms=[];
+  DATA.todos=[]; DATA.paradeState=[]; DATA.paradeRecords={}; DATA.meetings={};
+  DATA.recruitmentArchive=[]; DATA.activityLog=[];
+  if(typeof RECRUITMENT!=='undefined' && Array.isArray(RECRUITMENT)) RECRUITMENT.length=0;
+  if(typeof NOTIFICATIONS!=='undefined' && Array.isArray(NOTIFICATIONS)) NOTIFICATIONS.length=0;
+  logActivity('wipe','ALL','','database blanked by user');
+  toast(bn?'সব ডেটা মুছে ফেলা হয়েছে — এখন Settings থেকে ইম্পোর্ট করুন':'All data wiped — now import from Settings','success');
+  persist(); renderAll();
 }
 
 function uploadLogo(ev){
@@ -6264,28 +6563,100 @@ const DESIG_BN_TO_EN = {
 /* ============ MEETING ATTENDANCE — প্রতিদিন সকাল সাড়ে ৯টা–সাড়ে ১০টা ============ */
 const MEETING_DESIGS = ['Security Incharge','Security Supervisor','Asst Security Supervisor'];
 let MT_MONTH = new Date();   /* কোন মাস দেখা হচ্ছে */
+function mtActiveProjects(){
+  /* v3.5: শুধু active প্রজেক্টের নাম (Employeetbl-এ সুপারভাইজার আছে কি না — এই ক্যালকুলেশন বাদ) */
+  return (DATA.projects||[])
+    .filter(p=>p.Status!=='Inactive' && p.Status!=='Closed')
+    .map(p=>p.ProjectName)
+    .filter(Boolean)
+    .sort((a,b)=>a.localeCompare(b));
+}
 function mtEligible(){
-  /* প্রজেক্ট অনুযায়ী মিটিং-যোগ্য (ডে-ডিউটির ইনচার্জ/সুপারভাইজার/সহকারী) সক্রিয় কর্মচারী */
+  /* কেবল প্রজেক্ট-নাম রেখেই মিটিং কার্ড বানানোর জন্য map — supervisor list বাদ */
   const map = {};
-  DATA.employees.filter(e=>e.Status==='Active' && MEETING_DESIGS.includes(e.Designation)).forEach(e=>{
-    const p = e.ProjectName || '(Unassigned)';
-    (map[p] = map[p] || []).push(e);
-  });
-  Object.values(map).forEach(arr=>arr.sort((a,b)=>desigRank(a.Designation)-desigRank(b.Designation)));
+  mtActiveProjects().forEach(p=>{ map[p]=[]; });
   return map;
 }
 function mtIsFriday(iso){ return parseDate(iso)?.getDay()===5; }
 function mtDay(iso){ return DATA.meetings[iso] || null; }
 function mtEnsure(iso){
-  if(!DATA.meetings[iso]) DATA.meetings[iso] = { off:false, note:'', present:{} };
-  return DATA.meetings[iso];
+  if(!DATA.meetings[iso]) DATA.meetings[iso] = { off:false, note:'', present:{}, notes:{}, submitted:false, meetingNote:'' };
+  const d = DATA.meetings[iso];
+  if(!d.notes) d.notes = {};                /* project-wise notes */
+  if(typeof d.submitted!=='boolean') d.submitted = false;
+  if(typeof d.meetingNote!=='string') d.meetingNote = '';
+  return d;
 }
 function mtToggleProject(iso, proj){
   if(!guardEdit()) return;
   const d = mtEnsure(iso);
+  if(d.submitted){ toast(LANG==='bn'?'আজকের হাজিরা সাবমিট হয়ে গেছে — সম্পাদনা করা যাবে না':'Attendance already submitted for today','error'); return; }
   if(d.off){ toast(LANG==='bn'?'এই দিনে মিটিং বন্ধ চিহ্নিত — আগে "মিটিং হয়েছে" চাপুন':'This day is marked off — unmark it first','error'); return; }
   d.present[proj] = !d.present[proj];
-  if(!d.present[proj]) delete d.present[proj];
+  if(!d.present[proj]){ delete d.present[proj]; delete d.notes[proj]; }  /* uncheck → note also cleared */
+  /* persist without full re-render to keep textarea focus */
+  persist();
+  const tile = document.querySelector('.mt-tile[data-proj="'+CSS.escape(proj)+'"]');
+  if(tile){
+    tile.classList.toggle('present', !!d.present[proj]);
+    const noteBox = tile.querySelector('.mt-note-box');
+    if(d.present[proj] && !noteBox){
+      const div = document.createElement('div'); div.className='mt-note-box';
+      div.innerHTML = `<textarea placeholder="${LANG==='bn'?'এই প্রজেক্টের ইস্যু / নোট (ঐচ্ছিক)…সাবমিটে টু-ডু-তে যাবে':'Issue / note for this project (optional)…goes to To-Do on submit'}" onclick="event.stopPropagation()" oninput="mtSaveNote('${iso}','${proj.replace(/'/g,"\\'")}',this.value)" rows="2"></textarea>`;
+      tile.appendChild(div);
+      div.querySelector('textarea').focus();
+    } else if(!d.present[proj] && noteBox){
+      noteBox.remove();
+    }
+  }
+}
+function mtSaveNote(iso, proj, val){
+  const d = mtEnsure(iso);
+  if(d.submitted) return;
+  if(!d.present[proj]) return;
+  d.notes[proj] = val;
+  persist();
+}
+function mtSaveMeetingNote(iso, val){
+  const d = mtEnsure(iso);
+  if(d.submitted) return;
+  d.meetingNote = val; persist();
+}
+function mtSubmitDay(iso){
+  if(!guardEdit()) return;
+  const d = mtEnsure(iso);
+  if(d.submitted){ toast(LANG==='bn'?'ইতিমধ্যে সাবমিট হয়েছে':'Already submitted','info'); return; }
+  const presentProjs = Object.keys(d.present||{});
+  if(!presentProjs.length && !d.meetingNote){
+    if(!confirm(LANG==='bn'?'কোনো প্রজেক্ট প্রেজেন্ট মার্ক করেননি এবং মিটিং-নোট খালি। তারপরও সাবমিট করবেন?':'No projects marked and meeting-note empty. Submit anyway?')) return;
+  }
+  /* প্রজেক্ট-নোট → টু-ডু */
+  const notesArr = Object.entries(d.notes||{}).filter(([_,v])=>String(v||'').trim());
+  let added = 0;
+  DATA.todos = DATA.todos || [];
+  notesArr.forEach(([proj, note])=>{
+    DATA.todos.unshift({
+      id: Date.now()+Math.floor(Math.random()*10000),
+      project: proj,
+      who: (LANG==='bn'?'মিটিং হাজিরা — ':'Meeting attendance — ')+iso,
+      note: String(note).trim(),
+      date: iso,
+      status: 'pending',
+      source: 'meeting',
+      sourceDate: iso
+    });
+    added++;
+  });
+  d.submitted = true;
+  d.submittedAt = new Date().toISOString();
+  logActivity('submit','meetings', iso, `${presentProjs.length} present · ${added} follow-ups added to To-Do`);
+  toast((LANG==='bn'?'আজকের মিটিং সাবমিট হয়েছে — ':"Today's meeting submitted — ")+num(added)+(LANG==='bn'?' টি ফলো-আপ টু-ডু-তে যোগ':' follow-ups added to To-Do'),'success');
+  persist(); renderMeeting(); if(typeof updateTodoBadge==='function') updateTodoBadge();
+}
+function mtUnsubmit(iso){
+  if(!guardEdit()) return;
+  if(!confirm(LANG==='bn'?'সাবমিট বাতিল করে আবার সম্পাদনা করবেন? টু-ডু-তে যাওয়া নোট মুছবে না — সেগুলো আলাদাভাবে মুছুন।':'Un-submit to edit again? Notes already added to To-Do are NOT removed automatically.')) return;
+  const d = mtEnsure(iso); d.submitted = false;
   persist(); renderMeeting();
 }
 function mtMarkOff(iso){
@@ -6379,21 +6750,38 @@ function renderMeeting(){
               <p>${isFri ? (LANG==='bn'?'শুক্রবার সাপ্তাহিক বন্ধ — কোনো হাজিরা লাগবে না।':'Friday is the weekly holiday — no attendance needed.') : (rec.note||'')}</p></div>
             </div>
             ${!isFri ? `<button class="btn success sm" onclick="mtUnmarkOff('${today}')">${LANG==='bn'?'মিটিং হয়েছে — হাজিরা নিন':'Meeting happened — take attendance'}</button>` : ''}
+          ` : (rec && rec.submitted) ? `
+            <div class="alert-item info" style="margin-bottom:10px">
+              ${ico('check')}
+              <div><h5>${LANG==='bn'?'✓ আজকের মিটিং সাকসেসফুলি সম্পন্ন':"✓ Today's meeting completed successfully"}</h5>
+              <p>${num(Object.keys(rec.present||{}).length)} ${LANG==='bn'?'টি প্রজেক্ট প্রেজেন্ট · সাবমিট:':'projects present · submitted:'} ${fmtDate(today)}${rec.submittedAt?' '+new Date(rec.submittedAt).toLocaleTimeString():''}</p>
+              ${rec.meetingNote?`<p style="margin-top:6px"><strong>${LANG==='bn'?'মিটিং নোট:':'Meeting note:'}</strong> ${rec.meetingNote}</p>`:''}
+              </div>
+            </div>
+            <div class="btn-row"><button class="btn ghost sm" onclick="mtUnsubmit('${today}')">↺ ${LANG==='bn'?'সাবমিট বাতিল করে সম্পাদনা':'Un-submit to edit'}</button></div>
           ` : `
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px">
+            <p class="small-mute" style="margin-bottom:10px">${LANG==='bn'?'প্রজেক্টে ক্লিক করে প্রেজেন্ট চিহ্নিত করুন — ক্লিক করলেই নিচে নোট বক্স আসবে। ইস্যু থাকলে লিখুন; সাবমিটে টু-ডু-তে যাবে।':'Click a project to mark present — a note box appears below. Any note goes to To-Do on Submit.'}</p>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px" id="mtTiles">
               ${projNames.map(p=>{
                 const on = rec && rec.present && rec.present[p];
-                const mem = eligible[p];
-                return `<div class="mt-tile ${on?'present':''}" onclick="mtToggleProject('${today}','${p.replace(/'/g,"\\'")}')">
+                const noteVal = (rec && rec.notes && rec.notes[p]) || '';
+                const pSafe = p.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+                return `<div class="mt-tile ${on?'present':''}" data-proj="${pSafe}" onclick="mtToggleProject('${today}','${pSafe}')">
                   <span class="mt-check">✓</span>
                   <h5>${projName(p)}</h5>
-                  <div class="mt-members">${mem.map(e=>`${e.FullName} <span style="opacity:.65">(${desig(e.Designation)})</span>`).join(' · ')}</div>
+                  ${on?`<div class="mt-note-box"><textarea placeholder="${LANG==='bn'?'এই প্রজেক্টের ইস্যু / নোট (ঐচ্ছিক)…সাবমিটে টু-ডু-তে যাবে':'Issue / note for this project (optional)…goes to To-Do on submit'}" onclick="event.stopPropagation()" oninput="mtSaveNote('${today}','${pSafe}',this.value)" rows="2">${(noteVal||'').replace(/</g,'&lt;')}</textarea></div>`:''}
                 </div>`;
               }).join('')}
             </div>
             <div class="divider"></div>
+            <div class="field wide" style="margin-bottom:10px">
+              <label>${LANG==='bn'?'📝 আজকের সাধারণ মিটিং নোট (সব প্রজেক্টের ওপরে)':"📝 Today's general meeting note (across all projects)"}</label>
+              <textarea rows="2" placeholder="${LANG==='bn'?'যেমন: সবাইকে নতুন নীতি জানানো হয়েছে…':'e.g. new policy communicated to all…'}" oninput="mtSaveMeetingNote('${today}',this.value)">${((rec&&rec.meetingNote)||'').replace(/</g,'&lt;')}</textarea>
+            </div>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-              <input type="text" id="mtOffNote" placeholder="${LANG==='bn'?'মিটিং না হওয়ার কারণ (ঐচ্ছিক)…':'Reason for no meeting (optional)…'}" style="flex:1;min-width:220px;padding:8px 12px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit;font-size:13px">
+              <button class="btn primary" style="font-weight:700" onclick="mtSubmitDay('${today}')">${ico('check')} ${LANG==='bn'?'আজকের মিটিং সাবমিট করুন':"Submit Today's Meeting"}</button>
+              <div style="flex:1"></div>
+              <input type="text" id="mtOffNote" placeholder="${LANG==='bn'?'মিটিং না হওয়ার কারণ…':'Reason for no meeting…'}" style="flex:1;min-width:200px;padding:8px 12px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit;font-size:13px">
               <button class="btn danger sm" onclick="mtMarkOff('${today}')">${ico('x')} ${LANG==='bn'?'আজ মিটিং হয়নি':'No meeting today'}</button>
             </div>`}
         </div>
@@ -6425,9 +6813,10 @@ function renderMeeting(){
             ${absentRank.map(r=>{
               const tot = r.present+r.absent;
               const pct = tot?Math.round(r.present*100/tot):0;
-              return `<tr>
+              const pSafe = r.p.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+              return `<tr class="row-click" onclick="openProjMeetingHistory('${pSafe}')" style="cursor:pointer" title="${LANG==='bn'?'ক্লিক করে মাসিক হিস্ট্রি দেখুন':'Click to view monthly history'}">
                 <td style="font-size:12.5px"><strong>${projName(r.p)}</strong></td>
-                <td>${num(stats.eligible[r.p].length)}</td>
+                <td>${num((stats.eligible[r.p]||[]).length)}</td>
                 <td><span class="pill active">${num(r.present)}</span></td>
                 <td><span class="pill ${r.absent>0?'inactive':'completed'}">${num(r.absent)}</span></td>
                 <td><div style="display:flex;gap:6px;align-items:center;min-width:120px">
@@ -6447,9 +6836,118 @@ function updateMeetingBadge(){
   const b = document.getElementById('navMeetingBadge'); if(!b) return;
   const today = todayISO();
   const rec = mtDay(today);
-  const pending = !mtIsFriday(today) && !(rec && rec.off) && !(rec && Object.keys(rec.present||{}).length);
+  const pending = !mtIsFriday(today) && !(rec && rec.off) && !(rec && rec.submitted) && !(rec && Object.keys(rec.present||{}).length);
   b.style.display = pending ? '' : 'none';
   b.textContent = '!';
+}
+/* v3.5: প্রজেক্ট-ভিত্তিক মিটিং হাজিরার হিস্ট্রি (কোন কোন তারিখে present/absent) — মাস selector + print */
+let PROJ_HIST_MONTH = null;
+function openProjMeetingHistory(proj, monthShift){
+  const bn = LANG==='bn';
+  if(monthShift===undefined){
+    PROJ_HIST_MONTH = new Date(MT_MONTH.getFullYear(), MT_MONTH.getMonth(), 1);
+  } else if(monthShift!==0){
+    PROJ_HIST_MONTH = new Date(PROJ_HIST_MONTH.getFullYear(), PROJ_HIST_MONTH.getMonth()+monthShift, 1);
+  }
+  const y = PROJ_HIST_MONTH.getFullYear(), m = PROJ_HIST_MONTH.getMonth();
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const monthNamesBn = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+  const monthLabel = (bn?monthNamesBn:monthNames)[m]+' '+num(y);
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const today = todayISO();
+  const rows = [];
+  let presentCount=0, absentCount=0, offCount=0, futureCount=0, friCount=0;
+  for(let d=1; d<=daysInMonth; d++){
+    const iso = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const rec = mtDay(iso);
+    const fri = mtIsFriday(iso);
+    const future = iso > today;
+    let status, cls;
+    if(future){ status = bn?'ভবিষ্যৎ':'Future'; cls='future'; futureCount++; }
+    else if(fri){ status = bn?'শুক্রবার':'Friday'; cls='off'; friCount++; }
+    else if(rec && rec.off){ status = bn?'বন্ধ':'Off'; cls='off'; offCount++; }
+    else if(rec && rec.present && rec.present[proj]){ status = bn?'উপস্থিত':'Present'; cls='present'; presentCount++; }
+    else { status = bn?'অনুপস্থিত':'Absent'; cls='absent'; absentCount++; }
+    const note = (rec && rec.notes && rec.notes[proj]) || (rec && rec.off ? rec.note : '') || '';
+    rows.push({iso, d, fri, status, cls, note});
+  }
+  const workdays = presentCount+absentCount;
+  const rate = workdays ? Math.round(presentCount*100/workdays) : 0;
+  const monthOpts = [];
+  for(let i=-6; i<=1; i++){
+    const dt = new Date(y, m+i, 1);
+    const val = dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');
+    monthOpts.push(`<option value="${val}"${i===0?' selected':''}>${(bn?monthNamesBn:monthNames)[dt.getMonth()]} ${num(dt.getFullYear())}</option>`);
+  }
+  openModal(bn?`মিটিং হাজিরা হিস্ট্রি — ${projName(proj)}`:`Meeting Attendance History — ${projName(proj)}`,
+    `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+       <button class="btn ghost sm" onclick="openProjMeetingHistory('${proj.replace(/'/g,"\\'")}',-1)">‹</button>
+       <select onchange="(function(v){var p=v.split('-');PROJ_HIST_MONTH=new Date(+p[0],+p[1]-1,1);openProjMeetingHistory('${proj.replace(/'/g,"\\'")}',0);})(this.value)" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px">${monthOpts.join('')}</select>
+       <button class="btn ghost sm" onclick="openProjMeetingHistory('${proj.replace(/'/g,"\\'")}',1)">›</button>
+       <div style="flex:1"></div>
+       <span class="chip" style="background:#dcfce7;color:#166534">${bn?'উপস্থিত':'Present'}: ${num(presentCount)}</span>
+       <span class="chip" style="background:#fee2e2;color:#991b1b">${bn?'অনুপস্থিত':'Absent'}: ${num(absentCount)}</span>
+       <span class="chip">${bn?'হার':'Rate'}: <strong>${num(rate)}%</strong></span>
+     </div>
+     <div class="table-wrap" style="max-height:400px;overflow:auto">
+       <table>
+         <thead><tr><th style="width:60px">#</th><th>${bn?'তারিখ':'Date'}</th><th>${bn?'দিন':'Day'}</th><th>${bn?'অবস্থা':'Status'}</th><th>${bn?'নোট':'Note'}</th></tr></thead>
+         <tbody>
+           ${rows.map(r=>{
+             const dt = new Date(r.iso);
+             const dayName = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()];
+             const dayNameBn = ['রবি','সোম','মঙ্গল','বুধ','বৃহস্পতি','শুক্র','শনি'][dt.getDay()];
+             const bgc = r.cls==='present'?'#dcfce7':r.cls==='absent'?'#fee2e2':r.cls==='off'?'#f1f5f9':'#f9fafb';
+             return `<tr style="background:${bgc}"><td>${num(r.d)}</td><td>${fmtDate(r.iso)}</td><td>${bn?dayNameBn:dayName}</td><td><strong>${r.status}</strong></td><td class="small-mute">${(r.note||'').replace(/</g,'&lt;')}</td></tr>`;
+           }).join('')}
+         </tbody>
+       </table>
+     </div>`,
+    `<button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>
+     <button class="btn primary" onclick="printProjMeetingHistory('${proj.replace(/'/g,"\\'")}','${y}-${String(m+1).padStart(2,'0')}')">${ico('print')} ${bn?'প্রিন্ট':'Print'}</button>`);
+}
+function printProjMeetingHistory(proj, ymo){
+  const bn = LANG==='bn';
+  const [ys, ms] = ymo.split('-'); const y=+ys, m=+ms-1;
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const today = todayISO();
+  const rows = [];
+  let presentCount=0, absentCount=0, offCount=0;
+  for(let d=1; d<=daysInMonth; d++){
+    const iso = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const rec = mtDay(iso);
+    const fri = mtIsFriday(iso);
+    const future = iso > today;
+    let status;
+    if(future) status='—';
+    else if(fri) status='Friday';
+    else if(rec && rec.off){ status='Off'; offCount++; }
+    else if(rec && rec.present && rec.present[proj]){ status='Present'; presentCount++; }
+    else { status='Absent'; absentCount++; }
+    const note = (rec && rec.notes && rec.notes[proj]) || (rec && rec.off ? rec.note : '') || '';
+    const dt = new Date(iso);
+    const dayName = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()];
+    rows.push({d, dayName, status, note, fri});
+  }
+  const workdays = presentCount+absentCount;
+  const rate = workdays ? Math.round(presentCount*100/workdays) : 0;
+  openPrint(`<div class="print-doc">
+    ${typeof letterhead==='function'?letterhead():''}
+    <h3 style="text-align:center;margin:14px 0 6px">Meeting Attendance — ${proj}</h3>
+    <p style="text-align:center;margin:0 0 10px">${monthNames[m]} ${y} · Prepared: ${fmtDateEnLong?fmtDateEnLong(todayISO()):todayISO()}</p>
+    <div style="display:flex;gap:14px;justify-content:center;font-size:11pt;margin-bottom:10px">
+      <span><strong>Present:</strong> ${presentCount}</span>
+      <span><strong>Absent:</strong> ${absentCount}</span>
+      <span><strong>Off days:</strong> ${offCount}</span>
+      <span><strong>Rate:</strong> ${rate}%</span>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:10pt">
+      <thead><tr style="background:#f1f5f9"><th style="border:1px solid #ccc;padding:5px">#</th><th style="border:1px solid #ccc;padding:5px">Date</th><th style="border:1px solid #ccc;padding:5px">Day</th><th style="border:1px solid #ccc;padding:5px">Status</th><th style="border:1px solid #ccc;padding:5px">Note</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr><td style="border:1px solid #ccc;padding:5px;text-align:center">${r.d}</td><td style="border:1px solid #ccc;padding:5px">${r.d} ${monthNames[m].slice(0,3)} ${y}</td><td style="border:1px solid #ccc;padding:5px">${r.dayName}</td><td style="border:1px solid #ccc;padding:5px"><strong>${r.status}</strong></td><td style="border:1px solid #ccc;padding:5px;font-size:9pt">${(r.note||'').replace(/</g,'&lt;')}</td></tr>`).join('')}</tbody>
+    </table>
+    <p style="margin-top:20px;font-size:9pt;color:#666;text-align:center">${(typeof COMPANY!=='undefined'?COMPANY.name:'MG Security')} — Meeting Attendance Report</p>
+  </div>`);
 }
 /* মাস-শেষ রিপোর্ট — মডার্ন ইংরেজি (লেটারহেড/লোগো ছাড়া, কোম্পানির নামসহ) */
 function printMeetingReport(){
@@ -6776,7 +7274,13 @@ function cycleTodo(id){
   t.status = TODO_STATUS[(i+1)%TODO_STATUS.length].k;
   renderTodo();
 }
-function delTodo(id){ DATA.todos = DATA.todos.filter(x=>x.id!==id); renderTodo(); }
+function delTodo(id){ DATA.todos = DATA.todos.filter(x=>x.id!==id); renderTodo(); updateTodoBadge(); }
+function updateTodoBadge(){
+  const b = document.getElementById('navTodoBadge'); if(!b) return;
+  const open = (DATA.todos||[]).filter(t=>t.status!=='done').length;
+  b.style.display = open>0 ? '' : 'none';
+  b.textContent = num(open);
+}
 
 /* ============ navigate() wrapper for the To-Do page ============ */
 (function(){
@@ -7199,6 +7703,7 @@ function renderAll(){
   updateBackupStatus();
   updateNotifBadge();
   updateMeetingBadge();
+  if(typeof updateTodoBadge==='function') updateTodoBadge();
   const bell = document.getElementById('notifBell');
   if(bell) bell.style.display = currentPage==='dashboard' ? 'grid' : 'none';
   checkPendingToast();

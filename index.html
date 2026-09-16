@@ -593,6 +593,27 @@ tbody tr.clickable { cursor: pointer; }
   .print-doc:last-child { page-break-after: avoid !important; break-after: avoid !important; }
   /* Kill any accidental blank children */
   .print-doc > *:empty { display: none !important; }
+
+  /* Employee Profile Print Rules (Header, Grid, Timeline) */
+  .emp-header { display: flex !important; align-items: center !important; border-bottom: 2px solid #000 !important; padding-bottom: 15px !important; margin-bottom: 20px !important; }
+  .emp-header .emp-avatar { width: 60px !important; height: 60px !important; font-size: 20px !important; border: 1px solid #ccc !important; margin-right: 15px !important; }
+  .emp-header h3 { font-size: 16pt !important; margin: 0 0 5px 0 !important; color: #000 !important; }
+  .emp-header .sub { font-size: 12pt !important; color: #333 !important; margin-bottom: 5px !important; }
+  .emp-header .meta { display: flex !important; flex-wrap: wrap !important; gap: 15px !important; font-size: 10pt !important; color: #555 !important; }
+  .emp-header .btn-row { display: none !important; }
+  
+  .info-grid { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; gap: 15px !important; margin-bottom: 20px !important; }
+  .info-row { page-break-inside: avoid !important; }
+  .info-row label { font-size: 9pt !important; color: #666 !important; text-transform: uppercase !important; margin-bottom: 3px !important; display: block !important; }
+  .info-row .value { font-size: 11pt !important; color: #000 !important; font-weight: 600 !important; }
+
+  .timeline { padding: 10px 0 !important; }
+  .tl-item { position: relative !important; padding-left: 20px !important; padding-bottom: 15px !important; border-left: 2px solid #000 !important; page-break-inside: avoid !important; }
+  .tl-item:last-child { border-left-color: transparent !important; }
+  .tl-dot { position: absolute !important; background: #000 !important; box-shadow: 0 0 0 3px #fff !important; left: -6px !important; top: 2px !important; width: 10px !important; height: 10px !important; border-radius: 50% !important; }
+  .tl-item h5 { font-size: 12pt !important; color: #000 !important; margin: 0 0 3px 0 !important; font-weight: 600 !important; }
+  .tl-item .date { font-size: 10pt !important; color: #555 !important; margin-bottom: 4px !important; }
+  .tl-item p { font-size: 10.5pt !important; color: #222 !important; margin: 0 !important; }
 }
 
 /* ============ COLLAPSIBLE SIDEBAR ============ */
@@ -1941,9 +1962,8 @@ function toast(msg,type='info',onClick,sticky=false){
   if(!sticky) setTimeout(()=>{ if(el.parentNode) el.remove(); }, onClick?6500:3500);
   return el;
 }
-function openModal(title,body){
-  /* Accept either (title, body) OR ({title, body, actions}) */
-  let actions = '';
+function openModal(title, body, actions = '') {
+  /* Accept either (title, body, actions) OR ({title, body, actions}) */
   if (typeof title === 'object' && title !== null) {
     body = title.body || '';
     actions = title.actions || '';
@@ -4132,6 +4152,19 @@ function renderTransfer(){
   `;
   fillEmpSelect('trEmp');
   fillProjectSelect('trNew');
+
+  /* Auto-heal transfers that are essentially complete but stuck in pending status */
+  let changed = false;
+  DATA.transfers.forEach(t => {
+    if (t.Status === 'Join Pending' || t.Status === 'Awaiting Confirmation' || t.Status === 'Scheduled' || t.IsProceed === '0') {
+      const e = DATA.employees.find(x => String(x.EmployeeID) === String(t.EmployeeID) || String(x.RecordID) === String(t.RecordID));
+      if (e && e.ProjectName && t.NewProject && String(e.ProjectName).trim() === String(t.NewProject).trim()) {
+        t.Status = 'Completed'; t.IsProceed = '1'; t._applied = true; changed = true;
+      }
+    }
+  });
+  if (changed) persist();
+
   const rows = DATA.transfers.slice().sort((a,b)=>+b.TransferID-+a.TransferID).slice(0,60);
   document.getElementById('trTableBody').innerHTML = rows.map(t=>`
     <tr class="row-click" onclick="openTransferPopup(${jsQ(t.TransferID)})" style="cursor:pointer">
@@ -4153,10 +4186,10 @@ function openTransferPopup(tid){
   const status = t.Status || (t.IsProceed==='1'?'Completed':'Scheduled');
   const isCancelled = status==='Cancelled';
   const isCompleted = status==='Completed' || t.IsProceed==='1';
-  const pillCls = isCancelled ? 'inactive' : isCompleted ? 'completed' : (status==='Awaiting Confirmation' ? 'warning' : 'scheduled');
+  const pillCls = isCancelled ? 'inactive' : isCompleted ? 'completed' : (status==='Awaiting Confirmation' || status==='Join Pending' ? 'warning' : 'scheduled');
   const pillTxt = bn ? ({
     'Cancelled':'বাতিল', 'Completed':'সম্পন্ন (জয়েন করেছেন)',
-    'Awaiting Confirmation':'যোগদানের অপেক্ষায়', 'Scheduled':'নির্ধারিত', 'Recorded':'রেকর্ডকৃত'
+    'Awaiting Confirmation':'যোগদানের অপেক্ষায়', 'Join Pending':'যোগদানের অপেক্ষায় (Join Pending)', 'Scheduled':'নির্ধারিত', 'Recorded':'রেকর্ডকৃত'
   })[status] || status : status;
   const statusPill = `<span class="pill ${pillCls}">${pillTxt}</span>`;
   const emp = DATA.employees.find(x=>String(x.EmployeeID)===String(t.EmployeeID) || String(x.RecordID)===String(t.RecordID));

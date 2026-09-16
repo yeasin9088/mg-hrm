@@ -578,14 +578,14 @@ tbody tr.clickable { cursor: pointer; }
   /* The document itself — no shadow, no scale, full width */
   .print-doc {
     box-shadow: none !important; border: none !important;
-    margin: 0 !important; padding: 15mm 18mm !important;
-    width: 210mm !important; min-height: auto !important;
+    margin: 0 !important; padding: 0 !important;
+    width: 100% !important; min-height: auto !important;
     max-width: none !important; background: #fff !important;
     transform: none !important;
     page-break-after: auto; break-after: auto;
     page-break-inside: auto; break-inside: auto;
   }
-  .print-doc.compact { padding: 14mm 16mm !important; }
+  .print-doc.compact { padding: 0 !important; }
   .print-doc + .print-doc { page-break-before: always; break-before: page; }
   /* CRITICAL: don't force page-break at the end of a single doc */
   .print-doc:last-child { page-break-after: avoid !important; break-after: avoid !important; }
@@ -913,8 +913,8 @@ tbody tr.clickable { cursor: pointer; }
 .mrep-legend .lg-sw.act { background: #ecfdf5; border: 1px solid #86efac; }
 .mrep-legend .lg-sw.diff { background: #fef3c7; border: 1px solid #fcd34d; }
 @media print {
-  .print-doc.mrep { width: 210mm; }
-  .print-doc.mrep.landscape { width: 297mm; min-height: 205mm; }
+  .print-doc.mrep { width: 100% !important; min-height: auto !important; }
+  .print-doc.mrep.landscape { width: 100% !important; min-height: auto !important; }
   /* মডার্ন হেডার + টেবিল হেডিং প্রিন্টে হালকা প্যালেটেই যায় — বাড়তি ওভাররাইড দরকার নেই */
   .mrep thead th, .mrep .grand td, .mrep-head,
   .mrep .pillbox, .mrep .bar > div, .mrep .proj-head td, .mrep-sec, .mrep-kpi {
@@ -933,9 +933,14 @@ tbody tr.clickable { cursor: pointer; }
   .mrep .proj-head { page-break-after: avoid; break-after: avoid; }
   .mrep-summary-box, .mrep-foot { break-inside: avoid; page-break-inside: avoid; }
   /* Compact print — hero header ও KPI-এর padding কমাই যাতে জায়গা কম নেয় */
-  .mrep-head { padding: 6mm 12mm 4mm !important; }
-  .mrep-kpis { padding: 4mm 12mm 0 !important; }
-  .mrep-body { padding: 4mm 12mm 6mm !important; }
+  .mrep-head { padding: 0 0 4mm !important; }
+  .mrep-kpis { padding: 3mm 0 0 !important; }
+  .mrep-body { padding: 3mm 0 4mm !important; }
+  .print-doc.mrep.landscape .mrep-head,
+  .print-doc.mrep.landscape .mrep-kpis,
+  .print-doc.mrep.landscape .mrep-body { padding-left: 0 !important; padding-right: 0 !important; }
+  .print-doc.mrep .parade-tbl tbody td:nth-child(2) { white-space: nowrap; }
+  .print-doc.mrep .parade-tbl tbody td:nth-child(2) strong { white-space: nowrap; }
 }
 /* সাদা-কালো (Grayscale) প্রিন্ট মোড — সব ডিপ ব্যাকগ্রাউন্ড ও রঙিন অ্যাকসেন্ট বাদ */
 .print-doc.mrep.bw .mrep-head {
@@ -1150,7 +1155,7 @@ tbody tr.clickable { cursor: pointer; }
 }
 </style>
 <!-- প্রিন্টের পেজ-সাইজ এখান থেকে নিয়ন্ত্রিত হয়: ল্যান্ডস্কেপ রিপোর্ট (প্যারেড/স্টাফ-লিস্ট/ইউনিফর্ম) খুললে openPrint নিজে বদলে দেয় -->
-<style id="pageSizeStyle">@page { size: A4 portrait; margin: 0; }</style>
+<style id="pageSizeStyle">@page { size: A4 portrait; margin: 12mm 14mm; }</style>
 
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#4f46e5">
@@ -1830,7 +1835,7 @@ function setActiveBtn(a,b,active){
 }
 function applyPageSize(orient){
   const pss = document.getElementById('pageSizeStyle');
-  if(pss) pss.textContent = `@page { size: A4 ${orient}; margin: 0; }`;
+  if(pss) pss.textContent = `@page { size: A4 ${orient}; margin: ${orient==='landscape'?'10mm 12mm':'12mm 14mm'}; }`;
 }
 function setPrintOrientation(orient){
   const doc=document.querySelector('#printBody .print-doc'); if(!doc) return;
@@ -1893,6 +1898,44 @@ function doPrint(ev){
 function toggleCC(chk){
   const doc=document.querySelector('#printBody .print-doc'); if(!doc) return;
   doc.classList.toggle('no-cc', !chk.checked);
+}
+
+/* ============ v3.3 helpers: নিরাপদ escaping + অ্যাক্টিভিটি লগ ============ */
+function hEsc(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;'); }
+function jsQ(v){ return "'" + String(v==null?'':v).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/[\r\n]+/g,' ') + "'"; }
+
+DATA.activityLog = DATA.activityLog || [];
+let ACT_SEQ = 0;
+function logActivity(section, action, detail, who){
+  try{
+    DATA.activityLog.unshift({
+      id: 'ACT'+(++ACT_SEQ)+'-'+Date.now().toString(36),
+      at: new Date().toISOString(),
+      section: section||'general', action: action||'update',
+      detail: String(detail||''),
+      user: who || (typeof SESSION!=='undefined' && SESSION && SESSION.email ? SESSION.email : 'local')
+    });
+    if(DATA.activityLog.length>500) DATA.activityLog.length = 500;
+    if(typeof persist==='function') persist();
+  }catch(e){ console.warn('logActivity failed', e); }
+}
+
+/* ============ v3.3 — রোল-ভিত্তিক অনুমতি (Role-based UI) ============
+   owner  : সব কাজ (ডিলিট/বন্ধ/বাতিল সহ)
+   editor : যোগ ও সম্পাদনা, কিন্তু ডিলিট/বন্ধ নয়
+   viewer : শুধু দেখা                                                            */
+window.MGHRM_ROLE = window.MGHRM_ROLE || 'owner';
+function currentRole(){ return (window.MGHRM_ROLE||'owner').toLowerCase(); }
+function isOwner(){ return currentRole()==='owner'; }
+function canEdit(){ return currentRole()!=='viewer'; }
+function canDelete(){ return currentRole()==='owner'; }
+/* ডিলিট-ধরনের কাজের আগে ডাকা হয়; অনুমতি না থাকলে পরিষ্কার মেসেজ দিয়ে থামিয়ে দেয় */
+function guardDelete(what){
+  if(canDelete()) return true;
+  toast(LANG==='bn'
+    ? `আপনার রোল (${currentRole()}) — ${what||'ডিলিট'} করার অনুমতি নেই। শুধু Owner পারবেন।`
+    : `Your role (${currentRole()}) cannot ${what||'delete'}. Owner only.`,'error');
+  return false;
 }
 
 /* ============ Data prep ============ */
@@ -1960,81 +2003,7 @@ const CLIENT_COMPANIES = [
 ];
 
 /* Recruitment pipeline — session only. Full candidate data enables 3 printable forms. */
-const RECRUITMENT = [
-  {id:1, stage:'Applied',    date:'2026-09-10',
-    name:'মোঃ আশরাফুল ইসলাম', nameEn:'Md Ashraful Islam',
-    father:'মোঃ আবুল হোসেন', mother:'রহিমা বেগম',
-    fatherMobile:'', motherMobile:'',
-    dob:'1995-03-15', nid:'1234567890123', phone:'01711234567',
-    education:'এসএসসি', religion:'ইসলাম', bloodGroup:'B+',
-    nationality:'বাংলাদেশী', maritalStatus:'অবিবাহিত',
-    spouse:'', spousePhone:'',
-    height:"5' 7\"", weight:'62',
-    presentAddress:{village:'কালীগঞ্জ', thana:'কালীগঞ্জ', district:'গাজীপুর'},
-    permanentAddress:{village:'বাগেরহাট সদর', thana:'বাগেরহাট সদর', district:'বাগেরহাট'},
-    ec1:{name:'মোঃ কামাল হোসেন', relation:'চাচা', mobile:'01712345678'},
-    ec2:{name:'মোঃ সোহেল', relation:'বড় ভাই', mobile:'01812345678'},
-    exp1:{company:'এমএস সিকিউরিটি সার্ভিস', desig:'Security Guard', start:'2022-01-01', end:'2024-06-30'},
-    exp2:{company:'', desig:'', start:'', end:''},
-    reference:{name:'মোঃ কামরুল ইসলাম', desig:'সিকিউরিটি সুপারভাইজার', org:'কেবিসি এগ্রো, ইউনিট-০১', mobile:'01812345678'},
-    project:'কেবিসি এগ্রো প্রোডাক্ট প্রাইভেট লিমিটেড, ইউনিট-০১', desig:'Security Guard',
-    salary:{basic:8000, houseRent:4000, medical:750, other:250, total:13000},
-    dutyHours:'১২', empId:''},
-  {id:2, stage:'Interview',  date:'2026-09-08',
-    name:'মোঃ রফিকুল ইসলাম', nameEn:'Md Rafiqul Islam',
-    father:'মোঃ সাত্তার আলী', mother:'ফাতেমা বেগম',
-    fatherMobile:'', motherMobile:'',
-    dob:'1990-07-20', nid:'2345678901234', phone:'01822345678',
-    education:'এইচএসসি', religion:'ইসলাম', bloodGroup:'A+',
-    nationality:'বাংলাদেশী', maritalStatus:'বিবাহিত',
-    spouse:'সালমা আক্তার', spousePhone:'01922345678',
-    height:"5' 8\"", weight:'70',
-    presentAddress:{village:'গাজীপুর সদর', thana:'গাজীপুর সদর', district:'গাজীপুর'},
-    permanentAddress:{village:'রংপুর সদর', thana:'রংপুর সদর', district:'রংপুর'},
-    ec1:{name:'সালমা আক্তার', relation:'স্ত্রী', mobile:'01922345678'},
-    ec2:{name:'মোঃ জহিরুল ইসলাম', relation:'ছোট ভাই', mobile:'01712345688'},
-    exp1:{company:'গোল্ডেন সিকিউরিটি', desig:'Security Guard', start:'2018-05-01', end:'2023-08-31'},
-    exp2:{company:'', desig:'', start:'', end:''},
-    reference:{name:'', desig:'', org:'', mobile:''},
-    project:'কেবিসি এগ্রো প্রোডাক্ট প্রাইভেট লিমিটেড, ইউনিট-০৫', desig:'Security Guard',
-    salary:{basic:8000, houseRent:4000, medical:750, other:250, total:13000}, dutyHours:'১২', empId:''},
-  {id:3, stage:'Selected',   date:'2026-09-05',
-    name:'রশিদা বেগম', nameEn:'Rashida Begum',
-    father:'মোঃ আঃ রশিদ', mother:'হাসিনা বেগম',
-    fatherMobile:'', motherMobile:'',
-    dob:'1988-11-10', nid:'3456789012345', phone:'01933456789',
-    education:'জেএসসি', religion:'ইসলাম', bloodGroup:'O+',
-    nationality:'বাংলাদেশী', maritalStatus:'বিবাহিত',
-    spouse:'মোঃ কামাল', spousePhone:'01823456789',
-    height:"5' 3\"", weight:'55',
-    presentAddress:{village:'বিশ্বাস এগ্রো এরিয়া', thana:'কালীগঞ্জ', district:'গাজীপুর'},
-    permanentAddress:{village:'ময়মনসিংহ সদর', thana:'ময়মনসিংহ সদর', district:'ময়মনসিংহ'},
-    ec1:{name:'মোঃ কামাল', relation:'স্বামী', mobile:'01823456789'},
-    ec2:{name:'রুবিনা আক্তার', relation:'বোন', mobile:'01823456799'},
-    exp1:{company:'', desig:'', start:'', end:''},
-    exp2:{company:'', desig:'', start:'', end:''},
-    reference:{name:'', desig:'', org:'', mobile:''},
-    project:'বিশ্বাস এগ্রো ফার্ম', desig:'Lady Guard',
-    salary:{basic:8000, houseRent:4000, medical:750, other:250, total:13000}, dutyHours:'১২', empId:''},
-  {id:4, stage:'Documents',  date:'2026-09-03',
-    name:'মোঃ জসিম উদ্দিন', nameEn:'Md Jashim Uddin',
-    father:'মৃত মোঃ সালাম', mother:'জাহানারা বেগম',
-    fatherMobile:'', motherMobile:'',
-    dob:'1985-05-25', nid:'4567890123456', phone:'01644567890',
-    education:'ডিপ্লোমা', religion:'ইসলাম', bloodGroup:'AB+',
-    nationality:'বাংলাদেশী', maritalStatus:'বিবাহিত',
-    spouse:'নাজমা বেগম', spousePhone:'01744567890',
-    height:"5' 9\"", weight:'75',
-    presentAddress:{village:'ক্রিসেন্ট এলাকা', thana:'ধানমন্ডি', district:'ঢাকা'},
-    permanentAddress:{village:'কুমিল্লা সদর', thana:'কুমিল্লা সদর', district:'কুমিল্লা'},
-    ec1:{name:'নাজমা বেগম', relation:'স্ত্রী', mobile:'01744567890'},
-    ec2:{name:'মোঃ ইব্রাহিম', relation:'বড় ভাই', mobile:'01844567890'},
-    exp1:{company:'ঢাকা সিকিউরিটি সার্ভিসেস', desig:'Security Supervisor', start:'2015-01-01', end:'2020-12-31'},
-    exp2:{company:'সেভেন স্টার প্রটেকশন', desig:'Security Supervisor', start:'2021-03-01', end:'2026-08-31'},
-    reference:{name:'কর্নেল (অব.) মোঃ রফিক', desig:'কনসালট্যান্ট', org:'ঢাকা সিকিউরিটি', mobile:'01744567800'},
-    project:'ফিনিক্স স্পিনিং মিলস লিমিটেড', desig:'Security Supervisor',
-    salary:{basic:11000, houseRent:5500, medical:1000, other:500, total:18000}, dutyHours:'১২', empId:''},
-];
+let RECRUITMENT = [];   /* v3.3 — টেমপ্লেটেড প্রার্থী সম্পূর্ণ সরানো হয়েছে; নিজের ডেটাই একমাত্র সোর্স */
 
 /* Leave balance (session only) */
 const LEAVE_TYPES = [
@@ -2807,17 +2776,23 @@ function exportEmployees(){
 
 /* ============ RECRUITMENT (Kanban + full candidate data + 3 printable forms) ============ */
 function renderRecruitment(){
+  /* v3.3 — নিশ্চিত হওয়া প্রার্থী পাইপলাইন ছেড়ে আর্কাইভে যায়, পাইপলাইন সবসময় পরিষ্কার */
   const stages = [
     {key:'DataEntry',    label:LANG==='bn'?'১. ডেটা এন্ট্রি':'1. Data Entry',   color:'#94a3b8'},
     {key:'DocsPrinted',  label:LANG==='bn'?'২. ফর্ম প্রিন্ট':'2. Forms Printed', color:'#f59e0b'},
     {key:'Signed',       label:LANG==='bn'?'৩. স্বাক্ষরিত':'3. Signed',           color:'#8b5cf6'},
-    {key:'Confirmed',    label:LANG==='bn'?'৪. অ্যাপয়েন্টমেন্ট নিশ্চিত':'4. Appointment Confirmed', color:'#10b981'},
   ];
-  // Migrate legacy stage names to new flow
+  DATA.recruitArchive = DATA.recruitArchive || [];
   RECRUITMENT.forEach(r=>{
     const map = {'Applied':'DataEntry','Interview':'DocsPrinted','Selected':'Signed','Documents':'Confirmed'};
     if(map[r.stage]) r.stage = map[r.stage];
   });
+  /* পুরোনো Confirmed রেকর্ড একবারই আর্কাইভে সরিয়ে নিই */
+  RECRUITMENT.filter(r=>r.stage==='Confirmed').forEach(r=>{
+    DATA.recruitArchive.unshift({...r, outcome:'Confirmed'});
+  });
+  RECRUITMENT = RECRUITMENT.filter(r=>r.stage!=='Confirmed');
+  const arch = DATA.recruitArchive;
   document.getElementById('page-recruitment').innerHTML = `
     <div class="card">
       <div class="card-header">
@@ -2845,6 +2820,24 @@ function renderRecruitment(){
               </div>`;
           }).join('')}
         </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div><h3>${LANG==='bn'?'নিয়োগ আর্কাইভ':'Recruitment Archive'}</h3>
+          <span class="sub">${LANG==='bn'?'নিশ্চিত ও বাতিল হওয়া প্রার্থী — পাইপলাইনের বাইরে, ইতিহাসে সংরক্ষিত':'Confirmed & rejected candidates — out of the pipeline, kept as history'}</span></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>${LANG==='bn'?'নাম':'Name'}</th><th>${LANG==='bn'?'পদবি':'Designation'}</th><th>${LANG==='bn'?'প্রজেক্ট':'Project'}</th><th>${LANG==='bn'?'ফলাফল':'Outcome'}</th><th>${LANG==='bn'?'কর্মী আইডি':'Employee ID'}</th></tr></thead>
+          <tbody>${arch.length ? arch.slice(0,50).map(r=>`<tr class="clickable" onclick="openArchivedCandidate(${jsQ(r.id)})">
+            <td><strong>${r.nameEn||r.name||''}</strong></td><td>${desig(r.desig||'')}</td>
+            <td style="font-size:12px">${r.project||''}</td>
+            <td><span class="pill ${r.outcome==='Confirmed'?'completed':'inactive'}">${r.outcome==='Confirmed'?(LANG==='bn'?'নিশ্চিত':'Confirmed'):(LANG==='bn'?'বাতিল':'Rejected')}</span></td>
+            <td>${num(r.empId||'—')}</td></tr>`).join('')
+            : `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px">${LANG==='bn'?'এখনো কিছু নেই':'Nothing yet'}</td></tr>`}</tbody>
+        </table>
       </div>
     </div>
 
@@ -2893,6 +2886,7 @@ function openCandidateProfile(id){
       ${r.stage==='DocsPrinted'?`<button class="btn primary" onclick="markStage(${r.id},'Signed')">${LANG==='bn'?'✓ স্বাক্ষর সংগ্রহ সম্পন্ন →':'✓ Signatures Collected →'}</button>`:''}
       ${r.stage==='Signed'?`<button class="btn success" onclick="onboardCandidate(${r.id})">${LANG==='bn'?'🎉 অ্যাপয়েন্টমেন্ট নিশ্চিত করুন':'🎉 Confirm Appointment (Onboard)'}</button>`:''}
       ${r.stage==='Confirmed'?`<span class="pill success">✓ ${LANG==='bn'?'কর্মচারী হিসেবে যোগ হয়েছেন — আইডি: '+r.empId:'Onboarded — ID: '+r.empId}</span>`:''}
+      <button class="btn danger" onclick="rejectCandidate(${r.id})">${LANG==='bn'?'❌ বাতিল / ডিলিট':'❌ Reject / Delete'}</button>
     </div>
 
     <div class="card" style="margin:0"><div class="card-header"><h3>${LANG==='bn'?'৩টি ফর্ম প্রিন্ট করুন':'Print 3 Forms'} ${r.stage==='DataEntry'?`<span class="pill warn sm">${LANG==='bn'?'আগে ডকুমেন্ট চেক সম্পন্ন করুন':'Complete document check first'}</span>`:''}</h3></div>
@@ -3357,8 +3351,12 @@ function onboardCandidate(id){
     JoinDate: todayISO(), DutyHour:r.dutyHours,
     Salary: r.salary.total, Status:'Active', _joinDays:0
   });
-  // Keep in RECRUITMENT list at 'Confirmed' stage as historical record (empId now set)
+  /* নিশ্চিত হয়ে গেলে পাইপলাইন থেকে সরিয়ে আর্কাইভে রাখি — শেষ ধাপে আর প্রোফাইল দেখাবে না */
   r.stage = 'Confirmed';
+  DATA.recruitArchive = DATA.recruitArchive || [];
+  DATA.recruitArchive.unshift({...r, outcome:'Confirmed', confirmedAt: todayISO()});
+  RECRUITMENT = RECRUITMENT.filter(x=>x.id!==id);
+  logActivity('recruitment','create',`${r.name} onboarded as ${newEmpId}`);
   toast(`${r.name} → ${LANG==='bn'?'অ্যাপয়েন্টমেন্ট নিশ্চিত (আইডি: ':'appointment confirmed (ID: '}${newEmpId})`, 'success');
   closeModal();
   persist(); renderRecruitment();
@@ -3622,7 +3620,7 @@ function renderProjects(){
             ${DATA.projects.map(p=>{
               const c = projStaffCount(p.ProjectName);
               const closedRow = !isProjectActive(p);
-              return `<tr class="proj-row${closedRow?' proj-closed':''}" onclick="openProjectPopup(${JSON.stringify(p['Project ID']||p.ProjectName)})" style="cursor:pointer${closedRow?';opacity:.55':''}">
+              return `<tr class="proj-row${closedRow?' proj-closed':''}" onclick="openProjectPopup(${jsQ(p['Project ID']||p.ProjectName)})" style="cursor:pointer${closedRow?';opacity:.55':''}">
                 <td>${num(p['Project ID'])}</td>
                 <td><strong>${p.ProjectName}</strong>${p.ProjectNameBangla?`<br><span class="small-mute">${p.ProjectNameBangla}</span>`:''}</td>
                 <td>${p['Admin Name']||''}</td>
@@ -3787,6 +3785,7 @@ function openProjectPopup(pid){
   });
 }
 function askCloseProject(pid){
+  if(!guardDelete('close project')) return;
   const bn = LANG==='bn';
   const p = DATA.projects.find(x=>String(x['Project ID'])===String(pid)); if(!p) return;
   const staff = DATA.employees.filter(e=>e.ProjectName===p.ProjectName && e.Status==='Active');
@@ -3888,15 +3887,75 @@ function renderTransfer(){
   fillProjectSelect('trNew');
   const rows = DATA.transfers.slice().sort((a,b)=>+b.TransferID-+a.TransferID).slice(0,30);
   document.getElementById('trTableBody').innerHTML = rows.map(t=>`
-    <tr>
+    <tr class="clickable" onclick="openTransferPopup(${jsQ(t.TransferID)})">
       <td>${num(t.TransferID)}</td>
       <td><strong>${t.FullName}</strong></td>
       <td>${projName(t.CurrentProject)}</td>
       <td>${projName(t.NewProject)}</td>
       <td>${fmtDate(t.TransferDate)}</td>
       <td><span class="pill ${t.IsProceed==='1'?'completed':'scheduled'}">${t.Status||(t.IsProceed==='1'?'Completed':'Scheduled')}</span></td>
-      <td><button class="btn ghost sm" onclick="reprintTransfer('${t.TransferID}')">${ico('print')}</button></td>
+      <td><button class="btn ghost sm" onclick="event.stopPropagation();reprintTransfer('${t.TransferID}')">${ico('print')}</button></td>
     </tr>`).join('');
+}
+/* ============ ট্রান্সফার অর্ডার পপআপ (সারিতে ক্লিক → বিস্তারিত / এডিট / বাতিল) ============ */
+function openTransferPopup(tid){
+  const bn = LANG==='bn';
+  const t = DATA.transfers.find(x=>String(x.TransferID)===String(tid)); if(!t) return;
+  const done = t.IsProceed==='1';
+  openModal({
+    title: `${bn?'ট্রান্সফার অর্ডার':'Transfer Order'} · ${t.FullName||''}`,
+    body: `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;font-size:13px;margin-bottom:14px">
+        <div><b>${bn?'স্মারক নং':'Memo No.'}:</b> ${t.RefNo||'—'}</div>
+        <div><b>${bn?'অবস্থা':'Status'}:</b> <span class="pill ${done?'completed':'scheduled'}">${t.Status||(done?'Completed':'Scheduled')}</span></div>
+        <div><b>${bn?'কর্মচারী':'Employee'}:</b> ${t.FullName||''}</div>
+        <div><b>${bn?'আইডি':'ID'}:</b> ${num(t.EmployeeID||'—')}</div>
+        <div><b>${bn?'পদবি':'Designation'}:</b> ${desig(t.Designation||'')}</div>
+        <div><b>${bn?'বর্তমান প্রজেক্ট':'From'}:</b> ${projName(t.CurrentProject||'')}</div>
+        <div><b>${bn?'নতুন প্রজেক্ট':'To'}:</b> ${projName(t.NewProject||'')}</div>
+        <div><b>${bn?'ট্রান্সফার তারিখ':'Transfer Date'}:</b> ${fmtDate(t.TransferDate)}</div>
+        <div><b>${bn?'ইস্যু তারিখ':'Issue Date'}:</b> ${fmtDate(t.IssueDate)}</div>
+        ${t.Notes?`<div style="grid-column:1/-1"><b>${bn?'নোট':'Notes'}:</b> ${t.Notes}</div>`:''}
+      </div>
+      <div class="field"><label>${bn?'প্রজেক্ট পরিবর্তন (নতুন গন্তব্য)':'Change destination project'}</label>
+        <select id="tpNewProj">${activeProjects().map(pr=>`<option value="${hEsc(pr.ProjectName)}"${pr.ProjectName===t.NewProject?' selected':''}>${hEsc(pr.ProjectName)}</option>`).join('')}</select></div>
+    `,
+    actions: `
+      <button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>
+      <button class="btn" onclick="closeModal();reprintTransfer(${jsQ(t.TransferID)})">${ico('print')} ${bn?'আবার প্রিন্ট':'Reprint'}</button>
+      <button class="btn" onclick="trUpdateProject(${jsQ(t.TransferID)})">${bn?'প্রজেক্ট আপডেট':'Update Project'}</button>
+      ${done?'' : `<button class="btn danger" onclick="trCancel(${jsQ(t.TransferID)})">${bn?'অর্ডার বাতিল':'Cancel Order'}</button>`}
+    `
+  });
+}
+function trUpdateProject(tid){
+  const bn=LANG==='bn';
+  const t = DATA.transfers.find(x=>String(x.TransferID)===String(tid)); if(!t) return;
+  const sel = document.getElementById('tpNewProj'); if(!sel) return;
+  const old = t.NewProject;
+  if(old===sel.value){ closeModal(); return; }
+  t.NewProject = sel.value; t.UpdatedAt = todayISO();
+  closeModal(); persist(); renderTransfer();
+  logActivity('transfer','update',`${t.FullName}: destination ${old} → ${t.NewProject}`);
+  toast(bn?'প্রজেক্ট আপডেট হয়েছে':'Destination project updated','success');
+}
+function trCancel(tid){
+  const bn=LANG==='bn';
+  const t = DATA.transfers.find(x=>String(x.TransferID)===String(tid)); if(!t) return;
+  openModal({ title:bn?'ট্রান্সফার অর্ডার বাতিল':'Cancel Transfer Order',
+    body:`<div class="alert-item danger">${ico('warn')}<div><h5>${t.FullName} — ${t.RefNo||''}</h5>
+      <p>${bn?'এই ট্রান্সফার অর্ডারটি বাতিল হিসেবে চিহ্নিত হবে। রেকর্ড মুছে যাবে না — ইতিহাসে থাকবে।':'This order will be marked Cancelled. The record stays in history.'}</p></div></div>`,
+    actions:`<button class="btn" onclick="closeModal()">${bn?'না':'No'}</button>
+      <button class="btn danger" onclick="doTrCancel(${jsQ(t.TransferID)})">${bn?'হ্যাঁ, বাতিল করুন':'Yes, Cancel'}</button>`});
+}
+function doTrCancel(tid){
+  if(!guardDelete('cancel transfer order')) return;
+  const bn=LANG==='bn';
+  const t = DATA.transfers.find(x=>String(x.TransferID)===String(tid)); if(!t) return;
+  t.Status='Cancelled'; t.IsProceed='0'; t.CancelledAt = todayISO();
+  closeModal(); persist(); renderTransfer();
+  logActivity('transfer','delete',`Transfer ${t.RefNo||t.TransferID} cancelled — ${t.FullName}`);
+  toast(bn?'ট্রান্সফার অর্ডার বাতিল হয়েছে':'Transfer order cancelled','success');
 }
 /* ============ সার্চেবল এমপ্লয়ি পিকার ============
    select এর বদলে সার্চ-ইনপুট + লাইভ ড্রপডাউন। সিরিয়াল/নাম টাইপ করলেই রিয়েল-টাইম ফিল্টার।
@@ -4181,13 +4240,71 @@ function renderDisciplinary(){
   fillEmpSelect('dcEmp');
   const rows = DATA.disciplinary.slice().sort((a,b)=>+b.ActionID-+a.ActionID).slice(0,30);
   document.getElementById('dcTableBody').innerHTML = rows.map(d=>`
-    <tr>
+    <tr class="clickable" onclick="openDiscPopup(${jsQ(d.ActionID)})">
       <td><strong>${num(d.RefNo||'')}</strong></td>
       <td>${d.FullName||''}</td>
       <td>${d.ActionType||''}</td>
       <td>${fmtDate(d.IssueDate)}</td>
-      <td><button class="btn ghost sm" onclick="reprintDisc('${d.ActionID}')">${ico('print')}</button></td>
+      <td><button class="btn ghost sm" onclick="event.stopPropagation();reprintDisc(${jsQ(d.ActionID)})">${ico('print')}</button></td>
     </tr>`).join('');
+}
+/* ============ শৃঙ্খলাভঙ্গের ব্যবস্থা — পপআপ (টেক্সট এডিট / প্রিন্ট / ডিলিট) ============ */
+function openDiscPopup(aid){
+  const bn=LANG==='bn';
+  const d = DATA.disciplinary.find(x=>String(x.ActionID)===String(aid)); if(!d) return;
+  openModal({
+    title:`${bn?'শৃঙ্খলাভঙ্গের ব্যবস্থা':'Disciplinary Action'} · ${d.RefNo||''}`,
+    body:`
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;font-size:13px;margin-bottom:12px">
+        <div><b>${bn?'স্মারক':'Ref'}:</b> ${d.RefNo||'—'}</div>
+        <div><b>${bn?'ধরন':'Type'}:</b> ${d.ActionType||''}</div>
+        <div><b>${bn?'কর্মচারী':'Employee'}:</b> ${d.FullName||''}</div>
+        <div><b>${bn?'আইডি':'ID'}:</b> ${num(d.EmployeeID||'—')}</div>
+        <div><b>${bn?'পদবি':'Designation'}:</b> ${desig(d.Designation||'')}</div>
+        <div><b>${bn?'প্রজেক্ট':'Project'}:</b> ${projName(d.ProjectName||'')}</div>
+        <div><b>${bn?'ঘটনার তারিখ':'Incident Date'}:</b> ${fmtDate(d.IncidentDate)}</div>
+        <div><b>${bn?'ইস্যু তারিখ':'Issue Date'}:</b> ${fmtDate(d.IssueDate)}</div>
+      </div>
+      <div class="field"><label>${bn?'চিঠির বডি (সম্পাদনাযোগ্য)':'Letter body (editable)'}</label>
+        <textarea id="dpDesc" rows="10">${(d.Description||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')}</textarea></div>
+      <div class="field"><label>${bn?'মন্তব্য / নোট (ঐচ্ছিক)':'Internal note (optional)'}</label>
+        <input id="dpNote" type="text" value="${hEsc(d.Note||'')}"></div>
+    `,
+    actions:`
+      <button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>
+      <button class="btn" onclick="closeModal();reprintDisc(${jsQ(d.ActionID)})">${ico('print')} ${bn?'প্রিন্ট':'Reprint'}</button>
+      <button class="btn primary" onclick="saveDiscBody(${jsQ(d.ActionID)})">${bn?'সেভ করুন':'Save'}</button>
+      <button class="btn danger" onclick="delDiscAction(${jsQ(d.ActionID)})">${bn?'ডিলিট':'Delete'}</button>`
+  });
+}
+function saveDiscBody(aid){
+  const bn=LANG==='bn';
+  const d = DATA.disciplinary.find(x=>String(x.ActionID)===String(aid)); if(!d) return;
+  const ta=document.getElementById('dpDesc'), nt=document.getElementById('dpNote');
+  if(ta) d.Description = ta.value;
+  if(nt) d.Note = nt.value;
+  d.UpdatedAt = todayISO();
+  closeModal(); persist(); renderDisciplinary();
+  logActivity('disciplinary','update',`${d.RefNo||d.ActionID} — ${d.FullName} letter text updated`);
+  toast(bn?'লেখা সেভ হয়েছে':'Text saved','success');
+}
+function delDiscAction(aid){
+  if(!guardDelete('delete disciplinary record')) return;
+  const bn=LANG==='bn';
+  const d = DATA.disciplinary.find(x=>String(x.ActionID)===String(aid)); if(!d) return;
+  openModal({ title:bn?'নিশ্চিত করুন':'Confirm',
+    body:`<div class="alert-item danger">${ico('warn')}<div><h5>${d.FullName} — ${d.RefNo||''}</h5>
+      <p>${bn?'এই রেকর্ডটি স্থায়ীভাবে মুছে যাবে। এটি ফেরানো যাবে না।':'This record will be permanently deleted. This cannot be undone.'}</p></div></div>`,
+    actions:`<button class="btn" onclick="closeModal()">${bn?'না':'No'}</button>
+      <button class="btn danger" onclick="doDelDisc(${jsQ(d.ActionID)})">${bn?'হ্যাঁ, ডিলিট করুন':'Yes, Delete'}</button>`});
+}
+function doDelDisc(aid){
+  const bn=LANG==='bn';
+  const d = DATA.disciplinary.find(x=>String(x.ActionID)===String(aid));
+  DATA.disciplinary = DATA.disciplinary.filter(x=>String(x.ActionID)!==String(aid));
+  closeModal(); persist(); renderDisciplinary();
+  logActivity('disciplinary','delete',`Action ${d?(d.RefNo||d.ActionID)+' — '+d.FullName:aid} deleted`);
+  toast(bn?'ডিলিট হয়েছে':'Deleted','success');
 }
 function dcFillEmp(){ /* placeholder */ }
 function submitDisciplinary(){
@@ -4208,6 +4325,7 @@ function submitDisciplinary(){
     Description:document.getElementById('dcDesc').value,
   });
   toast(`${DC_TEMPLATES[type].label[LANG]} ${LANG==='bn'?'সংরক্ষিত হয়েছে':'saved'}`, 'success');
+  logActivity('disciplinary','create',`${DC_TEMPLATES[type].label.en} issued to ${e.FullName} (${document.getElementById('dcRef').value})`);
   persist(); renderDisciplinary();
 }
 function reprintDisc(id){
@@ -4419,7 +4537,7 @@ function renderExit(){
       <div class="table-wrap">
         <table>
           <thead><tr><th>${LANG==='bn'?'আইডি':'ID'}</th><th>${LANG==='bn'?'নাম':'Name'}</th><th>${LANG==='bn'?'পদবি':'Designation'}</th><th>${LANG==='bn'?'ধরন':'Type'}</th><th>${LANG==='bn'?'ত্যাগের তারিখ':'Exit Date'}</th><th>${LANG==='bn'?'কারণ':'Reason'}</th></tr></thead>
-          <tbody>${DATA.exits.slice(0,30).map(x=>`<tr>
+          <tbody>${DATA.exits.slice(0,30).map(x=>`<tr class="clickable" onclick="openExitPopup(${jsQ(x.ExitID)})">
             <td>${num(x.EmployeeID||'')}</td><td>${x.FullName||''}</td><td>${desig(x.Designation||'')}</td>
             <td><span class="chip">${x.ExitType||'—'}</span></td>
             <td>${fmtDate(x.ExitDate)}</td>
@@ -4429,6 +4547,85 @@ function renderExit(){
     </div>
   `;
   fillEmpSelect('exEmp');
+}
+function rejectCandidate(id){
+  const bn=LANG==='bn';
+  const r = RECRUITMENT.find(x=>x.id===id); if(!r) return;
+  openModal({ title:bn?'প্রার্থী বাতিল করবেন?':'Reject this candidate?',
+    body:`<div class="alert-item danger">${ico('warn')}<div><h5>${r.name} ${r.nameEn?'('+r.nameEn+')':''}</h5>
+      <p>${bn?'প্রার্থীটি পাইপলাইন থেকে সরে আর্কাইভে বাতিল হিসেবে জমা হবে। রেকর্ড মুছে যাবে না — পরে দেখতে পারবেন।':'This candidate leaves the pipeline and is archived as Rejected. The record is kept.'}</p></div></div>`,
+    actions:`<button class="btn" onclick="closeModal()">${bn?'না':'No'}</button>
+      <button class="btn danger" onclick="doRejectCandidate(${r.id})">${bn?'হ্যাঁ, বাতিল করুন':'Yes, Reject'}</button>`});
+}
+function doRejectCandidate(id){
+  const bn=LANG==='bn';
+  const r = RECRUITMENT.find(x=>x.id===id); if(!r) return;
+  DATA.recruitArchive = DATA.recruitArchive || [];
+  DATA.recruitArchive.unshift({...r, outcome:'Rejected', rejectedAt: todayISO()});
+  RECRUITMENT = RECRUITMENT.filter(x=>x.id!==id);
+  closeModal(); persist(); renderRecruitment();
+  logActivity('recruitment','delete',`${r.name} rejected & removed from pipeline`);
+  toast(bn?'প্রার্থী বাতিল হয়েছে':'Candidate rejected','success');
+}
+function openArchivedCandidate(id){
+  const bn=LANG==='bn';
+  const r = (DATA.recruitArchive||[]).find(x=>String(x.id)===String(id)); if(!r) return;
+  openModal({ title:`${bn?'আর্কাইভ':'Archive'} · ${r.nameEn||r.name||''}`,
+    body:`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;font-size:13px">
+      <div><b>${bn?'নাম (বাংলা)':'Name (Bangla)'}:</b> ${r.name||'—'}</div>
+      <div><b>${bn?'নাম (ইংরেজি)':'Name (English)'}:</b> ${r.nameEn||'—'}</div>
+      <div><b>${bn?'পদবি':'Designation'}:</b> ${desig(r.desig||'')}</div>
+      <div><b>${bn?'প্রজেক্ট':'Project'}:</b> ${r.project||'—'}</div>
+      <div><b>${bn?'মোবাইল':'Mobile'}:</b> ${num(r.phone||'—')}</div>
+      <div><b>NID:</b> ${num(r.nid||'—')}</div>
+      <div><b>${bn?'ফলাফল':'Outcome'}:</b> ${r.outcome==='Confirmed'?(bn?'নিশ্চিত':'Confirmed'):(bn?'বাতিল':'Rejected')}</div>
+      <div><b>${bn?'কর্মী আইডি':'Employee ID'}:</b> ${num(r.empId||'—')}</div>
+      ${r.confirmedAt?`<div><b>${bn?'নিশ্চিতের তারিখ':'Confirmed on'}:</b> ${fmtDate(r.confirmedAt)}</div>`:''}
+      ${r.rejectedAt?`<div><b>${bn?'বাতিলের তারিখ':'Rejected on'}:</b> ${fmtDate(r.rejectedAt)}</div>`:''}
+    </div>`,
+    actions:`<button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>
+      ${r.outcome==='Rejected'?`<button class="btn primary" onclick="restoreCandidate(${jsQ(r.id)})">${bn?'পাইপলাইনে ফিরিয়ে আনুন':'Restore to pipeline'}</button>`:''}
+      <button class="btn danger" onclick="purgeArchived(${jsQ(r.id)})">${bn?'স্থায়ীভাবে মুছুন':'Delete permanently'}</button>`});
+}
+function restoreCandidate(id){
+  const bn=LANG==='bn';
+  const r = (DATA.recruitArchive||[]).find(x=>String(x.id)===String(id)); if(!r) return;
+  DATA.recruitArchive = DATA.recruitArchive.filter(x=>String(x.id)!==String(id));
+  RECRUITMENT.unshift({...r, outcome:undefined, stage:'DataEntry'});
+  closeModal(); persist(); renderRecruitment();
+  toast(bn?'পাইপলাইনে ফিরে এসেছে':'Restored to pipeline','success');
+}
+function purgeArchived(id){
+  if(!guardDelete('delete archive record')) return;
+  const bn=LANG==='bn';
+  const r = (DATA.recruitArchive||[]).find(x=>String(x.id)===String(id)); if(!r) return;
+  openModal({ title:bn?'স্থায়ীভাবে মুছবেন?':'Delete permanently?',
+    body:`<div class="alert-item danger">${ico('warn')}<div><h5>${r.nameEn||r.name}</h5>
+      <p>${bn?'এই রেকর্ডটি চিরতরে মুছে যাবে, ফেরানো যাবে না।':'This record will be gone forever.'}</p></div></div>`,
+    actions:`<button class="btn" onclick="closeModal()">${bn?'না':'No'}</button>
+      <button class="btn danger" onclick="doPurgeArchived(${jsQ(r.id)})">${bn?'মুছে ফেলুন':'Delete'}</button>`});
+}
+function doPurgeArchived(id){
+  DATA.recruitArchive = (DATA.recruitArchive||[]).filter(x=>String(x.id)!==String(id));
+  closeModal(); persist(); renderRecruitment();
+  logActivity('recruitment','delete',`Archive record ${id} purged`);
+  toast(LANG==='bn'?'মুছে ফেলা হয়েছে':'Deleted','success');
+}
+function openExitPopup(xid){
+  const bn=LANG==='bn';
+  const x = DATA.exits.find(v=>String(v.ExitID)===String(xid)); if(!x) return;
+  openModal({ title:`${bn?'চাকরি ত্যাগের রেকর্ড':'Exit Record'} · ${x.FullName||''}`,
+    body:`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;font-size:13px">
+      <div><b>${bn?'আইডি':'ID'}:</b> ${num(x.EmployeeID||'—')}</div>
+      <div><b>${bn?'পদবি':'Designation'}:</b> ${desig(x.Designation||'')}</div>
+      <div><b>${bn?'প্রজেক্ট':'Project'}:</b> ${projName(x.CurrentProject||'')}</div>
+      <div><b>${bn?'যোগদান':'Join Date'}:</b> ${fmtDate(x.JoinDate)}</div>
+      <div><b>${bn?'ধরন':'Type'}:</b> ${x.ExitType||'—'}</div>
+      <div><b>${bn?'ত্যাগের তারিখ':'Exit Date'}:</b> ${fmtDate(x.ExitDate)}</div>
+      <div style="grid-column:1/-1"><b>${bn?'কারণ':'Reason'}:</b> ${x.ExitReason||'—'}</div>
+    </div>`,
+    actions:`<button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>
+      ${DATA.employees.find(e=>String(e.RecordID)===String(x.RecordID))?`<button class="btn" onclick="closeModal();openEmpDetail(${jsQ(x.RecordID)})">${bn?'কর্মচারী প্রোফাইল':'Employee Profile'}</button>`:''}`});
 }
 function exFillEmp(){
   const rid = document.getElementById('exEmp').value;
@@ -5355,7 +5552,6 @@ function printParade(){
             <th rowspan="2" style="width:18%;text-align:left">Project</th>
             ${K.map(k=>`<th colspan="3" class="grp" style="text-align:center">${KLBL[k]}</th>`).join('')}
             <th colspan="3" class="grp total-grp" style="text-align:center">Total</th>
-            <th rowspan="2" style="width:14%">Fill Rate</th>
           </tr>
           <tr class="hg2">
             ${K.map(()=>`<th class="sub dem-col" title="Demand — চাহিদা">Dem</th><th class="sub act-col" title="Actual — বর্তমান">Act</th><th class="sub diff-col" title="Difference — পার্থক্য">±</th>`).join('')}
@@ -5373,7 +5569,6 @@ function printParade(){
               <td class="num dem-col"><strong>${r.demandTotal}</strong></td>
               <td class="num act-col" style="font-weight:800;color:${gap<0?'#dc2626':gap>0?'#1d4ed8':'#16a34a'}"><strong>${r.actualTotal}</strong></td>
               <td class="num diff-col">${gapChip}</td>
-              <td><div class="bar"><div style="width:${Math.min(100,pct)}%;background:${pct<70?'#dc2626':pct<95?'#d97706':'#16a34a'}"></div></div></td>
             </tr>`;
           }).join('')}
           <tr class="grand">
@@ -5386,7 +5581,6 @@ function printParade(){
             <td class="num dem-col">${totD}</td>
             <td class="num act-col">${totA}</td>
             <td class="num diff-col">${(totA-totD)<0?`<span class="pillbox short">${totA-totD}</span>`:(totA-totD)>0?`<span class="pillbox over">+${totA-totD}</span>`:`<span class="pillbox ok">0</span>`}</td>
-            <td></td>
           </tr>
         </tbody>
       </table>
@@ -6358,7 +6552,389 @@ function restoreSidebar(){
   }catch(e){}
 }
 
-function renderAll(){
+function renderAll(){ v33RenderAll.apply(this, arguments); v33Mount(); }
+/* ================= v3.3 panels =================
+   পেজ রেন্ডার হওয়ার পরে নির্দিষ্ট পেজে বাড়তি কার্ড যোগ করা হয় —
+   মূল রেন্ডার ফাংশনগুলো অপরিবর্তিত থাকে, তাই ভাঙার ঝুঁকি নেই।            */
+function v33Mount(){
+  try{ v33ActivityLog(); }catch(e){ console.warn('activity mount',e); }
+  try{ v33CsvImport(); }catch(e){ console.warn('csv mount',e); }
+  try{ v33DashboardExtras(); }catch(e){ console.warn('dash mount',e); }
+  try{ v33SalarySlip(); }catch(e){ console.warn('salary mount',e); }
+}
+function v33Append(pageId, id, html){
+  const page = document.getElementById(pageId); if(!page) return null;
+  if(page.querySelector('#'+id)) return null;
+  const d = document.createElement('div'); d.id = id; d.innerHTML = html;
+  page.appendChild(d); return d;
+}
+
+/* ---------- ১. অ্যাক্টিভিটি লগ (অডিট ট্রেইল) ---------- */
+function v33ActivityLog(){
+  const bn = LANG==='bn';
+  const list = (DATA.activityLog||[]).slice(0,200);
+  const map = {create:'সৃষ্টি',update:'সম্পাদনা',delete:'মুছে ফেলা',login:'লগইন',export:'এক্সপোর্ট'};
+  const rows = list.map(a=>`
+    <tr>
+      <td class="small-mute" style="white-space:nowrap">${fmtDate((a.at||'').slice(0,10))} ${(a.at||'').slice(11,16)}</td>
+      <td><span class="chip">${a.section||'—'}</span></td>
+      <td><span class="pill ${a.action==='delete'?'inactive':a.action==='create'?'active':'scheduled'}">${bn?(map[a.action]||a.action):a.action}</span></td>
+      <td style="font-size:12px">${hEsc(a.detail||'')}</td>
+      <td class="small-mute">${hEsc(a.user||'')}</td>
+    </tr>`).join('');
+  const html = `
+    <div class="card">
+      <div class="card-header">
+        <div><h3>${bn?'অ্যাক্টিভিটি লগ (অডিট ট্রেইল)':'Activity Log (Audit Trail)'}</h3>
+        <span class="sub">${bn?'কে, কখন, কী পরিবর্তন করেছে — সর্বশেষ ৫০০টি কার্যক্রম':'Who changed what and when — last 500 actions'}</span></div>
+        <button class="btn sm" onclick="v33ExportActivity()">${ico('excel')||''} ${bn?'CSV এক্সপোর্ট':'Export CSV'}</button>
+        <button class="btn sm danger" onclick="v33ClearActivity()">${bn?'লগ খালি করুন':'Clear log'}</button>
+      </div>
+      <div class="table-wrap" style="max-height:420px;overflow:auto">
+        <table>
+          <thead><tr><th>${bn?'সময়':'Time'}</th><th>${bn?'বিভাগ':'Section'}</th><th>${bn?'ধরন':'Action'}</th><th>${bn?'বিবরণ':'Detail'}</th><th>${bn?'ব্যবহারকারী':'User'}</th></tr></thead>
+          <tbody>${rows || `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:18px">${bn?'এখনো কোনো কার্যক্রম নেই — কাজ শুরু করলে এখানে জমা হবে':'No activity yet'}</td></tr>`}</tbody>
+        </table>
+      </div>
+    </div>`;
+  v33Append('page-reports','v33-actlog',html);
+}
+function v33ExportActivity(){
+  const keys=['Time','Section','Action','Detail','User'];
+  const data=(DATA.activityLog||[]).map(a=>[a.at,a.section,a.action,a.detail,a.user]);
+  const csv=[keys.join(',')].concat(data.map(r=>r.map(c=>JSON.stringify(c==null?'':c)).join(','))).join('\n');
+  const url=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:'text/csv;charset=utf-8'}));
+  const a=document.createElement('a'); a.href=url; a.download='activity_log.csv'; a.click();
+  toast(LANG==='bn'?'লগ এক্সপোর্ট হয়েছে':'Activity log exported','success');
+}
+function v33ClearActivity(){
+  if(!guardDelete('clear the activity log')) return;
+  const bn=LANG==='bn';
+  openModal({ title:bn?'লগ খালি করবেন?':'Clear the log?',
+    body:`<div class="alert-item danger">${ico('warn')}<div><h5>${num((DATA.activityLog||[]).length)} ${bn?'টি রেকর্ড':'records'}</h5>
+      <p>${bn?'পুরো অডিট ট্রেইল মুছে যাবে।':'The entire audit trail will be erased.'}</p></div></div>`,
+    actions:`<button class="btn" onclick="closeModal()">${bn?'না':'No'}</button>
+      <button class="btn danger" onclick="DATA.activityLog=[];persist();closeModal();renderAll();toast('${bn?'লগ খালি হয়েছে':'Log cleared'}','success')">${bn?'হ্যাঁ, মুছুন':'Yes, Clear'}</button>`});
+}
+
+/* ---------- ২. CSV / Excel বাল্ক ইমপোর্ট ---------- */
+const V33_FIELDS = [
+  {key:'EmployeeID',  bn:'কর্মী আইডি',      en:'Employee ID'},
+  {key:'FullName',    bn:'পূর্ণ নাম',        en:'Full Name'},
+  {key:'Designation', bn:'পদবি',            en:'Designation'},
+  {key:'ProjectName', bn:'প্রজেক্ট',         en:'Project'},
+  {key:'JoinDate',    bn:'যোগদানের তারিখ',  en:'Join Date'},
+  {key:'PhoneNumber', bn:'মোবাইল',          en:'Phone'},
+  {key:'NID',         bn:'জাতীয় পরিচয়পত্র', en:'NID'},
+  {key:'Salary',      bn:'বেতন',            en:'Salary'},
+  {key:'FatherName',  bn:'পিতার নাম',       en:"Father's Name"},
+  {key:'Village',     bn:'গ্রাম',            en:'Village'},
+  {key:'Status',      bn:'অবস্থা',          en:'Status'},
+];
+let V33_IMPORT_ROWS = [];
+function v33CsvImport(){
+  const bn = LANG==='bn';
+  const html = `
+    <div class="card">
+      <div class="card-header">
+        <div><h3>${bn?'CSV / Excel থেকে বাল্ক ইমপোর্ট':'Bulk Import from CSV / Excel'}</h3>
+        <span class="sub">${bn?'একবারে অনেক কর্মী যোগ করুন — কলাম নিজে থেকে মিলিয়ে নেয়, ডুপ্লিকেট আগেই ধরা পড়ে':'Add many employees at once — columns auto-map, duplicates caught first'}</span></div>
+        <button class="btn primary sm" onclick="v33OpenImport()">${ico('plus')||''} ${bn?'ফাইল বাছুন':'Choose file'}</button>
+      </div>
+      <div class="card-body">
+        <p class="small-mute" style="margin:0">${bn?'Excel-এ ফাইলটি CSV (Comma delimited) হিসেবে সেভ করে আপলোড করুন। প্রথম লাইনটি অবশ্যই কলামের নাম হবে।':'Save your Excel sheet as CSV and upload. The first line must be the column headers.'}</p>
+        <div class="table-wrap" style="margin-top:10px">
+          <table><thead><tr>${V33_FIELDS.map(f=>`<th>${bn?f.bn:f.en}</th>`).join('')}</tr></thead>
+          <tbody><tr class="small-mute">${V33_FIELDS.map(f=>`<td style="font-size:11px">${f.key}</td>`).join('')}</tr></tbody></table>
+        </div>
+      </div>
+    </div>`;
+  v33Append('page-employees','v33-csv',html);
+}
+function v33OpenImport(){
+  const bn = LANG==='bn';
+  openModal({ title:bn?'CSV ফাইল ইমপোর্ট':'Import CSV file',
+    body:`
+      <div class="field"><label>${bn?'CSV ফাইল বাছুন':'Choose CSV file'}</label>
+        <input type="file" id="v33File" accept=".csv,.txt,text/csv"></div>
+      <div style="text-align:center;color:var(--text-muted);margin:6px 0">${bn?'— অথবা —':'— or —'}</div>
+      <div class="field"><label>${bn?'এখানে ডেটা পেস্ট করুন (প্রথম লাইন = কলামের নাম)':'Paste data here (first line = headers)'}</label>
+        <textarea id="v33Paste" rows="7" placeholder="EmployeeID,FullName,Designation,ProjectName,JoinDate,PhoneNumber,NID,Salary&#10;MGS0001,মোঃ করিম,Security Guard,ABC Textile,2024-01-15,01711234567,1234567890123,13000"></textarea></div>
+      <div id="v33Preview"></div>`,
+    actions:`<button class="btn" onclick="closeModal()">${bn?'বাতিল':'Cancel'}</button>
+      <button class="btn" onclick="v33ParseInput()">${bn?'প্রিভিউ দেখুন':'Preview'}</button>
+      <button class="btn primary" id="v33Go" style="display:none" onclick="v33CommitImport()">${bn?'ইমপোর্ট নিশ্চিত করুন':'Confirm Import'}</button>`});
+  const f=document.getElementById('v33File');
+  if(f) f.addEventListener('change', ()=>{ const fl=f.files&&f.files[0]; if(!fl) return;
+    const r=new FileReader(); r.onload=()=>{ const t=document.getElementById('v33Paste'); if(t) t.value=r.result; v33ParseInput(); }; r.readAsText(fl,'utf-8'); });
+}
+/* RFC-4180 স্টাইল CSV পার্সার — কোট, কমা, নতুন লাইন সব সামলায় */
+function v33ParseCsv(text){
+  const rows=[]; let row=[], cur='', q=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(q){
+      if(ch==='"'){ if(text[i+1]==='"'){ cur+='"'; i++; } else q=false; }
+      else cur+=ch;
+    } else {
+      if(ch==='"') q=true;
+      else if(ch===','){ row.push(cur); cur=''; }
+      else if(ch==='\n'){ row.push(cur); rows.push(row); row=[]; cur=''; }
+      else if(ch==='\r'){ /* skip */ }
+      else cur+=ch;
+    }
+  }
+  if(cur!==''||row.length){ row.push(cur); rows.push(row); }
+  return rows.filter(r=>r.some(c=>String(c).trim()!==''));
+}
+function v33Norm(h){
+  return String(h||'').toLowerCase().replace(/[\s_\-./()]+/g,'');
+}
+function v33MapHeaders(headers){
+  const alias = {
+    EmployeeID:['employeeid','id','empid','কর্মীআইডি','আইডি'],
+    FullName:['fullname','name','namebangla','নাম','পূর্ণনাম'],
+    Designation:['designation','desig','পদবি'],
+    ProjectName:['projectname','project','প্রজেক্ট'],
+    JoinDate:['joindate','joiningdate','যোগদানেরতারিখ','joindt'],
+    PhoneNumber:['phonenumber','phone','mobile','মোবাইল','ফোন'],
+    NID:['nid','nationalid','nidbirthcertificate','জাতীয়পরিচয়পত্র'],
+    Salary:['salary','বেতন','grosssalary'],
+    FatherName:['fathername','father','পিতারনাম'],
+    Village:['village','গ্রাম'],
+    Status:['status','অবস্থা'],
+  };
+  const map={};
+  headers.forEach((h,idx)=>{
+    const n=v33Norm(h); if(!n) return;
+    for(const key in alias){ if(map[key]===undefined && alias[key].some(a=>v33Norm(a)===n)) { map[key]=idx; return; } }
+    for(const key in alias){ if(map[key]===undefined && alias[key].some(a=>n.includes(v33Norm(a)))) { map[key]=idx; return; } }
+  });
+  return map;
+}
+function v33ParseInput(){
+  const bn=LANG==='bn';
+  const ta=document.getElementById('v33Paste');
+  const text=ta?ta.value:'';
+  if(!text.trim()){ toast(bn?'ফাইল বাছুন বা ডেটা পেস্ট করুন':'Choose a file or paste data','error'); return; }
+  const grid=v33ParseCsv(text);
+  if(grid.length<2){ toast(bn?'কমপক্ষে একটি হেডার লাইন ও একটি ডেটা লাইন দরকার':'Need a header row and at least one data row','error'); return; }
+  const headers=grid[0], map=v33MapHeaders(headers);
+  const unmapped = Object.keys(map).length===0;
+  if(unmapped){ toast(bn?'কলামগুলো চেনা যায়নি — হেডার লাইন দেখুন':'Could not recognise columns — check the header row','error'); return; }
+  const existingNid = new Set((DATA.employees||[]).map(e=>String(e.NID||'').trim()).filter(Boolean));
+  const existingPh  = new Set((DATA.employees||[]).map(e=>String(e.PhoneNumber||'').trim()).filter(Boolean));
+  V33_IMPORT_ROWS = grid.slice(1).map((r,i)=>{
+    const o={_row:i+2, _dup:'', _ok:true};
+    const get=k=>map[k]!==undefined ? String(r[map[k]]==null?'':r[map[k]]).trim() : '';
+    V33_FIELDS.forEach(f=>o[f.key]=get(f.key));
+    if(!o.FullName){ o._ok=false; o._dup=bn?'নাম নেই':'No name'; }
+    else if(o.NID && existingNid.has(o.NID)){ o._ok=false; o._dup=bn?'NID আগেই আছে':'NID already exists'; }
+    else if(o.PhoneNumber && existingPh.has(o.PhoneNumber)){ o._ok=false; o._dup=bn?'মোবাইল আগেই আছে':'Phone already exists'; }
+    return o;
+  });
+  const okN=V33_IMPORT_ROWS.filter(r=>r._ok).length, dupN=V33_IMPORT_ROWS.length-okN;
+  const preview=document.getElementById('v33Preview');
+  if(preview) preview.innerHTML=`
+    <div style="margin-top:10px;font-size:12.5px">
+      <b>${bn?'মিলে যাওয়া কলাম':'Mapped columns'}:</b> ${Object.keys(map).map(k=>`<span class="chip">${k}</span>`).join(' ')}
+    </div>
+    <div style="margin-top:8px;font-size:13px">
+      <span class="pill active">${bn?'ইমপোর্ট হবে':'Will import'}: ${num(okN)}</span>
+      ${dupN?` <span class="pill inactive">${bn?'বাদ পড়বে':'Skipped'}: ${num(dupN)}</span>`:''}
+    </div>
+    <div class="table-wrap" style="max-height:230px;overflow:auto;margin-top:8px">
+      <table><thead><tr><th>#</th>${V33_FIELDS.slice(0,6).map(f=>`<th>${bn?f.bn:f.en}</th>`).join('')}<th>${bn?'অবস্থা':'Check'}</th></tr></thead>
+      <tbody>${V33_IMPORT_ROWS.slice(0,60).map(r=>`<tr style="${r._ok?'':'opacity:.5'}">
+        <td>${num(r._row)}</td>
+        <td>${hEsc(r.EmployeeID||'')}</td><td><strong>${hEsc(r.FullName||'')}</strong></td>
+        <td>${hEsc(r.Designation||'')}</td><td>${hEsc(r.ProjectName||'')}</td>
+        <td>${hEsc(r.JoinDate||'')}</td><td>${hEsc(r.PhoneNumber||'')}</td>
+        <td>${r._ok?`<span class="pill active">${bn?'ঠিক':'OK'}</span>`:`<span class="pill inactive">${hEsc(r._dup)}</span>`}</td></tr>`).join('')}</tbody></table>
+    </div>`;
+  const go=document.getElementById('v33Go');
+  if(go) go.style.display = okN? 'inline-flex':'none';
+}
+function v33CommitImport(){
+  const bn=LANG==='bn';
+  const ok=V33_IMPORT_ROWS.filter(r=>r._ok);
+  if(!ok.length) return;
+  let maxRid=Math.max(0,...DATA.employees.map(e=>+e.RecordID||0));
+  let maxEid=Math.max(0,...DATA.employees.map(e=>parseInt(e.EmployeeID)||0));
+  const added=[];
+  ok.forEach(r=>{
+    maxRid++;
+    if(!r.EmployeeID){ maxEid++; r.EmployeeID='MGS'+String(maxEid).padStart(4,'0'); }
+    else { const n=parseInt(r.EmployeeID); if(!isNaN(n)&&n>maxEid) maxEid=n; }
+    const rec={
+      RecordID:String(maxRid), EmployeeID:r.EmployeeID, FullName:r.FullName,
+      FullNameBn:'', FatherName:r.FatherName||'', Designation:r.Designation||'Security Guard',
+      ProjectName:r.ProjectName||'', JoinDate:r.JoinDate||todayISO(), PhoneNumber:r.PhoneNumber||'',
+      NID:r.NID||'', 'NID/BirthCertificate':r.NID||'', Salary:r.Salary?+String(r.Salary).replace(/[^0-9.]/g,''):0,
+      Village:r.Village||'', Status:r.Status||'Active', _joinDays:daysAgo(r.JoinDate||todayISO())
+    };
+    DATA.employees.unshift(rec); added.push(rec);
+  });
+  logActivity('employee','create',`CSV import — ${added.length} employee(s) added`);
+  if(typeof bulkUpload==='function' && navigator.onLine){ try{ bulkUpload({employees:added}, ()=>{}); }catch(e){} }
+  closeModal(); persist(); renderAll();
+  toast(bn?`${num(added.length)} জন কর্মী ইমপোর্ট হয়েছে`:`${added.length} employees imported`,'success');
+}
+
+/* ---------- ৩. ড্যাশবোর্ড: জন্মদিন, অ্যানালিটিক্স, সতর্কতা ---------- */
+function v33DashboardExtras(){
+  const bn=LANG==='bn';
+  /* জন্মদিন — এই মাসে যাঁদের জন্মদিন */
+  const today=new Date(), m=today.getMonth()+1;
+  const bdays=(DATA.employees||[]).filter(e=>e.Status==='Active'&&e.DOB).map(e=>{
+    const d=parseDate(e.DOB); if(!d) return null;
+    return {e, d, day:d.getDate(), isToday:(d.getDate()===today.getDate()&&d.getMonth()===today.getMonth())};
+  }).filter(x=>x&&x.d.getMonth()===today.getMonth()).sort((a,b)=>a.day-b.day);
+  /* কাজের বছরপূর্তি — এই মাসে */
+  const anniv=(DATA.employees||[]).filter(e=>e.Status==='Active'&&e.JoinDate).map(e=>{
+    const d=parseDate(e.JoinDate); if(!d) return null;
+    const yrs=today.getFullYear()-d.getFullYear();
+    return (d.getMonth()===today.getMonth()&&yrs>0)?{e,yrs,day:d.getDate()}:null;
+  }).filter(Boolean).sort((a,b)=>b.yrs-a.yrs);
+  /* ডেটা-ঘাটতি অ্যালার্ট — যেগুলো ছাড়া পুলিশ ভেরিফিকেশন/বেতন ঠিক হয় না */
+  const noNid=(DATA.employees||[]).filter(e=>e.Status==='Active'&&!String(e.NID||'').trim());
+  const noPhone=(DATA.employees||[]).filter(e=>e.Status==='Active'&&!String(e.PhoneNumber||'').trim());
+  /* অ্যানালিটিক্স — প্রজেক্ট ও পদবি অনুযায়ী জনবল */
+  const byProj={}; (DATA.employees||[]).filter(e=>e.Status==='Active').forEach(e=>{ const k=e.ProjectName||'—'; byProj[k]=(byProj[k]||0)+1; });
+  const topProj=Object.entries(byProj).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const maxP=topProj.length?topProj[0][1]:1;
+  const byDesig={}; (DATA.employees||[]).filter(e=>e.Status==='Active').forEach(e=>{ const k=e.Designation||'—'; byDesig[k]=(byDesig[k]||0)+1; });
+  const desigRows=Object.entries(byDesig).sort((a,b)=>b[1]-a[1]);
+
+  const html=`
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header"><h3>${bn?'🎂 এই মাসের জন্মদিন':'🎂 Birthdays this month'}</h3></div>
+        <div class="table-wrap" style="max-height:250px;overflow:auto">
+          <table><thead><tr><th>${bn?'দিন':'Day'}</th><th>${bn?'নাম':'Name'}</th><th>${bn?'প্রজেক্ট':'Project'}</th></tr></thead>
+          <tbody>${bdays.length?bdays.map(b=>`<tr class="clickable" onclick="openEmpDetail(${jsQ(b.e.RecordID)})">
+            <td>${num(b.day)}${b.isToday?` <span class="pill active">${bn?'আজ':'Today'}</span>`:''}</td>
+            <td><strong>${hEsc(b.e.FullName||'')}</strong></td><td style="font-size:12px">${hEsc(projName(b.e.ProjectName||''))}</td></tr>`).join('')
+            :`<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:14px">${bn?'এই মাসে কেউ নেই':'None this month'}</td></tr>`}</tbody></table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>🏅 ${bn?'এই মাসের কাজের বছরপূর্তি':'🏅 Service anniversaries this month'}</h3></div>
+        <div class="table-wrap" style="max-height:250px;overflow:auto">
+          <table><thead><tr><th>${bn?'বছর':'Years'}</th><th>${bn?'নাম':'Name'}</th><th>${bn?'প্রজেক্ট':'Project'}</th></tr></thead>
+          <tbody>${anniv.length?anniv.map(a=>`<tr class="clickable" onclick="openEmpDetail(${jsQ(a.e.RecordID)})">
+            <td><span class="chip">${num(a.yrs)} ${bn?'বছর':'yrs'}</span></td>
+            <td><strong>${hEsc(a.e.FullName||'')}</strong></td><td style="font-size:12px">${hEsc(projName(a.e.ProjectName||''))}</td></tr>`).join('')
+            :`<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:14px">${bn?'এই মাসে কেউ নেই':'None this month'}</td></tr>`}</tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3>${bn?'📊 অ্যানালিটিক্স — প্রজেক্ট অনুযায়ী জনবল':'📊 Analytics — manpower by project'}</h3>
+        <span class="sub">${bn?'সক্রিয় কর্মী, সর্বোচ্চ থেকে':'Active employees, largest first'}</span></div>
+      <div class="card-body">
+        ${topProj.map(([p,c])=>`
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:7px">
+            <div style="width:190px;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${hEsc(p)}</div>
+            <div style="flex:1;height:14px;background:var(--bg-dim);border-radius:4px;overflow:hidden">
+              <div style="height:100%;width:${Math.round(c*100/maxP)}%;background:var(--primary);border-radius:4px"></div></div>
+            <b style="width:44px;text-align:right">${num(c)}</b>
+          </div>`).join('') || `<p class="small-mute">${bn?'ডেটা নেই':'No data'}</p>`}
+        <div class="divider"></div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${desigRows.map(([d,c])=>`<span class="chip">${hEsc(desig(d))}: <b>${num(c)}</b></span>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3>⚠️ ${bn?'ডেটা-ঘাটতির সতর্কতা':'⚠️ Data-quality alerts'}</h3>
+        <span class="sub">${bn?'যেগুলো ছাড়া ভেরিফিকেশন বা বেতন ঠিকমতো হয় না':'These block verification / payroll'}</span></div>
+      <div class="card-body">
+        <div class="alert-item ${noNid.length?'warn':''}">${ico('warn')}
+          <div><h5>${bn?'NID নেই':'Missing NID'} — ${num(noNid.length)} ${bn?'জন সক্রিয় কর্মী':'active employees'}</h5>
+          <p>${noNid.length?noNid.slice(0,6).map(e=>hEsc(e.FullName||'')).join(', ')+(noNid.length>6?' …':''):(bn?'সব ঠিক আছে ✓':'All good ✓')}</p></div></div>
+        <div class="alert-item ${noPhone.length?'warn':'success'}" style="margin-top:8px">${ico('warn')}
+          <div><h5>${bn?'মোবাইল নম্বর নেই':'Missing phone'} — ${num(noPhone.length)} ${bn?'জন সক্রিয় কর্মী':'active employees'}</h5>
+          <p>${noPhone.length?noPhone.slice(0,6).map(e=>hEsc(e.FullName||'')).join(', ')+(noPhone.length>6?' …':''):(bn?'সব ঠিক আছে ✓':'All good ✓')}</p></div></div>
+      </div>
+    </div>`;
+  v33Append('page-dashboard','v33-dash',html);
+}
+
+/* ---------- ৪. বেতন স্লিপ ---------- */
+function v33SalarySlip(){
+  const bn=LANG==='bn';
+  const html=`
+    <div class="card">
+      <div class="card-header">
+        <div><h3>${bn?'বেতন স্লিপ প্রিন্ট':'Salary Slip'}</h3>
+        <span class="sub">${bn?'কর্মচারী বেছে নিন — A4 স্লিপ প্রিন্ট/PDF হবে (ভাতা ভাগ হবে বেতন থেকে)':'Pick an employee — prints an A4 slip (allowances split from salary)'}</span></div>
+      </div>
+      <div class="card-body">
+        <div class="form-grid">
+          <div class="field"><label>${bn?'কর্মচারী':'Employee'}</label><select id="slEmp"></select></div>
+          <div class="field"><label>${bn?'মাস':'Month'}</label><input id="slMonth" type="month" value="${todayISO().slice(0,7)}"></div>
+        </div>
+        <div class="btn-row" style="margin-top:12px">
+          <button class="btn primary" onclick="v33PrintSlip()">${ico('print')||''} ${bn?'স্লিপ প্রিন্ট / PDF':'Print / PDF'}</button>
+        </div>
+      </div>
+    </div>`;
+  const host=v33Append('page-salary','v33-slip',html);
+  if(host) try{ fillEmpSelect('slEmp'); }catch(e){}
+}
+function v33PrintSlip(){
+  const bn=LANG==='bn';
+  const sel=document.getElementById('slEmp');
+  const rid=sel?sel.value:'';
+  if(!rid){ toast(bn?'আগে কর্মচারী বেছে নিন':'Select an employee first','error'); return; }
+  const e=DATA.employees.find(x=>x.RecordID===rid);
+  if(!e){ toast(bn?'কর্মচারী পাওয়া যায়নি':'Employee not found','error'); return; }
+  const mv=document.getElementById('slMonth')?.value||todayISO().slice(0,7);
+  const [yr,mo]=mv.split('-').map(Number);
+  const mNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const mLabel=(mNames[mo-1]||'')+' '+yr;
+  const gross=+e.Salary||0;
+  const basic=Math.round(gross*0.60), house=Math.round(gross*0.25), medical=Math.round(gross*0.10), other=gross-basic-house-medical;
+  const n=t=>Number(t||0).toLocaleString('en-IN');
+  const row2=(k,v)=>`<tr><td>${k}</td><td style="text-align:right">${n(v)}</td></tr>`;
+  const html=`<div class="print-doc compact" style="font-size:10.5pt;padding:0">
+    ${letterhead()}
+    <div style="text-align:center;margin:8px 0 12px">
+      <div style="font-weight:800;font-size:14pt;text-decoration:underline">${bn?'বেতন স্লিপ':'Pay Slip'}</div>
+      <div style="font-size:11pt;margin-top:4px">${bn?'মাস':'Month'}: <strong>${mLabel}</strong></div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:10.5pt;margin-bottom:10px">
+      <tr><td style="padding:4px 6px;border:1px solid #333;width:22%"><b>${bn?'নাম':'Name'}</b></td><td style="padding:4px 6px;border:1px solid #333" colspan="3">${e.FullName||''}${e.FullNameBn?' ('+e.FullNameBn+')':''}</td></tr>
+      <tr><td style="padding:4px 6px;border:1px solid #333"><b>${bn?'কর্মী আইডি':'Employee ID'}</b></td><td style="padding:4px 6px;border:1px solid #333">${e.EmployeeID||'—'}</td>
+          <td style="padding:4px 6px;border:1px solid #333"><b>${bn?'পদবি':'Designation'}</b></td><td style="padding:4px 6px;border:1px solid #333">${desig(e.Designation||'')}</td></tr>
+      <tr><td style="padding:4px 6px;border:1px solid #333"><b>${bn?'প্রজেক্ট':'Project'}</b></td><td style="padding:4px 6px;border:1px solid #333">${projName(e.ProjectName||'')}</td>
+          <td style="padding:4px 6px;border:1px solid #333"><b>${bn?'যোগদান':'Join Date'}</b></td><td style="padding:4px 6px;border:1px solid #333">${fmtDate(e.JoinDate)}</td></tr>
+    </table>
+    <table style="width:100%;border-collapse:collapse;font-size:10.5pt">
+      <thead><tr><th style="border:1px solid #333;padding:5px;background:#f0f0f0">${bn?'বেতন খাত':'Earnings'}</th><th style="border:1px solid #333;padding:5px;background:#f0f0f0;width:26%">${bn?'টাকা (৳)':'Amount (৳)'}</th></tr></thead>
+      <tbody>
+        ${row2(bn?'মূল বেতন':'Basic',basic)}
+        ${row2(bn?'বাসা ভাড়া':'House Rent',house)}
+        ${row2(bn?'চিকিৎসা ভাতা':'Medical',medical)}
+        ${row2(bn?'অন্যান্য ভাতা':'Other Allowance',other)}
+        <tr><td style="border:1px solid #333;padding:6px"><b>${bn?'সর্বমোট':'Gross Total'}</b></td><td style="border:1px solid #333;padding:6px;text-align:right"><b>${n(gross)}</b></td></tr>
+      </tbody>
+    </table>
+    <p style="font-size:8.5pt;color:#555;margin-top:10px">${bn?'বেতন স্লিপটি মাসিক সময়ের ভিত্তিতে তৈরি — ছুটি, অনুপস্থিতি বা ওভারটাইম সমন্বয় এই হিসাবে ধরা হয়নি।':'This slip reflects the monthly rate only — leave, absence and overtime are not adjusted.'}</p>
+    <div style="display:flex;justify-content:space-between;margin-top:34px;font-size:10pt">
+      <div style="border-top:1px solid #333;width:200px;text-align:center;padding-top:3px">${bn?'কর্মচারীর স্বাক্ষর':'Employee Signature'}</div>
+      <div style="border-top:1px solid #333;width:200px;text-align:center;padding-top:3px">${bn?'নির্বাহী / হিসাবরক্ষক':'Executive / Accounts'}</div>
+    </div>
+  </div>`;
+  logActivity('salary','export',`Pay slip printed for ${e.FullName} — ${mLabel}`);
+  openPrint(html);
+}
+
+/* ================= /v3.3 panels =================
+function v33RenderAll(){
   applyI18n();
   const map = {dashboard:renderDashboard,notifications:renderNotifications,employees:renderEmployees,recruitment:renderRecruitment,parade:renderParade,projects:renderProjects,meeting:renderMeeting,uniform:renderUniform,transfer:renderTransfer,disciplinary:renderDisciplinary,leave:renderLeave,exit:renderExit,salary:renderSalary,increment:renderIncrement,reports:renderReports,settings:renderSettings};
   const f = map[currentPage]; if(f) f();

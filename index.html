@@ -6202,6 +6202,7 @@ function normalizeImportRow(type, raw){
     'description':'Description','বর্ণনা':'Description',
     'serial':'RecordID','ক্রম':'RecordID','#':'RecordID',
     'employeeid':'EmployeeID','id':'EmployeeID','আইডি':'EmployeeID',
+    'systemid':'SystemID','sid':'SystemID','এসআইডি':'SystemID',
   };
   const out = {};
   Object.keys(raw).forEach(k=>{
@@ -6212,7 +6213,6 @@ function normalizeImportRow(type, raw){
 }
 function importConfirm(){
   if(!guardEdit()) return;
-  /* v3.5.1: pending rows module-scope memory থেকে পড়ি — inline JSON blob এর সমস্যা এড়াতে */
   const type = window.__importPendingType;
   const rows = window.__importPendingRows;
   if(!type || !Array.isArray(rows) || !rows.length){
@@ -6220,15 +6220,39 @@ function importConfirm(){
     return;
   }
   if(!confirm((LANG==='bn'?'নিশ্চিত? ':'Confirm? ')+num(rows.length)+(LANG==='bn'?' সারি ইম্পোর্ট হবে।':' rows will be imported.'))) return;
+  
   const bucket = { employees:'employees', projects:'projects', transfers:'transfers', disciplinary:'disciplinary', exits:'exits', leaves:'leaves', career:'career' }[type];
   if(!bucket){ toast('Unknown type','error'); return; }
   DATA[bucket] = DATA[bucket] || [];
+  
   const pkMap = { employees:'RecordID', projects:'ProjectID', transfers:'TransferID', disciplinary:'ActionID', exits:'ExitID', leaves:'id', career:'CareerID' };
   const pk = pkMap[type];
-  /* v3.5.1: 571+ item spread `Math.max(...arr)` stack-safe হলেও reduce() নিরাপদ + দ্রুত */
+  
   let currentMax = DATA[bucket].reduce((mx,x)=>{ const v=parseInt(x&&x[pk])||0; return v>mx?v:mx; }, 0);
   let added=0, updated=0;
+  
+  /* Calculate max SystemID for new employee generation */
+  let maxEmpSid = Math.max(0, ...DATA.employees.map(e=>parseInt(e.SystemID, 10)||0));
+  let maxRecSid = Math.max(0, ...(window.RECRUITMENT||[]).map(r=>parseInt(r.sid, 10)||0));
+  let maxArchSid = Math.max(0, ...(DATA.recruitmentArchive||[]).map(a=>parseInt(a.sid, 10)||0));
+  let globalMaxSid = Math.max(maxEmpSid, maxRecSid, maxArchSid);
+
   rows.forEach(r=>{
+    /* Auto-assign SystemID for Employees if missing */
+    if (bucket === 'employees' && !r.SystemID) {
+      globalMaxSid++;
+      r.SystemID = String(globalMaxSid);
+    }
+    /* Auto-link SystemID for other tables if missing */
+    if (bucket !== 'employees' && bucket !== 'projects' && !r.SystemID) {
+      let empId = r.EmployeeID || r.empId;
+      let recId = r.RecordID;
+      let match = DATA.employees.find(e => (empId && String(e.EmployeeID) === String(empId)) || (recId && String(e.RecordID) === String(recId)));
+      if (match) {
+        r.SystemID = match.SystemID;
+      }
+    }
+
     if(pk && r[pk]){
       const i = DATA[bucket].findIndex(x=>String(x[pk])===String(r[pk]));
       if(i>=0){ Object.assign(DATA[bucket][i], r); updated++; return; }
@@ -6239,12 +6263,15 @@ function importConfirm(){
     }
     DATA[bucket].unshift(r); added++;
   });
+  
   logActivity('import', bucket, '', `imported ${rows.length} rows (${added} added, ${updated} updated)`);
   toast((LANG==='bn'?'ইম্পোর্ট সম্পন্ন — ':'Import done — ')+num(added)+(LANG==='bn'?' নতুন, ':' added, ')+num(updated)+(LANG==='bn'?' আপডেট':' updated'),'success');
-  /* pending clear */
+  
   window.__importPendingType = null;
   window.__importPendingRows = null;
+  
   persist();
+  
   if(bucket==='employees'){
     DATA.employees.forEach(e=>{
       const d = parseDate(e.JoinDate);
@@ -6262,6 +6289,17 @@ function wipeAllData(){
   /* auto-download backup first */
   try{ if(typeof exportBackupFile==='function') exportBackupFile(); }catch(e){}
   if(!confirm(bn?'শেষ সতর্কতা: ব্যাকআপ ডাউনলোড হয়ে গেছে (সম্ভবত)। এখন সব wipe হবে — এগোবেন?':'Final warning: backup downloaded (probably). Wipe now?')) return;
+
+  /* Wipe Supabase Server Data */
+  if (window.MGHRM && window.MGHRM._client) {
+    const sb = window.MGHRM._client;
+    const tMap = window.MGHRM.TABLE_MAP;
+    Promise.all(Object.keys(tMap).map(k => {
+      const table = tMap[k].table;
+      return sb.from(table).delete().neq(tMap[k].pk, '0');
+    })).catch(e => console.error('Failed to wipe Supabase:', e));
+  }
+
   DATA.employees=[]; DATA.projects=[]; DATA.transfers=[]; DATA.disciplinary=[];
   DATA.exits=[]; DATA.leaves=[]; DATA.career=[]; DATA.uniforms=[];
   DATA.todos=[]; DATA.paradeState=[]; DATA.paradeRecords={}; DATA.meetings={};

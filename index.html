@@ -5963,10 +5963,14 @@ function importPreview(){
         </table>
       </div>
       <div class="btn-row" style="margin-top:12px">
-        <button class="btn success" style="font-weight:700" onclick='importConfirm(${JSON.stringify(t)}, ${JSON.stringify(mapped)})'>✓ ${bn?'ইম্পোর্ট নিশ্চিত করুন':'Confirm Import'} (${num(mapped.length)})</button>
+        <button class="btn success" style="font-weight:700" onclick="importConfirm()">✓ ${bn?'ইম্পোর্ট নিশ্চিত করুন':'Confirm Import'} (${num(mapped.length)})</button>
         <span class="small-mute">${bn?'বিদ্যমান রেকর্ডের সাথে ID মিললে আপডেট হবে; না মিললে নতুন যোগ হবে।':'Rows with matching ID update in place; others are added new.'}</span>
       </div>
     `;
+    /* v3.5.1 fix: বড় JSON blob (5000+ cells) inline attribute-এ dump করলে HTML parser cut করে দিত এবং কর্মচারী নাম-এ apostrophe থাকলে single-quote attribute break হত।
+       এখন module-scope memory-তে রাখি — attribute শুধু ছোট function call। */
+    window.__importPendingType = type;
+    window.__importPendingRows = mapped;
   };
   reader.readAsText(file, 'utf-8');
 }
@@ -6022,32 +6026,42 @@ function normalizeImportRow(type, raw){
   });
   return out;
 }
-function importConfirm(type, rows){
+function importConfirm(){
   if(!guardEdit()) return;
+  /* v3.5.1: pending rows module-scope memory থেকে পড়ি — inline JSON blob এর সমস্যা এড়াতে */
+  const type = window.__importPendingType;
+  const rows = window.__importPendingRows;
+  if(!type || !Array.isArray(rows) || !rows.length){
+    toast(LANG==='bn'?'ইম্পোর্ট করার মতো কোনো ডেটা নেই — আবার ফাইল সিলেক্ট করুন':'No pending import data — please select the file again','error');
+    return;
+  }
   if(!confirm((LANG==='bn'?'নিশ্চিত? ':'Confirm? ')+num(rows.length)+(LANG==='bn'?' সারি ইম্পোর্ট হবে।':' rows will be imported.'))) return;
   const bucket = { employees:'employees', projects:'projects', transfers:'transfers', disciplinary:'disciplinary', exits:'exits', leaves:'leaves', career:'career' }[type];
   if(!bucket){ toast('Unknown type','error'); return; }
   DATA[bucket] = DATA[bucket] || [];
   const pkMap = { employees:'RecordID', projects:'ProjectID', transfers:'TransferID', disciplinary:'ActionID', exits:'ExitID', leaves:'id', career:'CareerID' };
   const pk = pkMap[type];
+  /* v3.5.1: 571+ item spread `Math.max(...arr)` stack-safe হলেও reduce() নিরাপদ + দ্রুত */
+  let currentMax = DATA[bucket].reduce((mx,x)=>{ const v=parseInt(x&&x[pk])||0; return v>mx?v:mx; }, 0);
   let added=0, updated=0;
   rows.forEach(r=>{
     if(pk && r[pk]){
       const i = DATA[bucket].findIndex(x=>String(x[pk])===String(r[pk]));
       if(i>=0){ Object.assign(DATA[bucket][i], r); updated++; return; }
     }
-    /* assign new PK if missing */
     if(pk && !r[pk]){
-      const maxId = Math.max(0, ...DATA[bucket].map(x=>parseInt(x[pk])||0));
-      r[pk] = String(maxId+1);
+      currentMax++;
+      r[pk] = String(currentMax);
     }
     DATA[bucket].unshift(r); added++;
   });
   logActivity('import', bucket, '', `imported ${rows.length} rows (${added} added, ${updated} updated)`);
   toast((LANG==='bn'?'ইম্পোর্ট সম্পন্ন — ':'Import done — ')+num(added)+(LANG==='bn'?' নতুন, ':' added, ')+num(updated)+(LANG==='bn'?' আপডেট':' updated'),'success');
+  /* pending clear */
+  window.__importPendingType = null;
+  window.__importPendingRows = null;
   persist();
-  /* re-index employees if that was the type */
-  if(bucket==='employees' && typeof DATA.employees.forEach==='function'){
+  if(bucket==='employees'){
     DATA.employees.forEach(e=>{
       const d = parseDate(e.JoinDate);
       e._joinDays = d ? Math.floor((Date.now()-d)/86400000) : Infinity;

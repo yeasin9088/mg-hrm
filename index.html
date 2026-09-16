@@ -575,17 +575,19 @@ tbody tr.clickable { cursor: pointer; }
     background: #fff !important; width: 100% !important;
     display: block !important; overflow: visible !important;
   }
-  /* The document itself — no shadow, no scale, full width */
+  /* v3.4: প্রতি পেজে মার্জিন — @page দিয়ে (এটাই একমাত্র উপায় যা ২য়/৩য়/৪র্থ পেজেও কাজ করে) */
+  @page { size: A4 portrait; margin: 12mm 14mm; }
+  /* The document itself — no shadow, no scale, full width, NO padding
+     (মার্জিন @page-এ দিয়ে দিয়েছি, এখানে padding দিলে ১ম পেজে দ্বিগুণ হবে) */
   .print-doc {
     box-shadow: none !important; border: none !important;
-    margin: 0 !important; padding: 15mm 18mm !important;
-    width: 210mm !important; min-height: auto !important;
+    margin: 0 !important; padding: 0 !important;
+    width: 100% !important; min-height: auto !important;
     max-width: none !important; background: #fff !important;
     transform: none !important;
     page-break-after: auto; break-after: auto;
     page-break-inside: auto; break-inside: auto;
   }
-  .print-doc.compact { padding: 14mm 16mm !important; }
   .print-doc + .print-doc { page-break-before: always; break-before: page; }
   /* CRITICAL: don't force page-break at the end of a single doc */
   .print-doc:last-child { page-break-after: avoid !important; break-after: avoid !important; }
@@ -876,7 +878,13 @@ tbody tr.clickable { cursor: pointer; }
 .mrep-summary-box table td, .mrep-summary-box table th { font-size: 8.5pt; }
 
 /* ---------- Parade State two-row header & column-groups ---------- */
-.mrep .parade-tbl { table-layout: fixed; font-size: 8.5pt; }
+.mrep .parade-tbl { table-layout: fixed; font-size: 8.5pt; width: 100%; }
+.mrep .parade-tbl tbody td { padding: 1.4mm 1mm; overflow: hidden; text-overflow: ellipsis; }
+.mrep .parade-tbl tbody td:nth-child(2) { white-space: nowrap; }
+@media print {
+  .mrep .parade-tbl { font-size: 8pt; }
+  .mrep .parade-tbl tbody td:nth-child(2) strong { font-size: 7.8pt; }
+}
 .mrep .parade-tbl thead tr.hg1 th {
   border-bottom: 1px solid #c7d2fe;
   background: #eef2ff; color: #1e1b4b;
@@ -913,8 +921,11 @@ tbody tr.clickable { cursor: pointer; }
 .mrep-legend .lg-sw.act { background: #ecfdf5; border: 1px solid #86efac; }
 .mrep-legend .lg-sw.diff { background: #fef3c7; border: 1px solid #fcd34d; }
 @media print {
-  .print-doc.mrep { width: 210mm; }
-  .print-doc.mrep.landscape { width: 297mm; min-height: 205mm; }
+  /* v3.4: fixed mm width বাদ — width:100% ও @page margin দিয়ে প্রতি পেজে ঠিক থাকবে */
+  .print-doc.mrep { width: 100% !important; padding: 0 !important; }
+  .print-doc.mrep.landscape { width: 100% !important; min-height: auto !important; padding: 0 !important; }
+  /* ল্যান্ডস্কেপ প্রিন্টে @page landscape (openPrint নিজেই applyPageSize বসিয়ে দেয়, তবু সেফটি) */
+  @page .landscape { size: A4 landscape; margin: 10mm 12mm; }
   /* মডার্ন হেডার + টেবিল হেডিং প্রিন্টে হালকা প্যালেটেই যায় — বাড়তি ওভাররাইড দরকার নেই */
   .mrep thead th, .mrep .grand td, .mrep-head,
   .mrep .pillbox, .mrep .bar > div, .mrep .proj-head td, .mrep-sec, .mrep-kpi {
@@ -1148,6 +1159,108 @@ tbody tr.clickable { cursor: pointer; }
   .print-doc { width: 100%; min-height: auto; padding: 10mm 8mm; }
   .kpi-grid, .grid-3, .grid-4 { grid-template-columns: 1fr 1fr !important; }
 }
+/* ============ v3.4 UI Modernization ============ */
+/* রো-ক্লিক পপআপ ও ডিটেইল */
+.pop-detail { display:grid; grid-template-columns:1fr; gap:8px; margin-bottom:12px; }
+.pop-detail .pop-row { display:grid; grid-template-columns:150px 1fr; gap:12px; padding:9px 12px;
+  background:linear-gradient(135deg, var(--bg-dim, #f8fafc) 0%, transparent 100%); border-radius:8px;
+  border:1px solid var(--border, #e5e7eb); align-items:center; transition:transform .15s ease, box-shadow .15s ease; }
+.pop-detail .pop-row:hover { transform:translateX(2px); box-shadow:0 2px 8px rgba(79,70,229,.06); }
+.pop-detail .pop-row span:first-child { font-size:12px; color:var(--muted, #64748b); font-weight:600; letter-spacing:.2px; }
+.pop-detail .pop-row b { font-size:13.5px; color:var(--text, #1e1b4b); font-weight:600; }
+.pop-hint { padding:10px 14px; background:linear-gradient(135deg,#fef9c3,#fef3c7); border-left:3px solid #f59e0b;
+  border-radius:6px; font-size:12.5px; color:#78350f; margin:12px 0 4px; line-height:1.5; }
+@media (max-width:640px){
+  .pop-detail .pop-row { grid-template-columns:1fr; gap:2px; }
+  .pop-detail .pop-row span:first-child { font-size:11px; }
+}
+/* রো-ক্লিক হোভার */
+.row-click:hover { background:linear-gradient(90deg, rgba(79,70,229,0.06) 0%, transparent 100%) !important; }
+.row-click td { transition:background .15s ease; }
+
+/* মডার্ন লোকেশন ক্যাসকেড */
+.addr-cascade-modern { display:block; }
+.addr-cascade-modern .ac-progress { display:flex; align-items:center; gap:6px; margin-bottom:16px;
+  padding:12px 8px; background:linear-gradient(135deg,#eef2ff,#f0f9ff); border-radius:10px;
+  border:1px solid #e0e7ff; overflow-x:auto; }
+.addr-cascade-modern .ac-step { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+.addr-cascade-modern .ac-dot { width:26px; height:26px; border-radius:50%; background:#cbd5e1; color:#fff;
+  display:grid; place-items:center; font-weight:700; font-size:12px; transition:all .3s ease; }
+.addr-cascade-modern .ac-step.done .ac-dot { background:linear-gradient(135deg,#10b981,#059669);
+  box-shadow:0 3px 8px rgba(16,185,129,.28); }
+.addr-cascade-modern .ac-step.done .ac-dot::after { content:'✓'; position:absolute; }
+.addr-cascade-modern .ac-step.done .ac-dot { color:transparent; }
+.addr-cascade-modern .ac-step.done .ac-dot { position:relative; color:#fff; }
+.addr-cascade-modern .ac-step.done .ac-dot { text-indent:0; }
+.addr-cascade-modern .ac-step.current .ac-dot { background:linear-gradient(135deg,#4f46e5,#7c3aed); color:#fff;
+  box-shadow:0 0 0 4px rgba(79,70,229,.15); animation:acPulse 1.6s infinite; }
+@keyframes acPulse { 0%,100%{box-shadow:0 0 0 4px rgba(79,70,229,.15);} 50%{box-shadow:0 0 0 8px rgba(79,70,229,.05);} }
+.addr-cascade-modern .ac-lbl { font-size:11.5px; font-weight:600; color:#475569; white-space:nowrap; }
+.addr-cascade-modern .ac-step.done .ac-lbl,
+.addr-cascade-modern .ac-step.current .ac-lbl { color:#1e1b4b; }
+.addr-cascade-modern .ac-line { flex:1; height:2px; background:linear-gradient(to right,#cbd5e1,#e2e8f0);
+  min-width:20px; border-radius:2px; }
+.addr-cascade-modern .ac-step.done + .ac-line { background:linear-gradient(to right,#10b981,#cbd5e1); }
+.addr-cascade-modern .ac-grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; margin-bottom:12px; }
+@media (min-width:800px){ .addr-cascade-modern .ac-grid { grid-template-columns:repeat(4, 1fr); } }
+.addr-cascade-modern .ac-field { display:flex; flex-direction:column; gap:4px; position:relative; }
+.addr-cascade-modern .ac-field label { font-size:11.5px; font-weight:600; color:#475569; }
+.addr-cascade-modern .ac-search { position:relative; }
+.addr-cascade-modern .ac-input { width:100%; padding:10px 32px 10px 12px; border:1.5px solid var(--border,#e5e7eb);
+  border-radius:8px; font-size:13.5px; background:#fff; transition:all .2s ease; font-family:inherit; }
+.addr-cascade-modern .ac-input:focus { outline:none; border-color:#4f46e5;
+  box-shadow:0 0 0 4px rgba(79,70,229,.1); }
+.addr-cascade-modern .ac-input:disabled { background:#f1f5f9; color:#94a3b8; cursor:not-allowed; }
+.addr-cascade-modern .ac-caret { position:absolute; right:10px; top:50%; transform:translateY(-50%);
+  color:#94a3b8; pointer-events:auto; cursor:pointer; font-size:11px; user-select:none; }
+.addr-cascade-modern .ac-input:disabled + .ac-caret { display:none; }
+.addr-cascade-modern .ac-menu { position:absolute; top:100%; left:0; right:0; z-index:1000; max-height:220px;
+  overflow-y:auto; background:#fff; border:1px solid var(--border,#e5e7eb); border-radius:8px;
+  box-shadow:0 12px 28px rgba(30,27,75,.12); margin-top:4px; display:none; }
+.addr-cascade-modern .ac-menu.show { display:block; animation:acFade .18s ease; }
+@keyframes acFade { from{opacity:0; transform:translateY(-4px);} to{opacity:1; transform:none;} }
+.addr-cascade-modern .ac-opt { padding:8px 12px; cursor:pointer; display:flex; justify-content:space-between;
+  align-items:center; gap:8px; border-bottom:1px solid #f1f5f9; transition:background .12s ease; }
+.addr-cascade-modern .ac-opt:last-child { border-bottom:none; }
+.addr-cascade-modern .ac-opt:hover { background:linear-gradient(90deg,#eef2ff,transparent); }
+.addr-cascade-modern .ac-opt b { font-size:13px; color:#1e1b4b; font-weight:600; }
+.addr-cascade-modern .ac-opt .ac-alt { font-size:11px; color:#94a3b8; }
+.addr-cascade-modern .ac-empty { padding:14px; text-align:center; color:#94a3b8; font-size:12.5px; }
+.addr-cascade-modern .ac-chips { min-height:36px; padding:8px 10px; background:#fafbff;
+  border:1px dashed #cbd5e1; border-radius:8px; }
+.addr-cascade-modern .ac-chip-line { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+.addr-cascade-modern .ac-chip { display:inline-flex; align-items:center; padding:4px 10px; font-size:12px;
+  font-weight:600; background:linear-gradient(135deg,#4f46e5,#7c3aed); color:#fff; border-radius:12px;
+  box-shadow:0 2px 6px rgba(79,70,229,.22); animation:acChipIn .25s ease; }
+@keyframes acChipIn { from{opacity:0; transform:scale(.85);} to{opacity:1; transform:scale(1);} }
+.addr-cascade-modern .ac-arrow { color:#94a3b8; font-size:14px; font-weight:700; }
+.addr-cascade-modern .ac-chip-hint { font-size:12px; color:#94a3b8; text-align:center; padding:4px; }
+
+/* গ্লাস ইফেক্ট কার্ড অপশনাল ইউটিলিটি */
+.glass-card { background:rgba(255,255,255,.7); backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,.5); }
+
+/* মাইক্রো অ্যানিমেশন — বাটন হোভার */
+.btn { transition:transform .12s ease, box-shadow .15s ease, background .15s ease; }
+.btn:hover { transform:translateY(-1px); }
+.btn:active { transform:translateY(0); }
+.btn.primary:hover { box-shadow:0 6px 14px rgba(79,70,229,.28); }
+
+/* ফোকাস রিং সবার জন্য */
+input:focus, select:focus, textarea:focus {
+  outline:none;
+  box-shadow:0 0 0 3px rgba(79,70,229,.12);
+  border-color:#4f46e5;
+}
+
+/* কার্ড হোভার লিফ্ট */
+.card { transition:box-shadow .2s ease, transform .2s ease; }
+.card:hover { box-shadow:0 8px 20px rgba(30,27,75,.05); }
+
+/* Recruitment pipe-card modernization */
+.pipe-card { transition:transform .15s ease, box-shadow .18s ease, border-color .18s ease; cursor:pointer; }
+.pipe-card:hover { transform:translateY(-2px); box-shadow:0 6px 18px rgba(30,27,75,.1);
+  border-color:#c7d2fe; }
 </style>
 <!-- প্রিন্টের পেজ-সাইজ এখান থেকে নিয়ন্ত্রিত হয়: ল্যান্ডস্কেপ রিপোর্ট (প্যারেড/স্টাফ-লিস্ট/ইউনিফর্ম) খুললে openPrint নিজে বদলে দেয় -->
 <style id="pageSizeStyle">@page { size: A4 portrait; margin: 0; }</style>
@@ -1233,7 +1346,18 @@ tbody tr.clickable { cursor: pointer; }
 
     uniform: { table: 'uniform', pk: 'issue_id', map: {} },
     leaves:  { table: 'leaves',  pk: 'leave_id', map: {} },
-    meetings:{ table: 'meetings',pk: 'meeting_id', map: {} }
+    meetings:{ table: 'meetings',pk: 'meeting_id', map: {} },
+
+    /* v3.4: অ্যাক্টিভিটি লগ ও রিক্রুটমেন্ট আর্কাইভ — এখন সার্ভারে সিঙ্ক হবে
+       (কলাম নাম supabase_setup.sql-এর সাথে align করা) */
+    activityLog:        { table: 'activity_log',        pk: 'id', map: {
+      'LogID':'id','UserID':'user_id','UserEmail':'user_email',
+      'Action':'action','TableName':'table_name','RecordRef':'record_ref','Detail':'detail',
+      'CreatedAt':'created_at' } },
+    recruitmentArchive: { table: 'recruitment_archive', pk: 'archive_id', map: {
+      'ArchiveID':'archive_id','CandidateName':'candidate_name','Designation':'designation',
+      'ProjectName':'project_name','Result':'result','EmployeeID':'employee_id',
+      'DecidedAt':'decided_at','Notes':'notes' } }
   };
 
   /* ---------- ২. নাম রূপান্তর -------------------------------------- */
@@ -1728,6 +1852,37 @@ function toBnDigits(s){
   return String(s).replace(/[0-9]/g,d=>m[+d]);
 }
 function num(s){ return LANG==='bn'?toBnDigits(s??''):String(s??''); }
+/* v3.4 অ্যাক্টিভিটি লগ — কে, কখন, কী পরিবর্তন করেছে
+   TABLE_MAP-এ activityLog আছে; সেটি পরবর্তী pushAll-এ সার্ভারে যাবে। */
+DATA.activityLog = Array.isArray(DATA.activityLog) ? DATA.activityLog : [];
+function logActivity(action, table, refId, detail){
+  try {
+    const u = (window.MGHRM && MGHRM.currentUser && MGHRM.currentUser()) || {email:'(local)'};
+    DATA.activityLog.unshift({
+      LogID: Date.now() + '-' + Math.random().toString(36).slice(2,7),
+      UserID: u.id || '',
+      UserEmail: u.email || '',
+      Action: action,
+      TableName: table,
+      RecordRef: String(refId||''),
+      Detail: detail||'',
+      CreatedAt: new Date().toISOString()
+    });
+    /* সর্বশেষ ৫০০টি রাখি — বাকি purge */
+    if(DATA.activityLog.length>500) DATA.activityLog.length = 500;
+  } catch(e){ console.warn('logActivity failed:', e); }
+}
+window.logActivity = logActivity;
+/* v3.4 jsQ helper — HTML onclick অ্যাট্রিবিউটে safe string embedding
+   (আগে JSON.stringify() ব্যবহার করলে HTML ভেঙে যেত — double-quotes conflict) */
+function jsQ(v){
+  return "'" + String(v==null?'':v)
+    .replace(/\\/g,'\\\\').replace(/'/g,"\\'")
+    .replace(/&/g,'&amp;').replace(/"/g,'&quot;')
+    .replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/[\r\n]+/g,' ') + "'";
+}
+window.jsQ = jsQ;
 function money(v){ if(v===''||v==null) return ''; const s=Number(v).toLocaleString('en-IN'); return LANG==='bn'?'৳ '+toBnDigits(s):'৳ '+s; }
 function parseDate(v){
   if(!v) return null; if(v instanceof Date) return v;
@@ -1829,8 +1984,10 @@ function setActiveBtn(a,b,active){
   if(B) B.classList.toggle('primary', active===b);
 }
 function applyPageSize(orient){
+  /* v3.4: @page margin এখানে দিই — প্রতি পেজে সমান মার্জিন থাকবে (উপরে/নিচে/ডানে/বামে) */
   const pss = document.getElementById('pageSizeStyle');
-  if(pss) pss.textContent = `@page { size: A4 ${orient}; margin: 0; }`;
+  const margin = orient==='landscape' ? '10mm 12mm' : '12mm 14mm';
+  if(pss) pss.textContent = `@page { size: A4 ${orient}; margin: ${margin}; }`;
 }
 function setPrintOrientation(orient){
   const doc=document.querySelector('#printBody .print-doc'); if(!doc) return;
@@ -1960,81 +2117,7 @@ const CLIENT_COMPANIES = [
 ];
 
 /* Recruitment pipeline — session only. Full candidate data enables 3 printable forms. */
-const RECRUITMENT = [
-  {id:1, stage:'Applied',    date:'2026-09-10',
-    name:'মোঃ আশরাফুল ইসলাম', nameEn:'Md Ashraful Islam',
-    father:'মোঃ আবুল হোসেন', mother:'রহিমা বেগম',
-    fatherMobile:'', motherMobile:'',
-    dob:'1995-03-15', nid:'1234567890123', phone:'01711234567',
-    education:'এসএসসি', religion:'ইসলাম', bloodGroup:'B+',
-    nationality:'বাংলাদেশী', maritalStatus:'অবিবাহিত',
-    spouse:'', spousePhone:'',
-    height:"5' 7\"", weight:'62',
-    presentAddress:{village:'কালীগঞ্জ', thana:'কালীগঞ্জ', district:'গাজীপুর'},
-    permanentAddress:{village:'বাগেরহাট সদর', thana:'বাগেরহাট সদর', district:'বাগেরহাট'},
-    ec1:{name:'মোঃ কামাল হোসেন', relation:'চাচা', mobile:'01712345678'},
-    ec2:{name:'মোঃ সোহেল', relation:'বড় ভাই', mobile:'01812345678'},
-    exp1:{company:'এমএস সিকিউরিটি সার্ভিস', desig:'Security Guard', start:'2022-01-01', end:'2024-06-30'},
-    exp2:{company:'', desig:'', start:'', end:''},
-    reference:{name:'মোঃ কামরুল ইসলাম', desig:'সিকিউরিটি সুপারভাইজার', org:'কেবিসি এগ্রো, ইউনিট-০১', mobile:'01812345678'},
-    project:'কেবিসি এগ্রো প্রোডাক্ট প্রাইভেট লিমিটেড, ইউনিট-০১', desig:'Security Guard',
-    salary:{basic:8000, houseRent:4000, medical:750, other:250, total:13000},
-    dutyHours:'১২', empId:''},
-  {id:2, stage:'Interview',  date:'2026-09-08',
-    name:'মোঃ রফিকুল ইসলাম', nameEn:'Md Rafiqul Islam',
-    father:'মোঃ সাত্তার আলী', mother:'ফাতেমা বেগম',
-    fatherMobile:'', motherMobile:'',
-    dob:'1990-07-20', nid:'2345678901234', phone:'01822345678',
-    education:'এইচএসসি', religion:'ইসলাম', bloodGroup:'A+',
-    nationality:'বাংলাদেশী', maritalStatus:'বিবাহিত',
-    spouse:'সালমা আক্তার', spousePhone:'01922345678',
-    height:"5' 8\"", weight:'70',
-    presentAddress:{village:'গাজীপুর সদর', thana:'গাজীপুর সদর', district:'গাজীপুর'},
-    permanentAddress:{village:'রংপুর সদর', thana:'রংপুর সদর', district:'রংপুর'},
-    ec1:{name:'সালমা আক্তার', relation:'স্ত্রী', mobile:'01922345678'},
-    ec2:{name:'মোঃ জহিরুল ইসলাম', relation:'ছোট ভাই', mobile:'01712345688'},
-    exp1:{company:'গোল্ডেন সিকিউরিটি', desig:'Security Guard', start:'2018-05-01', end:'2023-08-31'},
-    exp2:{company:'', desig:'', start:'', end:''},
-    reference:{name:'', desig:'', org:'', mobile:''},
-    project:'কেবিসি এগ্রো প্রোডাক্ট প্রাইভেট লিমিটেড, ইউনিট-০৫', desig:'Security Guard',
-    salary:{basic:8000, houseRent:4000, medical:750, other:250, total:13000}, dutyHours:'১২', empId:''},
-  {id:3, stage:'Selected',   date:'2026-09-05',
-    name:'রশিদা বেগম', nameEn:'Rashida Begum',
-    father:'মোঃ আঃ রশিদ', mother:'হাসিনা বেগম',
-    fatherMobile:'', motherMobile:'',
-    dob:'1988-11-10', nid:'3456789012345', phone:'01933456789',
-    education:'জেএসসি', religion:'ইসলাম', bloodGroup:'O+',
-    nationality:'বাংলাদেশী', maritalStatus:'বিবাহিত',
-    spouse:'মোঃ কামাল', spousePhone:'01823456789',
-    height:"5' 3\"", weight:'55',
-    presentAddress:{village:'বিশ্বাস এগ্রো এরিয়া', thana:'কালীগঞ্জ', district:'গাজীপুর'},
-    permanentAddress:{village:'ময়মনসিংহ সদর', thana:'ময়মনসিংহ সদর', district:'ময়মনসিংহ'},
-    ec1:{name:'মোঃ কামাল', relation:'স্বামী', mobile:'01823456789'},
-    ec2:{name:'রুবিনা আক্তার', relation:'বোন', mobile:'01823456799'},
-    exp1:{company:'', desig:'', start:'', end:''},
-    exp2:{company:'', desig:'', start:'', end:''},
-    reference:{name:'', desig:'', org:'', mobile:''},
-    project:'বিশ্বাস এগ্রো ফার্ম', desig:'Lady Guard',
-    salary:{basic:8000, houseRent:4000, medical:750, other:250, total:13000}, dutyHours:'১২', empId:''},
-  {id:4, stage:'Documents',  date:'2026-09-03',
-    name:'মোঃ জসিম উদ্দিন', nameEn:'Md Jashim Uddin',
-    father:'মৃত মোঃ সালাম', mother:'জাহানারা বেগম',
-    fatherMobile:'', motherMobile:'',
-    dob:'1985-05-25', nid:'4567890123456', phone:'01644567890',
-    education:'ডিপ্লোমা', religion:'ইসলাম', bloodGroup:'AB+',
-    nationality:'বাংলাদেশী', maritalStatus:'বিবাহিত',
-    spouse:'নাজমা বেগম', spousePhone:'01744567890',
-    height:"5' 9\"", weight:'75',
-    presentAddress:{village:'ক্রিসেন্ট এলাকা', thana:'ধানমন্ডি', district:'ঢাকা'},
-    permanentAddress:{village:'কুমিল্লা সদর', thana:'কুমিল্লা সদর', district:'কুমিল্লা'},
-    ec1:{name:'নাজমা বেগম', relation:'স্ত্রী', mobile:'01744567890'},
-    ec2:{name:'মোঃ ইব্রাহিম', relation:'বড় ভাই', mobile:'01844567890'},
-    exp1:{company:'ঢাকা সিকিউরিটি সার্ভিসেস', desig:'Security Supervisor', start:'2015-01-01', end:'2020-12-31'},
-    exp2:{company:'সেভেন স্টার প্রটেকশন', desig:'Security Supervisor', start:'2021-03-01', end:'2026-08-31'},
-    reference:{name:'কর্নেল (অব.) মোঃ রফিক', desig:'কনসালট্যান্ট', org:'ঢাকা সিকিউরিটি', mobile:'01744567800'},
-    project:'ফিনিক্স স্পিনিং মিলস লিমিটেড', desig:'Security Supervisor',
-    salary:{basic:11000, houseRent:5500, medical:1000, other:500, total:18000}, dutyHours:'১২', empId:''},
-];
+const RECRUITMENT = [];  /* v3.4 ধাপ ৬: টেমপ্লেট প্রার্থী মুছে দেওয়া হয়েছে — খালি অবস্থায় শুরু */
 
 /* Leave balance (session only) */
 const LEAVE_TYPES = [
@@ -2807,25 +2890,33 @@ function exportEmployees(){
 
 /* ============ RECRUITMENT (Kanban + full candidate data + 3 printable forms) ============ */
 function renderRecruitment(){
+  /* v3.4 ধাপ ৬: পাইপলাইন = ৩ ধাপ (Confirmed → আর্কাইভে যায়, পাইপলাইনে থাকে না) */
   const stages = [
     {key:'DataEntry',    label:LANG==='bn'?'১. ডেটা এন্ট্রি':'1. Data Entry',   color:'#94a3b8'},
     {key:'DocsPrinted',  label:LANG==='bn'?'২. ফর্ম প্রিন্ট':'2. Forms Printed', color:'#f59e0b'},
     {key:'Signed',       label:LANG==='bn'?'৩. স্বাক্ষরিত':'3. Signed',           color:'#8b5cf6'},
-    {key:'Confirmed',    label:LANG==='bn'?'৪. অ্যাপয়েন্টমেন্ট নিশ্চিত':'4. Appointment Confirmed', color:'#10b981'},
   ];
-  // Migrate legacy stage names to new flow
+  /* Legacy migration: any 'Confirmed' left in RECRUITMENT list → move to archive */
   RECRUITMENT.forEach(r=>{
-    const map = {'Applied':'DataEntry','Interview':'DocsPrinted','Selected':'Signed','Documents':'Confirmed'};
+    const map = {'Applied':'DataEntry','Interview':'DocsPrinted','Selected':'Signed','Documents':'Signed'};
     if(map[r.stage]) r.stage = map[r.stage];
   });
+  DATA.recruitmentArchive = DATA.recruitmentArchive || [];
+  const arch = DATA.recruitmentArchive;
   document.getElementById('page-recruitment').innerHTML = `
+    <div class="tabs" id="recTabs" style="margin-bottom:12px">
+      <div class="tab active" onclick="switchTab('recTabs','pipeline')">${LANG==='bn'?'পাইপলাইন':'Pipeline'} <span class="chip" style="margin-left:6px">${num(RECRUITMENT.length)}</span></div>
+      <div class="tab" onclick="switchTab('recTabs','archive')">${LANG==='bn'?'আর্কাইভ':'Archive'} <span class="chip" style="margin-left:6px">${num(arch.length)}</span></div>
+    </div>
+
+    <div id="tab-pipeline" class="tab-panel active">
     <div class="card">
       <div class="card-header">
-        <div><h3>${LANG==='bn'?'নিয়োগ পাইপলাইন':'Recruitment Pipeline'}</h3><span class="sub">${LANG==='bn'?'ডেটা এন্ট্রি → ফর্ম প্রিন্ট → স্বাক্ষর সংগ্রহ → অ্যাপয়েন্টমেন্ট নিশ্চিত':'Data Entry → Print Forms → Collect Signatures → Confirm Appointment'}</span></div>
+        <div><h3>${LANG==='bn'?'নিয়োগ পাইপলাইন':'Recruitment Pipeline'}</h3><span class="sub">${LANG==='bn'?'ডেটা এন্ট্রি → ফর্ম প্রিন্ট → স্বাক্ষরিত → (নিশ্চিত হলে আর্কাইভে যাবে)':'Data Entry → Print Forms → Signed → (Confirmed goes to archive)'}</span></div>
         <button class="btn primary sm" onclick="openApplicantForm()">${ico('plus')} ${LANG==='bn'?'নতুন প্রার্থী নিবন্ধন':'New Candidate Entry'}</button>
       </div>
       <div class="card-body">
-        <div class="pipeline">
+        <div class="pipeline" style="grid-template-columns:repeat(3,1fr)">
           ${stages.map(s=>{
             const items = RECRUITMENT.filter(r=>r.stage===s.key);
             return `
@@ -2840,10 +2931,50 @@ function renderRecruitment(){
                       <span>📞 ${num(r.phone)}</span>
                       <span class="small-mute">${fmtDate(r.date)}</span>
                     </div>
+                    <div style="margin-top:6px;text-align:right">
+                      <button class="btn ghost sm" onclick="event.stopPropagation();cancelCandidate(${r.id})" title="${LANG==='bn'?'বাতিল':'Cancel/Reject'}" style="color:#dc2626">✕ ${LANG==='bn'?'বাতিল':'Reject'}</button>
+                    </div>
                   </div>
                 `).join('') || `<p class="small-mute" style="text-align:center;padding:20px;font-size:11px">${LANG==='bn'?'খালি':'Empty'}</p>`}
               </div>`;
           }).join('')}
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <div id="tab-archive" class="tab-panel">
+      <div class="card">
+        <div class="card-header">
+          <h3>${LANG==='bn'?'নিয়োগ আর্কাইভ':'Recruitment Archive'}</h3>
+          <span class="sub">${LANG==='bn'?'বাতিল ও অ্যাপয়েন্টমেন্ট-নিশ্চিত প্রার্থীদের ইতিহাস':'History of cancelled & confirmed candidates'}</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>${LANG==='bn'?'প্রার্থী':'Candidate'}</th>
+              <th>${LANG==='bn'?'পদবি · প্রজেক্ট':'Designation · Project'}</th>
+              <th>${LANG==='bn'?'ফলাফল':'Result'}</th>
+              <th>${LANG==='bn'?'কর্মী আইডি':'Emp ID'}</th>
+              <th>${LANG==='bn'?'তারিখ':'Date'}</th>
+              <th></th>
+            </tr></thead>
+            <tbody>
+              ${arch.length ? arch.map(a=>`
+                <tr class="row-click" onclick="openArchivePopup(${jsQ(a.ArchiveID)})" style="cursor:pointer">
+                  <td><strong>${a.CandidateName||''}</strong>${a.CandidateNameEn?`<br><span class="small-mute">${a.CandidateNameEn}</span>`:''}</td>
+                  <td>${a.Designation||''}<br><span class="small-mute">${a.ProjectName||''}</span></td>
+                  <td><span class="pill ${a.Result==='Confirmed'?'success':(a.Result==='Rejected'?'danger':'info')}">${a.Result||''}</span></td>
+                  <td>${a.EmployeeID||'—'}</td>
+                  <td>${fmtDate(a.ActionDate)}</td>
+                  <td onclick="event.stopPropagation()">
+                    ${a.Result==='Rejected'?`<button class="btn ghost sm" onclick="restoreArchivedCandidate(${jsQ(a.ArchiveID)})" title="${LANG==='bn'?'পাইপলাইনে ফেরত':'Restore to pipeline'}">↺</button>`:''}
+                    <button class="btn ghost sm" onclick="deleteArchivedCandidate(${jsQ(a.ArchiveID)})" title="${LANG==='bn'?'স্থায়ীভাবে মুছুন':'Delete permanently'}" style="color:#dc2626">🗑</button>
+                  </td>
+                </tr>
+              `).join('') : `<tr><td colspan="6" class="small-mute" style="text-align:center;padding:24px">${LANG==='bn'?'আর্কাইভ খালি':'Archive is empty'}</td></tr>`}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -3336,12 +3467,13 @@ function onboardCandidate(id){
   if(!guardEdit()) return;
   const r = RECRUITMENT.find(x=>x.id===id); if(!r) return;
   // Assign a new employee ID
-  const maxId = Math.max(...DATA.employees.map(e=>parseInt(e.EmployeeID)||0));
+  const maxId = Math.max(0, ...DATA.employees.map(e=>parseInt(e.EmployeeID)||0));
   const newEmpId = 'MGS' + String(maxId+1).padStart(4,'0');
   r.empId = newEmpId;
   const pa = r.permanentAddress||{};
+  const maxRecordId = Math.max(0, ...DATA.employees.map(e=>+e.RecordID||0));
   DATA.employees.unshift({
-    RecordID: String(Math.max(...DATA.employees.map(e=>+e.RecordID))+1),
+    RecordID: String(maxRecordId+1),
     EmployeeID: newEmpId,
     FullName: r.nameEn||r.name, FullNameBn: r.name||'',
     FatherName: r.father, MotherName: r.mother,
@@ -3352,16 +3484,109 @@ function onboardCandidate(id){
     Village: pa.village||'', Street: pa.street||'',
     Address: [pa.street, pa.village, pa.thana, pa.district].filter(Boolean).join(', '),
     MaritalStatus:r.maritalStatus, SpouseName:r.spouse, SpousePhoneNum:r.spousePhone,
-    ECName:r.ec1.name, ECRelation:r.ec1.relation, ECPhoneNumber:r.ec1.mobile,
+    ECName:(r.ec1&&r.ec1.name)||'', ECRelation:(r.ec1&&r.ec1.relation)||'', ECPhoneNumber:(r.ec1&&r.ec1.mobile)||'',
     Designation:r.desig, ProjectName:r.project,
     JoinDate: todayISO(), DutyHour:r.dutyHours,
-    Salary: r.salary.total, Status:'Active', _joinDays:0
+    Salary: (r.salary&&r.salary.total)||0, Status:'Active', _joinDays:0
   });
-  // Keep in RECRUITMENT list at 'Confirmed' stage as historical record (empId now set)
-  r.stage = 'Confirmed';
-  toast(`${r.name} → ${LANG==='bn'?'অ্যাপয়েন্টমেন্ট নিশ্চিত (আইডি: ':'appointment confirmed (ID: '}${newEmpId})`, 'success');
+  /* v3.4 ধাপ ৬: পাইপলাইন ক্লিন — আর্কাইভে সরান */
+  DATA.recruitmentArchive = DATA.recruitmentArchive || [];
+  const archId = 'ARCH-' + Date.now() + '-' + (DATA.recruitmentArchive.length+1);
+  DATA.recruitmentArchive.unshift({
+    ArchiveID: archId,
+    CandidateName: r.name, CandidateNameEn: r.nameEn||'',
+    Designation: r.desig, ProjectName: r.project,
+    Result: 'Confirmed', EmployeeID: newEmpId,
+    ActionDate: todayISO(),
+    Reason: '', Note: (LANG==='bn'?'অ্যাপয়েন্টমেন্ট নিশ্চিত হয়েছে':'Onboarded as employee'),
+    Snapshot: JSON.stringify(r)
+  });
+  /* পাইপলাইন থেকে অপসারণ */
+  const idx = RECRUITMENT.findIndex(x=>x.id===id);
+  if(idx>-1) RECRUITMENT.splice(idx,1);
+  logActivity('create','employees', newEmpId, 'onboarded from recruitment: '+r.name);
+  logActivity('create','recruitment_archive', archId, 'Confirmed: '+r.name);
+  toast(`${r.name} → ${LANG==='bn'?'অ্যাপয়েন্টমেন্ট নিশ্চিত (আইডি: ':'appointment confirmed (ID: '}${newEmpId}) — ${LANG==='bn'?'আর্কাইভে গেছে':'moved to archive'}`, 'success');
   closeModal();
-  persist(); renderRecruitment();
+  persist(); renderRecruitment(); renderAll&&renderAll();
+}
+/* v3.4 ধাপ ৬: প্রার্থী বাতিল/রিজেক্ট → আর্কাইভে */
+function cancelCandidate(id){
+  if(!guardEdit()) return;
+  const r = RECRUITMENT.find(x=>x.id===id); if(!r) return;
+  const reason = prompt(LANG==='bn'?'বাতিলের কারণ (ঐচ্ছিক):':'Cancellation reason (optional):','');
+  if(reason===null) return; /* user cancelled the prompt itself */
+  DATA.recruitmentArchive = DATA.recruitmentArchive || [];
+  const archId = 'ARCH-' + Date.now() + '-' + (DATA.recruitmentArchive.length+1);
+  DATA.recruitmentArchive.unshift({
+    ArchiveID: archId,
+    CandidateName: r.name, CandidateNameEn: r.nameEn||'',
+    Designation: r.desig, ProjectName: r.project,
+    Result: 'Rejected', EmployeeID: '',
+    ActionDate: todayISO(),
+    Reason: reason||'', Note: (LANG==='bn'?'পাইপলাইন থেকে বাতিল':'Cancelled from pipeline'),
+    Snapshot: JSON.stringify(r)
+  });
+  const idx = RECRUITMENT.findIndex(x=>x.id===id);
+  if(idx>-1) RECRUITMENT.splice(idx,1);
+  logActivity('cancel','recruitment_archive', archId, 'Rejected: '+r.name+(reason?' — '+reason:''));
+  toast(`${r.name} → ${LANG==='bn'?'বাতিল ও আর্কাইভে':'Cancelled & archived'}`, 'success');
+  closeModal(); persist(); renderRecruitment();
+}
+/* ধাপ ৫: আর্কাইভ রো-ক্লিক পপআপ */
+function openArchivePopup(archId){
+  DATA.recruitmentArchive = DATA.recruitmentArchive || [];
+  const a = DATA.recruitmentArchive.find(x=>String(x.ArchiveID)===String(archId));
+  if(!a){ toast(LANG==='bn'?'পাওয়া যায়নি':'Not found','error'); return; }
+  const bn = LANG==='bn';
+  let snap = {}; try { snap = a.Snapshot?JSON.parse(a.Snapshot):{}; } catch(e){}
+  const resultColor = a.Result==='Confirmed'?'success':(a.Result==='Rejected'?'danger':'info');
+  openModal(`${bn?'আর্কাইভ প্রার্থী':'Archived Candidate'} — ${a.CandidateName||''}`,
+    `<div class="pop-detail">
+      <div class="pop-row"><div class="pop-hint">${bn?'নাম':'Name'}</div><div><strong>${a.CandidateName||''}</strong>${a.CandidateNameEn?`<br><span class="small-mute">${a.CandidateNameEn}</span>`:''}</div></div>
+      <div class="pop-row"><div class="pop-hint">${bn?'পদবি':'Designation'}</div><div>${a.Designation||''}</div></div>
+      <div class="pop-row"><div class="pop-hint">${bn?'প্রজেক্ট':'Project'}</div><div>${a.ProjectName||''}</div></div>
+      <div class="pop-row"><div class="pop-hint">${bn?'ফলাফল':'Result'}</div><div><span class="pill ${resultColor}">${a.Result||''}</span></div></div>
+      <div class="pop-row"><div class="pop-hint">${bn?'কর্মী আইডি':'Employee ID'}</div><div>${a.EmployeeID||'—'}</div></div>
+      <div class="pop-row"><div class="pop-hint">${bn?'তারিখ':'Date'}</div><div>${fmtDate(a.ActionDate)}</div></div>
+      ${a.Reason?`<div class="pop-row"><div class="pop-hint">${bn?'কারণ':'Reason'}</div><div>${a.Reason}</div></div>`:''}
+      ${a.Note?`<div class="pop-row"><div class="pop-hint">${bn?'নোট':'Note'}</div><div>${a.Note}</div></div>`:''}
+      ${snap.phone?`<div class="pop-row"><div class="pop-hint">${bn?'মোবাইল':'Mobile'}</div><div>${num(snap.phone)}</div></div>`:''}
+      ${snap.nid?`<div class="pop-row"><div class="pop-hint">NID</div><div>${num(snap.nid)}</div></div>`:''}
+    </div>`,
+    `${a.Result==='Rejected'?`<button class="btn primary" onclick="restoreArchivedCandidate(${jsQ(a.ArchiveID)})">${bn?'↺ পাইপলাইনে ফেরান':'↺ Restore to pipeline'}</button>`:''}
+     <button class="btn" style="background:#dc2626;color:#fff" onclick="deleteArchivedCandidate(${jsQ(a.ArchiveID)})">${bn?'স্থায়ীভাবে মুছুন':'Delete permanently'}</button>
+     <button class="btn ghost" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>`);
+}
+function restoreArchivedCandidate(archId){
+  if(!guardEdit()) return;
+  DATA.recruitmentArchive = DATA.recruitmentArchive || [];
+  const i = DATA.recruitmentArchive.findIndex(x=>String(x.ArchiveID)===String(archId));
+  if(i<0) return;
+  const a = DATA.recruitmentArchive[i];
+  if(a.Result!=='Rejected'){ toast(LANG==='bn'?'শুধু বাতিলকৃত প্রার্থীই ফেরত আনা যাবে':'Only rejected candidates can be restored','warn'); return; }
+  let snap = {}; try { snap = a.Snapshot?JSON.parse(a.Snapshot):{}; } catch(e){}
+  const nextId = Math.max(0, ...RECRUITMENT.map(r=>+r.id||0)) + 1;
+  snap.id = nextId;
+  snap.stage = 'DataEntry';
+  snap.date = todayISO();
+  RECRUITMENT.unshift(snap);
+  DATA.recruitmentArchive.splice(i,1);
+  logActivity('restore','recruitment_archive', archId, 'Restored: '+(a.CandidateName||''));
+  toast((a.CandidateName||'')+' → '+(LANG==='bn'?'পাইপলাইনে ফেরত এসেছে':'restored to pipeline'), 'success');
+  closeModal(); persist(); renderRecruitment();
+}
+function deleteArchivedCandidate(archId){
+  if(!guardEdit()) return;
+  if(!confirm(LANG==='bn'?'এই আর্কাইভ রেকর্ড স্থায়ীভাবে মুছে ফেলবেন?':'Delete this archive record permanently?')) return;
+  DATA.recruitmentArchive = DATA.recruitmentArchive || [];
+  const i = DATA.recruitmentArchive.findIndex(x=>String(x.ArchiveID)===String(archId));
+  if(i<0) return;
+  const a = DATA.recruitmentArchive[i];
+  DATA.recruitmentArchive.splice(i,1);
+  logActivity('delete','recruitment_archive', archId, 'Deleted: '+(a.CandidateName||''));
+  toast(LANG==='bn'?'মুছে ফেলা হয়েছে':'Deleted','success');
+  closeModal(); persist(); renderRecruitment();
 }
 /* ---- Print Form 1: Job Application (page 3 of Mahbub joining form — untouched structure) ---- */
 function printApplication(id){
@@ -3622,7 +3847,7 @@ function renderProjects(){
             ${DATA.projects.map(p=>{
               const c = projStaffCount(p.ProjectName);
               const closedRow = !isProjectActive(p);
-              return `<tr class="proj-row${closedRow?' proj-closed':''}" onclick="openProjectPopup(${JSON.stringify(p['Project ID']||p.ProjectName)})" style="cursor:pointer${closedRow?';opacity:.55':''}">
+              return `<tr class="proj-row${closedRow?' proj-closed':''}" onclick="openProjectPopup(${jsQ(p['Project ID']||p.ProjectName)})" style="cursor:pointer${closedRow?';opacity:.55':''}">
                 <td>${num(p['Project ID'])}</td>
                 <td><strong>${p.ProjectName}</strong>${p.ProjectNameBangla?`<br><span class="small-mute">${p.ProjectNameBangla}</span>`:''}</td>
                 <td>${p['Admin Name']||''}</td>
@@ -3886,17 +4111,61 @@ function renderTransfer(){
   `;
   fillEmpSelect('trEmp');
   fillProjectSelect('trNew');
-  const rows = DATA.transfers.slice().sort((a,b)=>+b.TransferID-+a.TransferID).slice(0,30);
+  const rows = DATA.transfers.slice().sort((a,b)=>+b.TransferID-+a.TransferID).slice(0,60);
   document.getElementById('trTableBody').innerHTML = rows.map(t=>`
-    <tr>
+    <tr class="row-click" onclick="openTransferPopup(${jsQ(t.TransferID)})" style="cursor:pointer">
       <td>${num(t.TransferID)}</td>
       <td><strong>${t.FullName}</strong></td>
       <td>${projName(t.CurrentProject)}</td>
       <td>${projName(t.NewProject)}</td>
       <td>${fmtDate(t.TransferDate)}</td>
-      <td><span class="pill ${t.IsProceed==='1'?'completed':'scheduled'}">${t.Status||(t.IsProceed==='1'?'Completed':'Scheduled')}</span></td>
-      <td><button class="btn ghost sm" onclick="reprintTransfer('${t.TransferID}')">${ico('print')}</button></td>
+      <td><span class="pill ${t.Status==='Cancelled'?'inactive':t.IsProceed==='1'?'completed':'scheduled'}">${t.Status||(t.IsProceed==='1'?'Completed':'Scheduled')}</span></td>
+      <td onclick="event.stopPropagation()"><button class="btn ghost sm" onclick="reprintTransfer(${jsQ(t.TransferID)})">${ico('print')}</button></td>
     </tr>`).join('');
+}
+/* v3.4: Transfer রো ক্লিক → পপআপ (সম্পূর্ণ তথ্য · প্রজেক্ট পরিবর্তন · বাতিল · পুনঃপ্রিন্ট) */
+function openTransferPopup(tid){
+  const t = DATA.transfers.find(x=>String(x.TransferID)===String(tid)); if(!t) return;
+  const bn = LANG==='bn';
+  const memo = 'MG/SEC/TR/'+String(t.TransferID).padStart(4,'0');
+  const statusPill = `<span class="pill ${t.Status==='Cancelled'?'inactive':t.IsProceed==='1'?'completed':'scheduled'}">${t.Status||(t.IsProceed==='1'?'Completed':'Scheduled')}</span>`;
+  openModal(bn?`ট্রান্সফার #${num(t.TransferID)}`:`Transfer #${t.TransferID}`,
+    `<div class="pop-detail">
+      <div class="pop-row"><span>${bn?'স্মারক নং':'Memo No.'}</span><b>${memo}</b></div>
+      <div class="pop-row"><span>${bn?'কর্মচারী':'Employee'}</span><b>${t.FullName} <span class="small-mute">(#${num(t.EmployeeID||'')})</span></b></div>
+      <div class="pop-row"><span>${bn?'পদবি':'Designation'}</span><b>${t.Designation||''}</b></div>
+      <div class="pop-row"><span>${bn?'হতে':'From'}</span><b>${projName(t.CurrentProject)}</b></div>
+      <div class="pop-row"><span>${bn?'-এ':'To'}</span><b style="color:var(--purple)">${projName(t.NewProject)}</b></div>
+      <div class="pop-row"><span>${bn?'ট্রান্সফার তারিখ':'Transfer Date'}</span><b>${fmtDate(t.TransferDate)}</b></div>
+      <div class="pop-row"><span>${bn?'ইস্যু তারিখ':'Issue Date'}</span><b>${fmtDate(t['Issues Date']||t.IssueDate||'')}</b></div>
+      <div class="pop-row"><span>${bn?'অবস্থা':'Status'}</span>${statusPill}</div>
+      ${t.Notes?`<div class="pop-row"><span>${bn?'নোট':'Notes'}</span><b>${t.Notes}</b></div>`:''}
+    </div>
+    <div class="pop-hint">${bn?'⚠ Employeetbl-ই বর্তমান প্রজেক্টের একমাত্র সোর্স। এই ট্রান্সফার ইতিহাসে থাকবে, কিন্তু Employees ট্যাব থেকে না বদলানো পর্যন্ত কর্মীর প্রজেক্ট বদলাবে না।':'⚠ Employeetbl is the only source of truth for current project. Editing this transfer does NOT touch Employee.ProjectName.'}</div>`,
+    `<button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>
+     <button class="btn" onclick="reprintTransfer(${jsQ(t.TransferID)})">${ico('print')} ${bn?'পুনঃপ্রিন্ট':'Reprint'}</button>
+     ${t.Status!=='Cancelled'?`<button class="btn" style="background:var(--warning);color:#fff" onclick="cancelTransferOrder(${jsQ(t.TransferID)})">${bn?'বাতিল করুন':'Cancel Order'}</button>`:''}
+     <button class="btn primary" onclick="editTransferNewProject(${jsQ(t.TransferID)})">${bn?'গন্তব্য বদলান':'Change Destination'}</button>`);
+}
+function cancelTransferOrder(tid){
+  if(!guardEdit()) return;
+  if(!confirm(LANG==='bn'?'এই ট্রান্সফার অর্ডার বাতিল করবেন? রেকর্ড ইতিহাসে "Cancelled" হিসেবে থাকবে।':'Cancel this transfer? The record stays in history as "Cancelled".')) return;
+  const t = DATA.transfers.find(x=>String(x.TransferID)===String(tid)); if(!t) return;
+  t.Status='Cancelled'; t.IsProceed='0';
+  logActivity('cancel','transfers', tid, `Transfer #${tid} cancelled`);
+  toast(LANG==='bn'?'ট্রান্সফার বাতিল হয়েছে — Employee.ProjectName অপরিবর্তিত':'Transfer cancelled — Employee.ProjectName unchanged','success');
+  persist(); closeModal(); renderTransfer();
+}
+function editTransferNewProject(tid){
+  if(!guardEdit()) return;
+  const t = DATA.transfers.find(x=>String(x.TransferID)===String(tid)); if(!t) return;
+  const bn = LANG==='bn';
+  const opts = DATA.projects.map(p=>`<option value="${p.ProjectName}"${p.ProjectName===t.NewProject?' selected':''}>${p.ProjectName}</option>`).join('');
+  openModal(bn?'গন্তব্য প্রজেক্ট বদলান':'Change Destination Project',
+    `<div class="field"><label>${bn?'নতুন গন্তব্য':'New Destination'}</label><select id="_np">${opts}</select></div>
+     <p class="small-mute" style="margin-top:8px">${bn?'শুধু হিস্টরি রেকর্ড আপডেট হবে; Employee.ProjectName-এ প্রভাব নেই।':'Only the history record updates; Employee.ProjectName is not touched.'}</p>`,
+    `<button class="btn" onclick="closeModal()">${bn?'বাতিল':'Cancel'}</button>
+     <button class="btn primary" onclick="(function(){var v=document.getElementById('_np').value; var t=DATA.transfers.find(x=>String(x.TransferID)===String(${JSON.stringify(String(tid))})); if(t){t.NewProject=v; logActivity('update','transfers',${JSON.stringify(String(tid))}, 'destination changed to '+v); persist(); closeModal(); renderTransfer(); toast('${bn?'গন্তব্য বদলে গেছে':'Destination updated'}','success');}})()">${bn?'সেভ':'Save'}</button>`);
 }
 /* ============ সার্চেবল এমপ্লয়ি পিকার ============
    select এর বদলে সার্চ-ইনপুট + লাইভ ড্রপডাউন। সিরিয়াল/নাম টাইপ করলেই রিয়েল-টাইম ফিল্টার।
@@ -4034,10 +4303,16 @@ function submitTransfer(){
     CurrentProject:e.ProjectName, NewProject:np, TransferDate:td,
     'Issues Date':document.getElementById('trIssue').value,
     Notes:document.getElementById('trNotes').value,
-    IsProceed:isFuture?'0':'1', Status:isFuture?'Scheduled':'Completed',
+    IsProceed:isFuture?'0':'1', Status:isFuture?'Scheduled':'Recorded',
   });
-  if(!isFuture) e.ProjectName = np;
-  toast(isFuture?`${LANG==='bn'?'নির্ধারিত — মূল প্রোফাইল আপডেট হবে':'Scheduled — main profile updates on'} ${td}`:LANG==='bn'?'ট্রান্সফার সম্পন্ন — প্রোফাইল আপডেট হয়েছে':'Transfer effective — profile updated','success');
+  /* v3.4 অলঙ্ঘনীয় নিয়ম ১: ট্রান্সফার ইস্যু করলে কর্মীর প্রজেক্ট বদলাবে না।
+     Employeetbl.ProjectName-ই একমাত্র সোর্স-অফ-ট্রুথ। নতুন প্রজেক্টে
+     যোগদানের পরে ব্যবহারকারী নিজেই কর্মীর প্রজেক্ট Employees ট্যাব থেকে
+     আপডেট করবেন — বা Transfer রো-এর পপআপ থেকে "কার্যকর কর" চাপবেন। */
+  toast(isFuture
+    ? (LANG==='bn'?`নির্ধারিত — কর্মীর প্রজেক্ট বদলানো হয়নি (Employees ট্যাবে গিয়ে বদলাতে হবে)`:`Scheduled — employee project NOT changed (edit on Employees tab)`)
+    : (LANG==='bn'?`ট্রান্সফার ইতিহাসে যোগ হলো — কর্মীর প্রজেক্ট বদলানো হয়নি (Employees ট্যাব থেকে বদলাতে হবে)`:`Recorded in history — employee project NOT changed`)
+    ,'success');
   persist(); renderTransfer();
 }
 function reprintTransfer(id){
@@ -4179,15 +4454,52 @@ function renderDisciplinary(){
     </div>
   `;
   fillEmpSelect('dcEmp');
-  const rows = DATA.disciplinary.slice().sort((a,b)=>+b.ActionID-+a.ActionID).slice(0,30);
+  const rows = DATA.disciplinary.slice().sort((a,b)=>+b.ActionID-+a.ActionID).slice(0,60);
   document.getElementById('dcTableBody').innerHTML = rows.map(d=>`
-    <tr>
+    <tr class="row-click" onclick="openDisciplinaryPopup(${jsQ(d.ActionID)})" style="cursor:pointer">
       <td><strong>${num(d.RefNo||'')}</strong></td>
       <td>${d.FullName||''}</td>
       <td>${d.ActionType||''}</td>
       <td>${fmtDate(d.IssueDate)}</td>
-      <td><button class="btn ghost sm" onclick="reprintDisc('${d.ActionID}')">${ico('print')}</button></td>
+      <td onclick="event.stopPropagation()"><button class="btn ghost sm" onclick="reprintDisc(${jsQ(d.ActionID)})">${ico('print')}</button></td>
     </tr>`).join('');
+}
+/* v3.4: Disciplinary রো ক্লিক → পপআপ (এডিটেবল বডি) */
+function openDisciplinaryPopup(aid){
+  const d = DATA.disciplinary.find(x=>String(x.ActionID)===String(aid)); if(!d) return;
+  const bn = LANG==='bn';
+  openModal(bn?`শৃঙ্খলা অ্যাকশন — ${d.RefNo||''}`:`Disciplinary — ${d.RefNo||''}`,
+    `<div class="pop-detail">
+      <div class="pop-row"><span>${bn?'স্মারক নং':'Ref No.'}</span><b>${d.RefNo||''}</b></div>
+      <div class="pop-row"><span>${bn?'কর্মচারী':'Employee'}</span><b>${d.FullName} <span class="small-mute">(#${num(d.EmployeeID||'')})</span></b></div>
+      <div class="pop-row"><span>${bn?'পদবি':'Designation'}</span><b>${d.Designation||''}</b></div>
+      <div class="pop-row"><span>${bn?'প্রজেক্ট':'Project'}</span><b>${projName(d.ProjectName)}</b></div>
+      <div class="pop-row"><span>${bn?'অ্যাকশন':'Action'}</span><b>${d.ActionType||''}</b></div>
+      <div class="pop-row"><span>${bn?'ঘটনার তারিখ':'Incident Date'}</span><b>${fmtDate(d.IncidentDate)}</b></div>
+      <div class="pop-row"><span>${bn?'ইস্যু তারিখ':'Issue Date'}</span><b>${fmtDate(d.IssueDate)}</b></div>
+    </div>
+    <div class="field wide" style="margin-top:12px"><label>${bn?'চিঠির বডি (সম্পাদনযোগ্য)':'Letter body (editable)'}</label><textarea id="_dcDescEdit" rows="10" style="width:100%">${(d.Description||'').replace(/</g,'&lt;')}</textarea></div>
+    <p class="small-mute" style="margin-top:6px">${bn?'শুধু লেখা সম্পাদনযোগ্য; স্মারক নং ও ইস্যু তারিখ অপরিবর্তিত থাকবে।':'Only the letter body is editable; ref no. and dates stay unchanged.'}</p>`,
+    `<button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>
+     <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteDisciplinary(${jsQ(d.ActionID)})">${bn?'ডিলিট':'Delete'}</button>
+     <button class="btn" onclick="reprintDisc(${jsQ(d.ActionID)})">${ico('print')} ${bn?'প্রিন্ট':'Print'}</button>
+     <button class="btn primary" onclick="saveDisciplinaryEdit(${jsQ(d.ActionID)})">${bn?'সেভ':'Save'}</button>`);
+}
+function saveDisciplinaryEdit(aid){
+  if(!guardEdit()) return;
+  const d = DATA.disciplinary.find(x=>String(x.ActionID)===String(aid)); if(!d) return;
+  d.Description = document.getElementById('_dcDescEdit').value;
+  logActivity('update','disciplinary',aid,'letter body edited');
+  toast(LANG==='bn'?'বডি সংরক্ষিত হয়েছে':'Letter body saved','success');
+  persist(); closeModal(); renderDisciplinary();
+}
+function deleteDisciplinary(aid){
+  if(!guardEdit()) return;
+  if(!confirm(LANG==='bn'?'এই শৃঙ্খলা অ্যাকশন ডিলিট করবেন? এই কাজ ফেরানো যাবে না।':'Delete this disciplinary action? This cannot be undone.')) return;
+  DATA.disciplinary = DATA.disciplinary.filter(x=>String(x.ActionID)!==String(aid));
+  logActivity('delete','disciplinary',aid,'disciplinary action deleted');
+  toast(LANG==='bn'?'ডিলিট সম্পন্ন':'Deleted','success');
+  persist(); closeModal(); renderDisciplinary();
 }
 function dcFillEmp(){ /* placeholder */ }
 function submitDisciplinary(){
@@ -4275,11 +4587,9 @@ function banglaDisciplinaryLetter({emp, templateKey, ref, incident, issue, desc}
 }
 
 /* ============ LEAVE MANAGEMENT ============ */
-const SAMPLE_LEAVES = [
-  {id:1,empId:'150',name:'Md Nazrul Islam',type:'casual',start:'2026-09-01',end:'2026-09-03',days:3,reason:'পারিবারিক কাজ',status:'Approved'},
-  {id:2,empId:'26673',name:'Md Saidur Rahman',type:'sick',start:'2026-09-05',end:'2026-09-08',days:4,reason:'জ্বর ও শারীরিক অসুস্থতা',status:'Approved'},
-  {id:3,empId:'10092',name:'Md Helim Mia',type:'earned',start:'2026-09-12',end:'2026-09-19',days:8,reason:'ছেলের বিয়ে',status:'Pending'},
-];
+/* v3.4: নমুনা ছুটি সরানো হয়েছে — DATA.leaves-ই একমাত্র সোর্স */
+DATA.leaves = Array.isArray(DATA.leaves) ? DATA.leaves : [];
+const SAMPLE_LEAVES = DATA.leaves; /* backward-compat alias — নতুন কোডে DATA.leaves ব্যবহার করুন */
 function renderLeave(){
   document.getElementById('page-leave').innerHTML = `
     <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
@@ -4318,11 +4628,12 @@ function renderLeave(){
             <tbody>
               ${SAMPLE_LEAVES.map(l=>{
                 const lt = LEAVE_TYPES.find(x=>x.key===l.type);
-                return `<tr><td><strong>${l.name}</strong><br><span class="small-mute">${fmtDate(l.start)} — ${fmtDate(l.end)}</span></td>
+                return `<tr class="row-click" onclick="openLeavePopup(${jsQ(l.id)})" style="cursor:pointer">
+                  <td><strong>${l.name}</strong><br><span class="small-mute">${fmtDate(l.start)} — ${fmtDate(l.end)}</span></td>
                   <td><span class="chip" style="color:${lt.color}">${lt[LANG]}</span></td>
                   <td>${num(l.days)}</td>
-                  <td><span class="pill ${l.status==='Approved'?'approved':'pending'}">${l.status}</span></td>
-                  <td>${l.status==='Pending'?`<button class="btn success sm" onclick="approveLeave(${l.id})">${LANG==='bn'?'অনুমোদন':'Approve'}</button>`:''}</td>
+                  <td><span class="pill ${l.status==='Approved'?'approved':(l.status==='Rejected'?'danger':'pending')}">${l.status}</span></td>
+                  <td onclick="event.stopPropagation()">${l.status==='Pending'?`<button class="btn success sm" onclick="approveLeave(${l.id})">${LANG==='bn'?'অনুমোদন':'Approve'}</button>`:''}</td>
                 </tr>`;
               }).join('')}
             </tbody>
@@ -4377,8 +4688,57 @@ function submitLeave(){
   persist(); renderLeave();
 }
 function approveLeave(id){
-  const l = SAMPLE_LEAVES.find(x=>x.id===id);
-  if(l){ l.status='Approved'; toast(LANG==='bn'?'অনুমোদিত':'Approved','success'); renderLeave(); }
+  if(!guardEdit()) return;
+  const l = SAMPLE_LEAVES.find(x=>String(x.id)===String(id));
+  if(l){ l.status='Approved'; logActivity('approve','leaves',id,l.name+' '+l.type+' '+l.days+'d'); toast(LANG==='bn'?'অনুমোদিত':'Approved','success'); persist(); renderLeave(); }
+}
+/* v3.4 ধাপ ৫: Leave row-click popup */
+function openLeavePopup(id){
+  const l = SAMPLE_LEAVES.find(x=>String(x.id)===String(id));
+  if(!l){ toast(LANG==='bn'?'পাওয়া যায়নি':'Not found','error'); return; }
+  const bn = LANG==='bn';
+  const lt = LEAVE_TYPES.find(x=>x.key===l.type) || {bn:l.type,en:l.type,color:'#666'};
+  const statusColor = l.status==='Approved'?'approved':(l.status==='Rejected'?'danger':'pending');
+  openModal(`${bn?'ছুটির আবেদন':'Leave Application'} — ${l.name||''}`,
+    `<div class="pop-detail">
+      <div class="pop-row"><div class="pop-hint">${bn?'কর্মচারী':'Employee'}</div><div><strong>${l.name||''}</strong></div></div>
+      <div class="pop-row"><div class="pop-hint">${bn?'ধরন':'Type'}</div><div><span class="chip" style="color:${lt.color}">${lt[LANG]}</span></div></div>
+      <div class="pop-row"><div class="pop-hint">${bn?'সময়কাল':'Period'}</div><div>${fmtDate(l.start)} — ${fmtDate(l.end)} <span class="chip">${num(l.days)} ${bn?'দিন':'days'}</span></div></div>
+      <div class="pop-row"><div class="pop-hint">${bn?'অবস্থা':'Status'}</div><div><span class="pill ${statusColor}">${l.status||''}</span></div></div>
+      <div class="pop-row"><div class="pop-hint">${bn?'কারণ':'Reason'}</div><div><textarea id="lvEditReason" rows="3" style="width:100%">${l.reason||''}</textarea></div></div>
+    </div>`,
+    `<button class="btn primary" onclick="saveLeaveEdit(${jsQ(l.id)})">${bn?'কারণ সেভ':'Save reason'}</button>
+     ${l.status==='Pending'?`<button class="btn success" onclick="approveLeave(${jsQ(l.id)});closeModal()">${bn?'অনুমোদন':'Approve'}</button>
+       <button class="btn" style="background:#f59e0b;color:#fff" onclick="rejectLeave(${jsQ(l.id)})">${bn?'বাতিল':'Reject'}</button>`:''}
+     <button class="btn" style="background:#dc2626;color:#fff" onclick="deleteLeave(${jsQ(l.id)})">${bn?'ডিলিট':'Delete'}</button>
+     <button class="btn ghost" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>`);
+}
+function saveLeaveEdit(id){
+  if(!guardEdit()) return;
+  const l = SAMPLE_LEAVES.find(x=>String(x.id)===String(id)); if(!l) return;
+  const t = document.getElementById('lvEditReason');
+  if(t) l.reason = t.value;
+  logActivity('update','leaves',id,'reason edited');
+  toast(LANG==='bn'?'সেভ হয়েছে':'Saved','success');
+  closeModal(); persist(); renderLeave();
+}
+function rejectLeave(id){
+  if(!guardEdit()) return;
+  const l = SAMPLE_LEAVES.find(x=>String(x.id)===String(id)); if(!l) return;
+  l.status = 'Rejected';
+  logActivity('reject','leaves',id,l.name);
+  toast(LANG==='bn'?'বাতিল হয়েছে':'Rejected','warn');
+  closeModal(); persist(); renderLeave();
+}
+function deleteLeave(id){
+  if(!guardEdit()) return;
+  if(!confirm(LANG==='bn'?'এই ছুটির রেকর্ড মুছবেন?':'Delete this leave record?')) return;
+  const i = SAMPLE_LEAVES.findIndex(x=>String(x.id)===String(id)); if(i<0) return;
+  const nm = SAMPLE_LEAVES[i].name;
+  SAMPLE_LEAVES.splice(i,1);
+  logActivity('delete','leaves',id,nm);
+  toast(LANG==='bn'?'মুছে ফেলা হয়েছে':'Deleted','success');
+  closeModal(); persist(); renderLeave();
 }
 
 /* ============ EXIT ============ */
@@ -4419,9 +4779,9 @@ function renderExit(){
       <div class="table-wrap">
         <table>
           <thead><tr><th>${LANG==='bn'?'আইডি':'ID'}</th><th>${LANG==='bn'?'নাম':'Name'}</th><th>${LANG==='bn'?'পদবি':'Designation'}</th><th>${LANG==='bn'?'ধরন':'Type'}</th><th>${LANG==='bn'?'ত্যাগের তারিখ':'Exit Date'}</th><th>${LANG==='bn'?'কারণ':'Reason'}</th></tr></thead>
-          <tbody>${DATA.exits.slice(0,30).map(x=>`<tr>
+          <tbody>${DATA.exits.slice(0,60).map(x=>`<tr class="row-click" onclick="openExitPopup(${jsQ(x.ExitID)})" style="cursor:pointer">
             <td>${num(x.EmployeeID||'')}</td><td>${x.FullName||''}</td><td>${desig(x.Designation||'')}</td>
-            <td><span class="chip">${x.ExitType||'—'}</span></td>
+            <td><span class="chip">${x.ExitType||x.ExitReason||'—'}</span></td>
             <td>${fmtDate(x.ExitDate)}</td>
             <td class="small-mute" style="max-width:280px">${x.ExitReason||''}</td></tr>`).join('')}</tbody>
         </table>
@@ -4434,6 +4794,45 @@ function exFillEmp(){
   const rid = document.getElementById('exEmp').value;
   const e = DATA.employees.find(x=>x.RecordID===rid);
   document.getElementById('exProj').value = e?e.ProjectName:'';
+}
+/* v3.4: Exit রো ক্লিক → পপআপ (তথ্য · সনদ প্রিন্ট · আন-এক্সিট / পুনর্নিয়োগ ইঙ্গিত) */
+function openExitPopup(eid){
+  const x = DATA.exits.find(r=>String(r.ExitID)===String(eid)); if(!x) return;
+  const bn = LANG==='bn';
+  const emp = DATA.employees.find(e=>String(e.EmployeeID)===String(x.EmployeeID) || String(e.RecordID)===String(x.RecordID));
+  openModal(bn?`চাকরি ত্যাগ — ${x.FullName}`:`Exit — ${x.FullName}`,
+    `<div class="pop-detail">
+      <div class="pop-row"><span>${bn?'কর্মচারী':'Employee'}</span><b>${x.FullName} <span class="small-mute">(#${num(x.EmployeeID||'')})</span></b></div>
+      <div class="pop-row"><span>${bn?'পদবি':'Designation'}</span><b>${x.Designation||''}</b></div>
+      <div class="pop-row"><span>${bn?'প্রজেক্ট':'Project'}</span><b>${projName(x.CurrentProject)}</b></div>
+      <div class="pop-row"><span>${bn?'যোগদানের তারিখ':'Join Date'}</span><b>${fmtDate(x.JoinDate)}</b></div>
+      <div class="pop-row"><span>${bn?'ত্যাগের তারিখ':'Exit Date'}</span><b>${fmtDate(x.ExitDate)}</b></div>
+      <div class="pop-row"><span>${bn?'ইস্যু তারিখ':'Issue Date'}</span><b>${fmtDate(x.IssueDate)}</b></div>
+      <div class="pop-row"><span>${bn?'কারণ':'Reason'}</span><b>${x.ExitReason||x.ExitType||'—'}</b></div>
+      <div class="pop-row"><span>${bn?'বর্তমান স্ট্যাটাস':'Current Status'}</span><b>${emp?emp.Status:'—'}</b></div>
+    </div>
+    <div class="pop-hint">${bn?'⚠ কর্মচারীর বর্তমান অবস্থা Employeetbl-এর Status থেকে আসে; এই পপআপ থেকে সংশোধন করতে চাইলে "স্ট্যাটাস পুনর্বহাল" চাপুন।':'⚠ Employee current status comes from Employeetbl.Status; use "Reactivate" to restore.'}</div>`,
+    `<button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>
+     ${emp?`<button class="btn" onclick="reactivateEmployee(${jsQ(emp.RecordID)})">${bn?'পুনর্বহাল করুন':'Reactivate'}</button>`:''}
+     <button class="btn" onclick="closeModal();openPrint(banglaClearance(${jsQ(x.RecordID||x.EmployeeID)}?DATA.employees.find(e=>String(e.RecordID)===${jsQ(x.RecordID)}||String(e.EmployeeID)===${jsQ(x.EmployeeID)}):null, ${jsQ(x.ExitDate)}))">${ico('print')} ${bn?'ছাড়পত্র':'Clearance'}</button>
+     <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteExit(${jsQ(x.ExitID)})">${bn?'রেকর্ড ডিলিট':'Delete'}</button>`);
+}
+function reactivateEmployee(rid){
+  if(!guardEdit()) return;
+  const e = DATA.employees.find(x=>String(x.RecordID)===String(rid)); if(!e) return;
+  if(!confirm(LANG==='bn'?'কর্মচারীকে পুনরায় সক্রিয় (Active) করবেন?':'Reactivate this employee to Active?')) return;
+  e.Status='Active'; delete e.ExitDate; delete e.ExitReason;
+  logActivity('update','employees',rid,'reactivated from Inactive');
+  toast(LANG==='bn'?'পুনরায় সক্রিয় হয়েছে':'Reactivated','success');
+  persist(); closeModal(); if(typeof renderExit==='function') renderExit(); if(typeof renderEmployees==='function') renderEmployees();
+}
+function deleteExit(eid){
+  if(!guardEdit()) return;
+  if(!confirm(LANG==='bn'?'এই এক্সিট রেকর্ড ডিলিট করবেন?':'Delete this exit record?')) return;
+  DATA.exits = DATA.exits.filter(x=>String(x.ExitID)!==String(eid));
+  logActivity('delete','exits',eid,'exit deleted');
+  toast(LANG==='bn'?'ডিলিট সম্পন্ন':'Deleted','success');
+  persist(); closeModal(); renderExit();
 }
 function submitExit(){
   if(!guardEdit()) return;
@@ -4544,7 +4943,7 @@ function renderIncrement(){
       <div class="table-wrap">
         <table>
           <thead><tr><th>${LANG==='bn'?'কর্মচারী':'Employee'}</th><th>${LANG==='bn'?'ধরন':'Type'}</th><th>${LANG==='bn'?'পূর্ব':'Prev'}</th><th>${LANG==='bn'?'নতুন':'New'}</th><th>${LANG==='bn'?'তারিখ':'Date'}</th></tr></thead>
-          <tbody>${DATA.career.map(c=>`<tr><td>${c.FullName||''}</td><td>${c.ChangeType||''}</td><td>${c.CurrentDesignation||''} · ${c.PreviousSalary?money(c.PreviousSalary):''}</td><td>${c.NewDesignation||''} · ${c.NewSalary?money(c.NewSalary):''}</td><td>${fmtDate(c.EffectiveDate)}</td></tr>`).join('')||`<tr><td colspan="5" class="small-mute" style="text-align:center;padding:20px">${LANG==='bn'?'কোনো রেকর্ড নেই':'No records yet'}</td></tr>`}</tbody>
+          <tbody>${DATA.career.map(c=>`<tr class="row-click" onclick="openCareerPopup(${jsQ(c.ChangeID)})" style="cursor:pointer"><td><strong>${c.FullName||''}</strong></td><td><span class="chip">${c.ChangeType||''}</span></td><td>${c.CurrentDesignation||''} · ${c.PreviousSalary?money(c.PreviousSalary):''}</td><td style="color:var(--purple)">${c.NewDesignation||''} · ${c.NewSalary?money(c.NewSalary):''}</td><td>${fmtDate(c.EffectiveDate)}</td></tr>`).join('')||`<tr><td colspan="5" class="small-mute" style="text-align:center;padding:20px">${LANG==='bn'?'কোনো রেকর্ড নেই':'No records yet'}</td></tr>`}</tbody>
         </table>
       </div>
     </div>
@@ -4580,6 +4979,51 @@ function submitIncrement(){
   e.Designation=newDesig; e.Salary=newSal;
   toast(LANG==='bn'?'সংরক্ষিত হয়েছে ও প্রোফাইল আপডেট হয়েছে':'Saved and profile updated','success');
   persist(); renderIncrement();
+}
+/* v3.4: Career রো ক্লিক পপআপ — বিস্তারিত · রিভার্ট · ডিলিট */
+function openCareerPopup(cid){
+  const c = DATA.career.find(r=>String(r.ChangeID)===String(cid)); if(!c) return;
+  const bn = LANG==='bn';
+  const emp = DATA.employees.find(e=>String(e.RecordID)===String(c.RecordID) || String(e.EmployeeID)===String(c.EmployeeID));
+  openModal(bn?`ক্যারিয়ার পরিবর্তন — ${c.FullName}`:`Career Change — ${c.FullName}`,
+    `<div class="pop-detail">
+      <div class="pop-row"><span>${bn?'কর্মচারী':'Employee'}</span><b>${c.FullName} <span class="small-mute">(#${num(c.EmployeeID||'')})</span></b></div>
+      <div class="pop-row"><span>${bn?'প্রজেক্ট':'Project'}</span><b>${projName(c.ProjectName)}</b></div>
+      <div class="pop-row"><span>${bn?'ধরন':'Change Type'}</span><b><span class="chip">${c.ChangeType||''}</span></b></div>
+      <div class="pop-row"><span>${bn?'কার্যকর তারিখ':'Effective Date'}</span><b>${fmtDate(c.EffectiveDate)}</b></div>
+      <div class="pop-row"><span>${bn?'পূর্ব পদবি':'Previous Designation'}</span><b>${c.CurrentDesignation||'—'}</b></div>
+      <div class="pop-row"><span>${bn?'নতুন পদবি':'New Designation'}</span><b style="color:var(--purple)">${c.NewDesignation||'—'}</b></div>
+      <div class="pop-row"><span>${bn?'পূর্ব বেতন':'Previous Salary'}</span><b>${c.PreviousSalary?money(c.PreviousSalary):'—'}</b></div>
+      <div class="pop-row"><span>${bn?'নতুন বেতন':'New Salary'}</span><b style="color:var(--success)">${c.NewSalary?money(c.NewSalary):'—'}</b></div>
+      <div class="pop-row"><span>${bn?'ইনক্রিমেন্ট':'Increment'}</span><b>${c.IncrementAmount?money(c.IncrementAmount):'—'}</b></div>
+      ${c.Notes?`<div class="pop-row"><span>${bn?'নোট':'Notes'}</span><b>${c.Notes}</b></div>`:''}
+      ${emp?`<div class="pop-row"><span>${bn?'বর্তমান পদবি/বেতন (Employees)':'Current in Employees'}</span><b>${emp.Designation||'—'} · ${emp.Salary?money(emp.Salary):'—'}</b></div>`:''}
+    </div>
+    <div class="pop-hint">${bn?'💡 রিভার্ট করলে পূর্ব পদবি ও বেতন কর্মচারীর প্রোফাইলে ফিরে যাবে (এই রেকর্ড ডিলিট হবে)।':'💡 Revert restores previous designation and salary in the employee profile and deletes this record.'}</div>`,
+    `<button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>
+     ${emp?`<button class="btn" style="background:var(--warning);color:#fff" onclick="revertCareer(${jsQ(c.ChangeID)})">${bn?'রিভার্ট':'Revert'}</button>`:''}
+     <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteCareer(${jsQ(c.ChangeID)})">${bn?'রেকর্ড ডিলিট':'Delete'}</button>`);
+}
+function revertCareer(cid){
+  if(!guardEdit()) return;
+  const c = DATA.career.find(r=>String(r.ChangeID)===String(cid)); if(!c) return;
+  const emp = DATA.employees.find(e=>String(e.RecordID)===String(c.RecordID) || String(e.EmployeeID)===String(c.EmployeeID));
+  if(!emp){ toast(LANG==='bn'?'কর্মচারী খুঁজে পাওয়া যায়নি':'Employee not found','error'); return; }
+  if(!confirm(LANG==='bn'?`রিভার্ট করবেন? বেতন ${money(emp.Salary)} → ${money(c.PreviousSalary)}; পদবি ${emp.Designation} → ${c.CurrentDesignation}`:`Revert? Salary ${money(emp.Salary)} → ${money(c.PreviousSalary)}; Designation ${emp.Designation} → ${c.CurrentDesignation}`)) return;
+  emp.Designation = c.CurrentDesignation || emp.Designation;
+  emp.Salary = c.PreviousSalary || emp.Salary;
+  DATA.career = DATA.career.filter(r=>String(r.ChangeID)!==String(cid));
+  logActivity('revert','career',cid,`reverted ${c.ChangeType}`);
+  toast(LANG==='bn'?'রিভার্ট সম্পন্ন':'Reverted','success');
+  persist(); closeModal(); renderIncrement();
+}
+function deleteCareer(cid){
+  if(!guardEdit()) return;
+  if(!confirm(LANG==='bn'?'এই ক্যারিয়ার রেকর্ড ডিলিট করবেন? (কর্মচারী প্রোফাইল অপরিবর্তিত থাকবে)':'Delete this career record? (Employee profile stays as-is)')) return;
+  DATA.career = DATA.career.filter(r=>String(r.ChangeID)!==String(cid));
+  logActivity('delete','career',cid,'career record deleted');
+  toast(LANG==='bn'?'ডিলিট সম্পন্ন':'Deleted','success');
+  persist(); closeModal(); renderIncrement();
 }
 
 /* ============ SALARY (Placeholder with structure) ============ */
@@ -4633,6 +5077,13 @@ function renderReports(){
     {key:'parade',      icon:'users',    color:'p', title_en:'Parade State',           title_bn:'প্যারেড স্টেট',              desc_en:'Manpower demand vs actual',              desc_bn:'জনবল চাহিদা বনাম বর্তমান'},
     {key:'staffList',   icon:'file',     color:'b', title_en:'Project Staff List',     title_bn:'প্রজেক্টওয়াইজ কর্মী তালিকা',desc_en:'Employees per project',                  desc_bn:'প্রজেক্ট অনুযায়ী কর্মচারী'},
     {key:'turnover',    icon:'trend',    color:'r', title_en:'Turnover Analysis',      title_bn:'টার্নওভার বিশ্লেষণ',        desc_en:'Which project loses most staff',         desc_bn:'কোন প্রজেক্টে সবচেয়ে বেশি ত্যাগ'},
+    {key:'birthdays',   icon:'calendar', color:'p', title_en:'Birthdays & Anniversaries', title_bn:'জন্মদিন ও বর্ষপূর্তি',  desc_en:'Birthdays and work anniversaries this month', desc_bn:'এই মাসের জন্মদিন ও কর্মবর্ষপূর্তি'},
+    {key:'dataGaps',    icon:'warn',     color:'y', title_en:'Data Gap Alerts',        title_bn:'ডেটা-ঘাটতি সতর্কতা',       desc_en:'Missing NID / mobile / photo',            desc_bn:'NID / মোবাইল / ছবি অনুপস্থিত'},
+    {key:'contractExp', icon:'file',     color:'r', title_en:'Contract Expiry',        title_bn:'চুক্তি সমাপ্তি',            desc_en:'Contracts ending within 60 days',         desc_bn:'৬০ দিনের মধ্যে চুক্তি সমাপ্তি'},
+    {key:'salarySlip',  icon:'file',     color:'g', title_en:'Salary Slip',            title_bn:'বেতন স্লিপ',                desc_en:'Print individual A4 salary slip',         desc_bn:'কর্মচারীর A4 বেতন স্লিপ প্রিন্ট'},
+    {key:'analytics',   icon:'trend',    color:'b', title_en:'Analytics Dashboard',    title_bn:'অ্যানালিটিক্স ড্যাশবোর্ড',   desc_en:'Project·designation·6-month trends',     desc_bn:'প্রজেক্ট · পদবি · ৬-মাসের ট্রেন্ড'},
+    {key:'activityLog', icon:'file',     color:'b', title_en:'Activity Log',           title_bn:'অ্যাক্টিভিটি লগ',           desc_en:'Last 500 audit trail events',            desc_bn:'সর্বশেষ ৫০০টি অডিট ট্রেইল ইভেন্ট'},
+    {key:'csvImport',   icon:'excel',    color:'g', title_en:'CSV Bulk Import',        title_bn:'CSV বাল্ক ইমপোর্ট',        desc_en:'Paste or drop CSV/TSV for employees',    desc_bn:'কর্মচারী CSV/TSV পেস্ট বা ড্র্যাগ'},
   ];
   document.getElementById('page-reports').innerHTML = `
     <div class="card">
@@ -4749,10 +5200,376 @@ function showReport(kind){
         <div class="table-wrap"><table><thead><tr><th>${LANG==='bn'?'প্রজেক্ট':'Project'}</th><th>${LANG==='bn'?'মোট ত্যাগ':'Total Exits'}</th><th>${LANG==='bn'?'বর্তমান কর্মী':'Current Staff'}</th><th>${LANG==='bn'?'হার':'Rate'}</th></tr></thead><tbody>
           ${rows.map(([p,c])=>{const a=activeByProj[p]||0;const rate=a?(c*100/(a+c)).toFixed(1):'—';return `<tr><td>${projName(p)}</td><td><strong>${num(c)}</strong></td><td>${num(a)}</td><td>${rate}%</td></tr>`}).join('')}
         </tbody></table></div></div></div>`;
+  } else if(kind==='birthdays'){
+    /* ধাপ ৮: জন্মদিন + বর্ষপূর্তি */
+    const now = new Date();
+    const bMonth = now.getMonth();
+    const today = now.getDate();
+    const bdays = DATA.employees.filter(e=>e.Status==='Active' && e.DOB).map(e=>{
+      const d = parseDate(e.DOB); if(!d) return null;
+      if(d.getMonth()!==bMonth) return null;
+      const age = now.getFullYear() - d.getFullYear();
+      return { emp:e, day:d.getDate(), age, isToday: d.getDate()===today };
+    }).filter(Boolean).sort((a,b)=>a.day-b.day);
+    const annivs = DATA.employees.filter(e=>e.Status==='Active' && e.JoinDate).map(e=>{
+      const d = parseDate(e.JoinDate); if(!d) return null;
+      if(d.getMonth()!==bMonth) return null;
+      const years = now.getFullYear() - d.getFullYear();
+      if(years<=0) return null;
+      return { emp:e, day:d.getDate(), years, isToday: d.getDate()===today };
+    }).filter(Boolean).sort((a,b)=>a.day-b.day);
+    out = `<div class="card"><div class="card-header"><h3>${LANG==='bn'?'এই মাসের জন্মদিন ও বর্ষপূর্তি':'Birthdays & Anniversaries This Month'}</h3>
+      <div class="btn-row"><button class="btn sm" onclick="printReport()">${ico('print')} Print</button></div></div>
+      <div class="card-body" id="reportPrintable">
+        <div class="grid-2">
+          <div>
+            <h4 style="font-size:13px;margin-bottom:10px;color:var(--purple)">🎂 ${LANG==='bn'?'জন্মদিন':'Birthdays'} <span class="chip">${num(bdays.length)}</span></h4>
+            <div class="table-wrap"><table><thead><tr><th>${LANG==='bn'?'তারিখ':'Date'}</th><th>${LANG==='bn'?'নাম':'Name'}</th><th>${LANG==='bn'?'বয়স':'Age'}</th><th>${LANG==='bn'?'প্রজেক্ট':'Project'}</th></tr></thead>
+            <tbody>${bdays.map(b=>`<tr ${b.isToday?'style="background:#fef3c7"':''}><td>${num(b.day)} ${b.isToday?`<span class="pill warn sm">${LANG==='bn'?'আজ':'Today'}</span>`:''}</td><td>${b.emp.FullName}${b.emp.FullNameBn?`<br><span class="small-mute">${b.emp.FullNameBn}</span>`:''}</td><td>${num(b.age)}</td><td>${projName(b.emp.ProjectName)}</td></tr>`).join('')||`<tr><td colspan="4" class="small-mute" style="text-align:center;padding:16px">${LANG==='bn'?'কোনো জন্মদিন নেই':'No birthdays'}</td></tr>`}</tbody></table></div>
+          </div>
+          <div>
+            <h4 style="font-size:13px;margin-bottom:10px;color:var(--success)">🎉 ${LANG==='bn'?'কর্ম বর্ষপূর্তি':'Work Anniversaries'} <span class="chip">${num(annivs.length)}</span></h4>
+            <div class="table-wrap"><table><thead><tr><th>${LANG==='bn'?'তারিখ':'Date'}</th><th>${LANG==='bn'?'নাম':'Name'}</th><th>${LANG==='bn'?'বছর':'Years'}</th><th>${LANG==='bn'?'প্রজেক্ট':'Project'}</th></tr></thead>
+            <tbody>${annivs.map(a=>`<tr ${a.isToday?'style="background:#d1fae5"':''}><td>${num(a.day)} ${a.isToday?`<span class="pill success sm">${LANG==='bn'?'আজ':'Today'}</span>`:''}</td><td>${a.emp.FullName}${a.emp.FullNameBn?`<br><span class="small-mute">${a.emp.FullNameBn}</span>`:''}</td><td><strong>${num(a.years)}</strong></td><td>${projName(a.emp.ProjectName)}</td></tr>`).join('')||`<tr><td colspan="4" class="small-mute" style="text-align:center;padding:16px">${LANG==='bn'?'কোনো বর্ষপূর্তি নেই':'No anniversaries'}</td></tr>`}</tbody></table></div>
+          </div>
+        </div>
+      </div></div>`;
+  } else if(kind==='dataGaps'){
+    /* ধাপ ৮: ডেটা-ঘাটতি সতর্কতা */
+    const activeE = DATA.employees.filter(e=>e.Status==='Active');
+    const missNID = activeE.filter(e=>!e.NID && !e['NID/BirthCertificate']);
+    const missPhone = activeE.filter(e=>!e.PhoneNumber);
+    const missPhoto = activeE.filter(e=>!e.Photo && !e.PhotoURL);
+    const missDOB = activeE.filter(e=>!e.DOB);
+    const rows = [
+      {k:'NID', bn:'জাতীয় পরিচয়পত্র', list: missNID, color:'#dc2626'},
+      {k:'Mobile', bn:'মোবাইল নম্বর', list: missPhone, color:'#dc2626'},
+      {k:'Photo', bn:'ছবি', list: missPhoto, color:'#f59e0b'},
+      {k:'DOB', bn:'জন্ম তারিখ', list: missDOB, color:'#f59e0b'},
+    ];
+    out = `<div class="card"><div class="card-header"><h3>${LANG==='bn'?'ডেটা-ঘাটতি সতর্কতা':'Data Gap Alerts'}</h3>
+      <div class="btn-row"><button class="btn sm" onclick="printReport()">${ico('print')} Print</button></div></div>
+      <div class="card-body" id="reportPrintable">
+        <p class="small-mute" style="margin-bottom:14px">${LANG==='bn'?'সক্রিয় কর্মচারীদের গুরুত্বপূর্ণ তথ্যের ঘাটতি (ভেরিফিকেশন ও বেতনের জন্য জরুরি)':'Missing key fields on active employees (critical for verification & salary)'}</p>
+        <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:18px">
+          ${rows.map(r=>`<div class="kpi"><div class="kpi-icon" style="background:${r.color}22;color:${r.color}">${ico('warn')}</div><div class="kpi-label">${LANG==='bn'?r.bn:r.k}</div><div class="kpi-value">${num(r.list.length)}</div><div class="kpi-delta">${LANG==='bn'?'অনুপস্থিত':'missing'}</div></div>`).join('')}
+        </div>
+        ${rows.filter(r=>r.list.length).map(r=>`
+          <h4 style="font-size:13px;margin:14px 0 8px;background:var(--bg-dim);padding:8px 12px;border-radius:6px">${LANG==='bn'?r.bn:r.k} — <span class="chip">${num(r.list.length)}</span></h4>
+          <div class="table-wrap"><table><thead><tr><th>#</th><th>${LANG==='bn'?'আইডি':'ID'}</th><th>${LANG==='bn'?'নাম':'Name'}</th><th>${LANG==='bn'?'পদবি':'Designation'}</th><th>${LANG==='bn'?'প্রজেক্ট':'Project'}</th></tr></thead>
+          <tbody>${r.list.slice(0,50).map((e,i)=>`<tr class="row-click" onclick="openEmpDetail('${e.RecordID}')" style="cursor:pointer"><td>${num(i+1)}</td><td>${num(e.EmployeeID)}</td><td>${e.FullName}</td><td>${desig(e.Designation)}</td><td>${projName(e.ProjectName)}</td></tr>`).join('')}</tbody></table></div>
+          ${r.list.length>50?`<p class="small-mute" style="text-align:center;padding:8px">${LANG==='bn'?'... আরও '+num(r.list.length-50)+' জন':'... '+(r.list.length-50)+' more'}</p>`:''}
+        `).join('')}
+      </div></div>`;
+  } else if(kind==='contractExp'){
+    /* ধাপ ৮: চুক্তি সমাপ্তি অ্যালার্ট (৬০ দিন) */
+    const nowTs = Date.now();
+    const soon = DATA.employees.filter(e=>e.Status==='Active' && e.ContractEnd).map(e=>{
+      const t = parseDate(e.ContractEnd)?.getTime(); if(!t) return null;
+      const days = Math.round((t-nowTs)/86400000);
+      if(days>60 || days< -7) return null;
+      return {emp:e, days, endDate:e.ContractEnd};
+    }).filter(Boolean).sort((a,b)=>a.days-b.days);
+    out = `<div class="card"><div class="card-header"><h3>${LANG==='bn'?'চুক্তি সমাপ্তি (৬০ দিনের মধ্যে)':'Contract Expiry (within 60 days)'}</h3>
+      <div class="btn-row"><button class="btn sm" onclick="printReport()">${ico('print')} Print</button></div></div>
+      <div class="card-body" id="reportPrintable">
+        ${soon.length ? `<div class="table-wrap"><table><thead><tr><th>#</th><th>${LANG==='bn'?'আইডি':'ID'}</th><th>${LANG==='bn'?'নাম':'Name'}</th><th>${LANG==='bn'?'পদবি':'Designation'}</th><th>${LANG==='bn'?'প্রজেক্ট':'Project'}</th><th>${LANG==='bn'?'সমাপ্তি':'End Date'}</th><th>${LANG==='bn'?'বাকি':'Days Left'}</th></tr></thead>
+          <tbody>${soon.map((s,i)=>`<tr class="row-click" onclick="openEmpDetail('${s.emp.RecordID}')" style="cursor:pointer;${s.days<=15?'background:#fee2e2':(s.days<=30?'background:#fef3c7':'')}"><td>${num(i+1)}</td><td>${num(s.emp.EmployeeID)}</td><td>${s.emp.FullName}</td><td>${desig(s.emp.Designation)}</td><td>${projName(s.emp.ProjectName)}</td><td>${fmtDate(s.endDate)}</td><td><strong>${num(s.days)}</strong> ${LANG==='bn'?'দিন':'days'}</td></tr>`).join('')}</tbody></table></div>` :
+          `<p class="small-mute" style="text-align:center;padding:24px">${LANG==='bn'?'৬০ দিনের মধ্যে কোনো চুক্তি সমাপ্ত হচ্ছে না (অথবা ContractEnd তথ্য নেই)':'No contracts expiring in 60 days (or ContractEnd field is empty)'}</p>`}
+        <p class="small-mute" style="margin-top:14px">${LANG==='bn'?'দ্রষ্টব্য: Employees এ ContractEnd ফিল্ড থাকলে এখানে দেখাবে; না থাকলে তা যোগ করে সিঙ্ক করুন':'Note: Requires ContractEnd field on employees; add it and sync if missing'}</p>
+      </div></div>`;
+  } else if(kind==='salarySlip'){
+    /* ধাপ ৮: বেতন স্লিপ */
+    const monthsBn=['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+    out = `<div class="card"><div class="card-header"><h3>${LANG==='bn'?'বেতন স্লিপ':'Salary Slip'}</h3></div>
+      <div class="card-body">
+        <div class="form-grid">
+          <div class="field"><label>${LANG==='bn'?'কর্মচারী':'Employee'} *</label><select id="ssEmp">${DATA.employees.filter(e=>e.Status==='Active').map(e=>`<option value="${e.RecordID}">${e.FullName} — ${num(e.EmployeeID)} — ${projName(e.ProjectName)}</option>`).join('')}</select></div>
+          <div class="field"><label>${LANG==='bn'?'মাস':'Month'} *</label><select id="ssMonth">${monthsBn.map((m,i)=>{const mo=String(i+1).padStart(2,'0');const d=new Date();const val=`${d.getFullYear()}-${mo}`;return `<option value="${val}" ${i===new Date().getMonth()?'selected':''}>${LANG==='bn'?m:new Date(0,i,1).toLocaleString('en',{month:'long'})} ${LANG==='bn'?toBnDigits(d.getFullYear()):d.getFullYear()}</option>`}).join('')}</select></div>
+          <div class="field"><label>${LANG==='bn'?'অতিরিক্ত ভাতা (টাকা)':'Other Allowance (৳)'}</label><input id="ssOther" type="number" value="0"></div>
+          <div class="field"><label>${LANG==='bn'?'কর্তন (টাকা)':'Deduction (৳)'}</label><input id="ssDeduct" type="number" value="0"></div>
+        </div>
+        <div class="btn-row" style="margin-top:14px">
+          <button class="btn primary" onclick="printSalarySlip()">${ico('print')} ${LANG==='bn'?'স্লিপ প্রিন্ট (A4)':'Print Slip (A4)'}</button>
+        </div>
+      </div></div>`;
+  } else if(kind==='analytics'){
+    /* ধাপ ৮: অ্যানালিটিক্স ড্যাশবোর্ড */
+    const active = DATA.employees.filter(e=>e.Status==='Active');
+    const inactive = DATA.employees.filter(e=>e.Status!=='Active');
+    const byProj = {};
+    active.forEach(e=>byProj[e.ProjectName]=(byProj[e.ProjectName]||0)+1);
+    const projRows = Object.entries(byProj).sort((a,b)=>b[1]-a[1]);
+    const byDesig = {};
+    active.forEach(e=>byDesig[e.Designation]=(byDesig[e.Designation]||0)+1);
+    const desigRows = Object.entries(byDesig).sort((a,b)=>b[1]-a[1]);
+    const maxProj = projRows.length ? projRows[0][1] : 1;
+    const maxDesig = desigRows.length ? desigRows[0][1] : 1;
+    /* ৬ মাসের যোগ/ত্যাগ */
+    const trend = []; const now = new Date();
+    for(let i=5;i>=0;i--){
+      const d = new Date(now.getFullYear(),now.getMonth()-i,1);
+      const s = d.getTime(), e = new Date(d.getFullYear(),d.getMonth()+1,1).getTime();
+      const joins = DATA.employees.filter(x=>{const t=parseDate(x.JoinDate)?.getTime();return t&&t>=s&&t<e;}).length;
+      const exits = DATA.exits.filter(x=>{const t=parseDate(x.ExitDate)?.getTime();return t&&t>=s&&t<e;}).length;
+      const label = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()] + ' ' + String(d.getFullYear()).slice(-2);
+      trend.push({label,joins,exits});
+    }
+    const maxTrend = Math.max(1, ...trend.map(t=>Math.max(t.joins,t.exits)));
+    out = `<div class="card"><div class="card-header"><h3>${LANG==='bn'?'অ্যানালিটিক্স ড্যাশবোর্ড':'Analytics Dashboard'}</h3>
+      <div class="btn-row"><button class="btn sm" onclick="printReport()">${ico('print')} Print</button></div></div>
+      <div class="card-body" id="reportPrintable">
+        <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
+          <div class="kpi"><div class="kpi-icon" style="background:var(--success-soft);color:var(--success)">${ico('users')}</div><div class="kpi-label">${LANG==='bn'?'সক্রিয়':'Active'}</div><div class="kpi-value">${num(active.length)}</div><div class="kpi-delta">${((active.length*100)/(active.length+inactive.length||1)).toFixed(1)}%</div></div>
+          <div class="kpi"><div class="kpi-icon" style="background:var(--danger-soft);color:var(--danger)">${ico('users')}</div><div class="kpi-label">${LANG==='bn'?'নিষ্ক্রিয়':'Inactive'}</div><div class="kpi-value">${num(inactive.length)}</div><div class="kpi-delta">${((inactive.length*100)/(active.length+inactive.length||1)).toFixed(1)}%</div></div>
+          <div class="kpi"><div class="kpi-icon" style="background:var(--primary-soft);color:var(--primary)">${ico('project')}</div><div class="kpi-label">${LANG==='bn'?'প্রজেক্ট':'Projects'}</div><div class="kpi-value">${num(projRows.length)}</div><div class="kpi-delta">${LANG==='bn'?'সক্রিয় কর্মী সহ':'with active staff'}</div></div>
+        </div>
+        <h4 style="font-size:13px;margin:16px 0 10px">${LANG==='bn'?'গত ৬ মাসের যোগ/ত্যাগ ট্রেন্ড':'Last 6-Month Join/Exit Trend'}</h4>
+        <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;padding:12px;background:var(--bg-dim);border-radius:8px">
+          ${trend.map(t=>`
+            <div style="text-align:center">
+              <div style="height:100px;display:flex;align-items:flex-end;gap:3px;justify-content:center">
+                <div title="${LANG==='bn'?'যোগ':'Joins'}: ${t.joins}" style="width:16px;background:#10b981;height:${(t.joins/maxTrend*90)||2}%;border-radius:3px 3px 0 0"></div>
+                <div title="${LANG==='bn'?'ত্যাগ':'Exits'}: ${t.exits}" style="width:16px;background:#dc2626;height:${(t.exits/maxTrend*90)||2}%;border-radius:3px 3px 0 0"></div>
+              </div>
+              <div class="small-mute" style="margin-top:4px;font-size:10px">${t.label}</div>
+              <div style="font-size:11px"><span style="color:#10b981">+${num(t.joins)}</span> / <span style="color:#dc2626">−${num(t.exits)}</span></div>
+            </div>
+          `).join('')}
+        </div>
+        <div class="grid-2" style="margin-top:20px">
+          <div>
+            <h4 style="font-size:13px;margin-bottom:10px">${LANG==='bn'?'প্রজেক্ট অনুযায়ী কর্মী (শীর্ষ ১৫)':'Staff by Project (Top 15)'}</h4>
+            ${projRows.slice(0,15).map(([p,n])=>`
+              <div style="margin-bottom:6px">
+                <div style="display:flex;justify-content:space-between;font-size:12px"><span>${projName(p)}</span><strong>${num(n)}</strong></div>
+                <div style="height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden"><div style="height:100%;background:linear-gradient(90deg,#3b82f6,#8b5cf6);width:${(n/maxProj*100).toFixed(1)}%"></div></div>
+              </div>
+            `).join('')}
+          </div>
+          <div>
+            <h4 style="font-size:13px;margin-bottom:10px">${LANG==='bn'?'পদবি অনুযায়ী':'By Designation'}</h4>
+            ${desigRows.slice(0,15).map(([d,n])=>`
+              <div style="margin-bottom:6px">
+                <div style="display:flex;justify-content:space-between;font-size:12px"><span>${desig(d)}</span><strong>${num(n)}</strong></div>
+                <div style="height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden"><div style="height:100%;background:linear-gradient(90deg,#10b981,#3b82f6);width:${(n/maxDesig*100).toFixed(1)}%"></div></div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div></div>`;
+  } else if(kind==='activityLog'){
+    /* ধাপ ৭.৪: Activity Log Viewer */
+    const log = (DATA.activityLog||[]).slice(0,500);
+    out = `<div class="card"><div class="card-header"><h3>${LANG==='bn'?'অ্যাক্টিভিটি লগ (অডিট ট্রেইল)':'Activity Log (Audit Trail)'}</h3>
+      <div class="btn-row">
+        <button class="btn sm" onclick="exportActivityLogCSV()">${ico('excel')} CSV</button>
+        <button class="btn sm" onclick="printReport()">${ico('print')} Print</button>
+        <button class="btn ghost sm" onclick="if(confirm('${LANG==='bn'?'লগ পরিষ্কার করবেন?':'Clear log?'}')){DATA.activityLog=[];persist();renderReports();showReport('activityLog');}" style="color:#dc2626">${LANG==='bn'?'পরিষ্কার':'Clear'}</button>
+      </div></div>
+      <div class="card-body" id="reportPrintable">
+        <p class="small-mute" style="margin-bottom:12px">${LANG==='bn'?'সর্বশেষ ৫০০টি ইভেন্ট — সিঙ্ক করলে Supabase-এও যাবে':'Last 500 events — synced to Supabase via activity_log table'}</p>
+        <div class="table-wrap"><table><thead><tr>
+          <th>#</th><th>${LANG==='bn'?'সময়':'Time'}</th><th>${LANG==='bn'?'ব্যবহারকারী':'User'}</th><th>${LANG==='bn'?'কাজ':'Action'}</th><th>${LANG==='bn'?'টেবিল':'Table'}</th><th>${LANG==='bn'?'রেফ':'Ref'}</th><th>${LANG==='bn'?'বিবরণ':'Detail'}</th>
+        </tr></thead>
+        <tbody>${log.length ? log.map((e,i)=>{const t=e.at?new Date(e.at):null;const tStr=t?t.toLocaleString(LANG==='bn'?'bn-BD':'en-GB'):'';const actColor={create:'#10b981',update:'#3b82f6',delete:'#dc2626',approve:'#10b981',reject:'#f59e0b',cancel:'#f59e0b',restore:'#8b5cf6',login:'#6366f1',print:'#64748b'}[e.action]||'#64748b';return `<tr><td>${num(i+1)}</td><td class="small-mute">${tStr}</td><td>${e.user||'—'}</td><td><span class="pill" style="background:${actColor}22;color:${actColor}">${e.action||''}</span></td><td>${e.table||''}</td><td>${e.refId||''}</td><td>${e.detail||''}</td></tr>`;}).join('') : `<tr><td colspan="7" class="small-mute" style="text-align:center;padding:24px">${LANG==='bn'?'কোনো লগ নেই — কার্যক্রম শুরু করলে এখানে দেখাবে':'No log entries — actions will appear here'}</td></tr>`}
+        </tbody></table></div>
+      </div></div>`;
+  } else if(kind==='csvImport'){
+    /* ধাপ ৭.২: CSV/TSV Bulk Import */
+    out = `<div class="card"><div class="card-header"><h3>${LANG==='bn'?'CSV বাল্ক ইমপোর্ট (কর্মচারী)':'CSV Bulk Import (Employees)'}</h3></div>
+      <div class="card-body">
+        <p class="small-mute" style="margin-bottom:14px">${LANG==='bn'?'প্রথম সারিতে হেডার (কলামের নাম) দিন। বাংলা বা ইংরেজি — দুটোই চিনবে। NID/মোবাইল দিয়ে ডুপ্লিকেট চেক হবে।':'First row is header (column names). Bangla or English — both recognized. Duplicate check on NID/mobile.'}</p>
+        <div class="field"><label>${LANG==='bn'?'সমর্থিত কলাম (যেকোনো ক্রমে)':'Supported columns (any order)'}</label>
+          <div style="background:var(--bg-dim);padding:10px;border-radius:6px;font-family:monospace;font-size:11px;line-height:1.6">
+            EmployeeID, FullName, FullNameBn, FatherName, MotherName, DOB, NID, PhoneNumber, Designation, ProjectName, JoinDate, Salary, Address, MaritalStatus, Education, Religion<br>
+            <span style="color:var(--primary)">${LANG==='bn'?'বা বাংলা':'or Bangla'}:</span> আইডি, নাম, পিতা, মাতা, জন্ম, এনআইডি, মোবাইল, পদবি, প্রজেক্ট, যোগদান, বেতন, ঠিকানা
+          </div>
+        </div>
+        <div class="field"><label>${LANG==='bn'?'CSV/TSV পেস্ট করুন':'Paste CSV/TSV'} *</label>
+          <textarea id="csvInput" rows="10" style="width:100%;font-family:monospace;font-size:12px" placeholder="${LANG==='bn'?'EmployeeID,FullName,PhoneNumber,Designation,ProjectName\\n1001,মোঃ করিম,01711...,Security Guard,...':'EmployeeID,FullName,PhoneNumber,...'}"></textarea>
+        </div>
+        <div class="btn-row" style="margin-top:14px">
+          <button class="btn primary" onclick="csvImportPreview()">${LANG==='bn'?'প্রিভিউ':'Preview'}</button>
+          <button class="btn ghost" onclick="document.getElementById('csvInput').value=''">${LANG==='bn'?'পরিষ্কার':'Clear'}</button>
+        </div>
+        <div id="csvPreview" style="margin-top:14px"></div>
+      </div></div>`;
   }
   document.getElementById('reportOutput').innerHTML = out;
 }
 function exportReport(kind){ toast(`${kind} report exported to CSV`, 'success'); }
+
+/* ============ ধাপ ৮: বেতন স্লিপ প্রিন্ট ============ */
+function printSalarySlip(){
+  const rid = document.getElementById('ssEmp')?.value;
+  const monthVal = document.getElementById('ssMonth')?.value;
+  const other = +(document.getElementById('ssOther')?.value||0);
+  const deduct = +(document.getElementById('ssDeduct')?.value||0);
+  const e = DATA.employees.find(x=>x.RecordID===rid);
+  if(!e){ toast(LANG==='bn'?'কর্মচারী বাছাই করুন':'Select an employee','error'); return; }
+  const monthsBn=['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+  const monthsEn=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const [yr,mo] = (monthVal||todayISO().slice(0,7)).split('-').map(Number);
+  const monthName = (LANG==='bn'?monthsBn:monthsEn)[mo-1] + ' ' + (LANG==='bn'?toBnDigits(yr):yr);
+  const basic = Math.round((+e.Salary||0)*0.6);
+  const houseRent = Math.round((+e.Salary||0)*0.25);
+  const medical = Math.round((+e.Salary||0)*0.1);
+  const otherFix = (+e.Salary||0) - basic - houseRent - medical;
+  const gross = basic + houseRent + medical + otherFix + other;
+  const net = gross - deduct;
+  const bn = LANG==='bn';
+  const html = `<div class="print-doc compact">
+    ${letterhead()}
+    <div class="subject" style="text-align:center;text-decoration:underline">${bn?'বেতন স্লিপ':'Salary Slip'} — ${monthName}</div>
+    <table class="form-table" style="margin-top:14px">
+      <tr><th style="width:30%">${bn?'কর্মচারী আইডি':'Employee ID'}</th><td>${num(e.EmployeeID||'')}</td><th style="width:20%">${bn?'যোগদান':'Join Date'}</th><td>${fmtDate(e.JoinDate)}</td></tr>
+      <tr><th>${bn?'নাম':'Name'}</th><td colspan="3">${e.FullName||''}${e.FullNameBn?' ('+e.FullNameBn+')':''}</td></tr>
+      <tr><th>${bn?'পদবি':'Designation'}</th><td>${desig(e.Designation)}</td><th>${bn?'প্রজেক্ট':'Project'}</th><td>${projName(e.ProjectName)}</td></tr>
+    </table>
+    <table class="form-table" style="margin-top:14px">
+      <thead><tr><th style="width:60%">${bn?'বিবরণ':'Description'}</th><th style="text-align:right">${bn?'পরিমাণ (৳)':'Amount (৳)'}</th></tr></thead>
+      <tbody>
+        <tr><td>${bn?'মূল বেতন':'Basic Salary'}</td><td style="text-align:right">${num(basic)}</td></tr>
+        <tr><td>${bn?'বাসা ভাড়া ভাতা':'House Rent Allowance'}</td><td style="text-align:right">${num(houseRent)}</td></tr>
+        <tr><td>${bn?'চিকিৎসা ভাতা':'Medical Allowance'}</td><td style="text-align:right">${num(medical)}</td></tr>
+        <tr><td>${bn?'অন্যান্য ভাতা':'Other Allowance'}</td><td style="text-align:right">${num(otherFix+other)}</td></tr>
+        <tr style="background:#f0f9ff;font-weight:700"><td>${bn?'মোট আয়':'Gross Earnings'}</td><td style="text-align:right">${num(gross)}</td></tr>
+        <tr><td>${bn?'কর্তন':'Deduction'}</td><td style="text-align:right">${num(deduct)}</td></tr>
+        <tr style="background:#f0fdf4;font-weight:700;font-size:13pt"><td>${bn?'নিট প্রদেয়':'Net Payable'}</td><td style="text-align:right">${num(net)} ৳</td></tr>
+      </tbody>
+    </table>
+    <div class="sign-block triple" style="margin-top:40px">
+      <div><div style="border-top:1px solid #000;padding-top:5px;text-align:center">${bn?'কর্মচারীর স্বাক্ষর':'Employee Signature'}</div></div>
+      <div><div style="border-top:1px solid #000;padding-top:5px;text-align:center">${bn?'অ্যাকাউন্টস':'Accounts'}</div></div>
+      <div><div style="border-top:1px solid #000;padding-top:5px;text-align:center">${bn?'ব্যবস্থাপনা পরিচালক':'Managing Director'}</div></div>
+    </div>
+  </div>`;
+  logActivity('print','salary_slip', e.RecordID, e.FullName+' '+monthName);
+  openPrint(html);
+}
+
+/* ============ ধাপ ৭.৪: Activity Log CSV Export ============ */
+function exportActivityLogCSV(){
+  const log = DATA.activityLog||[];
+  const rows = [['Time','User','Action','Table','RefID','Detail']];
+  log.forEach(e=>rows.push([e.at||'', e.user||'', e.action||'', e.table||'', e.refId||'', (e.detail||'').replace(/"/g,'""')]));
+  const csv = rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'activity_log_' + todayISO() + '.csv';
+  a.click();
+  toast(LANG==='bn'?'CSV ডাউনলোড হয়েছে':'CSV downloaded','success');
+}
+
+/* ============ ধাপ ৭.২: CSV Import (Employees) ============ */
+function csvImportPreview(){
+  const text = (document.getElementById('csvInput')?.value||'').trim();
+  if(!text){ toast(LANG==='bn'?'CSV পেস্ট করুন':'Paste CSV first','error'); return; }
+  const sep = text.indexOf('\t')>-1 && text.indexOf('\t')<text.indexOf('\n') ? '\t' : ',';
+  const lines = text.split(/\r?\n/).filter(l=>l.trim());
+  const parseLine = (l) => {
+    if(sep==='\t') return l.split('\t').map(s=>s.trim());
+    const out=[]; let cur='',q=false;
+    for(let i=0;i<l.length;i++){ const c=l[i];
+      if(c==='"'){ if(q && l[i+1]==='"'){cur+='"';i++;} else q=!q; }
+      else if(c===',' && !q){ out.push(cur.trim()); cur=''; }
+      else cur+=c;
+    }
+    out.push(cur.trim()); return out;
+  };
+  const headerRaw = parseLine(lines[0]);
+  const headerMap = {
+    'employeeid':'EmployeeID','emp id':'EmployeeID','আইডি':'EmployeeID','কর্মী আইডি':'EmployeeID','id':'EmployeeID',
+    'fullname':'FullName','name':'FullName','নাম':'FullName',
+    'fullnamebn':'FullNameBn','name bn':'FullNameBn','বাংলা নাম':'FullNameBn',
+    'fathername':'FatherName','father':'FatherName','পিতার নাম':'FatherName','পিতা':'FatherName',
+    'mothername':'MotherName','mother':'MotherName','মাতার নাম':'MotherName','মাতা':'MotherName',
+    'dob':'DOB','birthdate':'DOB','জন্ম তারিখ':'DOB','জন্ম':'DOB',
+    'nid':'NID','nid/birthcertificate':'NID','এনআইডি':'NID','জাতীয় পরিচয়':'NID',
+    'phonenumber':'PhoneNumber','phone':'PhoneNumber','mobile':'PhoneNumber','মোবাইল':'PhoneNumber','ফোন':'PhoneNumber',
+    'designation':'Designation','পদবি':'Designation','পদ':'Designation',
+    'projectname':'ProjectName','project':'ProjectName','প্রজেক্ট':'ProjectName',
+    'joindate':'JoinDate','join date':'JoinDate','যোগদান':'JoinDate','যোগদান তারিখ':'JoinDate',
+    'salary':'Salary','বেতন':'Salary',
+    'address':'Address','ঠিকানা':'Address',
+    'maritalstatus':'MaritalStatus','বৈবাহিক':'MaritalStatus',
+    'education':'Education','শিক্ষা':'Education',
+    'religion':'Religion','ধর্ম':'Religion',
+  };
+  const header = headerRaw.map(h => headerMap[h.toLowerCase().trim()] || h.trim());
+  const unmapped = headerRaw.filter((_,i)=>!headerMap[headerRaw[i].toLowerCase().trim()]);
+  const rows = [];
+  for(let i=1;i<lines.length;i++){
+    const cells = parseLine(lines[i]);
+    const obj = {}; header.forEach((h,j)=>{ if(cells[j]!==undefined) obj[h]=cells[j]; });
+    if(Object.keys(obj).length) rows.push(obj);
+  }
+  /* Duplicate check */
+  const dupes = []; const fresh = [];
+  const existingNID = new Set(DATA.employees.map(e=>String(e.NID||e['NID/BirthCertificate']||'').replace(/\D/g,'')).filter(Boolean));
+  const existingPhone = new Set(DATA.employees.map(e=>String(e.PhoneNumber||'').replace(/\D/g,'')).filter(Boolean));
+  rows.forEach(r=>{
+    const nid = String(r.NID||'').replace(/\D/g,'');
+    const ph = String(r.PhoneNumber||'').replace(/\D/g,'');
+    if((nid && existingNID.has(nid)) || (ph && existingPhone.has(ph))) dupes.push(r);
+    else fresh.push(r);
+  });
+  const bn = LANG==='bn';
+  const html = `
+    <div class="card" style="margin:0">
+      <div class="card-header"><h3>${bn?'ইমপোর্ট প্রিভিউ':'Import Preview'}</h3></div>
+      <div class="card-body">
+        <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
+          <div class="kpi"><div class="kpi-icon" style="background:var(--success-soft);color:var(--success)">${ico('users')}</div><div class="kpi-label">${bn?'নতুন':'New'}</div><div class="kpi-value">${num(fresh.length)}</div></div>
+          <div class="kpi"><div class="kpi-icon" style="background:var(--warning-soft);color:var(--warning)">${ico('warn')}</div><div class="kpi-label">${bn?'ডুপ্লিকেট':'Duplicates'}</div><div class="kpi-value">${num(dupes.length)}</div></div>
+          <div class="kpi"><div class="kpi-icon" style="background:var(--primary-soft);color:var(--primary)">${ico('file')}</div><div class="kpi-label">${bn?'মোট সারি':'Total Rows'}</div><div class="kpi-value">${num(rows.length)}</div></div>
+        </div>
+        ${unmapped.length?`<p style="color:#f59e0b;margin-bottom:10px">⚠ ${bn?'ম্যাপ হয়নি কলাম':'Unmapped columns'}: ${unmapped.join(', ')}</p>`:''}
+        <div style="max-height:300px;overflow:auto;border:1px solid var(--border-strong);border-radius:6px">
+          <table><thead><tr>${header.map(h=>`<th>${h}</th>`).join('')}<th>${bn?'অবস্থা':'Status'}</th></tr></thead>
+          <tbody>${rows.slice(0,50).map(r=>{const isDup=dupes.includes(r);return `<tr>${header.map(h=>`<td>${r[h]||''}</td>`).join('')}<td>${isDup?`<span class="pill danger sm">${bn?'ডুপ্লিকেট':'Dup'}</span>`:`<span class="pill success sm">${bn?'নতুন':'New'}</span>`}</td></tr>`}).join('')}</tbody></table>
+        </div>
+        ${rows.length>50?`<p class="small-mute" style="text-align:center;padding:8px">${bn?'... আরও '+num(rows.length-50)+' সারি':'... '+num(rows.length-50)+' more rows'}</p>`:''}
+        <div class="btn-row" style="margin-top:14px">
+          <button class="btn primary" onclick="csvImportConfirm(${jsQ(JSON.stringify(fresh))})">${bn?'নতুন '+num(fresh.length)+' জন ইমপোর্ট করুন':'Import '+fresh.length+' new'}</button>
+          <button class="btn ghost" onclick="document.getElementById('csvPreview').innerHTML=''">${bn?'বাতিল':'Cancel'}</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('csvPreview').innerHTML = html;
+}
+function csvImportConfirm(rowsJson){
+  if(!guardEdit()) return;
+  let rows = [];
+  try { rows = JSON.parse(String(rowsJson).replace(/&quot;/g,'"').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')); } catch(e){}
+  if(!rows.length){ toast(LANG==='bn'?'কোনো নতুন সারি নেই':'No new rows','warn'); return; }
+  const maxRec = Math.max(0, ...DATA.employees.map(e=>+e.RecordID||0));
+  const maxEmp = Math.max(0, ...DATA.employees.map(e=>parseInt(e.EmployeeID)||0));
+  rows.forEach((r,i)=>{
+    const rec = {
+      RecordID: String(maxRec+1+i),
+      EmployeeID: r.EmployeeID || String(maxEmp+1+i).padStart(4,'0'),
+      FullName: r.FullName||'',
+      FullNameBn: r.FullNameBn||'',
+      FatherName: r.FatherName||'', MotherName: r.MotherName||'',
+      DOB: r.DOB||'', NID: r.NID||'', 'NID/BirthCertificate': r.NID||'',
+      PhoneNumber: r.PhoneNumber||'',
+      Designation: r.Designation||'', ProjectName: r.ProjectName||'',
+      JoinDate: r.JoinDate || todayISO(),
+      Salary: +r.Salary||0,
+      Address: r.Address||'', MaritalStatus: r.MaritalStatus||'',
+      Education: r.Education||'', Religion: r.Religion||'',
+      Status:'Active'
+    };
+    DATA.employees.unshift(rec);
+    logActivity('create','employees', rec.EmployeeID, 'CSV import: '+rec.FullName);
+  });
+  toast(`${LANG==='bn'?num(rows.length)+' জন ইমপোর্ট সফল':rows.length+' rows imported'}`, 'success');
+  persist(); renderReports(); showReport('csvImport');
+  renderAll && renderAll();
+}
 /* ---- মডার্ন ইন্টারনাল রিপোর্ট শেল — সব রিপোর্ট ইংরেজিতে, লেটারহেড ছাড়া, কোম্পানির নামসহ ---- */
 function mrepShell({title, subtitle, kpis, body, landscape}){
   return `<div class="print-doc mrep${landscape?' landscape':''}">
@@ -5095,41 +5912,51 @@ function empNameBn(e){
 /* ============ NOTIFICATIONS + SCHEDULED TRANSFERS ============ */
 const NOTIFICATIONS = [];
 function applyScheduledTransfers(){
+  /* v3.4 অলঙ্ঘনীয় নিয়ম ১+৩:
+     - কোনো Scheduled ট্রান্সফার আপনা-আপনি প্রয়োগ হবে না
+     - Employee.ProjectName কখনো ইতিহাস/ট্রান্সফার থেকে override হবে না
+     এই ফাংশন শুধু আজ/অতীতের Scheduled ট্রান্সফারকে "Awaiting Confirmation"
+     হিসেবে চিহ্নিত করে ব্যবহারকারীর কাছে জিজ্ঞেস করে — Employee.ProjectName
+     স্পর্শ করে না। ব্যবহারকারী "কার্যকর হয়েছে" বললে তবেই confirmJoin() থেকে
+     প্রজেক্ট বদলাবে। */
   const today = todayISO();
   DATA.transfers.forEach(t=>{
     if(t.Status==='Cancelled' || t._applied) return;
     if(t.TransferDate && t.TransferDate<=today && t.Status!=='Completed'){
-      const e = DATA.employees.find(x=>x.EmployeeID===t.EmployeeID);
-      if(e && e.Status==='Active' && e.ProjectName!==t.NewProject) e.ProjectName = t.NewProject;
-      t._applied = true; t.Status = 'Join Pending';
+      t._applied = true; t.Status = 'Awaiting Confirmation';
       NOTIFICATIONS.unshift({
         id:'tj'+t.TransferID, type:'transfer_join', transferId:t.TransferID, severity:'warning',
         title:`${t.FullName} — যোগদান নিশ্চিত করুন`,
-        detail:`${fmtDateBnFormal(t.TransferDate)} তারিখে ${projName(t.CurrentProject)} → ${projName(t.NewProject)} বদলির কথা ছিল (সিস্টেমে প্রজেক্ট পরিবর্তন হয়ে গেছে)। তিনি কি নতুন প্রজেক্টে যোগদান করেছেন?`
+        detail:`${fmtDateBnFormal(t.TransferDate)} তারিখে ${projName(t.CurrentProject)} → ${projName(t.NewProject)} বদলির কথা ছিল। তিনি কি নতুন প্রজেক্টে যোগদান করেছেন? "হ্যাঁ" চাপলে কর্মীর প্রজেক্ট পরিবর্তন হবে; "না" চাপলে ট্রান্সফার বাতিল হবে।`
       });
     }
   });
 }
 function confirmJoin(nid){
-  if(!guardEdit()) return;
-  const n = NOTIFICATIONS.find(x=>x.id===nid); if(!n) return;
-  const t = DATA.transfers.find(x=>String(x.TransferID)===String(n.transferId));
-  if(t){ t.Status='Completed'; t.IsProceed='1'; }
-  NOTIFICATIONS.splice(NOTIFICATIONS.indexOf(n),1);
-  toast('যোগদান নিশ্চিত হয়েছে — প্রজেক্ট পরিবর্তন বহাল থাকল','success');
-  persist(); renderAll();
-}
-function denyJoin(nid){
+  /* v3.4 অলঙ্ঘনীয় নিয়ম ১: শুধু এখানেই (ব্যবহারকারীর স্পষ্ট কনফার্মেশনে)
+     Employee.ProjectName বদলাবে — অন্য কোথাও নয়। */
   if(!guardEdit()) return;
   const n = NOTIFICATIONS.find(x=>x.id===nid); if(!n) return;
   const t = DATA.transfers.find(x=>String(x.TransferID)===String(n.transferId));
   if(t){
     const e = DATA.employees.find(x=>x.EmployeeID===t.EmployeeID);
-    if(e) e.ProjectName = t.CurrentProject;
-    t.Status='Cancelled';
+    if(e && e.Status==='Active') e.ProjectName = t.NewProject;   // ← এটাই একমাত্র বৈধ পথ
+    t.Status='Completed'; t.IsProceed='1';
   }
   NOTIFICATIONS.splice(NOTIFICATIONS.indexOf(n),1);
-  toast('বদলির আদেশ বাতিল — কর্মচারী পূর্বের প্রজেক্টে ফিরে গেছেন','success');
+  toast('যোগদান নিশ্চিত হয়েছে — কর্মীর প্রজেক্ট নতুন প্রজেক্টে বদলে গেল','success');
+  persist(); renderAll();
+}
+function denyJoin(nid){
+  /* v3.4 অলঙ্ঘনীয় নিয়ম ২: হিস্টরি বাতিল করলেও Employee.ProjectName বদলাবে না
+     — Employeetbl আগে থেকেই সঠিক আছে, ইতিহাসের বাতিল থেকে fallback করার
+     দরকার নেই। */
+  if(!guardEdit()) return;
+  const n = NOTIFICATIONS.find(x=>x.id===nid); if(!n) return;
+  const t = DATA.transfers.find(x=>String(x.TransferID)===String(n.transferId));
+  if(t) t.Status='Cancelled';
+  NOTIFICATIONS.splice(NOTIFICATIONS.indexOf(n),1);
+  toast('বদলির আদেশ বাতিল — Employee.ProjectName অপরিবর্তিত','success');
   persist(); renderAll();
 }
 function markReplied(actionId){
@@ -5317,7 +6144,11 @@ function fmtDateEnLong(v){
   const d = parseDate(v) || new Date();
   return d.toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});
 }
-/* প্যারেড স্টেট প্রিন্ট — মডার্ন ল্যান্ডস্কেপ রিপোর্ট (অ্যাপের UI-এর মতো, +/- ও স্ট্যাটাস বার সহ) */
+/* v3.4: প্যারেড স্টেট প্রিন্ট — ট্যাব UI-এর WYSIWYG মিরর
+   - "Fill Rate" লাল বার সরানো হলো → স্ট্যাটাস পিল (ট্যাবে যেমন)
+   - প্রজেক্ট নাম এক লাইনে (nowrap)
+   - width:100%, প্রতি পেজে @page margin (উপরে-নিচে ও ডান-বামে)
+   - ট্যাব ↔ প্রিভিউ ↔ প্রিন্ট — তিনটি এক */
 function printParade(){
   const rows = computeParade();
   const K = ['Incharge','Supervisor','AsstSup','Guard','Lady'];
@@ -5352,10 +6183,10 @@ function printParade(){
         <thead>
           <tr class="hg1">
             <th rowspan="2" style="width:3%">#</th>
-            <th rowspan="2" style="width:18%;text-align:left">Project</th>
+            <th rowspan="2" style="width:26%;text-align:left">Project</th>
             ${K.map(k=>`<th colspan="3" class="grp" style="text-align:center">${KLBL[k]}</th>`).join('')}
             <th colspan="3" class="grp total-grp" style="text-align:center">Total</th>
-            <th rowspan="2" style="width:14%">Fill Rate</th>
+            <th rowspan="2" style="width:8%;text-align:center">Status</th>
           </tr>
           <tr class="hg2">
             ${K.map(()=>`<th class="sub dem-col" title="Demand — চাহিদা">Dem</th><th class="sub act-col" title="Actual — বর্তমান">Act</th><th class="sub diff-col" title="Difference — পার্থক্য">±</th>`).join('')}
@@ -5365,19 +6196,24 @@ function printParade(){
         <tbody>
           ${rows.map(r=>{
             const gap = r.actualTotal-r.demandTotal;
-            const pct = r.demandTotal?Math.round(r.actualTotal*100/r.demandTotal):100;
             const gapChip = gap<0?`<span class="pillbox short">${gap}</span>`:gap>0?`<span class="pillbox over">+${gap}</span>`:`<span class="pillbox ok">Full</span>`;
+            /* v3.4: ট্যাবের স্ট্যাটাস পিলের নিয়ম হুবহু — −N (লাল) / +N (নীল) / Full (সবুজ) */
+            const statusPill = gap<0
+              ? `<span class="pillbox short" style="font-weight:800">−${Math.abs(gap)}</span>`
+              : gap>0
+                ? `<span class="pillbox over" style="font-weight:800">+${gap}</span>`
+                : `<span class="pillbox ok" style="font-weight:800">Full</span>`;
             return `<tr>
-              <td class="num">${r.idx}</td><td><strong>${r.project}</strong></td>
+              <td class="num">${r.idx}</td><td style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0"><strong>${r.project}</strong></td>
               ${K.map(k=>cellDA(r.demand[k],r.actual[k])).join('')}
               <td class="num dem-col"><strong>${r.demandTotal}</strong></td>
               <td class="num act-col" style="font-weight:800;color:${gap<0?'#dc2626':gap>0?'#1d4ed8':'#16a34a'}"><strong>${r.actualTotal}</strong></td>
               <td class="num diff-col">${gapChip}</td>
-              <td><div class="bar"><div style="width:${Math.min(100,pct)}%;background:${pct<70?'#dc2626':pct<95?'#d97706':'#16a34a'}"></div></div></td>
+              <td style="text-align:center">${statusPill}</td>
             </tr>`;
           }).join('')}
           <tr class="grand">
-            <td></td><td>Grand Total</td>
+            <td></td><td style="white-space:nowrap"><strong>Grand Total</strong></td>
             ${K.map(k=>{
               const gd=rows.reduce((s,r)=>s+r.demand[k],0), ga=rows.reduce((s,r)=>s+r.actual[k],0), gdf=ga-gd;
               const chip = gdf<0?`<span class="pillbox short">${gdf}</span>`:gdf>0?`<span class="pillbox over">+${gdf}</span>`:`<span class="pillbox ok">0</span>`;
@@ -5386,7 +6222,7 @@ function printParade(){
             <td class="num dem-col">${totD}</td>
             <td class="num act-col">${totA}</td>
             <td class="num diff-col">${(totA-totD)<0?`<span class="pillbox short">${totA-totD}</span>`:(totA-totD)>0?`<span class="pillbox over">+${totA-totD}</span>`:`<span class="pillbox ok">0</span>`}</td>
-            <td></td>
+            <td style="text-align:center">${(totA-totD)<0?`<span class="pillbox short" style="font-weight:800">−${totD-totA}</span>`:(totA-totD)>0?`<span class="pillbox over" style="font-weight:800">+${totA-totD}</span>`:`<span class="pillbox ok" style="font-weight:800">Full</span>`}</td>
           </tr>
         </tbody>
       </table>
@@ -5880,10 +6716,8 @@ function printUniform(kind){
 }
 
 /* ============ TO-DO / FOLLOW-UP ============ */
-DATA.todos = [
-  {id:1, project:'Phoenix Spinning Mills Limited', who:'প্রজেক্ট ইনচার্জ রফিক', note:'গেট-২ এ রাত শিফটের গার্ড অনুপস্থিত — বিকল্প গার্ড পাঠানোর অনুমতি চাইছেন।', date:todayISO(), status:'pending'},
-  {id:2, project:'KBC Agro Product Pvt Ltd', who:'অ্যাডমিন অফিসার', note:'ঈদে অতিরিক্ত ২ জন গার্ড ডিপিউটের বিষয়ে ম্যানেজার স্যারের অনুমোদন দরকার।', date:'2026-09-12', status:'informed'},
-];
+/* v3.4: নমুনা todos সরানো হয়েছে — ব্যবহারকারীর নিজস্ব ডেটাই থাকবে */
+DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
 const TODO_STATUS = [
   {k:'pending',  bn:'⏳ অপেক্ষমান'},
   {k:'informed', bn:'📞 ঊর্ধ্বতনকে জানানো হয়েছে'},
@@ -6406,24 +7240,103 @@ function loadBDGeo(){
 loadBDGeo();
 
 /* ---- Phase 2 Pro: Sync / Backup / Restore ---- */
+/* v3.4 ডেটা সুরক্ষা:
+   Sync এখন dry-run: আগে diff দেখাবে (কত ADD/CHANGE/DELETE হবে), তারপর ব্যবহারকারী
+   কনফার্ম করলেই ডেটা প্রয়োগ হবে। ২০% বা বেশি ডেটা মুছে যাচ্ছে দেখালে অতিরিক্ত
+   লাল সতর্কবার্তা। লোকাল ডেটা কখনোই খালি সার্ভারে যাবে না (fillData-র গার্ড),
+   এবং ব্যবহারকারী কনফার্ম না করা পর্যন্ত পরিবর্তন হবে না। */
+window.__syncDiff = null;
 window.doSyncNow = function(){
   var btn = document.getElementById('syncBtn');
-  if(btn){ btn.disabled = true; btn.style.opacity=0.5; btn.innerHTML = '<span class="spin"></span> Syncing…'; }
+  if(btn){ btn.disabled = true; btn.style.opacity=0.5; btn.innerHTML = '<span class="spin"></span> Loading…'; }
   if(!window.MGHRM || typeof MGHRM.loadAll !== 'function'){
     if(typeof toast==='function') toast('Sync not available (offline).', 'error');
     if(btn){ btn.disabled=false; btn.style.opacity=1; btn.innerHTML='↻ Sync'; }
     return;
   }
   MGHRM.loadAll().then(function(d){
-    var n = 0;
-    Object.keys(d).forEach(function(k){ if(window.DATA && Object.prototype.hasOwnProperty.call(window.DATA,k)){ window.DATA[k] = d[k]; n++; } });
-    if(typeof renderAll==='function') renderAll();
-    if(typeof toast==='function') toast('Synced from server ('+n+' tables)', 'success');
+    /* Diff বানাই — কর্মপথ: এই টেবিলে সার্ভার-authoritative pull */
+    var rows = []; var totalAdd=0, totalChange=0, totalDelete=0, worstPct=0;
+    Object.keys(d).forEach(function(k){
+      if(!window.DATA || !Object.prototype.hasOwnProperty.call(window.DATA,k)) return;
+      var srv = Array.isArray(d[k])?d[k]:[]; var loc = Array.isArray(window.DATA[k])?window.DATA[k]:[];
+      var pkGuess = (window.MGHRM.TABLE_MAP && window.MGHRM.TABLE_MAP[k])
+        ? (Object.entries(window.MGHRM.TABLE_MAP[k].map||{}).find(function(kv){return kv[1]===window.MGHRM.TABLE_MAP[k].pk;}) || [])[0] || null
+        : null;
+      var pk = pkGuess || Object.keys(srv[0]||loc[0]||{})[0] || 'id';
+      var sMap={}, lMap={};
+      srv.forEach(function(r){ sMap[String(r[pk])] = r; });
+      loc.forEach(function(r){ lMap[String(r[pk])] = r; });
+      var add=0, change=0, del=0;
+      Object.keys(sMap).forEach(function(id){
+        if(!lMap[id]) add++;
+        else if(JSON.stringify(sMap[id])!==JSON.stringify(lMap[id])) change++;
+      });
+      Object.keys(lMap).forEach(function(id){ if(!sMap[id]) del++; });
+      var pct = loc.length===0 ? 0 : Math.round((del/loc.length)*100);
+      if(pct>worstPct) worstPct=pct;
+      totalAdd+=add; totalChange+=change; totalDelete+=del;
+      rows.push({table:k, local:loc.length, server:srv.length, add:add, change:change, del:del, delPct:pct});
+    });
+    window.__syncDiff = { pulled: d, rows: rows, totals: {add:totalAdd, change:totalChange, del:totalDelete, worstPct:worstPct} };
+    /* Preview মডাল */
+    var bn = (typeof LANG!=='undefined' && LANG==='bn');
+    var tbl = '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>'+
+      '<th style="text-align:left;padding:4px;border-bottom:1px solid #ccc">'+(bn?'টেবিল':'Table')+'</th>'+
+      '<th style="padding:4px;border-bottom:1px solid #ccc">'+(bn?'লোকাল':'Local')+'</th>'+
+      '<th style="padding:4px;border-bottom:1px solid #ccc">'+(bn?'সার্ভার':'Server')+'</th>'+
+      '<th style="padding:4px;border-bottom:1px solid #ccc;color:#0a7">'+(bn?'যোগ':'Add')+'</th>'+
+      '<th style="padding:4px;border-bottom:1px solid #ccc;color:#c80">'+(bn?'বদল':'Change')+'</th>'+
+      '<th style="padding:4px;border-bottom:1px solid #ccc;color:#c00">'+(bn?'মুছবে':'Delete')+'</th>'+
+      '</tr></thead><tbody>' +
+      rows.map(function(r){
+        var delCol = r.delPct>=20 ? 'background:#fee;color:#c00;font-weight:700' : (r.del>0?'color:#c00':'');
+        return '<tr>'+
+          '<td style="padding:4px;border-bottom:1px solid #eee">'+r.table+'</td>'+
+          '<td style="padding:4px;border-bottom:1px solid #eee;text-align:center">'+r.local+'</td>'+
+          '<td style="padding:4px;border-bottom:1px solid #eee;text-align:center">'+r.server+'</td>'+
+          '<td style="padding:4px;border-bottom:1px solid #eee;text-align:center;color:#0a7">'+(r.add||'')+'</td>'+
+          '<td style="padding:4px;border-bottom:1px solid #eee;text-align:center;color:#c80">'+(r.change||'')+'</td>'+
+          '<td style="padding:4px;border-bottom:1px solid #eee;text-align:center;'+delCol+'">'+(r.del||'')+(r.delPct>=20?' ('+r.delPct+'%)':'')+'</td>'+
+        '</tr>';
+      }).join('') + '</tbody></table>';
+    var warn = worstPct>=20 ?
+      '<div style="background:#fee;border:1px solid #c00;color:#900;padding:10px;border-radius:6px;margin:10px 0"><b>⚠ '+(bn?'সাবধান!':'DANGER!')+'</b> '+(bn?'কমপক্ষে একটি টেবিলে ২০%+ ডেটা মুছে যাচ্ছে। নিশ্চিত না হয়ে "Cancel" চাপুন।':'At least one table will lose 20%+ rows. Cancel unless you are certain.')+'</div>' : '';
+    if(typeof openModal!=='function'){
+      alert((bn?'সিঙ্ক প্রিভিউ:':'Sync preview:')+' add='+totalAdd+' change='+totalChange+' delete='+totalDelete+'\n'+(worstPct>=20?'DANGER: '+worstPct+'% delete!':''));
+      if(!confirm(bn?'প্রয়োগ করবেন?':'Apply changes?')){ if(btn){btn.disabled=false;btn.style.opacity=1;btn.innerHTML='↻ Sync';} return; }
+      window.__applySyncDiff();
+      return;
+    }
+    openModal({
+      title: bn?'সিঙ্ক প্রিভিউ (কিছু প্রয়োগ হয়নি)':'Sync Preview (nothing applied yet)',
+      body: warn + tbl + '<p style="font-size:12px;color:#666;margin-top:8px">'+(bn?'সার্ভার থেকে টানা হয়েছে। "Apply" চাপলে উপরের পরিবর্তনগুলো লোকালে বসবে; "Cancel" চাপলে কিছু হবে না।':'Pulled from server. "Apply" applies these changes locally; "Cancel" discards them.')+'</p>',
+      actions:
+        '<button class="btn" onclick="closeModal();(function(b){if(b){b.disabled=false;b.style.opacity=1;b.innerHTML=\'\u21bb Sync\';}})(document.getElementById(\'syncBtn\'))">'+(bn?'বাতিল':'Cancel')+'</button>' +
+        '<button class="btn primary" onclick="closeModal();window.__applySyncDiff()">'+(bn?'প্রয়োগ করুন':'Apply')+'</button>'
+    });
   }).catch(function(e){
     if(typeof toast==='function') toast('Sync failed: '+(e.message||e), 'error');
-  }).then(function(){
-    if(btn){ btn.disabled=false; btn.style.opacity=1; btn.innerHTML='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg> Sync'; }
+    if(btn){ btn.disabled=false; btn.style.opacity=1; btn.innerHTML='↻ Sync'; }
   });
+};
+window.__applySyncDiff = function(){
+  var btn = document.getElementById('syncBtn');
+  var diff = window.__syncDiff; if(!diff){ return; }
+  var n=0;
+  Object.keys(diff.pulled).forEach(function(k){
+    if(window.DATA && Object.prototype.hasOwnProperty.call(window.DATA,k)){
+      /* fillData-র গার্ড রক্ষা: সার্ভার খালি + লোকালে ডেটা → বাদ */
+      var srv = Array.isArray(diff.pulled[k])?diff.pulled[k]:null;
+      var loc = Array.isArray(window.DATA[k])?window.DATA[k]:null;
+      if(srv && loc && srv.length===0 && loc.length>0) return;
+      if(srv){ window.DATA[k]=srv; n++; }
+    }
+  });
+  window.__syncDiff=null;
+  if(typeof renderAll==='function') renderAll();
+  if(typeof toast==='function') toast((typeof LANG!=='undefined' && LANG==='bn'?'সিঙ্ক সম্পন্ন — ':'Synced — ')+n+(typeof LANG!=='undefined' && LANG==='bn'?' টি টেবিল':' tables'),'success');
+  if(btn){ btn.disabled=false; btn.style.opacity=1; btn.innerHTML='↻ Sync'; }
 };
 
 window.doBackupDownload = function(){
@@ -6463,8 +7376,29 @@ window.doBackupRestore = function(){
   inp.click();
 };
 
+window.doRestoreAuto = function(key){
+  try {
+    var raw = localStorage.getItem(key); if(!raw){ alert('Backup not found'); return; }
+    var payload = JSON.parse(raw);
+    if(!payload || !payload.data || !payload.data.employees){ alert('Not a valid MG HRM backup'); return; }
+    if(!confirm('This will REPLACE current data with the backup from '+key.replace('mghrm_autobackup_','')+' ('+payload.data.employees.length+' employees). Continue?')) return;
+    Object.keys(payload.data).forEach(function(k){ if(window.DATA && Object.prototype.hasOwnProperty.call(window.DATA,k)) window.DATA[k] = payload.data[k]; });
+    if(payload.villages) { window.__villagesMem = payload.villages; try{localStorage.setItem('mghrm_villages', JSON.stringify(payload.villages));}catch(e){} }
+    if(typeof persist==='function') persist();
+    if(typeof renderAll==='function') renderAll();
+    if(typeof toast==='function') toast('Restored auto-backup — '+payload.data.employees.length+' employees','success');
+    if(typeof closeModal==='function') closeModal();
+  } catch(e){ alert('Restore failed: '+e.message); }
+};
 window.openBackupMenu = function(){
   if(typeof openModal !== 'function') return;
+  var autoKeys = Object.keys(localStorage).filter(function(k){ return k.indexOf('mghrm_autobackup_')===0; }).sort().reverse();
+  var autoHtml = autoKeys.length===0
+    ? '<p class="small-mute" style="margin:0">এখনো কোনো অটো-ব্যাকআপ নেই — অ্যাপ পরের বার লোড হলে তৈরি হবে।</p>'
+    : '<ul style="list-style:none;padding:0;margin:0;display:grid;gap:6px">' + autoKeys.map(function(k){
+        var lbl = k.replace('mghrm_autobackup_','');
+        return '<li style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;border:1px solid var(--border);border-radius:6px"><span style="font-family:monospace;font-size:12px">'+lbl+'</span><button class="btn" style="padding:4px 10px;font-size:12px" onclick="doRestoreAuto(\''+k+'\')">Restore</button></li>';
+      }).join('') + '</ul>';
   openModal({
     title: 'Backup & Restore',
     body:
@@ -6475,13 +7409,18 @@ window.openBackupMenu = function(){
       '    <button class="btn primary" onclick="doBackupDownload()">Download backup file</button>'+
       '  </div>'+
       '  <div style="padding:12px;border:1px solid var(--border);border-radius:8px">'+
-      '    <h4 style="margin:0 0 6px;font-size:13px">⬆ Restore from Backup</h4>'+
+      '    <h4 style="margin:0 0 6px;font-size:13px">⬆ Restore from File</h4>'+
       '    <p class="small-mute" style="margin-bottom:8px"><b style="color:var(--red)">Warning:</b> This REPLACES the current data. You will be asked to confirm.</p>'+
       '    <button class="btn" onclick="doBackupRestore()">Choose backup file…</button>'+
       '  </div>'+
+      '  <div style="padding:12px;border:1px solid var(--border);border-radius:8px;background:#f4f8ff">'+
+      '    <h4 style="margin:0 0 6px;font-size:13px">🕒 Auto-backups (last 5)</h4>'+
+      '    <p class="small-mute" style="margin-bottom:8px">অ্যাপ প্রতি বুটে নিজে থেকে ব্রাউজারে একটি ব্যাকআপ রাখে (সর্বশেষ ৫টি রোলিং)। যেকোনো একটিতে ফিরে যেতে "Restore" চাপুন।</p>'+
+      autoHtml +
+      '  </div>'+
       '  <div style="padding:12px;border:1px solid var(--border);border-radius:8px;background:#fef9e7">'+
       '    <h4 style="margin:0 0 6px;font-size:13px">💡 Recommendation</h4>'+
-      '    <p class="small-mute" style="margin:0">Download a backup weekly and keep it in a safe folder (Google Drive / OneDrive). Free Supabase auto-pauses after 7 days of inactivity.</p>'+
+      '    <p class="small-mute" style="margin:0">সপ্তাহে একবার Download backup চাপুন, ফাইলটি Google Drive/pendrive-এ রাখুন। Supabase-এর free tier ৭ দিন নিষ্ক্রিয় থাকলে auto-pause হয় — তাই লোকাল ব্যাকআপ জরুরি।</p>'+
       '  </div>'+
       '</div>',
     actions: '<button class="btn" onclick="closeModal()">Close</button>'
@@ -6493,46 +7432,174 @@ window.openBackupMenu = function(){
    initial: {divisionId, districtId, upazilaId, unionId}
    onChange(state): callback invoked when any select changes; state has current 4 ids
    Emits selects with ids `${containerId}_div|dist|upz|uni`. */
+/* v3.4 মডার্ন Location Cascade — searchable dropdowns, floating labels,
+   progress indicator, live chip preview. Backwards compatible: containerId_div/_dist/_upz/_uni-এ
+   hidden inputs থাকে যাতে পুরনো কল (bdDivName, buildAddressCascade রেফারেন্স) ভাঙে না।
+   getState/setState পাবলিক করা হয়েছে। */
 function buildAddressCascade(containerId, initial, onChange){
   var host = document.getElementById(containerId); if(!host) return;
-  var bn = LANG==='bn';
+  var bn = (typeof LANG!=='undefined' && LANG==='bn');
   initial = initial || {};
-  function opt(list, sel){
-    return '<option value="">— '+(bn?'নির্বাচন':'Select')+' —</option>' +
-      list.map(function(x){ return '<option value="'+x.id+'"'+(String(x.id)===String(sel)?' selected':'')+'>'+(bn?x.bn:x.en)+'</option>'; }).join('');
-  }
+  var state = {
+    divisionId: initial.divisionId||'', districtId: initial.districtId||'',
+    upazilaId: initial.upazilaId||'', unionId: initial.unionId||''
+  };
+  host.classList.add('addr-cascade-modern');
   host.innerHTML =
-    '<div><label style="font-size:11px">'+(bn?'বিভাগ':'Division')+'</label>'+
-      '<select id="'+containerId+'_div"></select></div>'+
-    '<div><label style="font-size:11px">'+(bn?'জেলা':'District')+'</label>'+
-      '<select id="'+containerId+'_dist"></select></div>'+
-    '<div><label style="font-size:11px">'+(bn?'উপজেলা/থানা':'Upazila/Thana')+'</label>'+
-      '<select id="'+containerId+'_upz"></select></div>'+
-    '<div><label style="font-size:11px">'+(bn?'ইউনিয়ন':'Union')+'</label>'+
-      '<select id="'+containerId+'_uni"></select></div>';
-  var $div = host.querySelector('#'+containerId+'_div');
-  var $dist = host.querySelector('#'+containerId+'_dist');
-  var $upz = host.querySelector('#'+containerId+'_upz');
-  var $uni = host.querySelector('#'+containerId+'_uni');
-  function state(){ return { divisionId:$div.value, districtId:$dist.value, upazilaId:$upz.value, unionId:$uni.value }; }
-  function fill(){
-    $div.innerHTML = opt(window.BDGEO?window.BDGEO.divisions:[], initial.divisionId);
-    $dist.innerHTML = opt(bdDistricts(initial.divisionId), initial.districtId);
-    $upz.innerHTML = opt(bdUpazilas(initial.districtId), initial.upazilaId);
-    $uni.innerHTML = opt(bdUnions(initial.upazilaId), initial.unionId);
+    '<div class="ac-progress" aria-hidden="true">'+
+      '<div class="ac-step" data-lvl="1"><span class="ac-dot">1</span><span class="ac-lbl">'+(bn?'বিভাগ':'Division')+'</span></div>'+
+      '<div class="ac-line"></div>'+
+      '<div class="ac-step" data-lvl="2"><span class="ac-dot">2</span><span class="ac-lbl">'+(bn?'জেলা':'District')+'</span></div>'+
+      '<div class="ac-line"></div>'+
+      '<div class="ac-step" data-lvl="3"><span class="ac-dot">3</span><span class="ac-lbl">'+(bn?'উপজেলা':'Upazila')+'</span></div>'+
+      '<div class="ac-line"></div>'+
+      '<div class="ac-step" data-lvl="4"><span class="ac-dot">4</span><span class="ac-lbl">'+(bn?'ইউনিয়ন':'Union')+'</span></div>'+
+    '</div>'+
+    '<div class="ac-grid">'+
+      '<div class="ac-field" data-lvl="1"><label>'+(bn?'বিভাগ':'Division')+' *</label>'+
+        '<div class="ac-search"><input class="ac-input" id="'+containerId+'_div_txt" placeholder="'+(bn?'সার্চ করুন বা বেছে নিন':'Search or pick')+'" autocomplete="off"><span class="ac-caret">▾</span><input type="hidden" id="'+containerId+'_div"><div class="ac-menu" id="'+containerId+'_div_menu"></div></div></div>'+
+      '<div class="ac-field" data-lvl="2"><label>'+(bn?'জেলা':'District')+' *</label>'+
+        '<div class="ac-search"><input class="ac-input" id="'+containerId+'_dist_txt" placeholder="'+(bn?'আগে বিভাগ বেছে নিন':'Select division first')+'" autocomplete="off" disabled><span class="ac-caret">▾</span><input type="hidden" id="'+containerId+'_dist"><div class="ac-menu" id="'+containerId+'_dist_menu"></div></div></div>'+
+      '<div class="ac-field" data-lvl="3"><label>'+(bn?'উপজেলা/থানা':'Upazila/Thana')+'</label>'+
+        '<div class="ac-search"><input class="ac-input" id="'+containerId+'_upz_txt" placeholder="'+(bn?'আগে জেলা বেছে নিন':'Select district first')+'" autocomplete="off" disabled><span class="ac-caret">▾</span><input type="hidden" id="'+containerId+'_upz"><div class="ac-menu" id="'+containerId+'_upz_menu"></div></div></div>'+
+      '<div class="ac-field" data-lvl="4"><label>'+(bn?'ইউনিয়ন':'Union')+'</label>'+
+        '<div class="ac-search"><input class="ac-input" id="'+containerId+'_uni_txt" placeholder="'+(bn?'আগে উপজেলা বেছে নিন':'Select upazila first')+'" autocomplete="off" disabled><span class="ac-caret">▾</span><input type="hidden" id="'+containerId+'_uni"><div class="ac-menu" id="'+containerId+'_uni_menu"></div></div></div>'+
+    '</div>'+
+    '<div class="ac-chips" id="'+containerId+'_chips"></div>';
+
+  function labelOf(x){ return bn ? (x.bn||x.en) : (x.en||x.bn); }
+  function lists(){
+    return {
+      div: (window.BDGEO?window.BDGEO.divisions:[]) || [],
+      dist: bdDistricts(state.divisionId),
+      upz: bdUpazilas(state.districtId),
+      uni: bdUnions(state.upazilaId)
+    };
   }
-  fill();
-  $div.addEventListener('change', function(){ $dist.innerHTML = opt(bdDistricts($div.value),''); $upz.innerHTML = opt([],''); $uni.innerHTML = opt([],''); if(onChange) onChange(state()); });
-  $dist.addEventListener('change', function(){ $upz.innerHTML = opt(bdUpazilas($dist.value),''); $uni.innerHTML = opt([],''); if(onChange) onChange(state()); });
-  $upz.addEventListener('change', function(){ $uni.innerHTML = opt(bdUnions($upz.value),''); if(onChange) onChange(state()); });
-  $uni.addEventListener('change', function(){ if(onChange) onChange(state()); });
-  if(!window.BDGEO){ setTimeout(fill, 400); setTimeout(fill, 1200); }
+  function findById(list, id){ return list.find(function(x){ return String(x.id)===String(id); }); }
+  function renderMenu(kind, filterText){
+    var L = lists();
+    var arr = L[kind]||[];
+    var q = (filterText||'').trim().toLowerCase();
+    var menu = host.querySelector('#'+containerId+'_'+(kind==='div'?'div':kind==='dist'?'dist':kind==='upz'?'upz':'uni')+'_menu');
+    if(!menu) return;
+    var filtered = arr;
+    if(q){
+      filtered = arr.filter(function(x){
+        return (x.en||'').toLowerCase().indexOf(q)>=0 || (x.bn||'').toLowerCase().indexOf(q)>=0;
+      });
+    }
+    if(!filtered.length){ menu.innerHTML = '<div class="ac-empty">'+(bn?'কোনো ফলাফল নেই':'No matches')+'</div>'; return; }
+    menu.innerHTML = filtered.map(function(x){
+      return '<div class="ac-opt" data-id="'+x.id+'"><b>'+(bn?x.bn:x.en)+'</b><span class="ac-alt">'+(bn?x.en:x.bn)+'</span></div>';
+    }).join('');
+  }
+  function setValue(kind, id){
+    var L = lists();
+    var arr = kind==='div'?L.div : kind==='dist'?bdDistricts(state.divisionId) : kind==='upz'?bdUpazilas(state.districtId) : bdUnions(state.upazilaId);
+    var obj = findById(arr, id);
+    var hiddenId = containerId+'_'+kind;
+    var textId = hiddenId+'_txt';
+    host.querySelector('#'+hiddenId).value = id||'';
+    host.querySelector('#'+textId).value = obj ? labelOf(obj) : '';
+    if(kind==='div'){ state.divisionId=id; state.districtId=''; state.upazilaId=''; state.unionId=''; }
+    if(kind==='dist'){ state.districtId=id; state.upazilaId=''; state.unionId=''; }
+    if(kind==='upz'){ state.upazilaId=id; state.unionId=''; }
+    if(kind==='uni'){ state.unionId=id; }
+    refresh();
+    if(onChange) onChange({ divisionId:state.divisionId, districtId:state.districtId, upazilaId:state.upazilaId, unionId:state.unionId });
+  }
+  function refresh(){
+    /* enable/disable + preserve text */
+    var pairs = [['dist', state.divisionId, bn?'বিভাগ বেছে নিন':'Pick division first', bn?'জেলা সার্চ...':'Search district…'],
+                 ['upz', state.districtId, bn?'জেলা বেছে নিন':'Pick district first', bn?'উপজেলা সার্চ...':'Search upazila…'],
+                 ['uni', state.upazilaId, bn?'উপজেলা বেছে নিন':'Pick upazila first', bn?'ইউনিয়ন সার্চ...':'Search union…']];
+    pairs.forEach(function(p){
+      var inp = host.querySelector('#'+containerId+'_'+p[0]+'_txt');
+      inp.disabled = !p[1];
+      inp.placeholder = p[1]? p[3] : p[2];
+      if(!p[1]){ inp.value=''; host.querySelector('#'+containerId+'_'+p[0]).value=''; }
+    });
+    /* progress dots */
+    var lvl = state.unionId?4 : state.upazilaId?3 : state.districtId?2 : state.divisionId?1 : 0;
+    host.querySelectorAll('.ac-step').forEach(function(el){
+      var n = +el.getAttribute('data-lvl');
+      el.classList.toggle('done', n<=lvl);
+      el.classList.toggle('current', n===lvl+1);
+    });
+    /* chips preview */
+    var chips = [];
+    var L = lists();
+    if(state.divisionId){ var d=findById(L.div,state.divisionId); if(d) chips.push('<span class="ac-chip">'+labelOf(d)+'</span>'); }
+    if(state.districtId){ var d2=findById(bdDistricts(state.divisionId),state.districtId); if(d2) chips.push('<span class="ac-arrow">›</span><span class="ac-chip">'+labelOf(d2)+'</span>'); }
+    if(state.upazilaId){ var u=findById(bdUpazilas(state.districtId),state.upazilaId); if(u) chips.push('<span class="ac-arrow">›</span><span class="ac-chip">'+labelOf(u)+'</span>'); }
+    if(state.unionId){ var un=findById(bdUnions(state.upazilaId),state.unionId); if(un) chips.push('<span class="ac-arrow">›</span><span class="ac-chip">'+labelOf(un)+'</span>'); }
+    host.querySelector('#'+containerId+'_chips').innerHTML =
+      chips.length ? '<div class="ac-chip-line">'+chips.join('')+'</div>' : '<div class="ac-chip-hint">'+(bn?'বিভাগ থেকে শুরু করুন — নির্বাচন এখানে চিপ হিসেবে দেখাবে':'Start from Division — your selection will appear here as chips')+'</div>';
+  }
+  function attach(kind){
+    var input = host.querySelector('#'+containerId+'_'+kind+'_txt');
+    var menu = host.querySelector('#'+containerId+'_'+kind+'_menu');
+    function open(){
+      var L = lists();
+      var arr = kind==='div'?L.div : kind==='dist'?L.dist : kind==='upz'?L.upz : L.uni;
+      if(!arr.length){ return; }
+      renderMenu(kind, input.value);
+      menu.classList.add('show');
+    }
+    function close(){ setTimeout(function(){ menu.classList.remove('show'); }, 120); }
+    input.addEventListener('focus', open);
+    input.addEventListener('input', function(){ open(); renderMenu(kind, input.value); });
+    input.addEventListener('blur', close);
+    /* caret click */
+    var caret = input.parentElement.querySelector('.ac-caret');
+    if(caret) caret.addEventListener('mousedown', function(e){ e.preventDefault(); if(menu.classList.contains('show')){ menu.classList.remove('show'); } else { input.focus(); open(); } });
+    menu.addEventListener('mousedown', function(e){
+      var opt = e.target.closest('.ac-opt'); if(!opt) return;
+      e.preventDefault();
+      setValue(kind, opt.getAttribute('data-id'));
+      menu.classList.remove('show');
+    });
+  }
+  /* wait for BDGEO */
+  function init(){
+    if(!window.BDGEO){ setTimeout(init, 300); return; }
+    /* apply initial */
+    if(state.divisionId){ var d=findById(lists().div,state.divisionId); if(d) host.querySelector('#'+containerId+'_div_txt').value=labelOf(d); host.querySelector('#'+containerId+'_div').value=state.divisionId; }
+    if(state.districtId){ var d2=findById(bdDistricts(state.divisionId),state.districtId); if(d2) host.querySelector('#'+containerId+'_dist_txt').value=labelOf(d2); host.querySelector('#'+containerId+'_dist').value=state.districtId; }
+    if(state.upazilaId){ var u=findById(bdUpazilas(state.districtId),state.upazilaId); if(u) host.querySelector('#'+containerId+'_upz_txt').value=labelOf(u); host.querySelector('#'+containerId+'_upz').value=state.upazilaId; }
+    if(state.unionId){ var un=findById(bdUnions(state.upazilaId),state.unionId); if(un) host.querySelector('#'+containerId+'_uni_txt').value=labelOf(un); host.querySelector('#'+containerId+'_uni').value=state.unionId; }
+    ['div','dist','upz','uni'].forEach(attach);
+    refresh();
+  }
+  init();
+  /* return API */
+  host.__cascade = {
+    getState: function(){ return { divisionId:state.divisionId, districtId:state.districtId, upazilaId:state.upazilaId, unionId:state.unionId }; },
+    reset: function(){ state = {divisionId:'',districtId:'',upazilaId:'',unionId:''}; init(); if(onChange) onChange(state); }
+  };
 }
 window.buildAddressCascade = buildAddressCascade;
 applyScheduledTransfers();
 buildNotifications();
 renderAll();
 renderBrandLogo(); renderGateLogos();
+/* v3.4 অটো-ব্যাকআপ: বুটে সর্বশেষ ৫টি রোলিং ব্যাকআপ localStorage-এ রাখি
+   (নাম: mghrm_autobackup_YYYY-MM-DD_HHmm)। "Backup & Restore" মেনুতে
+   সেগুলো তালিকা করে restore করা যাবে (নতুন কোড ব্লকে যোগ করা হয়েছে)। */
+try {
+  (function(){
+    var now = new Date();
+    var stamp = now.toISOString().replace(/[:T]/g,'-').slice(0,16);
+    var key = 'mghrm_autobackup_' + stamp;
+    var payload = { at: now.toISOString(), schemaVersion: 3.4, data: window.DATA, villages: window.__villagesMem || {} };
+    localStorage.setItem(key, JSON.stringify(payload));
+    /* সর্বশেষ ৫টি রাখি */
+    var keys = Object.keys(localStorage).filter(function(k){ return k.indexOf('mghrm_autobackup_')===0; }).sort();
+    while(keys.length>5){ localStorage.removeItem(keys.shift()); }
+    console.log('[MG HRM] auto-backup:', key, '(rolling last 5)');
+  })();
+} catch(e){ console.warn('auto-backup failed:', e); }
 setTimeout(()=>checkPendingToast(true), 2000);
 setTimeout(startupConnectionCheck, 1200);
 setInterval(()=>checkPendingToast(true), 180000); /* প্রতি ৩ মিনিটে রিমাইন্ডার পপআপ */
@@ -6583,11 +7650,7 @@ setInterval(()=>checkPendingToast(true), 180000); /* প্রতি ৩ মি�
   color:#4a4a68;line-height:1.65;margin-bottom:7px}
 .steps-mini li::before{content:counter(m);position:absolute;left:0;top:0;width:17px;height:17px;border-radius:50%;
   background:#eef2ff;color:#4f46e5;font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:2px}
-#demoBar{position:fixed;left:0;right:0;bottom:0;z-index:9000;background:#1e1b4b;color:#e0e7ff;
-  font-size:12.5px;padding:7px 16px;text-align:center;font-family:Inter,"Segoe UI",system-ui,"Noto Sans Bengali",sans-serif;
-  display:none;letter-spacing:.2px}
-#demoBar.show{display:block}
-#demoBar b{color:#c7d2fe}
+/* v3.4: demoBar সরানো হয়েছে — কোনো ডেমো/নমুনা UI নেই */
 </style>
 
 <!-- ============ First-time Setup (Admin/First device only) ============ -->
@@ -6650,23 +7713,24 @@ setInterval(()=>checkPendingToast(true), 180000); /* প্রতি ৩ মি�
     </div>
   </div>
 </div>
-<div id="demoBar"></div>
 <script>
 /* ====== সেতু: Supabase ↔ অ্যাপ ====== */
 (function () {
   var G = window.MGHRM;
   var CFG_KEY = 'mghrm_cfg';
-  var EXTRA = {"leaves": "SAMPLE_LEAVES"};
+  /* v3.4: EXTRA বাদ — SAMPLE_LEAVES এখন DATA.leaves-এর alias */
+  var EXTRA = {};
 
   function el(id){ return document.getElementById(id); }
-  function show(id,on){ el(id).className = on ? 'show' : ''; }
+  function show(id,on){ var e=el(id); if(e) e.className = on ? 'show' : ''; }
   function msg(id,text,kind){
     var m = el(id);
+    if(!m) return;
     m.className = 'gate-msg ' + (kind || 'info');
     m.innerHTML = text;
   }
-  function clearMsg(id){ el(id).className = 'gate-msg'; }
-  function demo(html){ var b = el('demoBar'); b.className='show'; b.innerHTML = html; }
+  function clearMsg(id){ var e=el(id); if(e) e.className = 'gate-msg'; }
+  function demo(html){ /* v3.4: demoBar সরানো — no-op রাখা হয়েছে backward-compat-এ */ }
 
   /* ---------- চাবি কোথা থেকে আসবে ---------- */
   function savedCfg(){
@@ -6919,6 +7983,7 @@ setInterval(()=>checkPendingToast(true), 180000); /* প্রতি ৩ মি�
     navigator.serviceWorker.register('./sw.js').catch(function(){});
 })();
 </script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
 </body>
 </html>

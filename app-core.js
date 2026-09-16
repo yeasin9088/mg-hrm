@@ -83,7 +83,18 @@
 
     uniform: { table: 'uniform', pk: 'issue_id', map: {} },
     leaves:  { table: 'leaves',  pk: 'leave_id', map: {} },
-    meetings:{ table: 'meetings',pk: 'meeting_id', map: {} }
+    meetings:{ table: 'meetings',pk: 'meeting_id', map: {} },
+
+    /* v3.4: অ্যাক্টিভিটি লগ ও রিক্রুটমেন্ট আর্কাইভ — এখন সার্ভারে সিঙ্ক হবে
+       (কলাম নাম supabase_setup.sql-এর সাথে align করা) */
+    activityLog:        { table: 'activity_log',        pk: 'id', map: {
+      'LogID':'id','UserID':'user_id','UserEmail':'user_email',
+      'Action':'action','TableName':'table_name','RecordRef':'record_ref','Detail':'detail',
+      'CreatedAt':'created_at' } },
+    recruitmentArchive: { table: 'recruitment_archive', pk: 'archive_id', map: {
+      'ArchiveID':'archive_id','CandidateName':'candidate_name','Designation':'designation',
+      'ProjectName':'project_name','Result':'result','EmployeeID':'employee_id',
+      'DecidedAt':'decided_at','Notes':'notes' } }
   };
 
   /* ---------- ২. নাম রূপান্তর -------------------------------------- */

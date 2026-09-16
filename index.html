@@ -1571,7 +1571,7 @@ input:focus, select:focus, textarea:focus {
   var pushTimer = null, pushing = false;
   function pushAll(silentSource) {
     if (pushTimer) clearTimeout(pushTimer);
-    pushTimer = setTimeout(function () { doPush(silentSource); }, 1500);
+    pushTimer = setTimeout(function () { doPush(silentSource); }, 50);
   }
 
   function doPush(silentSource) {
@@ -3704,6 +3704,7 @@ function deleteArchivedCandidate(archId){
   if(i<0) return;
   const a = DATA.recruitmentArchive[i];
   DATA.recruitmentArchive.splice(i,1);
+  if(window.MGHRM && typeof MGHRM.remove==='function') MGHRM.remove('recruitmentArchive', archId);
   logActivity('delete','recruitment_archive', archId, 'Deleted: '+(a.CandidateName||''));
   toast(LANG==='bn'?'মুছে ফেলা হয়েছে':'Deleted','success');
   closeModal(); persist(); renderRecruitment();
@@ -4370,6 +4371,7 @@ function deleteTransferRecord(tid){
   const idx = DATA.transfers.findIndex(x=>String(x.TransferID)===String(tid)); if(idx<0) return;
   const t = DATA.transfers[idx];
   DATA.transfers.splice(idx,1);
+  if(window.MGHRM && typeof MGHRM.remove==='function') MGHRM.remove('transfers', tid);
   logActivity('delete','transfers', tid, `Transfer of ${t.FullName||''} deleted`);
   toast(LANG==='bn'?'রেকর্ড ডিলিট সম্পন্ন':'Record deleted','success');
   persist(); closeModal(); renderTransfer();
@@ -4760,6 +4762,7 @@ function deleteDisciplinary(aid){
   if(!guardEdit()) return;
   if(!confirm(LANG==='bn'?'এই শৃঙ্খলা অ্যাকশন ডিলিট করবেন? এই কাজ ফেরানো যাবে না।':'Delete this disciplinary action? This cannot be undone.')) return;
   DATA.disciplinary = DATA.disciplinary.filter(x=>String(x.ActionID)!==String(aid));
+  if(window.MGHRM && typeof MGHRM.remove==='function') MGHRM.remove('disciplinary', aid);
   logActivity('delete','disciplinary',aid,'disciplinary action deleted');
   toast(LANG==='bn'?'ডিলিট সম্পন্ন':'Deleted','success');
   persist(); closeModal(); renderDisciplinary();
@@ -5003,6 +5006,7 @@ function deleteLeave(id){
   const i = SAMPLE_LEAVES.findIndex(x=>String(x.id)===String(id)); if(i<0) return;
   const nm = SAMPLE_LEAVES[i].name;
   SAMPLE_LEAVES.splice(i,1);
+  if(window.MGHRM && typeof MGHRM.remove==='function') MGHRM.remove('leaves', id);
   logActivity('delete','leaves',id,nm);
   toast(LANG==='bn'?'মুছে ফেলা হয়েছে':'Deleted','success');
   closeModal(); persist(); renderLeave();
@@ -5103,6 +5107,7 @@ function deleteExit(eid){
   if(!guardEdit()) return;
   if(!confirm(LANG==='bn'?'এই এক্সিট রেকর্ড ডিলিট করবেন?':'Delete this exit record?')) return;
   DATA.exits = DATA.exits.filter(x=>String(x.ExitID)!==String(eid));
+  if(window.MGHRM && typeof MGHRM.remove==='function') MGHRM.remove('exits', eid);
   logActivity('delete','exits',eid,'exit deleted');
   toast(LANG==='bn'?'ডিলিট সম্পন্ন':'Deleted','success');
   persist(); closeModal(); renderExit();
@@ -5294,6 +5299,7 @@ function deleteCareer(cid){
   if(!guardEdit()) return;
   if(!confirm(LANG==='bn'?'এই ক্যারিয়ার রেকর্ড ডিলিট করবেন? (কর্মচারী প্রোফাইল অপরিবর্তিত থাকবে)':'Delete this career record? (Employee profile stays as-is)')) return;
   DATA.career = DATA.career.filter(r=>String(r.ChangeID)!==String(cid));
+  if(window.MGHRM && typeof MGHRM.remove==='function') MGHRM.remove('career', cid);
   logActivity('delete','career',cid,'career record deleted');
   toast(LANG==='bn'?'ডিলিট সম্পন্ন':'Deleted','success');
   persist(); closeModal(); renderIncrement();
@@ -7646,16 +7652,17 @@ const OD_FLAG = 'mghrm_od_was_linked';
 
 function snapshotState(){
   return JSON.stringify({ v:10, savedAt:new Date().toISOString(), device:DEVICE_ID,
-    DATA, COMPANY, RECRUITMENT, TRANSLATIONS });
+    COMPANY, TRANSLATIONS, RECRUITMENT, todos: DATA.todos, notifications: NOTIFICATIONS });
 }
 function restoreState(){
   try{
     const raw = localStorage.getItem(LS_KEY); if(!raw) return false;
-    const s = JSON.parse(raw); if(!s || !s.DATA) return false;
-    Object.keys(s.DATA).forEach(k=>{ DATA[k] = s.DATA[k]; });
+    const s = JSON.parse(raw); if(!s) return false;
     if(s.COMPANY) Object.assign(COMPANY, s.COMPANY);
-    if(Array.isArray(s.RECRUITMENT)){ RECRUITMENT.length = 0; s.RECRUITMENT.forEach(r=>RECRUITMENT.push(r)); }
     if(s.TRANSLATIONS) Object.assign(TRANSLATIONS, s.TRANSLATIONS);
+    if(Array.isArray(s.RECRUITMENT)){ RECRUITMENT.length = 0; s.RECRUITMENT.forEach(r=>RECRUITMENT.push(r)); }
+    if(Array.isArray(s.todos)){ DATA.todos = s.todos; }
+    if(Array.isArray(s.notifications)){ NOTIFICATIONS.length = 0; s.notifications.forEach(n=>NOTIFICATIONS.push(n)); }
     return true;
   }catch(e){ return false; }
 }

@@ -4,6 +4,51 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MG Security HRM Suite</title>
+<script>
+/* Comprehensive shim for environments where fetch on Window or Window.prototype has only a getter */
+(function() {
+  try {
+    var nativeFetch = window.fetch;
+    var currentFetch = typeof nativeFetch === 'function' ? nativeFetch.bind(window) : nativeFetch;
+    function getFetch() { return currentFetch; }
+    function setFetch(v) { currentFetch = v; }
+
+    // Walk entire prototype chain of window to find any accessor for 'fetch' and add a setter
+    var targets = [window];
+    if (typeof Window !== 'undefined' && Window.prototype) targets.push(Window.prototype);
+    var p = Object.getPrototypeOf(window);
+    while (p && p !== Object.prototype) {
+      if (targets.indexOf(p) === -1) targets.push(p);
+      p = Object.getPrototypeOf(p);
+    }
+
+    for (var i = 0; i < targets.length; i++) {
+      try {
+        var t = targets[i];
+        var d = Object.getOwnPropertyDescriptor(t, 'fetch');
+        if (d && (d.get || !d.writable)) {
+          Object.defineProperty(t, 'fetch', {
+            get: getFetch,
+            set: setFetch,
+            configurable: true,
+            enumerable: d.enumerable !== false
+          });
+        }
+      } catch (e) {}
+    }
+
+    // Also define on window directly so window.fetch = ... always works without prototype lookup
+    try {
+      Object.defineProperty(window, 'fetch', {
+        get: getFetch,
+        set: setFetch,
+        configurable: true,
+        enumerable: true
+      });
+    } catch (e) {}
+  } catch (err) {}
+})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Serif+Bengali:wght@400;500;600;700&family=Hind+Siliguri:wght@400;500;600;700&family=Tiro+Bangla&display=swap" rel="stylesheet">
@@ -1314,7 +1359,7 @@ input:focus, select:focus, textarea:focus {
   /* ---------- ১. টেবিল ও কলাম ম্যাপিং -------------------------------- */
   var TABLE_MAP = {
     employees: { table: 'employees', pk: 'record_id', map: {
-      'RecordID':'record_id','EmployeeID':'employee_id','FullName':'full_name',
+      'SystemID':'system_id','RecordID':'record_id','EmployeeID':'employee_id','FullName':'full_name',
       'FullNameBangla':'full_name_bn','DOB':'dob','PhoneNumber':'phone','Education':'education',
       'Religion':'religion','Height':'height','Weight':'weight','Division':'division',
       'District':'district','Thana':'thana','Designation':'designation','ProjectName':'project_name',
@@ -1333,7 +1378,7 @@ input:focus, select:focus, textarea:focus {
       'DemandLadyGuard':'demand_lady_guard','DemandTotal':'demand_total' } },
 
     disciplinary: { table: 'disciplinary', pk: 'action_id', map: {
-      'ActionID':'action_id','RefNo':'ref_no','RefNoBangla':'ref_no_bn','RecordID':'record_id',
+      'SystemID':'system_id','ActionID':'action_id','RefNo':'ref_no','RefNoBangla':'ref_no_bn','RecordID':'record_id',
       'EmployeeID':'employee_id','EmployeeIDBangla':'employee_id_bn','FullName':'full_name',
       'FullNameBangla':'full_name_bn','Designation':'designation','DesignationBangla':'designation_bn',
       'ProjectName':'project_name','ProjectNameBangla':'project_name_bn','ActionType':'action_type',
@@ -1341,12 +1386,12 @@ input:focus, select:focus, textarea:focus {
       'Description':'description','DescriptionBangla':'description_bn' } },
 
     exits: { table: 'exits', pk: 'exit_id', map: {
-      'ExitID':'exit_id','RecordID':'record_id','FullName':'full_name','Designation':'designation',
+      'SystemID':'system_id','ExitID':'exit_id','RecordID':'record_id','FullName':'full_name','Designation':'designation',
       'CurrentProject':'current_project','JoinDate':'join_date','ExitReason':'exit_reason',
       'ExitDate':'exit_date','IssueDate':'issue_date' } },
 
     transfers: { table: 'transfers', pk: 'transfer_id', map: {
-      'TransferID':'transfer_id','RecordID':'record_id','EmployeeID':'employee_id',
+      'SystemID':'system_id','TransferID':'transfer_id','RecordID':'record_id','EmployeeID':'employee_id',
       'EmployeeIDBangla':'employee_id_bn','FullName':'full_name','FullNameBangla':'full_name_bn',
       'Designation':'designation','DesignationBangla':'designation_bn',
       'CurrentProject':'current_project','CurrentProjectBangla':'current_project_bn',
@@ -1355,7 +1400,7 @@ input:focus, select:focus, textarea:focus {
       'Issues Date':'issues_date','Issues DateBangla':'issues_date_bn','IsProceed':'is_proceed' } },
 
     career: { table: 'career', pk: 'change_id', map: {
-      'ChangeID':'change_id','RecordID':'record_id','EmployeeID':'employee_id','FullName':'full_name',
+      'SystemID':'system_id','ChangeID':'change_id','RecordID':'record_id','EmployeeID':'employee_id','FullName':'full_name',
       'ProjectName':'project_name','ChangeType':'change_type','EffectiveDate':'effective_date',
       'CurrentDesignation':'current_designation','NewDesignation':'new_designation',
       'PreviousSalary':'previous_salary','IncrementAmount':'increment_amount','NewSalary':'new_salary' } },
@@ -2545,6 +2590,24 @@ function activityFeed(){
 }
 
 /* ============ EMPLOYEES ============ */
+function ensureSystemIDs() {
+  let maxId = 0;
+  DATA.employees.forEach(e => {
+    if(e.SystemID) {
+      maxId = Math.max(maxId, parseInt(e.SystemID, 10) || 0);
+    }
+  });
+  let changed = false;
+  DATA.employees.forEach(e => {
+    if(!e.SystemID) {
+      maxId++;
+      e.SystemID = String(maxId);
+      changed = true;
+    }
+  });
+  if (changed) persist();
+}
+
 function renderEmployees(){
   const page = document.getElementById('page-employees');
   if(!page.innerHTML) {
@@ -2621,7 +2684,7 @@ function renderEmpTable(){
     if(de && e.Designation!==de) return false;
     if(st && e.Status!==st) return false;
     if(q){
-      const hay = `${e.RecordID||''} ${e.FullName||''} ${e.EmployeeID||''} ${e.PhoneNumber||''} ${e.Designation||''} ${e.ProjectName||''}`.toLowerCase();
+      const hay = `${e.SystemID||''} ${e.RecordID||''} ${e.FullName||''} ${e.EmployeeID||''} ${e.PhoneNumber||''} ${e.Designation||''} ${e.ProjectName||''}`.toLowerCase();
       if(!hay.includes(q)) return false;
     }
     return true;
@@ -2645,14 +2708,14 @@ function renderEmpTable(){
     ? `${num(rows.length)} / ${num(DATA.employees.length)} ${LANG==='bn'?'কর্মচারী':'employees'} — <strong style="color:var(--success)">✓ ${LANG==='bn'?'টিক দেওয়া':'ticked'}: ${num(VERIFY_TICKS.size)}</strong> <span class="small-mute">(${LANG==='bn'?'টিক দেওয়া ছাড়া অন্য কোনো অ্যাকশন হবে না':'tick only — no other action'})</span>`
     : `${num(rows.length)} / ${num(DATA.employees.length)} ${LANG==='bn'?'কর্মচারী':'employees'}`;
   document.querySelectorAll('#empTable .tickcol').forEach(el=>el.style.display = VERIFY_MODE?'':'none');
-  const html = rows.slice(0,200).map((e,i)=>`
+  const html = rows.map((e,i)=>`
     <tr class="clickable" onclick="${VERIFY_MODE?`toggleVerifyTick('${e.RecordID}')`:`openEmpDetail('${e.RecordID}')`}">
       ${VERIFY_MODE?`<td><span style="display:inline-grid;place-items:center;width:20px;height:20px;border:2px solid ${VERIFY_TICKS.has(e.RecordID)?'var(--success)':'var(--border-strong)'};border-radius:5px;background:${VERIFY_TICKS.has(e.RecordID)?'var(--success)':'#fff'};color:#fff;font-size:13px;font-weight:700">${VERIFY_TICKS.has(e.RecordID)?'✓':''}</span></td>`:''}
       <td>${num(i+1)}</td>
       <td>
         <div style="display:flex;gap:10px;align-items:center">
           <div class="emp-avatar" style="width:32px;height:32px;font-size:12px">${initials(e.FullName)}</div>
-          <div><strong>${e.FullName||''}</strong><br><span class="small-mute">${LANG==='bn'?'আইডি:':'ID:'} ${num(e.EmployeeID||'')}</span></div>
+          <div><strong>${e.FullName||''}</strong><br><span class="small-mute">${LANG==='bn'?'এসআইডি:':'SID:'} ${num(e.SystemID||'')} • ${LANG==='bn'?'আইডি:':'ID:'} ${num(e.EmployeeID||'')}</span></div>
         </div>
       </td>
       <td>${desig(e.Designation||'')}</td>
@@ -2898,6 +2961,10 @@ function saveNewEmployee(force){
     if(dups.length){ showDuplicateModal(dups, applicant, ()=>saveNewEmployee(true)); return; }
   }
   const newRid = String(Math.max(0,...DATA.employees.map(e=>+e.RecordID||0))+1);
+  const maxEmpSid = Math.max(0, ...DATA.employees.map(e=>parseInt(e.SystemID, 10)||0));
+  const maxRecSid = Math.max(0, ...RECRUITMENT.map(r=>parseInt(r.sid, 10)||0));
+  const maxArchSid = Math.max(0, ...(DATA.recruitmentArchive||[]).map(a=>parseInt(a.sid, 10)||0));
+  const newSysId = String(Math.max(maxEmpSid, maxRecSid, maxArchSid) + 1);
   const divId = (document.getElementById('ne_addrCascade_div')||{}).value||'';
   const distId = (document.getElementById('ne_addrCascade_dist')||{}).value||'';
   const upzId = (document.getElementById('ne_addrCascade_upz')||{}).value||'';
@@ -2906,6 +2973,7 @@ function saveNewEmployee(force){
   const street = ((document.getElementById('ne_street')||{}).value||'').trim();
   if(uniId && village) rememberVillage(uniId, village);
   DATA.employees.push({
+    SystemID: newSysId,
     RecordID:newRid, EmployeeID:g('ne_officialId').trim()||newRid,
     FullName:nameEn, FullNameBn:applicant.name, FatherName:g('ne_father').trim(),
     DOB:g('ne_dob'), PhoneNumber:applicant.phone, NID:applicant.nid,
@@ -3245,8 +3313,17 @@ function openApplicantForm(){
   const relOpts = usageSortedOptions(['Islam','Hindu','Buddhist','Christian'], relCounts).map(r=>`<option>${r}</option>`).join('');
   const distOpts = `<option value="">— Select District —</option>` + Object.keys(BD_CASC).sort().map(d=>`<option>${d}</option>`).join('');
 
+  const maxEmpSid = Math.max(0, ...DATA.employees.map(e=>parseInt(e.SystemID, 10)||0));
+  const maxRecSid = Math.max(0, ...RECRUITMENT.map(r=>parseInt(r.sid, 10)||0));
+  const maxArchSid = Math.max(0, ...(DATA.recruitmentArchive||[]).map(a=>parseInt(a.sid, 10)||0));
+  const nextSID = Math.max(maxEmpSid, maxRecSid, maxArchSid) + 1;
+
   openModal(LANG==='bn'?'নতুন প্রার্থী নিবন্ধন — সম্পূর্ণ ডেটা এন্ট্রি':'New Candidate Entry — Full Data Entry', `
     <p class="small-mute" style="margin-bottom:12px">${LANG==='bn'?'ফর্মটি ইংরেজিতে পূরণ করুন — শুধু প্রার্থীর নাম বাংলায়ও দিন (অফিসিয়াল লেটারে লাগে)। সাবমিট করলে প্রার্থী "ডেটা এন্ট্রি" ধাপে যাবে এবং ৩টি ফর্ম প্রিন্ট করা যাবে।':'Fill the form in English — only the candidate name is also kept in Bangla (needed for official letters). On submit the candidate moves to "Data Entry" and 3 forms become printable.'}</p>
+    <div style="margin-bottom:15px;padding:10px;background:var(--bg-dim);border-radius:6px;font-weight:600;">
+      <span style="color:var(--primary)">${LANG==='bn'?'সিস্টেম জেনারেটেড এসআইডি:':'System Generated SID:'}</span> 
+      <span style="font-size:16px;margin-left:8px;" id="na_next_sid">${nextSID}</span>
+    </div>
     <div class="tabs" id="naTabs">
       ${tab('naBasic','1. Basic',true)}
       ${tab('naAddr','2. Address')}
@@ -3447,6 +3524,7 @@ function collectApplicantData(g){
   const bdD = window.bdDistName||function(){return '';};
   const bdU = window.bdUpzName||function(){return '';};
   return {
+    sid: document.getElementById('na_next_sid') ? document.getElementById('na_next_sid').textContent : '',
     name:g('name'), nameEn:g('nameEn'), father:g('father'), mother:g('mother'), dob:g('dob'), nid:g('nid'), phone:g('phone'),
     education:g('education'), religion:g('religion')||'Islam', bloodGroup:g('bloodGroup'),
     height:g('height'), weight:g('weight'), maritalStatus:g('maritalStatus'),
@@ -3470,7 +3548,7 @@ function collectApplicantData(g){
 }
 function commitApplicant(a){
   const newId = Math.max(0,...RECRUITMENT.map(x=>x.id))+1;
-  RECRUITMENT.push({ id:newId, stage:'DataEntry', date:todayISO(),
+  RECRUITMENT.push({ id:newId, sid:a.sid, stage:'DataEntry', date:todayISO(),
     name:a.name, nameEn:a.nameEn, father:a.father, mother:a.mother, dob:a.dob, nid:a.nid, phone:a.phone,
     fatherMobile:'', motherMobile:'',
     education:a.education, religion:a.religion, bloodGroup:a.bloodGroup,
@@ -3514,6 +3592,7 @@ function onboardCandidate(id){
   const pa = r.permanentAddress||{};
   const maxRecordId = Math.max(0, ...DATA.employees.map(e=>+e.RecordID||0));
   DATA.employees.unshift({
+    SystemID: r.sid || String(Math.max(0, ...DATA.employees.map(e=>parseInt(e.SystemID,10)||0))+1),
     RecordID: String(maxRecordId+1),
     EmployeeID: newEmpId,
     FullName: r.nameEn||r.name, FullNameBn: r.name||'',
@@ -4141,10 +4220,16 @@ function renderTransfer(){
     </div>
 
     <div class="card">
-      <div class="card-header"><h3>${LANG==='bn'?'সাম্প্রতিক ট্রান্সফার':'Recent Transfers'}</h3></div>
+      <div class="card-header">
+        <h3>${LANG==='bn'?'সাম্প্রতিক ট্রান্সফার':'Recent Transfers'}</h3>
+        <div class="search-row" style="margin-left:auto; display:flex; gap:10px;">
+          <input type="text" id="trIdSearch" placeholder="${LANG==='bn'?'আইডি (ID)':'ID only...'}" oninput="renderTransferTable()" style="width:120px;">
+          <input type="text" id="trSearch" placeholder="${LANG==='bn'?'অন্যান্য...':'Search...'}" oninput="renderTransferTable()" style="width:180px;">
+        </div>
+      </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>ID</th><th>${LANG==='bn'?'নাম':'Name'}</th><th>${LANG==='bn'?'হতে':'From'}</th><th>${LANG==='bn'?'-এ':'To'}</th><th>${LANG==='bn'?'তারিখ':'Date'}</th><th>${LANG==='bn'?'অবস্থা':'Status'}</th><th></th></tr></thead>
+          <thead><tr><th>#</th><th>SID</th><th>${LANG==='bn'?'নাম':'Name'}</th><th>${LANG==='bn'?'হতে':'From'}</th><th>${LANG==='bn'?'-এ':'To'}</th><th>${LANG==='bn'?'তারিখ':'Date'}</th><th>${LANG==='bn'?'অবস্থা':'Status'}</th><th></th></tr></thead>
           <tbody id="trTableBody"></tbody>
         </table>
       </div>
@@ -4165,18 +4250,42 @@ function renderTransfer(){
   });
   if (changed) persist();
 
-  const rows = DATA.transfers.slice().sort((a,b)=>+b.TransferID-+a.TransferID).slice(0,60);
-  document.getElementById('trTableBody').innerHTML = rows.map(t=>`
-    <tr class="row-click" onclick="openTransferPopup(${jsQ(t.TransferID)})" style="cursor:pointer">
+  renderTransferTable();
+}
+
+function renderTransferTable() {
+  const q = (document.getElementById('trSearch')?.value || '').toLowerCase();
+  const idq = (document.getElementById('trIdSearch')?.value || '').toLowerCase();
+  const rows = DATA.transfers.filter(t => {
+    const e = DATA.employees.find(x => String(x.EmployeeID) === String(t.EmployeeID) || String(x.RecordID) === String(t.RecordID));
+    const sysId = e ? (e.SystemID || '') : '';
+    
+    if (idq) {
+      if (String(t.EmployeeID).toLowerCase() !== idq && String(t.RecordID).toLowerCase() !== idq && sysId.toLowerCase() !== idq) return false;
+    }
+    
+    if (q) {
+      const hay = `${t.TransferID} ${t.FullName} ${t.EmployeeID} ${t.RecordID} ${sysId} ${t.CurrentProject} ${t.NewProject}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  }).sort((a,b)=>+b.TransferID-+a.TransferID);
+
+  document.getElementById('trTableBody').innerHTML = rows.map(t=>{
+    const e = DATA.employees.find(x => String(x.EmployeeID) === String(t.EmployeeID) || String(x.RecordID) === String(t.RecordID));
+    const sysId = e ? (e.SystemID || '') : '';
+    return `<tr class="row-click" onclick="openTransferPopup(${jsQ(t.TransferID)})" style="cursor:pointer">
       <td>${num(t.TransferID)}</td>
+      <td>${num(sysId)}</td>
       <td><strong>${t.FullName}</strong></td>
       <td>${projName(t.CurrentProject)}</td>
       <td>${projName(t.NewProject)}</td>
       <td>${fmtDate(t.TransferDate)}</td>
       <td><span class="pill ${t.Status==='Cancelled'?'inactive':t.IsProceed==='1'?'completed':'scheduled'}">${t.Status||(t.IsProceed==='1'?'Completed':'Scheduled')}</span></td>
       <td onclick="event.stopPropagation()"><button class="btn ghost sm" onclick="reprintTransfer(${jsQ(t.TransferID)})">${ico('print')}</button></td>
-    </tr>`).join('');
+    </tr>`}).join('') || `<tr><td colspan="8" class="small-mute" style="text-align:center;padding:20px">${LANG==='bn'?'কোনো তথ্য পাওয়া যায়নি':'No data found'}</td></tr>`;
 }
+
 /* v3.4: Transfer রো ক্লিক → পপআপ (সম্পূর্ণ তথ্য · প্রজেক্ট পরিবর্তন · বাতিল · পুনঃপ্রিন্ট) */
 function openTransferPopup(tid){
   const t = DATA.transfers.find(x=>String(x.TransferID)===String(tid)); if(!t) return;
@@ -4562,26 +4671,61 @@ function renderDisciplinary(){
     </div>
 
     <div class="card">
-      <div class="card-header"><h3>${LANG==='bn'?'সাম্প্রতিক শৃঙ্খলাভঙ্গের ব্যবস্থা':'Recent Actions'}</h3><span class="sub">${num(DATA.disciplinary.length)} ${LANG==='bn'?'টি রেকর্ড':'records'}</span></div>
+      <div class="card-header">
+        <div style="display:flex;align-items:baseline;gap:8px">
+          <h3>${LANG==='bn'?'সাম্প্রতিক শৃঙ্খলাভঙ্গের ব্যবস্থা':'Recent Actions'}</h3>
+          <span class="sub" id="dcCount">${num(DATA.disciplinary.length)} ${LANG==='bn'?'টি রেকর্ড':'records'}</span>
+        </div>
+        <div class="search-row" style="margin-left:auto; display:flex; gap:10px;">
+          <input type="text" id="dcIdSearch" placeholder="${LANG==='bn'?'আইডি (ID)':'ID only...'}" oninput="renderDisciplinaryTable()" style="width:120px;">
+          <input type="text" id="dcSearch" placeholder="${LANG==='bn'?'অন্যান্য...':'Search...'}" oninput="renderDisciplinaryTable()" style="width:180px;">
+        </div>
+      </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th style="width:50px">${LANG==='bn'?'ক্রম':'#'}</th><th>${LANG==='bn'?'স্মারক':'Ref'}</th><th>${LANG==='bn'?'কর্মচারী':'Employee'}</th><th>${LANG==='bn'?'ধরন':'Type'}</th><th>${LANG==='bn'?'তারিখ':'Date'}</th><th></th></tr></thead>
+          <thead><tr><th style="width:50px">${LANG==='bn'?'ক্রম':'#'}</th><th>SID</th><th>${LANG==='bn'?'স্মারক':'Ref'}</th><th>${LANG==='bn'?'কর্মচারী':'Employee'}</th><th>${LANG==='bn'?'ধরন':'Type'}</th><th>${LANG==='bn'?'তারিখ':'Date'}</th><th></th></tr></thead>
           <tbody id="dcTableBody"></tbody>
         </table>
       </div>
     </div>
   `;
   fillEmpSelect('dcEmp');
-  const rows = DATA.disciplinary.slice().sort((a,b)=>+b.ActionID-+a.ActionID).slice(0,200);
-  document.getElementById('dcTableBody').innerHTML = rows.map((d,i)=>`
-    <tr class="row-click" onclick="openDisciplinaryPopup(${jsQ(d.ActionID)})" style="cursor:pointer">
-      <td>${num(i+1)}</td>
+  renderDisciplinaryTable();
+}
+
+function renderDisciplinaryTable() {
+  const q = (document.getElementById('dcSearch')?.value || '').toLowerCase();
+  const idq = (document.getElementById('dcIdSearch')?.value || '').toLowerCase();
+  const rows = DATA.disciplinary.filter(d => {
+    const e = DATA.employees.find(x => String(x.EmployeeID) === String(d.EmployeeID) || String(x.RecordID) === String(d.RecordID));
+    const sysId = e ? (e.SystemID || '') : '';
+    
+    if (idq) {
+      if (String(d.EmployeeID).toLowerCase() !== idq && String(d.RecordID).toLowerCase() !== idq && sysId.toLowerCase() !== idq) return false;
+    }
+    
+    if (q) {
+      const hay = `${d.ActionID} ${d.RefNo} ${d.FullName} ${d.ActionType} ${d.EmployeeID} ${d.RecordID} ${sysId}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  }).sort((a,b)=>+b.ActionID-+a.ActionID);
+
+  const countSpan = document.getElementById('dcCount');
+  if (countSpan) countSpan.textContent = `${num(rows.length)} ${LANG==='bn'?'টি রেকর্ড':'records'}`;
+  
+  document.getElementById('dcTableBody').innerHTML = rows.map((d,i)=>{
+    const e = DATA.employees.find(x => String(x.EmployeeID) === String(d.EmployeeID) || String(x.RecordID) === String(d.RecordID));
+    const sysId = e ? (e.SystemID || '') : '';
+    return `<tr class="row-click" onclick="openDisciplinaryPopup(${jsQ(d.ActionID)})" style="cursor:pointer">
+      <td>${num(d.ActionID)}</td>
+      <td>${num(sysId)}</td>
       <td><strong>${num(d.RefNo||'')}</strong></td>
       <td>${d.FullName||''}</td>
       <td>${d.ActionType||''}</td>
       <td>${fmtDate(d.IssueDate)}</td>
       <td onclick="event.stopPropagation()"><button class="btn ghost sm" onclick="reprintDisc(${jsQ(d.ActionID)})">${ico('print')}</button></td>
-    </tr>`).join('') || `<tr><td colspan="6" class="small-mute" style="text-align:center;padding:20px">${LANG==='bn'?'কোনো শৃঙ্খলা রেকর্ড নেই':'No disciplinary records'}</td></tr>`;
+    </tr>`}).join('') || `<tr><td colspan="7" class="small-mute" style="text-align:center;padding:20px">${LANG==='bn'?'কোনো শৃঙ্খলা রেকর্ড নেই':'No disciplinary records'}</td></tr>`;
 }
 /* v3.4: Disciplinary রো ক্লিক → পপআপ (এডিটেবল বডি) */
 function openDisciplinaryPopup(aid){
@@ -4743,11 +4887,15 @@ function renderLeave(){
         <div class="card-header"><h3>${LANG==='bn'?'সাম্প্রতিক ছুটির আবেদন':'Recent Leave Applications'}</h3></div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>${LANG==='bn'?'কর্মচারী':'Employee'}</th><th>${LANG==='bn'?'ধরন':'Type'}</th><th>${LANG==='bn'?'দিন':'Days'}</th><th>${LANG==='bn'?'অবস্থা':'Status'}</th><th></th></tr></thead>
+            <thead><tr><th style="width:50px">${LANG==='bn'?'ক্রম':'#'}</th><th>SID</th><th>${LANG==='bn'?'কর্মচারী':'Employee'}</th><th>${LANG==='bn'?'ধরন':'Type'}</th><th>${LANG==='bn'?'দিন':'Days'}</th><th>${LANG==='bn'?'অবস্থা':'Status'}</th><th></th></tr></thead>
             <tbody>
-              ${SAMPLE_LEAVES.map(l=>{
+              ${SAMPLE_LEAVES.slice().sort((a,b)=>+b.id-+a.id).map((l,i)=>{
                 const lt = LEAVE_TYPES.find(x=>x.key===l.type);
+                const emp = DATA.employees.find(e => String(e.EmployeeID) === String(l.empId));
+                const sysId = emp ? emp.SystemID : '';
                 return `<tr class="row-click" onclick="openLeavePopup(${jsQ(l.id)})" style="cursor:pointer">
+                  <td>${num(l.id)}</td>
+                  <td>${num(sysId)}</td>
                   <td><strong>${l.name}</strong><br><span class="small-mute">${fmtDate(l.start)} — ${fmtDate(l.end)}</span></td>
                   <td><span class="chip" style="color:${lt.color}">${lt[LANG]}</span></td>
                   <td>${num(l.days)}</td>
@@ -4897,15 +5045,18 @@ function renderExit(){
       <div class="card-header"><h3>${LANG==='bn'?'সাম্প্রতিক চাকরি ত্যাগ':'Recent Exits'}</h3><span class="sub">${num(DATA.exits.length)} ${LANG==='bn'?'টি রেকর্ড':'records'}</span></div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th style="width:50px">${LANG==='bn'?'ক্রম':'#'}</th><th>${LANG==='bn'?'আইডি':'ID'}</th><th>${LANG==='bn'?'নাম':'Name'}</th><th>${LANG==='bn'?'পদবি':'Designation'}</th><th>${LANG==='bn'?'প্রজেক্ট':'Project'}</th><th>${LANG==='bn'?'ত্যাগের তারিখ':'Exit Date'}</th><th>${LANG==='bn'?'কারণ':'Reason'}</th></tr></thead>
-          <tbody>${DATA.exits.slice(0,200).map((x,i)=>`<tr class="row-click" onclick="openExitPopup(${jsQ(x.ExitID)})" style="cursor:pointer">
-            <td>${num(i+1)}</td>
-            <td>${num(x.EmployeeID||'')}</td>
+          <thead><tr><th style="width:50px">${LANG==='bn'?'ক্রম':'#'}</th><th>SID</th><th>${LANG==='bn'?'নাম':'Name'}</th><th>${LANG==='bn'?'পদবি':'Designation'}</th><th>${LANG==='bn'?'প্রজেক্ট':'Project'}</th><th>${LANG==='bn'?'ত্যাগের তারিখ':'Exit Date'}</th><th>${LANG==='bn'?'কারণ':'Reason'}</th></tr></thead>
+          <tbody>${DATA.exits.slice().sort((a,b)=>+b.ExitID-+a.ExitID).map((x,i)=>{
+            const e = DATA.employees.find(emp => String(emp.EmployeeID) === String(x.EmployeeID) || String(emp.RecordID) === String(x.RecordID));
+            const sysId = e ? e.SystemID : '';
+            return `<tr class="row-click" onclick="openExitPopup(${jsQ(x.ExitID)})" style="cursor:pointer">
+            <td>${num(x.ExitID)}</td>
+            <td>${num(sysId)}</td>
             <td><strong>${x.FullName||''}</strong></td>
             <td>${desig(x.Designation||'')}</td>
             <td>${projName(x.CurrentProject||x.ProjectName||'')}</td>
             <td>${fmtDate(x.ExitDate)}</td>
-            <td class="small-mute" style="max-width:280px">${x.ExitReason||x.ExitType||''}</td></tr>`).join('') || `<tr><td colspan="7" class="small-mute" style="text-align:center;padding:20px">${LANG==='bn'?'কোনো এক্সিট রেকর্ড নেই':'No exit records'}</td></tr>`}</tbody>
+            <td class="small-mute" style="max-width:280px">${x.ExitReason||x.ExitType||''}</td></tr>`}).join('') || `<tr><td colspan="7" class="small-mute" style="text-align:center;padding:20px">${LANG==='bn'?'কোনো এক্সিট রেকর্ড নেই':'No exit records'}</td></tr>`}</tbody>
         </table>
       </div>
     </div>
@@ -6640,20 +6791,22 @@ function mtToggleProject(iso, proj){
   if(d.submitted){ toast(LANG==='bn'?'আজকের হাজিরা সাবমিট হয়ে গেছে — সম্পাদনা করা যাবে না':'Attendance already submitted for today','error'); return; }
   if(d.off){ toast(LANG==='bn'?'এই দিনে মিটিং বন্ধ চিহ্নিত — আগে "মিটিং হয়েছে" চাপুন':'This day is marked off — unmark it first','error'); return; }
   d.present[proj] = !d.present[proj];
-  if(!d.present[proj]){ delete d.present[proj]; delete d.notes[proj]; }  /* uncheck → note also cleared */
+  if(!d.present[proj]){ delete d.present[proj]; delete d.notes[proj]; }
+  /* uncheck → note also cleared */
   /* persist without full re-render to keep textarea focus */
   persist();
   const tile = document.querySelector('.mt-tile[data-proj="'+CSS.escape(proj)+'"]');
   if(tile){
     tile.classList.toggle('present', !!d.present[proj]);
-    const noteBox = tile.querySelector('.mt-note-box');
-    if(d.present[proj] && !noteBox){
-      const div = document.createElement('div'); div.className='mt-note-box';
-      div.innerHTML = `<textarea placeholder="${LANG==='bn'?'এই প্রজেক্টের ইস্যু / নোট (ঐচ্ছিক)…সাবমিটে টু-ডু-তে যাবে':'Issue / note for this project (optional)…goes to To-Do on submit'}" onclick="event.stopPropagation()" oninput="mtSaveNote('${iso}','${proj.replace(/'/g,"\\'")}',this.value)" rows="2"></textarea>`;
-      tile.appendChild(div);
-      div.querySelector('textarea').focus();
-    } else if(!d.present[proj] && noteBox){
-      noteBox.remove();
+    let noteBox = tile.querySelector('.mt-note-box');
+    if(d.present[proj]){
+      if(!noteBox){
+        noteBox = document.createElement('div'); noteBox.className='mt-note-box empty';
+        noteBox.innerHTML = `<button class="btn ghost sm mt-take-note-btn" onclick="event.stopPropagation(); mtShowNoteBox('${iso}','${proj.replace(/'/g,"\\'")}')" style="font-size:11px;padding:4px 8px">${ico('edit',12)} ${LANG==='bn'?'টেক নোট':'Take Note'}</button>`;
+        tile.appendChild(noteBox);
+      }
+    } else {
+      if(noteBox) noteBox.remove();
     }
   }
 }
@@ -6663,6 +6816,40 @@ function mtSaveNote(iso, proj, val){
   if(!d.present[proj]) return;
   d.notes[proj] = val;
   persist();
+}
+function mtShowNoteBox(iso, proj){
+  const d = mtEnsure(iso);
+  if(d.submitted) return;
+  const tile = document.querySelector('.mt-tile[data-proj="'+CSS.escape(proj)+'"]');
+  if(!tile) return;
+  let noteBox = tile.querySelector('.mt-note-box');
+  if(!noteBox){
+    noteBox = document.createElement('div'); noteBox.className='mt-note-box';
+    tile.appendChild(noteBox);
+  }
+  noteBox.className = 'mt-note-box editing';
+  const val = (d.notes[proj] || '').replace(/"/g, '&quot;');
+  noteBox.innerHTML = `<textarea placeholder="${LANG==='bn'?'এই প্রজেক্টের ইস্যু / নোট…':'Issue / note for this project…'}" onclick="event.stopPropagation()" oninput="mtSaveNote('${iso}','${proj.replace(/'/g,"\\'")}',this.value)" rows="2">${val.replace(/</g,'&lt;')}</textarea>
+    <button class="btn primary sm" onclick="event.stopPropagation(); mtLockNoteBox('${iso}','${proj.replace(/'/g,"\\'")}')" style="margin-top:6px;font-size:11px;padding:4px 8px">${ico('check',12)} ${LANG==='bn'?'লক করুন':'Lock Note'}</button>`;
+  const ta = noteBox.querySelector('textarea');
+  if(ta) { ta.focus(); ta.selectionStart = ta.value.length; }
+}
+function mtLockNoteBox(iso, proj){
+  const d = mtEnsure(iso);
+  if(d.submitted) return;
+  const tile = document.querySelector('.mt-tile[data-proj="'+CSS.escape(proj)+'"]');
+  if(!tile) return;
+  let noteBox = tile.querySelector('.mt-note-box');
+  if(!noteBox) return;
+  const val = d.notes[proj] || '';
+  if(!val.trim()){
+    noteBox.className = 'mt-note-box empty';
+    noteBox.innerHTML = `<button class="btn ghost sm mt-take-note-btn" onclick="event.stopPropagation(); mtShowNoteBox('${iso}','${proj.replace(/'/g,"\\'")}')" style="font-size:11px;padding:4px 8px">${ico('edit',12)} ${LANG==='bn'?'টেক নোট':'Take Note'}</button>`;
+  } else {
+    noteBox.className = 'mt-note-box locked';
+    noteBox.innerHTML = `<p class="mt-note-text" style="font-size:12px;margin:0 0 6px;color:var(--text-1);background:white;padding:6px;border-radius:4px;border:1px dashed var(--border)">${val.replace(/</g,'&lt;')}</p>
+      <button class="btn ghost sm mt-take-note-btn" onclick="event.stopPropagation(); mtShowNoteBox('${iso}','${proj.replace(/'/g,"\\'")}')" style="font-size:11px;padding:4px 8px">${ico('edit',12)} ${LANG==='bn'?'এডিট':'Edit Note'}</button>`;
+  }
 }
 function mtSaveMeetingNote(iso, val){
   const d = mtEnsure(iso);
@@ -6813,10 +7000,18 @@ function renderMeeting(){
                 const on = rec && rec.present && rec.present[p];
                 const noteVal = (rec && rec.notes && rec.notes[p]) || '';
                 const pSafe = p.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+                let noteHtml = '';
+                if(on){
+                  if(noteVal){
+                    noteHtml = `<div class="mt-note-box locked"><p class="mt-note-text" style="font-size:12px;margin:0 0 6px;color:var(--text-1);background:white;padding:6px;border-radius:4px;border:1px dashed var(--border)">${noteVal.replace(/</g,'&lt;')}</p><button class="btn ghost sm mt-take-note-btn" onclick="event.stopPropagation(); mtShowNoteBox('${today}', '${pSafe}')" style="font-size:11px;padding:4px 8px">${ico('edit',12)} ${LANG==='bn'?'এডিট':'Edit Note'}</button></div>`;
+                  } else {
+                    noteHtml = `<div class="mt-note-box empty"><button class="btn ghost sm mt-take-note-btn" onclick="event.stopPropagation(); mtShowNoteBox('${today}', '${pSafe}')" style="font-size:11px;padding:4px 8px">${ico('edit',12)} ${LANG==='bn'?'টেক নোট':'Take Note'}</button></div>`;
+                  }
+                }
                 return `<div class="mt-tile ${on?'present':''}" data-proj="${pSafe}" onclick="mtToggleProject('${today}','${pSafe}')">
                   <span class="mt-check">✓</span>
                   <h5>${projName(p)}</h5>
-                  ${on?`<div class="mt-note-box"><textarea placeholder="${LANG==='bn'?'এই প্রজেক্টের ইস্যু / নোট (ঐচ্ছিক)…সাবমিটে টু-ডু-তে যাবে':'Issue / note for this project (optional)…goes to To-Do on submit'}" onclick="event.stopPropagation()" oninput="mtSaveNote('${today}','${pSafe}',this.value)" rows="2">${(noteVal||'').replace(/</g,'&lt;')}</textarea></div>`:''}
+                  ${noteHtml}
                 </div>`;
               }).join('')}
             </div>
@@ -7744,6 +7939,7 @@ function restoreSidebar(){
 }
 
 function renderAll(){
+  if (typeof ensureSystemIDs === 'function') ensureSystemIDs();
   applyI18n();
   const map = {dashboard:renderDashboard,notifications:renderNotifications,employees:renderEmployees,recruitment:renderRecruitment,parade:renderParade,projects:renderProjects,meeting:renderMeeting,uniform:renderUniform,transfer:renderTransfer,disciplinary:renderDisciplinary,leave:renderLeave,exit:renderExit,salary:renderSalary,increment:renderIncrement,reports:renderReports,settings:renderSettings};
   const f = map[currentPage]; if(f) f();
@@ -8156,8 +8352,6 @@ setTimeout(()=>checkPendingToast(true), 2000);
 setTimeout(startupConnectionCheck, 1200);
 setInterval(()=>checkPendingToast(true), 180000); /* প্রতি ৩ মিনিটে রিমাইন্ডার পপআপ */
 </script>
-<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
-<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
 
 <style id="auth-css">
 #setupGate,#authGate{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;
@@ -8531,11 +8725,23 @@ setInterval(()=>checkPendingToast(true), 180000); /* প্রতি ৩ মি�
     if (el('authGate').className === 'show' && !signupMode) doLogin();
   });
 
-  if ('serviceWorker' in navigator && location.protocol === 'https:')
-    navigator.serviceWorker.register('./sw.js').catch(function(){});
+  if ('serviceWorker' in navigator) {
+    if (window.self !== window.top || location.hostname.includes('run.app') || location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        for (var i = 0; i < regs.length; i++) {
+          try { regs[i].unregister(); } catch(e) {}
+        }
+      }).catch(function(){});
+      if (typeof caches !== 'undefined') {
+        caches.keys().then(function(keys) {
+          keys.forEach(function(k) { caches.delete(k); });
+        }).catch(function(){});
+      }
+    } else if (location.protocol === 'https:') {
+      navigator.serviceWorker.register('./sw.js').catch(function(){});
+    }
+  }
 })();
 </script>
-<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
-<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
 </body>
 </html>

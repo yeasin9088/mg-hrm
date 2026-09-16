@@ -6281,7 +6281,7 @@ function importConfirm(){
   renderSettings();
   if(typeof renderAll==='function') renderAll();
 }
-function wipeAllData(){
+async function wipeAllData(){
   if(!guardEdit()) return;
   const bn = LANG==='bn';
   const step1 = prompt(bn?'সতর্কতা: সব ডেটা মুছে ফেলবেন? নিশ্চিত করতে টাইপ করুন: DELETE ALL':'WARNING: Wipe ALL data? To confirm, type exactly: DELETE ALL');
@@ -6290,14 +6290,36 @@ function wipeAllData(){
   try{ if(typeof exportBackupFile==='function') exportBackupFile(); }catch(e){}
   if(!confirm(bn?'শেষ সতর্কতা: ব্যাকআপ ডাউনলোড হয়ে গেছে (সম্ভবত)। এখন সব wipe হবে — এগোবেন?':'Final warning: backup downloaded (probably). Wipe now?')) return;
 
+  let wipeSuccess = true;
   /* Wipe Supabase Server Data */
   if (window.MGHRM && window.MGHRM._client) {
+    toast(bn?'সার্ভার থেকে ডেটা মোছা হচ্ছে, অপেক্ষা করুন...':'Wiping server data, please wait...', 'info');
     const sb = window.MGHRM._client;
     const tMap = window.MGHRM.TABLE_MAP;
-    Promise.all(Object.keys(tMap).map(k => {
-      const table = tMap[k].table;
-      return sb.from(table).delete().neq(tMap[k].pk, '0');
-    })).catch(e => console.error('Failed to wipe Supabase:', e));
+    const tablesToWipe = ['employees', 'projects', 'demand', 'disciplinary', 'exits', 'transfers', 'career', 'uniform', 'leaves', 'meetings', 'activity_log', 'recruitment_archive'];
+    
+    try {
+      await Promise.all(tablesToWipe.map(async (tableName) => {
+        let pk = 'id';
+        for (let k in tMap) {
+          if (tMap[k].table === tableName) { pk = tMap[k].pk; break; }
+        }
+        const { error } = await sb.from(tableName).delete().not(pk, 'is', null);
+        if (error) {
+          console.error(`Failed to wipe ${tableName}:`, error);
+          wipeSuccess = false;
+        }
+      }));
+    } catch(e) {
+      console.error('Failed to wipe Supabase:', e);
+      wipeSuccess = false;
+    }
+  }
+
+  if (!wipeSuccess) {
+    toast(bn?'সার্ভারের সব ডেটা মুছতে সমস্যা হয়েছে (Permission Error হতে পারে)।':'Failed to wipe server data completely (Permission Error).', 'error');
+  } else {
+    toast(bn?'সব ডেটা মুছে ফেলা হয়েছে — এখন Settings থেকে ইম্পোর্ট করুন':'All data wiped — now import from Settings','success');
   }
 
   DATA.employees=[]; DATA.projects=[]; DATA.transfers=[]; DATA.disciplinary=[];
@@ -6306,8 +6328,8 @@ function wipeAllData(){
   DATA.recruitmentArchive=[]; DATA.activityLog=[];
   if(typeof RECRUITMENT!=='undefined' && Array.isArray(RECRUITMENT)) RECRUITMENT.length=0;
   if(typeof NOTIFICATIONS!=='undefined' && Array.isArray(NOTIFICATIONS)) NOTIFICATIONS.length=0;
+  
   logActivity('wipe','ALL','','database blanked by user');
-  toast(bn?'সব ডেটা মুছে ফেলা হয়েছে — এখন Settings থেকে ইম্পোর্ট করুন':'All data wiped — now import from Settings','success');
   persist(); renderAll();
 }
 

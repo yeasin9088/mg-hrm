@@ -2,8 +2,8 @@
    MG Security HRM — Service Worker
    কাজ: অ্যাপের ফাইলগুলো ফোনে/কম্পিউটারে জমা রাখা (offline-এ খোলার জন্য)
    ===================================================================== */
-const CACHE = 'mghrm-v1';
-const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
+const CACHE = 'mghrm-v4';
+const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './bd-geo.json', './config.js'];
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();

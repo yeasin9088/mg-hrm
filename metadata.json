@@ -1,0 +1,6 @@
+{
+  "name": "MG Security HRM Suite",
+  "description": "Human resource management suite for MG Security - employee records, parade state, uniforms, transfers, and leaves.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

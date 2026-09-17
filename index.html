@@ -6942,9 +6942,9 @@ async function wipeAllData(){
 
   let wipeSuccess = true;
   /* Wipe Supabase Server Data */
-  if (window.MGHRM && window.MGHRM._client) {
+  if (window.MGHRM && (window.MGHRM._client || window.sb)) {
     toast(bn?'সার্ভার থেকে ডেটা মোছা হচ্ছে, অপেক্ষা করুন...':'Wiping server data, please wait...', 'info');
-    const sb = window.MGHRM._client;
+    const sb = (typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : window.MGHRM._client) || window.sb;
     const tMap = window.MGHRM.TABLE_MAP;
     const tablesToWipe = ['employees', 'projects', 'demand', 'disciplinary', 'exits', 'transfers', 'career', 'uniform', 'leaves', 'meetings', 'activity_log', 'recruitment_archive'];
     
@@ -9150,6 +9150,7 @@ setInterval(()=>checkPendingToast(true), 180000);
 
 (function () {
   var G = window.MGHRM;
+  var sb = window.sb || (G && typeof G._client === 'function' ? G._client() : null);
   var CFG_KEY = 'mghrm_cfg';
   
   var EXTRA = {};
@@ -9236,10 +9237,18 @@ setInterval(()=>checkPendingToast(true), 180000);
   
   /* ---------- REAL-TIME SUPABASE ARCHITECTURE ---------- */
   function subscribeRealtime() {
+    if (G && typeof G.subscribeRealtime === 'function') {
+      return G.subscribeRealtime();
+    }
+    var client = (G && typeof G._client === 'function' ? G._client() : null) || window.sb || sb;
+    if (!client) {
+      console.warn('[Real-Time] Supabase client not initialized yet');
+      return;
+    }
     console.log('[Supabase] Initializing Real-Time WebSockets...');
     
     // Listen to all public tables
-    const channel = sb.channel('custom-all-channel')
+    const channel = client.channel('custom-all-channel')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public' },
@@ -9258,6 +9267,10 @@ setInterval(()=>checkPendingToast(true), 180000);
   }
 
   function handleRealtimeEvent(payload) {
+    if (G && typeof G.handleRealtimeEvent === 'function') {
+      return G.handleRealtimeEvent(payload);
+    }
+    const tMap = (G && G.TABLE_MAP) || window.MGHRM_TABLE_MAP || {};
     const table = payload.table;
     const eventType = payload.eventType; // INSERT, UPDATE, DELETE
     const newRow = payload.new;
@@ -9266,10 +9279,10 @@ setInterval(()=>checkPendingToast(true), 180000);
     // Find the corresponding local table bucket
     let bucket = null;
     let pk = null;
-    for (let k in TABLE_MAP) {
-      if (TABLE_MAP[k].table === table) {
+    for (let k in tMap) {
+      if (tMap[k].table === table) {
         bucket = k;
-        pk = TABLE_MAP[k].pk;
+        pk = tMap[k].pk;
         break;
       }
     }
@@ -9277,7 +9290,7 @@ setInterval(()=>checkPendingToast(true), 180000);
     if (!bucket || !window.DATA[bucket]) return;
 
     const dataArr = window.DATA[bucket];
-    const jsRecord = eventType === 'DELETE' ? {} : fromDb(bucket, newRow);
+    const jsRecord = eventType === 'DELETE' ? {} : (G && typeof G.fromDb === 'function' ? G.fromDb(bucket, newRow) : newRow);
 
     if (eventType === 'INSERT') {
       // Avoid duplicate if we inserted it locally first
@@ -9292,11 +9305,7 @@ setInterval(()=>checkPendingToast(true), 180000);
         dataArr.unshift(jsRecord);
       }
     } else if (eventType === 'DELETE') {
-      // Supabase DELETE payload usually only contains the identity/PK
-      const deletedPkValue = oldRow.id; // Or resolve the exact mapped PK
-      // For precision, we refresh all on delete or do a hard map, 
-      // but for now we remove by assuming the local 'id' maps to Supabase 'id'
-      const mappedOld = fromDb(bucket, oldRow);
+      const mappedOld = (G && typeof G.fromDb === 'function' ? G.fromDb(bucket, oldRow) : oldRow) || {};
       const idx = dataArr.findIndex(x => String(x[pk]) === String(mappedOld[pk]) || String(x.id) === String(oldRow.id));
       if (idx !== -1) dataArr.splice(idx, 1);
     }
@@ -9306,7 +9315,11 @@ setInterval(()=>checkPendingToast(true), 180000);
   }
 
   function startApp(){
-    subscribeRealtime();
+    if (G && typeof G.subscribeRealtime === 'function') {
+      G.subscribeRealtime();
+    } else {
+      subscribeRealtime();
+    }
     return G.loadAll().then(function (d) {
       var n = fillData(d);
       hookPersist(); refreshAll();
@@ -9358,7 +9371,18 @@ setInterval(()=>checkPendingToast(true), 180000);
     if (!em || !pw) { msg('authMsg','Enter both email and password','err'); return; }
     var b = el('authGo'); b.disabled = true;
     b.innerHTML = '<span class="spin"></span>Signing in…';
-    G.signIn(em, pw).then(function(){
+
+    var ensureReady = Promise.resolve();
+    if (!G || !G.isReady()) {
+      var c = savedCfg();
+      if (c && G && typeof G.connect === 'function') {
+        ensureReady = G.connect(c);
+      }
+    }
+
+    ensureReady.then(function(){
+      return G.signIn(em, pw);
+    }).then(function(){
       msg('authMsg','Success — loading data…','ok');
       return startApp();
     }).catch(function(e){
@@ -9375,7 +9399,18 @@ setInterval(()=>checkPendingToast(true), 180000);
     if (pw.length < 6) { msg('authMsg','Password must be at least 6 characters','err'); return; }
     var b = el('authGo'); b.disabled = true;
     b.innerHTML = '<span class="spin"></span>Creating…';
-    G.signUp(em, pw, em).then(function(r){
+
+    var ensureReady = Promise.resolve();
+    if (!G || !G.isReady()) {
+      var c = savedCfg();
+      if (c && G && typeof G.connect === 'function') {
+        ensureReady = G.connect(c);
+      }
+    }
+
+    ensureReady.then(function(){
+      return G.signUp(em, pw, em);
+    }).then(function(r){
       b.disabled = false; b.textContent = 'Login';
       if (r && r.session) { return startApp(); }
       msg('authMsg','Account created. Click the confirmation link in your email, then login.','ok');

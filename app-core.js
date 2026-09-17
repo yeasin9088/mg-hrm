@@ -475,6 +475,22 @@
     user = null,
     ready = false;
 
+  // Ensure window.sb is always defined as a global getter/setter
+  try {
+    Object.defineProperty(global, 'sb', {
+      get: function () {
+        return sb;
+      },
+      set: function (v) {
+        sb = v;
+      },
+      configurable: true,
+      enumerable: true
+    });
+  } catch (e) {
+    global.sb = sb;
+  }
+
   function connect(config) {
     cfg = config || {};
     if (!cfg.url || !cfg.anonKey) {
@@ -487,15 +503,30 @@
       auth: { persistSession: true, autoRefreshToken: true, storageKey: 'mghrm_auth' }
     });
     ready = true;
+    global.sb = sb;
+    global.supabaseClient = sb;
+    if (global.MGHRM) {
+      global.MGHRM.client = sb;
+      global.MGHRM.sb = sb;
+    }
     return Promise.resolve(true);
   }
 
   function isReady() {
-    return ready;
+    return ready && !!sb;
   }
 
   /* ---------- Auth ---------- */
   function signIn(email, password) {
+    if (!sb) {
+      var c = global.MGHRM_CONFIG;
+      if (c && c.url && c.anonKey && String(c.url).indexOf('PASTE_') !== 0) {
+        return connect(c).then(function () {
+          return signIn(email, password);
+        });
+      }
+      return Promise.reject(new Error('Database not connected. Please setup connection first.'));
+    }
     return sb.auth.signInWithPassword({ email: email, password: password }).then(function (r) {
       if (r.error) throw r.error;
       user = r.data.user;
@@ -504,6 +535,15 @@
   }
 
   function signUp(email, password, fullName) {
+    if (!sb) {
+      var c = global.MGHRM_CONFIG;
+      if (c && c.url && c.anonKey && String(c.url).indexOf('PASTE_') !== 0) {
+        return connect(c).then(function () {
+          return signUp(email, password, fullName);
+        });
+      }
+      return Promise.reject(new Error('Database not connected. Please setup connection first.'));
+    }
     return sb.auth
       .signUp({
         email: email,
@@ -517,12 +557,25 @@
   }
 
   function signOut() {
+    if (!sb) {
+      user = null;
+      return Promise.resolve();
+    }
     return sb.auth.signOut().then(function () {
       user = null;
     });
   }
 
   function getSession() {
+    if (!sb) {
+      var c = global.MGHRM_CONFIG;
+      if (c && c.url && c.anonKey && String(c.url).indexOf('PASTE_') !== 0) {
+        return connect(c).then(function () {
+          return getSession();
+        });
+      }
+      return Promise.resolve(null);
+    }
     return sb.auth.getSession().then(function (r) {
       user = r.data && r.data.session ? r.data.session.user : null;
       return r.data ? r.data.session : null;
@@ -530,6 +583,15 @@
   }
 
   function onChange(cb) {
+    if (!sb) {
+      var c = global.MGHRM_CONFIG;
+      if (c && c.url && c.anonKey && String(c.url).indexOf('PASTE_') !== 0) {
+        connect(c).then(function () {
+          onChange(cb);
+        });
+      }
+      return;
+    }
     sb.auth.onAuthStateChange(function (ev, s) {
       cb(ev, s);
     });
@@ -540,8 +602,9 @@
   }
 
   function myProfile() {
-    if (!user) return Promise.resolve(null);
-    return sb
+    var client = sb || global.sb;
+    if (!user || !client) return Promise.resolve(null);
+    return client
       .from('profiles')
       .select('*')
       .eq('id', user.id)
@@ -553,10 +616,19 @@
 
   /* ---------- Read All ---------- */
   function loadAll() {
+    var client = sb || global.sb;
+    if (!client) {
+      console.warn('[Supabase] loadAll: Supabase client not initialized');
+      var emptyOut = {};
+      Object.keys(TABLE_MAP).forEach(function (k) {
+        emptyOut[k] = [];
+      });
+      return Promise.resolve(emptyOut);
+    }
     var keys = Object.keys(TABLE_MAP);
     return Promise.all(
       keys.map(function (k) {
-        return sb
+        return client
           .from(TABLE_MAP[k].table)
           .select('*')
           .then(function (r) {
@@ -584,7 +656,12 @@
   /* ---------- Real-Time WebSockets ---------- */
   function subscribeRealtime() {
     console.log('[Supabase] Initializing Real-Time WebSockets...');
-    sb.channel('custom-all-channel')
+    var client = sb || global.sb;
+    if (!client) {
+      console.warn('[Real-Time] Supabase client not initialized yet');
+      return null;
+    }
+    return client.channel('custom-all-channel')
       .on('postgres_changes', { event: '*', schema: 'public' }, function (payload) {
         console.log('⚡ [Real-Time] Remote change received:', payload);
         handleRealtimeEvent(payload);
@@ -898,10 +975,24 @@
 
   /* Admin Helpers */
   function raw() {
-    return sb;
+    return sb || global.sb;
   }
+  ['from', 'channel', 'auth', 'storage', 'rpc', 'functions'].forEach(function (m) {
+    try {
+      Object.defineProperty(raw, m, {
+        get: function () {
+          var client = sb || global.sb;
+          return client && typeof client[m] === 'function' ? client[m].bind(client) : (client ? client[m] : undefined);
+        },
+        configurable: true,
+        enumerable: true
+      });
+    } catch (e) {}
+  });
+
   function sqlView(table) {
-    return sb.from(table).select('*');
+    var client = sb || global.sb;
+    return client ? client.from(table).select('*') : null;
   }
 
   /* ---------- Memory-based Auto-Sync ---------- */
@@ -977,6 +1068,7 @@
     myProfile: myProfile,
     loadAll: loadAll,
     subscribeRealtime: subscribeRealtime,
+    handleRealtimeEvent: handleRealtimeEvent,
     insert: insert,
     update: update,
     remove: remove,
@@ -988,6 +1080,21 @@
     fromDb: fromDb,
     _client: raw,
     _view: sqlView,
-    version: '2.1.0'
+    client: sb,
+    sb: sb,
+    version: '2.1.1'
   };
+
+  // Immediate eager auto-initialization if config is present
+  try {
+    var c = global.MGHRM_CONFIG;
+    if (c && c.url && c.anonKey && String(c.url).indexOf('PASTE_') !== 0 && String(c.anonKey).indexOf('PASTE_') !== 0) {
+      connect(c).catch(function () {});
+    } else {
+      var saved = JSON.parse(localStorage.getItem('mghrm_cfg') || 'null');
+      if (saved && saved.url && saved.anonKey) {
+        connect(saved).catch(function () {});
+      }
+    }
+  } catch (e) {}
 })(window);

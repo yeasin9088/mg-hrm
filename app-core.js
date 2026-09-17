@@ -10,7 +10,7 @@
     employees: {
       table: 'employees',
       pk: 'id',
-      allowed: [
+      allowed: [ 
         'id', 'employee_id', 'full_name', 'full_name_bn',
         'father_name', 'mother_name', 'dob', 'phone', 'nid', 'education', 'religion',
         'height', 'weight', 'marital_status', 'spouse_name', 'spouse_phone',
@@ -19,8 +19,8 @@
         'union_id', 'village', 'street', 'designation', 'project_name',
         'join_date', 'duty_hour', 'salary', 'status', 'exit_date', 'exit_reason',
         'remarks', 'photo_url', 'created_at', 'updated_at'
-      ],
-      map: {
+       ],
+      map: { 
         'id': 'id',
         'EmployeeID': 'employee_id',
         'FullName': 'full_name',
@@ -56,20 +56,20 @@
         'ExitReason': 'exit_reason',
         'Remarks': 'remarks',
         'PhotoURL': 'photo_url'
-      }
+       }
     },
 
     projects: {
       table: 'projects',
       pk: 'id',
-      allowed: [
+      allowed: [ 
         'id', 'project_name', 'project_name_bn', 'address', 'address_bn',
         'main_gate_phone', 'admin_name', 'admin_phone', 'admin_whatsapp',
         'division', 'district', 'thana', 'division_id', 'district_id',
         'upazila_id', 'union_id', 'village', 'street', 'start_date',
         'status', 'is_active', 'created_at', 'updated_at'
-      ],
-      map: {
+       ],
+      map: { 
         'Project ID': 'id',
         'ProjectName': 'project_name',
         'ProjectNameBangla': 'project_name_bn',
@@ -84,18 +84,18 @@
         'Thana': 'thana',
         'StartDate': 'start_date',
         'Status': 'status'
-      }
+       }
     },
 
     demand: {
       table: 'demand',
       pk: 'id',
-      allowed: [
+      allowed: [ 
         'id', 'project_name', 'demand_incharge', 'demand_supervisor',
         'demand_assst_sup', 'demand_guard', 'demand_lady_guard',
         'demand_total', 'updated_at'
-      ],
-      map: {
+       ],
+      map: { 
         'ID': 'id',
         'ProjectName': 'project_name',
         'DemandSecurityIncharge': 'demand_incharge',
@@ -104,20 +104,20 @@
         'DemandSecurityGuard': 'demand_guard',
         'DemandLadyGuard': 'demand_lady_guard',
         'DemandTotal': 'demand_total'
-      }
+       }
     },
 
     disciplinary: {
       table: 'disciplinary',
       pk: 'action_id',
-      allowed: [
+      allowed: ['employee_sys_id',  
         'id', 'action_id', 'ref_no', 'ref_no_bn',
         'employee_id', 'employee_id_bn', 'full_name', 'full_name_bn',
         'designation', 'designation_bn', 'project_name', 'project_name_bn',
         'action_type', 'issue_date', 'issue_date_bn', 'incident_date',
         'description', 'description_bn', 'created_at'
-      ],
-      map: {
+       ],
+      map: { 'employee_sys_id': 'employee_sys_id', 
         'ActionID': 'action_id',
         'RefNo': 'ref_no',
         'RefNoBangla': 'ref_no_bn',
@@ -135,18 +135,18 @@
         'IncidentDate': 'incident_date',
         'Description': 'description',
         'DescriptionBangla': 'description_bn'
-      }
+       }
     },
 
     exits: {
       table: 'exits',
       pk: 'exit_id',
-      allowed: [
+      allowed: ['employee_sys_id',  
         'id', 'exit_id', 'employee_id',
         'full_name', 'designation', 'current_project', 'join_date',
         'exit_reason', 'exit_date', 'issue_date', 'created_at'
-      ],
-      map: {
+       ],
+      map: { 'employee_sys_id': 'employee_sys_id', 
         'ExitID': 'exit_id',
         'EmployeeID': 'employee_id',
         'FullName': 'full_name',
@@ -156,20 +156,20 @@
         'ExitReason': 'exit_reason',
         'ExitDate': 'exit_date',
         'IssueDate': 'issue_date'
-      }
+       }
     },
 
     transfers: {
       table: 'transfers',
       pk: 'transfer_id',
-      allowed: [
+      allowed: ['employee_sys_id',  
         'id', 'transfer_id', 'employee_id',
         'employee_id_bn', 'full_name', 'full_name_bn', 'designation',
         'designation_bn', 'current_project', 'current_project_bn',
         'new_project', 'new_project_bn', 'transfer_date', 'transfer_date_bn',
         'issues_date', 'issues_date_bn', 'is_proceed', 'status', 'notes', 'created_at'
-      ],
-      map: {
+       ],
+      map: { 'employee_sys_id': 'employee_sys_id', 
         'TransferID': 'transfer_id',
         'EmployeeID': 'employee_id',
         'EmployeeIDBangla': 'employee_id_bn',
@@ -188,19 +188,19 @@
         'IsProceed': 'is_proceed',
         'Status': 'status',
         'Notes': 'notes'
-      }
+       }
     },
 
     career: {
       table: 'career',
       pk: 'change_id',
-      allowed: [
+      allowed: ['employee_sys_id',  
         'id', 'change_id', 'employee_id',
         'full_name', 'project_name', 'change_type', 'effective_date',
         'current_designation', 'new_designation', 'previous_salary',
         'increment_amount', 'new_salary', 'notes', 'created_at'
-      ],
-      map: {
+       ],
+      map: { 'employee_sys_id': 'employee_sys_id', 
         'ChangeID': 'change_id',
         'EmployeeID': 'employee_id',
         'FullName': 'full_name',
@@ -213,19 +213,19 @@
         'IncrementAmount': 'increment_amount',
         'NewSalary': 'new_salary',
         'Notes': 'notes'
-      }
+       }
     },
 
     leaves: {
       table: 'leaves',
       pk: 'leave_id',
-      allowed: [
+      allowed: ['employee_sys_id',  
         'id', 'leave_id', 'employee_id',
         'full_name', 'designation', 'project_name', 'leave_type',
         'from_date', 'to_date', 'days_count', 'reason', 'status',
         'applied_on', 'approved_by', 'created_at'
-      ],
-      map: {
+       ],
+      map: { 'employee_sys_id': 'employee_sys_id', 
         'LeaveID': 'leave_id',
         'id': 'leave_id',
         'EmployeeID': 'employee_id',
@@ -246,19 +246,19 @@
         'Status': 'status',
         'AppliedOn': 'applied_on',
         'ApprovedBy': 'approved_by'
-      }
+       }
     },
 
     uniform: {
       table: 'uniform',
       pk: 'issue_id',
-      allowed: [
+      allowed: ['employee_sys_id',  
         'id', 'issue_id', 'employee_id',
         'full_name', 'designation', 'project_name', 'item_name',
         'size_text', 'quantity', 'issue_date', 'return_date',
         'condition_text', 'status', 'remarks', 'created_at'
-      ],
-      map: {
+       ],
+      map: { 'employee_sys_id': 'employee_sys_id', 
         'IssueID': 'issue_id',
         'EmployeeID': 'employee_id',
         'FullName': 'full_name',
@@ -272,34 +272,34 @@
         'Condition': 'condition_text',
         'Status': 'status',
         'Remarks': 'remarks'
-      }
+       }
     },
 
     meetings: {
       table: 'meetings',
       pk: 'meeting_id',
-      allowed: [
+      allowed: [ 
         'id', 'meeting_id', 'meeting_date', 'title', 'venue', 'agenda',
         'created_by', 'created_at'
-      ],
-      map: {
+       ],
+      map: { 
         'MeetingID': 'meeting_id',
         'MeetingDate': 'meeting_date',
         'Title': 'title',
         'Venue': 'venue',
         'Agenda': 'agenda',
         'CreatedBy': 'created_by'
-      }
+       }
     },
 
     meetingAttendance: {
       table: 'meeting_attendance',
       pk: 'id',
-      allowed: [
+      allowed: ['employee_sys_id',  
         'id', 'meeting_id', 'employee_id', 'full_name',
         'designation', 'project_name', 'status', 'remarks'
-      ],
-      map: {
+       ],
+      map: { 'employee_sys_id': 'employee_sys_id', 
         'MeetingID': 'meeting_id',
         'EmployeeID': 'employee_id',
         'FullName': 'full_name',
@@ -307,56 +307,56 @@
         'ProjectName': 'project_name',
         'Status': 'status',
         'Remarks': 'remarks'
-      }
+       }
     },
 
     divisions: {
       table: 'divisions',
       pk: 'division_id',
-      map: {
+      map: { 
         'Division ID': 'division_id',
         'Division Name': 'division_name'
-      }
+       }
     },
 
     districts: {
       table: 'districts',
       pk: 'district_id',
-      map: {
+      map: { 
         'Districts ID': 'district_id',
         'Division ID': 'division_id',
         'Districts Name': 'district_name'
-      }
+       }
     },
 
     thana: {
       table: 'thanas',
       pk: 'thana_id',
-      map: {
+      map: { 
         'Thana ID': 'thana_id',
         'Districts ID': 'district_id',
         'Thana Name': 'thana_name'
-      }
+       }
     },
 
     desigBangla: {
       table: 'designations',
       pk: 'desig_id',
-      map: {
+      map: { 
         'ID': 'desig_id',
         'Designation': 'designation',
         'DesignationBangla': 'designation_bn'
-      }
+       }
     },
 
     activityLog: {
       table: 'activity_log',
       pk: 'id',
-      allowed: [
+      allowed: [ 
         'id', 'user_id', 'user_email', 'action', 'table_name',
         'record_ref', 'detail', 'created_at'
-      ],
-      map: {
+       ],
+      map: { 
         'LogID': 'id',
         'UserID': 'user_id',
         'UserEmail': 'user_email',
@@ -365,17 +365,17 @@
         'RecordRef': 'record_ref',
         'Detail': 'detail',
         'CreatedAt': 'created_at'
-      }
+       }
     },
     appSettings: {
       table: 'app_settings',
       pk: 'setting_key',
       allowed: ['setting_key', 'setting_value', 'updated_at'],
-      map: {
+      map: { 
         'setting_key': 'setting_key',
         'setting_value': 'setting_value',
         'updated_at': 'updated_at'
-      }
+       }
     },
 
     recruitmentArchive: {
@@ -385,7 +385,7 @@
         'archive_id', 'candidate_name', 'designation', 'project_name',
         'result', 'employee_id', 'decided_at', 'notes', 'created_at', 'updated_at'
       ],
-      map: {
+      map: { 
         'ArchiveID': 'archive_id',
         'CandidateName': 'candidate_name',
         'Designation': 'designation',
@@ -394,7 +394,7 @@
         'EmployeeID': 'employee_id',
         'DecidedAt': 'decided_at',
         'Notes': 'notes'
-      }
+       }
     }
   };
 

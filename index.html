@@ -8,6 +8,21 @@
 <meta property="og:title" content="MG Security HRM Suite">
 <meta property="og:description" content="Human resource management suite for MG Security - employee records, parade state, uniforms, transfers, and leaves.">
 <script>
+
+function findEmpByAction(t) {
+  if (!t) return null;
+  const sysId = t.employee_sys_id || t.id; // t.id might be the action id, so be careful. Actually t.employee_sys_id is safer.
+  return DATA.employees.find(x => 
+    (t.employee_sys_id && String(x.id) === String(t.employee_sys_id)) ||
+    (t.EmployeeID && String(x.EmployeeID) === String(t.EmployeeID)) ||
+    (t.RecordID && String(x.id) === String(t.RecordID)) // Legacy fallback if UI still has RecordID cached
+  );
+}
+function findEmp(rid) {
+  if (!rid) return null;
+  return DATA.employees.find(x => String(x.id) === String(rid) || String(x.EmployeeID) === String(rid));
+}
+
 /* Comprehensive shim for environments where fetch on Window or Window.prototype has only a getter */
 (function() {
   try {
@@ -2408,7 +2423,7 @@ function normEmployee(row) {
   return {
     id: row.id,
     record_id: row.id,
-    RecordID: row.id,
+    
     SystemID: row.id,
     EmployeeID: row.employee_id || '',
     employee_id: row.employee_id || '',
@@ -2506,17 +2521,17 @@ function handleEmployeeRealtimeUpdate(payload) {
 
   if (eventType === 'DELETE') {
     const delId = oldRow && (oldRow.id != null ? oldRow.id : (oldRow.employee_id || oldRow.record_id));
-    DATA.employees = DATA.employees.filter(e => String(e.id) !== String(delId) && String(e.EmployeeID) !== String(delId) && String(e.RecordID) !== String(delId));
+    DATA.employees = DATA.employees.filter(e => String(e.id) !== String(delId) && String(e.EmployeeID) !== String(delId));
   } else if (eventType === 'INSERT') {
     const norm = normEmployee(newRow);
-    const exists = DATA.employees.some(e => (norm.id != null && String(e.id) === String(norm.id)) || (norm.EmployeeID && String(e.EmployeeID) === String(norm.EmployeeID)) || (norm.RecordID && String(e.RecordID) === String(norm.RecordID)));
+    const exists = DATA.employees.some(e => (norm.id != null && String(e.id) === String(norm.id)) || (norm.EmployeeID && String(e.EmployeeID) === String(norm.EmployeeID)));
     if (!exists) {
       DATA.employees.push(norm);
       DATA.employees.sort((a, b) => (+a.id || 0) - (+b.id || 0));
     }
   } else if (eventType === 'UPDATE') {
     const norm = normEmployee(newRow);
-    const idx = DATA.employees.findIndex(e => (norm.id != null && String(e.id) === String(norm.id)) || (norm.EmployeeID && String(e.EmployeeID) === String(norm.EmployeeID)) || (norm.RecordID && String(e.RecordID) === String(norm.RecordID)));
+    const idx = DATA.employees.findIndex(e => (norm.id != null && String(e.id) === String(norm.id)) || (norm.EmployeeID && String(e.EmployeeID) === String(norm.EmployeeID)));
     if (idx !== -1) {
       DATA.employees[idx] = Object.assign({}, DATA.employees[idx], norm);
     } else {
@@ -2553,7 +2568,7 @@ window.ensureEmployeesRealtime = ensureEmployeesRealtime;
 
 async function deleteEmployeeDirectly(empKey) {
   if (!guardEdit()) return;
-  const e = DATA.employees.find(x => String(x.id) === String(empKey) || String(x.EmployeeID) === String(empKey) || String(x.RecordID) === String(empKey));
+  const e = findEmp(empKey);
   if (!e) return;
 
   if (!confirm(`Are you sure you want to permanently delete employee "${e.FullName}" (ID: ${e.id || e.EmployeeID}) from the database?`)) {
@@ -2578,7 +2593,7 @@ async function deleteEmployeeDirectly(empKey) {
     } else if (e.EmployeeID) {
       query = query.eq('employee_id', e.EmployeeID);
     } else {
-      query = query.eq('id', e.RecordID);
+      query = query.eq('id', e.id);
     }
 
     const { error } = await query;
@@ -2730,7 +2745,7 @@ function renderEmpTable(){
     ? `${num(rows.length)} / ${num(DATA.employees.length)} ${'employees'} — <strong style="color:var(--success)">✓ ${'ticked'}: ${num(VERIFY_TICKS.size)}</strong> <span class="small-mute">(${'tick only — no other action'})</span>`
     : `${num(rows.length)} / ${num(DATA.employees.length)} ${'employees'}`;
   document.querySelectorAll('#empTable .tickcol').forEach(el=>el.style.display = VERIFY_MODE?'':'none');
-  const html = rows.map((e,i)=>{
+  const html = rows.slice(0, 100).map((e,i)=>{
     const empKey = e.id || e.EmployeeID;
     return `
     <tr class="clickable" onclick="${VERIFY_MODE?`toggleVerifyTick('${empKey}')`:`openEmpDetail('${empKey}')`}">
@@ -2778,7 +2793,7 @@ function toggleVerifyTick(rid){
 }
 
 function openEmpDetail(recordId){
-  const e = DATA.employees.find(x=>String(x.id)===String(recordId) || String(x.EmployeeID)===String(recordId) || String(x.RecordID)===String(recordId));
+  const e = findEmp(recordId);
   if(!e) return;
   
   const ematch = (rec, keyE) => {
@@ -2927,11 +2942,11 @@ function empActionQuick(action, rid){
 }
 function openNewEmp(empKey){
   const isEdit = !!empKey;
-  const existing = isEdit ? DATA.employees.find(x => String(x.id) === String(empKey) || String(x.EmployeeID) === String(empKey) || String(x.RecordID) === String(empKey)) : null;
+  const existing = isEdit ? findEmp(empKey) : null;
 
   openModal(isEdit ? 'Edit Employee' : 'Register New Employee', `
     <p class="small-mute" style="margin-bottom:12px">${isEdit ? 'Update employee details and save to sync directly to Supabase.' : 'Whether this person worked here before is auto-checked by NID/mobile/name. A match raises a duplicate alert with a re-hire option.'}</p>
-    <input type="hidden" id="ne_editKey" value="${isEdit && existing ? (existing.id || existing.EmployeeID || existing.RecordID || '') : ''}">
+    <input type="hidden" id="ne_editKey" value="${isEdit && existing ? (existing.id || existing.EmployeeID  || '') : ''}">
     <div class="form-grid">
       <div class="field"><label>${'Full Name (English)'} *</label><input id="ne_nameEn" type="text" placeholder="Md ..." value="${escapeHtml(existing ? (existing.FullName||'') : '')}" onchange="neDupHint()">${translateBtnHTML('ne_nameEn','ne_nameBn')}</div>
       <div class="field"><label>${'Full Name (Bangla)'}</label><input id="ne_nameBn" type="text" placeholder="Md ... (Click translate button or type)" value="${escapeHtml(existing ? (existing.FullNameBn||existing.FullNameBangla||'') : '')}"></div>
@@ -3057,7 +3072,7 @@ async function saveNewEmployee(force){
     try {
       if (isEdit) {
         let query = sbClient.from('employees').update(dbPayload);
-        const existingEmp = DATA.employees.find(x => String(x.id) === String(editKey) || String(x.EmployeeID) === String(editKey) || String(x.RecordID) === String(editKey));
+        const existingEmp = findEmp(editKey);
         if (existingEmp && existingEmp.id) {
           query = query.eq('id', existingEmp.id);
         } else if (existingEmp && existingEmp.EmployeeID) {
@@ -3101,7 +3116,7 @@ async function saveNewEmployee(force){
 function exportEmployees(){
   const rows = DATA.employees;
   const keys = ['EmployeeID','FullName','Designation','ProjectName','JoinDate','PhoneNumber','Salary','Status'];
-  const csv = [keys.join(',')].concat(rows.map(r=>keys.map(k=>JSON.stringify(r[k]||'')).join(','))).join('\n');
+  const csv = [keys.join(',')].concat(rows.slice(0, 100).map(r=>keys.map(k=>JSON.stringify(r[k]||'')).join(','))).join('\n');
   const url = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
   const a = document.createElement('a'); a.href=url; a.download='employees.csv'; a.click();
   toast(`${rows.length} ${'employees exported to CSV'}`, 'success');
@@ -4072,7 +4087,7 @@ function renderParade(){
             </tr>
           </thead>
           <tbody>
-            ${rows.map(r=>{
+            ${rows.slice(0, 100).map(r=>{
               const gap = r.demandTotal - r.actualTotal;
               const status = gap>0?`<span class="pill inactive">-${num(gap)}</span>`:gap<0?`<span class="pill active">+${num(-gap)}</span>`:`<span class="pill completed">${'Full'}</span>`;
               return `<tr class="row-click" onclick="editDemand('${r.project.replace(/'/g,"\\'")}')" style="cursor:pointer" title="Click to edit demand">
@@ -4097,7 +4112,7 @@ function renderParade(){
 function exportParadeExcel(){
   const rows = computeParade();
   const keys = ['#','Project','Incharge D','Incharge A','Sup D','Sup A','AsstSup D','AsstSup A','Guard D','Guard A','Lady D','Lady A','Total D','Total A'];
-  const data = rows.map(r=>[r.idx,r.project,r.demand.Incharge,r.actual.Incharge,r.demand.Supervisor,r.actual.Supervisor,r.demand.AsstSup,r.actual.AsstSup,r.demand.Guard,r.actual.Guard,r.demand.Lady,r.actual.Lady,r.demandTotal,r.actualTotal]);
+  const data = rows.slice(0, 100).map(r=>[r.idx,r.project,r.demand.Incharge,r.actual.Incharge,r.demand.Supervisor,r.actual.Supervisor,r.demand.AsstSup,r.actual.AsstSup,r.demand.Guard,r.actual.Guard,r.demand.Lady,r.actual.Lady,r.demandTotal,r.actualTotal]);
   const csv = [keys.join(',')].concat(data.map(row=>row.map(c=>JSON.stringify(c)).join(','))).join('\n');
   const url = URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
   const a = document.createElement('a'); a.href=url; a.download='parade_state.csv'; a.click();
@@ -4811,7 +4826,7 @@ function renderTransfer(){
   let changed = false;
   DATA.transfers.forEach(t => {
     if (t.Status === 'Join Pending' || t.Status === 'Awaiting Confirmation' || t.Status === 'Scheduled' || t.IsProceed === '0') {
-      const e = DATA.employees.find(x => (t.EmployeeID && String(x.EmployeeID) === String(t.EmployeeID)) || (t.id && String(x.id) === String(t.id)) || (x.RecordID && String(x.RecordID) === String(t.RecordID)));
+      const e = findEmpByAction(t);
       if (e && e.ProjectName && t.NewProject && String(e.ProjectName).trim() === String(t.NewProject).trim()) {
         t.Status = 'Completed'; t.IsProceed = '1'; t._applied = true; changed = true;
       }
@@ -4826,7 +4841,7 @@ function renderTransferTable() {
   const q = (document.getElementById('trSearch')?.value || '').toLowerCase();
   const idq = (document.getElementById('trIdSearch')?.value || '').toLowerCase();
   const rows = DATA.transfers.filter(t => {
-    const e = DATA.employees.find(x => (t.EmployeeID && String(x.EmployeeID) === String(t.EmployeeID)) || (t.id && String(x.id) === String(t.id)) || (x.RecordID && String(x.RecordID) === String(t.RecordID)));
+    const e = findEmpByAction(t);
     const empId = e ? (e.id || e.EmployeeID || '') : (t.EmployeeID || '');
     
     if (idq) {
@@ -4840,8 +4855,8 @@ function renderTransferTable() {
     return true;
   }).sort((a,b)=>+b.TransferID-+a.TransferID);
 
-  document.getElementById('trTableBody').innerHTML = rows.map(t=>{
-    const e = DATA.employees.find(x => (t.EmployeeID && String(x.EmployeeID) === String(t.EmployeeID)) || (t.id && String(x.id) === String(t.id)) || (x.RecordID && String(x.RecordID) === String(t.RecordID)));
+  document.getElementById('trTableBody').innerHTML = rows.slice(0, 100).map(t=>{
+    const e = findEmpByAction(t);
     const empId = e ? (e.id || e.EmployeeID || '') : (t.EmployeeID || '—');
     return `<tr class="row-click" onclick="openTransferPopup(${jsQ(t.TransferID)})" style="cursor:pointer">
       <td>${num(t.TransferID)}</td>
@@ -4870,7 +4885,7 @@ function openTransferPopup(tid){
     'Awaiting Confirmation':'যোগদানের অপেক্ষায়', 'Join Pending':'যোগদানের অপেক্ষায় (Join Pending)', 'Scheduled':'নির্ধারিত', 'Recorded':'রেকর্ডকৃত'
   })[status] || status : status;
   const statusPill = `<span class="pill ${pillCls}">${pillTxt}</span>`;
-  const emp = DATA.employees.find(x=>(t.EmployeeID && String(x.EmployeeID)===String(t.EmployeeID)) || (t.id && String(x.id)===String(t.id)) || (x.RecordID && String(x.RecordID)===String(t.RecordID)));
+  const emp = findEmpByAction(t);
   const empActive = emp && emp.Status==='Active';
   openModal(bn?`ট্রান্সফার #${num(t.TransferID)}`:`Transfer #${t.TransferID}`,
     `<div class="pop-detail">
@@ -4899,7 +4914,7 @@ function markTransferJoined(tid){
   if(!guardEdit()) return;
   const t = DATA.transfers.find(x=>String(x.TransferID)===String(tid)); if(!t) return;
   const bn = LANG==='bn';
-  const emp = DATA.employees.find(x=>(t.EmployeeID && String(x.EmployeeID)===String(t.EmployeeID)) || (t.id && String(x.id)===String(t.id)) || (x.RecordID && String(x.RecordID)===String(t.RecordID)));
+  const emp = findEmpByAction(t);
   if(!emp){ toast(bn?'কর্মচারী পাওয়া যায়নি':'Employee not found','error'); return; }
   if(emp.Status!=='Active'){ toast(bn?'নিষ্ক্রিয় কর্মচারীর ট্রান্সফার সম্পন্ন করা যাবে না — আগে পুনর্বহাল করুন':'Cannot complete transfer of inactive employee — reactivate first','error'); return; }
   if(!confirm(bn?`"${t.FullName}" নতুন প্রজেক্ট "${t.NewProject}" এ যোগদান করেছেন — নিশ্চিত?\n\nএতে Employeetbl.ProjectName বদলে যাবে এবং ট্রান্সফার Complete হিসেবে চিহ্নিত হবে।`:`Confirm "${t.FullName}" joined "${t.NewProject}"?\n\nThis updates Employeetbl.ProjectName and marks the transfer Complete.`)) return;
@@ -4999,7 +5014,7 @@ function empPickList(id, q) {
     list = list.filter(e =>
       String(e.id || '').toLowerCase().includes(q) ||
       String(e.EmployeeID || '').toLowerCase().includes(q) ||
-      String(e.RecordID || '').toLowerCase().includes(q) ||
+      
       (e.FullName || '').toLowerCase().includes(q)
     );
   }
@@ -5014,8 +5029,8 @@ function empPickRender(id, q) {
   const list = empPickList(id, q);
   box.innerHTML = list.length ? list.map(e => {
     const ina = e.Status !== 'Active';
-    const empKey = e.id || e.EmployeeID || e.RecordID;
-    const empDisplayId = e.EmployeeID || e.id || e.RecordID;
+    const empKey = e.id || e.EmployeeID ;
+    const empDisplayId = e.EmployeeID || e.id ;
     return `<div class="emp-pick-item" style="${ina ? 'opacity:.55' : ''}" onclick="empPickChoose('${id}','${empKey}')">
       <span class="epi-ser">${num(empDisplayId)}</span>
       <div>
@@ -5059,12 +5074,12 @@ function empPickFilter(id) {
     return (
       String(e.id || '').trim().toLowerCase() === q.toLowerCase() ||
       String(e.EmployeeID || '').trim().toLowerCase() === q.toLowerCase() ||
-      String(e.RecordID || '').trim().toLowerCase() === q.toLowerCase()
+      false
     );
   });
 
   if (exact) {
-    empPickChoose(id, exact.id || exact.EmployeeID || exact.RecordID, true);
+    empPickChoose(id, exact.id || exact.EmployeeID , true);
     return;
   }
 
@@ -5081,8 +5096,8 @@ function empPickFilter(id) {
         if (window.MGHRM && typeof window.MGHRM.fetchEmployeeById === 'function') {
           const emp = await window.MGHRM.fetchEmployeeById(q);
           if (emp && (emp.id || emp.EmployeeID)) {
-            const empKey = emp.id || emp.EmployeeID || emp.RecordID;
-            const empDisplayId = emp.EmployeeID || emp.id || emp.RecordID;
+            const empKey = emp.id || emp.EmployeeID ;
+            const empDisplayId = emp.EmployeeID || emp.id ;
             empPickChoose(id, empKey, true);
             if (badgeEl) {
               badgeEl.className = 'emp-fetch-badge success';
@@ -5105,11 +5120,11 @@ function empPickFilter(id) {
 
 function empPickChoose(id, rid, isAutoFetch) {
   const e = (DATA.employees || []).find(function (x) {
-    return String(x.id) === String(rid) || String(x.EmployeeID) === String(rid) || String(x.RecordID) === String(rid);
+    return String(x.id) === String(rid) || String(x.EmployeeID) === String(rid);
   });
   if (!e) return;
-  const empKey = e.id || e.EmployeeID || e.RecordID;
-  const empDisplayId = e.EmployeeID || e.id || e.RecordID;
+  const empKey = e.id || e.EmployeeID ;
+  const empDisplayId = e.EmployeeID || e.id ;
   if (e.Status !== 'Active') {
     const listEl = document.getElementById(id + '_list');
     if (listEl) listEl.classList.remove('open');
@@ -5142,10 +5157,10 @@ function empPickChoose(id, rid, isAutoFetch) {
 }
 
 function setEmpPicker(id, rid) {
-  const e = (DATA.employees || []).find(x => String(x.id) === String(rid) || String(x.EmployeeID) === String(rid) || String(x.RecordID) === String(rid));
+  const e = findEmp(rid);
   if (!e) return;
-  const empKey = e.id || e.EmployeeID || e.RecordID;
-  const empDisplayId = e.EmployeeID || e.id || e.RecordID;
+  const empKey = e.id || e.EmployeeID ;
+  const empDisplayId = e.EmployeeID || e.id ;
   const hid = document.getElementById(id);
   if (!hid) return;
   hid.value = empKey;
@@ -5171,10 +5186,10 @@ function fillProjectSelect(id){
 }
 
 function assertActiveEmp(rid){
-  const e = DATA.employees.find(x => String(x.id) === String(rid) || String(x.EmployeeID) === String(rid) || String(x.RecordID) === String(rid));
+  const e = findEmp(rid);
   if(!e) return null;
   if(e.Status!=='Active'){
-    const empDisplayId = e.EmployeeID || e.id || e.RecordID;
+    const empDisplayId = e.EmployeeID || e.id ;
     openModal(`⚠ ${'Inactive Employee'}`, `
       <div class="alert-item danger">${ico('warn')}
         <div><h5>${e.FullName} (#${num(empDisplayId)}) ${'is not currently employed'}</h5>
@@ -5187,11 +5202,11 @@ function assertActiveEmp(rid){
 }
 function trFillEmp(){
   const rid = document.getElementById('trEmp')?.value;
-  const e = DATA.employees.find(x => String(x.id) === String(rid) || String(x.EmployeeID) === String(rid) || String(x.RecordID) === String(rid));
+  const e = findEmp(rid);
   document.getElementById('trCurr').value = e ? e.ProjectName : '';
   const badgeEl = document.getElementById('trEmpBadge');
   if (badgeEl) {
-    const empDisplayId = e ? (e.EmployeeID || e.id || e.RecordID) : '';
+    const empDisplayId = e ? (e.EmployeeID || e.id ) : '';
     badgeEl.innerHTML = e ? `<span class="emp-fetch-badge success">✓ ${e.FullName} (ID #${empDisplayId})</span>` : '';
   }
 }
@@ -5223,7 +5238,7 @@ async function submitTransfer(){
 
     const payload = {
       transfer_id: newId,
-      record_id: String(e.id || ''),
+      employee_sys_id: e.id,
       employee_id: String(e.EmployeeID || e.id || ''),
       full_name: e.FullName || '',
       designation: e.Designation || '',
@@ -5278,7 +5293,7 @@ function previewTransferOrder(){
   const notes = document.getElementById('trNotes').value;
   const ref = document.getElementById('trRef').value;
   if(!rid||!np){ toast('Select employee and new project first','error'); return; }
-  const e = DATA.employees.find(x=>String(x.id)===String(rid) || String(x.EmployeeID)===String(rid) || String(x.RecordID)===String(rid));
+  const e = findEmp(rid);
   openPrint(bangleTransferOrder({emp:e, np, td, iss, notes, refNo:ref}));
 }
 
@@ -5419,7 +5434,7 @@ function renderDisciplinaryTable() {
   const q = (document.getElementById('dcSearch')?.value || '').toLowerCase();
   const idq = (document.getElementById('dcIdSearch')?.value || '').toLowerCase();
   const rows = DATA.disciplinary.filter(d => {
-    const e = DATA.employees.find(x => (d.EmployeeID && String(x.EmployeeID) === String(d.EmployeeID)) || (d.id && String(x.id) === String(d.id)) || (d.RecordID && String(x.RecordID) === String(d.RecordID)));
+    const e = findEmpByAction(d);
     const empId = e ? (e.id || e.EmployeeID || '') : (d.EmployeeID || '');
     
     if (idq) {
@@ -5436,8 +5451,8 @@ function renderDisciplinaryTable() {
   const countSpan = document.getElementById('dcCount');
   if (countSpan) countSpan.textContent = `${num(rows.length)} ${'records'}`;
   
-  document.getElementById('dcTableBody').innerHTML = rows.map((d,i)=>{
-    const e = DATA.employees.find(x => (d.EmployeeID && String(x.EmployeeID) === String(d.EmployeeID)) || (d.id && String(x.id) === String(d.id)) || (d.RecordID && String(x.RecordID) === String(d.RecordID)));
+  document.getElementById('dcTableBody').innerHTML = rows.slice(0, 100).map((d,i)=>{
+    const e = findEmpByAction(d);
     const empId = e ? (e.id || e.EmployeeID || '') : (d.EmployeeID || '—');
     return `<tr class="row-click" onclick="openDisciplinaryPopup(${jsQ(d.ActionID)})" style="cursor:pointer">
       <td>${num(d.ActionID)}</td>
@@ -5489,7 +5504,7 @@ function deleteDisciplinary(aid){
 }
 function dcFillEmp() {
   const rid = document.getElementById('dcEmp')?.value;
-  const e = (DATA.employees || []).find(x => String(x.id) === String(rid) || String(x.EmployeeID) === String(rid) || String(x.RecordID) === String(rid));
+  const e = findEmp(rid);
   const infoEl = document.getElementById('dcEmpInfo');
   if (infoEl) {
     infoEl.innerHTML = e ? `<span class="chip success" style="margin-top:6px;display:inline-block">✓ ${e.FullName} · ${e.Designation || ''} · Project: ${e.ProjectName || 'Unassigned'}</span>` : '';
@@ -5517,7 +5532,7 @@ async function submitDisciplinary(){
     const payload = {
       action_id: newId,
       ref_no: document.getElementById('dcRef').value || '',
-      record_id: String(e.id || ''),
+      employee_sys_id: e.id,
       employee_id: String(e.EmployeeID || e.id || ''),
       full_name: e.FullName || '',
       designation: e.Designation || '',
@@ -5550,7 +5565,7 @@ function reprintDisc(id){
   const d = DATA.disciplinary.find(x=>x.ActionID===id); if(!d) return;
   const templateKey = Object.keys(DC_TEMPLATES).find(k=>DC_TEMPLATES[k].label.bn===d.ActionType || DC_TEMPLATES[k].label.en===d.ActionType) || 'ShowCause';
   openPrint(banglaDisciplinaryLetter({
-    emp: DATA.employees.find(x=>(d.EmployeeID && String(x.EmployeeID)===String(d.EmployeeID)) || (d.id && String(x.id)===String(d.id)) || (d.RecordID && String(x.RecordID)===String(d.RecordID))) || {FullName:d.FullName,EmployeeID:d.EmployeeID,Designation:d.Designation,ProjectName:d.ProjectName},
+    emp: findEmpByAction(d) || {FullName:d.FullName,EmployeeID:d.EmployeeID,Designation:d.Designation,ProjectName:d.ProjectName},
     templateKey, ref:d.RefNo, incident:d.IncidentDate, issue:d.IssueDate, desc:d.Description
   }));
 }
@@ -5558,7 +5573,7 @@ function previewDisciplinary(){
   const rid = document.getElementById('dcEmp').value;
   const type = document.getElementById('dcType').value;
   if(!rid){ toast('Select employee first','error'); return; }
-  const e = DATA.employees.find(x=>String(x.id)===String(rid) || String(x.EmployeeID)===String(rid) || String(x.RecordID)===String(rid));
+  const e = findEmp(rid);
   openPrint(banglaDisciplinaryLetter({
     emp:e, templateKey:type,
     ref:document.getElementById('dcRef').value,
@@ -5652,7 +5667,7 @@ function renderLeave(){
             <tbody>
               ${SAMPLE_LEAVES.slice().sort((a,b)=>+b.id-+a.id).map((l,i)=>{
                 const lt = LEAVE_TYPES.find(x=>x.key===l.type);
-                const emp = DATA.employees.find(e => (l.empId && String(e.EmployeeID) === String(l.empId)) || (l.empId && String(e.id) === String(l.empId)) || (l.RecordID && String(e.RecordID) === String(l.RecordID)));
+                const emp = findEmpByAction(l);
                 const empId = emp ? (emp.id || emp.EmployeeID || '') : (l.empId || '—');
                 return `<tr class="row-click" onclick="openLeavePopup(${jsQ(l.id)})" style="cursor:pointer">
                   <td>${num(l.id)}</td>
@@ -5704,7 +5719,7 @@ function renderLeaveCalendar(){
 }
 function lvFillEmp() {
   const rid = document.getElementById('lvEmp')?.value;
-  const e = (DATA.employees || []).find(x => String(x.id) === String(rid) || String(x.EmployeeID) === String(rid) || String(x.RecordID) === String(rid));
+  const e = findEmp(rid);
   const infoEl = document.getElementById('lvEmpInfo');
   if (infoEl) {
     infoEl.innerHTML = e ? `<span class="chip success" style="margin-top:6px;display:inline-block">✓ ${e.FullName} · ${e.Designation || ''} · Project: ${e.ProjectName || 'Unassigned'}</span>` : '';
@@ -5734,7 +5749,7 @@ async function submitLeave(){
     
     const leaveObj = {
       leave_id: newId,
-      record_id: String(emp.id || ''),
+      employee_sys_id: emp.id,
       employee_id: String(emp.EmployeeID || emp.id || ''),
       full_name: emp.FullName || '',
       designation: emp.Designation || '',
@@ -5858,8 +5873,8 @@ function renderExit(){
       <div class="table-wrap">
         <table>
           <thead><tr><th style="width:50px">${'#'}</th><th>ID</th><th>${'Name'}</th><th>${'Designation'}</th><th>${'Project'}</th><th>${'Exit Date'}</th><th>${'Reason'}</th></tr></thead>
-          <tbody>${DATA.exits.slice().sort((a,b)=>+b.ExitID-+a.ExitID).map((x,i)=>{
-            const e = DATA.employees.find(emp => (x.EmployeeID && String(emp.EmployeeID) === String(x.EmployeeID)) || (x.id && String(emp.id) === String(x.id)) || (x.RecordID && String(emp.RecordID) === String(x.RecordID)));
+          <tbody>${DATA.exits.slice().sort((a,b)=>+b.ExitID-+a.ExitID).slice(0, 100).map((x,i)=>{
+            const e = findEmpByAction(x);
             const empId = e ? (e.id || e.EmployeeID || '') : (x.EmployeeID || '—');
             return `<tr class="row-click" onclick="openExitPopup(${jsQ(x.ExitID)})" style="cursor:pointer">
             <td>${num(x.ExitID)}</td>
@@ -5877,11 +5892,11 @@ function renderExit(){
 }
 function exFillEmp(){
   const rid = document.getElementById('exEmp')?.value;
-  const e = DATA.employees.find(x => String(x.id) === String(rid) || String(x.EmployeeID) === String(rid) || String(x.RecordID) === String(rid));
+  const e = findEmp(rid);
   document.getElementById('exProj').value = e ? e.ProjectName : '';
   const badgeEl = document.getElementById('exEmpBadge');
   if (badgeEl) {
-    const empDisplayId = e ? (e.EmployeeID || e.id || e.RecordID) : '';
+    const empDisplayId = e ? (e.EmployeeID || e.id ) : '';
     badgeEl.innerHTML = e ? `<span class="emp-fetch-badge success">✓ ${e.FullName} (ID #${empDisplayId})</span>` : '';
   }
 }
@@ -5889,9 +5904,9 @@ function exFillEmp(){
 function openExitPopup(eid){
   const x = DATA.exits.find(r=>String(r.ExitID)===String(eid)); if(!x) return;
   const bn = LANG==='bn';
-  const emp = DATA.employees.find(e=>(x.EmployeeID && String(e.EmployeeID)===String(x.EmployeeID)) || (x.id && String(e.id)===String(x.id)) || (x.RecordID && String(e.RecordID)===String(x.RecordID)));
-  const empKey = emp ? (emp.id || emp.EmployeeID || emp.RecordID) : (x.EmployeeID || '');
-  const empDisplayId = emp ? (emp.EmployeeID || emp.id || emp.RecordID) : (x.EmployeeID || '');
+  const emp = findEmpByAction(x);
+  const empKey = emp ? (emp.id || emp.EmployeeID ) : (x.EmployeeID || '');
+  const empDisplayId = emp ? (emp.EmployeeID || emp.id ) : (x.EmployeeID || '');
   openModal(bn?`চাকরি ত্যাগ — ${x.FullName}`:`Exit — ${x.FullName}`,
     `<div class="pop-detail">
       <div class="pop-row"><span>${bn?'কর্মচারী':'Employee'}</span><b>${x.FullName} <span class="small-mute">(#${num(empDisplayId)})</span></b></div>
@@ -5911,7 +5926,7 @@ function openExitPopup(eid){
 }
 function reactivateEmployee(rid){
   if(!guardEdit()) return;
-  const e = DATA.employees.find(x=>String(x.id)===String(rid) || String(x.EmployeeID)===String(rid) || String(x.RecordID)===String(rid)); if(!e) return;
+  const e = findEmp(rid); if(!e) return;
   if(!confirm('Reactivate this employee to Active?')) return;
   e.Status='Active'; delete e.ExitDate; delete e.ExitReason;
   if(window.MGHRM && typeof window.MGHRM.update === 'function') {
@@ -5954,7 +5969,7 @@ async function submitExit(){
     const newExitId = String(Date.now());
     const exitPayload = {
       exit_id: newExitId,
-      record_id: String(e.id || ''),
+      employee_sys_id: e.id,
       employee_id: String(e.EmployeeID || e.id || ''),
       full_name: e.FullName || '',
       designation: e.Designation || '',
@@ -5994,14 +6009,14 @@ async function submitExit(){
 function previewClearance(){
   const rid = document.getElementById('exEmp').value;
   if(!rid){ toast('Select employee first','error'); return; }
-  const e = DATA.employees.find(x=>String(x.id)===String(rid) || String(x.EmployeeID)===String(rid) || String(x.RecordID)===String(rid));
+  const e = findEmp(rid);
   const d = document.getElementById('exDate').value || todayISO();
   openPrint(banglaClearance(e,d));
 }
 function previewExperience(){
   const rid = document.getElementById('exEmp').value;
   if(!rid){ toast('Select employee first','error'); return; }
-  const e = DATA.employees.find(x=>String(x.id)===String(rid) || String(x.EmployeeID)===String(rid) || String(x.RecordID)===String(rid));
+  const e = findEmp(rid);
   const d = document.getElementById('exDate').value || todayISO();
   openPrint(banglaExperience(e,d));
 }
@@ -6089,7 +6104,7 @@ function renderIncrement(){
         <table>
           <thead><tr><th style="width:60px">${'ID'}</th><th>${'Employee'}</th><th>${'Type'}</th><th>${'Prev'}</th><th>${'New'}</th><th>${'Date'}</th></tr></thead>
           <tbody>${DATA.career.map(c=>{
-            const emp = DATA.employees.find(e=>(c.EmployeeID && String(e.EmployeeID)===String(c.EmployeeID)) || (c.id && String(e.id)===String(c.id)) || (c.RecordID && String(e.RecordID)===String(c.RecordID)));
+            const emp = findEmpByAction(c);
             const empId = emp ? (emp.id || emp.EmployeeID || '') : (c.EmployeeID || '—');
             return `<tr class="row-click" onclick="openCareerPopup(${jsQ(c.ChangeID)})" style="cursor:pointer"><td><span class="chip" style="font-size:11px;font-weight:600">${num(empId)}</span></td><td><strong>${c.FullName||''}</strong></td><td><span class="chip">${c.ChangeType||''}</span></td><td>${c.CurrentDesignation||''} · ${c.PreviousSalary?money(c.PreviousSalary):''}</td><td style="color:var(--purple)">${c.NewDesignation||''} · ${c.NewSalary?money(c.NewSalary):''}</td><td>${fmtDate(c.EffectiveDate)}</td></tr>`;
           }).join('')||`<tr><td colspan="6" class="small-mute" style="text-align:center;padding:20px">${'No records yet'}</td></tr>`}</tbody>
@@ -6101,7 +6116,7 @@ function renderIncrement(){
 }
 function ipFillEmp(){
   const rid=document.getElementById('ipEmp').value;
-  const e=DATA.employees.find(x=>String(x.id)===String(rid) || String(x.EmployeeID)===String(rid) || String(x.RecordID)===String(rid)); if(!e) return;
+  const e=findEmp(rid); if(!e) return;
   document.getElementById('ipCurrDesig').value=e.Designation||'';
   document.getElementById('ipPrevSal').value=e.Salary||0;
   document.getElementById('ipNewDesig').value=e.Designation||DESIGNATIONS[0];
@@ -6140,7 +6155,7 @@ async function submitIncrement(){
     const newChangeId = String(Date.now());
     const careerPayload = {
       change_id: newChangeId,
-      record_id: String(e.id || ''),
+      employee_sys_id: e.id,
       employee_id: String(e.EmployeeID || e.id || ''),
       full_name: e.FullName || '',
       project_name: e.ProjectName || '',
@@ -6183,8 +6198,8 @@ async function submitIncrement(){
 function openCareerPopup(cid){
   const c = DATA.career.find(r=>String(r.ChangeID)===String(cid)); if(!c) return;
   const bn = LANG==='bn';
-  const emp = DATA.employees.find(e=>(c.EmployeeID && String(e.EmployeeID)===String(c.EmployeeID)) || (c.id && String(e.id)===String(c.id)) || (c.RecordID && String(e.RecordID)===String(c.RecordID)));
-  const empDisplayId = emp ? (emp.EmployeeID || emp.id || emp.RecordID) : (c.EmployeeID || '');
+  const emp = findEmpByAction(c);
+  const empDisplayId = emp ? (emp.EmployeeID || emp.id ) : (c.EmployeeID || '');
   openModal(bn?`ক্যারিয়ার পরিবর্তন — ${c.FullName}`:`Career Change — ${c.FullName}`,
     `<div class="pop-detail">
       <div class="pop-row"><span>${bn?'কর্মচারী':'Employee'}</span><b>${c.FullName} <span class="small-mute">(#${num(empDisplayId)})</span></b></div>
@@ -6207,7 +6222,7 @@ function openCareerPopup(cid){
 function revertCareer(cid){
   if(!guardEdit()) return;
   const c = DATA.career.find(r=>String(r.ChangeID)===String(cid)); if(!c) return;
-  const emp = DATA.employees.find(e=>(c.EmployeeID && String(e.EmployeeID)===String(c.EmployeeID)) || (c.id && String(e.id)===String(c.id)) || (c.RecordID && String(e.RecordID)===String(c.RecordID)));
+  const emp = findEmpByAction(c);
   if(!emp){ toast('Employee not found','error'); return; }
   if(!confirm(`Revert? Salary ${money(emp.Salary)} → ${money(c.PreviousSalary)}; Designation ${emp.Designation} → ${c.CurrentDesignation}`)) return;
   emp.Designation = c.CurrentDesignation || emp.Designation;
@@ -6381,7 +6396,7 @@ function showReport(kind){
       <div class="btn-row"><button class="btn success sm" onclick="exportParadeExcel()">${ico('excel')} Excel</button></div></div>
       <div class="card-body" id="reportPrintable">
         <div class="table-wrap"><table><thead><tr><th>#</th><th>${'Project'}</th><th>${'Demand'}</th><th>${'Actual'}</th><th>${'Shortage'}</th></tr></thead><tbody>
-          ${rows.map(r=>{const s=r.demandTotal-r.actualTotal;return `<tr><td>${num(r.idx)}</td><td>${projName(r.project)}</td><td>${num(r.demandTotal)}</td><td>${num(r.actualTotal)}</td><td class="${s>0?'parade-cell short':'parade-cell full'}">${num(Math.max(0,s))}</td></tr>`}).join('')}
+          ${rows.slice(0, 100).map(r=>{const s=r.demandTotal-r.actualTotal;return `<tr><td>${num(r.idx)}</td><td>${projName(r.project)}</td><td>${num(r.demandTotal)}</td><td>${num(r.actualTotal)}</td><td class="${s>0?'parade-cell short':'parade-cell full'}">${num(Math.max(0,s))}</td></tr>`}).join('')}
         </tbody></table></div></div></div>`;
   } else if(kind==='staffList'){
     // Group by project
@@ -6405,7 +6420,7 @@ function showReport(kind){
       <div class="card-body" id="reportPrintable">
         <p class="small-mute" style="margin-bottom:14px">${'Which project loses the most staff — high turnover usually signals workplace issues'}</p>
         <div class="table-wrap"><table><thead><tr><th>${'Project'}</th><th>${'Total Exits'}</th><th>${'Current Staff'}</th><th>${'Rate'}</th></tr></thead><tbody>
-          ${rows.map(([p,c])=>{const a=activeByProj[p]||0;const rate=a?(c*100/(a+c)).toFixed(1):'—';return `<tr><td>${projName(p)}</td><td><strong>${num(c)}</strong></td><td>${num(a)}</td><td>${rate}%</td></tr>`}).join('')}
+          ${rows.slice(0, 100).map(([p,c])=>{const a=activeByProj[p]||0;const rate=a?(c*100/(a+c)).toFixed(1):'—';return `<tr><td>${projName(p)}</td><td><strong>${num(c)}</strong></td><td>${num(a)}</td><td>${rate}%</td></tr>`}).join('')}
         </tbody></table></div></div></div>`;
   } else if(kind==='birthdays'){
     
@@ -6459,12 +6474,12 @@ function showReport(kind){
       <div class="card-body" id="reportPrintable">
         <p class="small-mute" style="margin-bottom:14px">${'Missing key fields on active employees (critical for verification & salary)'}</p>
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:18px">
-          ${rows.map(r=>`<div class="kpi"><div class="kpi-icon" style="background:${r.color}22;color:${r.color}">${ico('warn')}</div><div class="kpi-label">${r.k}</div><div class="kpi-value">${num(r.list.length)}</div><div class="kpi-delta">${'missing'}</div></div>`).join('')}
+          ${rows.slice(0, 100).map(r=>`<div class="kpi"><div class="kpi-icon" style="background:${r.color}22;color:${r.color}">${ico('warn')}</div><div class="kpi-label">${r.k}</div><div class="kpi-value">${num(r.list.length)}</div><div class="kpi-delta">${'missing'}</div></div>`).join('')}
         </div>
         ${rows.filter(r=>r.list.length).map(r=>`
           <h4 style="font-size:13px;margin:14px 0 8px;background:var(--bg-dim);padding:8px 12px;border-radius:6px">${r.k} — <span class="chip">${num(r.list.length)}</span></h4>
           <div class="table-wrap"><table><thead><tr><th>#</th><th>${'ID'}</th><th>${'Name'}</th><th>${'Designation'}</th><th>${'Project'}</th></tr></thead>
-          <tbody>${r.list.slice(0,50).map((e,i)=>`<tr class="row-click" onclick="openEmpDetail('${e.id || e.EmployeeID || e.RecordID}')" style="cursor:pointer"><td>${num(i+1)}</td><td>${num(e.EmployeeID || e.id || e.RecordID)}</td><td>${e.FullName}</td><td>${desig(e.Designation)}</td><td>${projName(e.ProjectName)}</td></tr>`).join('')}</tbody></table></div>
+          <tbody>${r.list.slice(0,50).map((e,i)=>`<tr class="row-click" onclick="openEmpDetail('${e.id || e.EmployeeID }')" style="cursor:pointer"><td>${num(i+1)}</td><td>${num(e.EmployeeID || e.id )}</td><td>${e.FullName}</td><td>${desig(e.Designation)}</td><td>${projName(e.ProjectName)}</td></tr>`).join('')}</tbody></table></div>
           ${r.list.length>50?`<p class="small-mute" style="text-align:center;padding:8px">${'... '+(r.list.length-50)+' more'}</p>`:''}
         `).join('')}
       </div></div>`;
@@ -6481,7 +6496,7 @@ function showReport(kind){
       <div class="btn-row"><button class="btn sm" onclick="printReport()">${ico('print')} Print</button></div></div>
       <div class="card-body" id="reportPrintable">
         ${soon.length ? `<div class="table-wrap"><table><thead><tr><th>#</th><th>${'ID'}</th><th>${'Name'}</th><th>${'Designation'}</th><th>${'Project'}</th><th>${'End Date'}</th><th>${'Days Left'}</th></tr></thead>
-          <tbody>${soon.map((s,i)=>`<tr class="row-click" onclick="openEmpDetail('${s.emp.id || s.emp.EmployeeID || s.emp.RecordID}')" style="cursor:pointer;${s.days<=15?'background:#fee2e2':(s.days<=30?'background:#fef3c7':'')}"><td>${num(i+1)}</td><td>${num(s.emp.EmployeeID || s.emp.id || s.emp.RecordID)}</td><td>${s.emp.FullName}</td><td>${desig(s.emp.Designation)}</td><td>${projName(s.emp.ProjectName)}</td><td>${fmtDate(s.endDate)}</td><td><strong>${num(s.days)}</strong> ${'days'}</td></tr>`).join('')}</tbody></table></div>` :
+          <tbody>${soon.map((s,i)=>`<tr class="row-click" onclick="openEmpDetail('${s.emp.id || s.emp.EmployeeID }')" style="cursor:pointer;${s.days<=15?'background:#fee2e2':(s.days<=30?'background:#fef3c7':'')}"><td>${num(i+1)}</td><td>${num(s.emp.EmployeeID || s.emp.id )}</td><td>${s.emp.FullName}</td><td>${desig(s.emp.Designation)}</td><td>${projName(s.emp.ProjectName)}</td><td>${fmtDate(s.endDate)}</td><td><strong>${num(s.days)}</strong> ${'days'}</td></tr>`).join('')}</tbody></table></div>` :
           `<p class="small-mute" style="text-align:center;padding:24px">${'No contracts expiring in 60 days (or ContractEnd field is empty)'}</p>`}
         <p class="small-mute" style="margin-top:14px">${'Note: Requires ContractEnd field on employees; add it and sync if missing'}</p>
       </div></div>`;
@@ -6491,7 +6506,7 @@ function showReport(kind){
     out = `<div class="card"><div class="card-header"><h3>${'Salary Slip'}</h3></div>
       <div class="card-body">
         <div class="form-grid">
-          <div class="field"><label>${'Employee'} *</label><select id="ssEmp">${DATA.employees.filter(e=>e.Status==='Active').map(e=>`<option value="${e.id || e.EmployeeID || e.RecordID}">${e.FullName} — ${num(e.EmployeeID || e.id || e.RecordID)} — ${projName(e.ProjectName)}</option>`).join('')}</select></div>
+          <div class="field"><label>${'Employee'} *</label><select id="ssEmp">${DATA.employees.filter(e=>e.Status==='Active').map(e=>`<option value="${e.id || e.EmployeeID }">${e.FullName} — ${num(e.EmployeeID || e.id )} — ${projName(e.ProjectName)}</option>`).join('')}</select></div>
           <div class="field"><label>${'Month'} *</label><select id="ssMonth">${monthsBn.map((m,i)=>{const mo=String(i+1).padStart(2,'0');const d=new Date();const val=`${d.getFullYear()}-${mo}`;return `<option value="${val}" ${i===new Date().getMonth()?'selected':''}>${new Date(0,i,1).toLocaleString('en',{month:'long'})} ${d.getFullYear()}</option>`}).join('')}</select></div>
           <div class="field"><label>${'Other Allowance (৳)'}</label><input id="ssOther" type="number" value="0"></div>
           <div class="field"><label>${'Deduction (৳)'}</label><input id="ssDeduct" type="number" value="0"></div>
@@ -6613,7 +6628,7 @@ function printSalarySlip(){
   const monthVal = document.getElementById('ssMonth')?.value;
   const other = +(document.getElementById('ssOther')?.value||0);
   const deduct = +(document.getElementById('ssDeduct')?.value||0);
-  const e = DATA.employees.find(x=>String(x.id)===String(rid) || String(x.EmployeeID)===String(rid) || String(x.RecordID)===String(rid));
+  const e = findEmp(rid);
   if(!e){ toast('Select an employee','error'); return; }
   const monthsBn=['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
   const monthsEn=['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -6652,7 +6667,7 @@ function printSalarySlip(){
       <div><div style="border-top:1px solid #000;padding-top:5px;text-align:center">${bn?'ব্যবস্থাপনা পরিচালক':'Managing Director'}</div></div>
     </div>
   </div>`;
-  logActivity('print','salary_slip', e.id || e.EmployeeID || e.RecordID, e.FullName+' '+monthName);
+  logActivity('print','salary_slip', e.id || e.EmployeeID , e.FullName+' '+monthName);
   openPrint(html);
 }
 
@@ -6661,7 +6676,7 @@ function exportActivityLogCSV(){
   const log = DATA.activityLog||[];
   const rows = [['Time','User','Action','Table','RefID','Detail']];
   log.forEach(e=>rows.push([e.at||'', e.user||'', e.action||'', e.table||'', e.refId||'', (e.detail||'').replace(/"/g,'""')]));
-  const csv = rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const csv = rows.slice(0, 100).map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -6764,7 +6779,7 @@ function csvImportConfirm(rowsJson, event){
       
       const maxEmp = Math.max(0, ...DATA.employees.map(e=>parseInt(e.EmployeeID)||0));
       
-      const dbPayload = rows.map((r, i) => ({
+      const dbPayload = rows.slice(0, 100).map((r, i) => ({
         employee_id: r.EmployeeID || String(maxEmp+1+i).padStart(4,'0'),
         full_name: r.FullName||'',
         full_name_bn: r.FullNameBn||'',
@@ -7119,7 +7134,7 @@ const CSV_SCHEMAS = {
   ],
   transfers: [
     { key: 'transfer_id', label: 'TransferID (Primary Key)' },
-    { key: 'record_id', label: 'RecordID (Root Foreign Key → Employees) ⭐', isFk: true, required: true },
+    { key: 'employee_sys_id', label: 'Employee Sys ID (Root Foreign Key → Employees) ⭐', isFk: true, required: true },
     { key: 'employee_id', label: 'EmployeeID' },
     { key: 'full_name', label: 'FullName' },
     { key: 'designation', label: 'Designation' },
@@ -7132,7 +7147,7 @@ const CSV_SCHEMAS = {
   ],
   disciplinary: [
     { key: 'action_id', label: 'ActionID (Primary Key)' },
-    { key: 'record_id', label: 'RecordID (Root Foreign Key → Employees) ⭐', isFk: true, required: true },
+    { key: 'employee_sys_id', label: 'Employee Sys ID (Root Foreign Key → Employees) ⭐', isFk: true, required: true },
     { key: 'employee_id', label: 'EmployeeID' },
     { key: 'full_name', label: 'FullName' },
     { key: 'designation', label: 'Designation' },
@@ -7145,7 +7160,7 @@ const CSV_SCHEMAS = {
   ],
   exits: [
     { key: 'exit_id', label: 'ExitID (Primary Key)' },
-    { key: 'record_id', label: 'RecordID (Root Foreign Key → Employees) ⭐', isFk: true, required: true },
+    { key: 'employee_sys_id', label: 'Employee Sys ID (Root Foreign Key → Employees) ⭐', isFk: true, required: true },
     { key: 'employee_id', label: 'EmployeeID' },
     { key: 'full_name', label: 'FullName' },
     { key: 'designation', label: 'Designation' },
@@ -7159,7 +7174,7 @@ const CSV_SCHEMAS = {
   ],
   career: [
     { key: 'career_id', label: 'CareerID (Primary Key)' },
-    { key: 'record_id', label: 'RecordID (Root Foreign Key → Employees) ⭐', isFk: true, required: true },
+    { key: 'employee_sys_id', label: 'Employee Sys ID (Root Foreign Key → Employees) ⭐', isFk: true, required: true },
     { key: 'employee_id', label: 'EmployeeID' },
     { key: 'full_name', label: 'FullName' },
     { key: 'change_type', label: 'ChangeType (Increment, Promotion, Demotion)' },
@@ -7173,7 +7188,7 @@ const CSV_SCHEMAS = {
   ],
   leaves: [
     { key: 'leave_id', label: 'LeaveID / id (Primary Key)' },
-    { key: 'record_id', label: 'RecordID (Root Foreign Key → Employees) ⭐', isFk: true, required: true },
+    { key: 'employee_sys_id', label: 'Employee Sys ID (Root Foreign Key → Employees) ⭐', isFk: true, required: true },
     { key: 'employee_id', label: 'EmployeeID' },
     { key: 'full_name', label: 'FullName / Name' },
     { key: 'leave_type', label: 'LeaveType / Type' },
@@ -7185,7 +7200,7 @@ const CSV_SCHEMAS = {
   ],
   uniform: [
     { key: 'uniform_id', label: 'UniformID (Primary Key)' },
-    { key: 'record_id', label: 'RecordID (Root Foreign Key → Employees) ⭐', isFk: true, required: true },
+    { key: 'employee_sys_id', label: 'Employee Sys ID (Root Foreign Key → Employees) ⭐', isFk: true, required: true },
     { key: 'employee_id', label: 'EmployeeID' },
     { key: 'full_name', label: 'FullName' },
     { key: 'item_name', label: 'ItemName (Shirt, Pants, Cap, Shoes, etc.)' },
@@ -7212,7 +7227,7 @@ const CSV_SCHEMAS = {
 };
 
 const CSV_SYNONYMS = {
-  record_id: ['recordid', 'record_id', 'record id', 'serial', 'serialno', 'serial no', 'sl', 'sl no', 'slno', 'rootid', 'root id', 'master id', 'rec id', 'rec_id', 'id'],
+  employee_sys_id: ['recordid', 'record_id', 'record id', 'serial', 'serialno', 'serial no', 'sl', 'sl no', 'slno', 'rootid', 'root id', 'master id', 'rec id', 'rec_id', 'id'],
   employee_id: ['employeeid', 'employee_id', 'employee id', 'empid', 'emp id', 'emp_id', 'badge', 'badgeid', 'badge id', 'card no', 'id card', 'emp code', 'employee code'],
   system_id: ['systemid', 'system_id', 'system id', 'sid', 'legacy id', 'legacy sid'],
   full_name: ['fullname', 'full_name', 'full name', 'employee name', 'employeename', 'staff name', 'candidate name', 'person name', 'name'],
@@ -7404,7 +7419,7 @@ function handleCsvTargetChange() {
         ${ico('link')}
         <div>
           <strong>Relational Child Table (${t}):</strong>
-          <span class="csv-badge-fk">Foreign Key: RecordID → employees.record_id</span>
+          <span class="csv-badge-fk">Foreign Key: RecordID → employees.id</span>
           <p style="margin-top:2px">Records automatically link to the corresponding employee via <code>RecordID</code> to maintain absolute relational integrity.</p>
         </div>
       </div>`;
@@ -7558,7 +7573,7 @@ function renderCsvWorkspace() {
   ws.style.display = 'block';
   const schema = CSV_SCHEMAS[state.targetTable] || [];
   const activeMappings = state.mapping.filter(m => m.targetCol && m.targetCol !== '__skip__');
-  const isRootMapped = activeMappings.some(m => m.targetCol === 'id' || m.targetCol === 'employee_id' || m.targetCol === 'record_id');
+  const isRootMapped = activeMappings.some(m => m.targetCol === 'id' || m.targetCol === 'employee_id' || m.targetCol === 'employee_sys_id');
   const hasRootRequirement = schema.some(c => c.isRoot || c.isFk);
 
   // Tab Header
@@ -7621,7 +7636,7 @@ function renderCsvWorkspace() {
       const sample2 = state.rows[1] ? state.rows[1][m.csvHeader] || '' : '';
       const sampleText = [sample1, sample2].filter(Boolean).join(' | ');
 
-      const isRootCol = m.targetCol === 'record_id';
+      const isRootCol = m.targetCol === 'employee_sys_id';
       const statusBadge = m.targetCol === '__skip__'
         ? `<span class="csv-badge-skip">Skipped</span>`
         : m.isAuto
@@ -7671,7 +7686,7 @@ function renderCsvWorkspace() {
         <table style="font-size:11px;margin:0">
           <thead>
             <tr style="background:var(--bg-dim)">
-              ${activeMappings.map(m => `<th>${m.targetCol} ${m.targetCol==='record_id'?'⭐':''}</th>`).join('')}
+              ${activeMappings.map(m => `<th>${m.targetCol} ${m.targetCol==='employee_sys_id'?'⭐':''}</th>`).join('')}
             </tr>
           </thead>
           <tbody>
@@ -7762,7 +7777,7 @@ async function executeCsvServerPush() {
 
   const schema = CSV_SCHEMAS[table] || [];
   const rootCol = schema.find(c => c.isRoot || c.isFk);
-  const isRootMapped = activeMappings.some(m => m.targetCol === 'id' || m.targetCol === 'employee_id' || m.targetCol === 'record_id');
+  const isRootMapped = activeMappings.some(m => m.targetCol === 'id' || m.targetCol === 'employee_id' || m.targetCol === 'employee_sys_id');
 
   if (rootCol && !isRootMapped && table !== 'employees') {
     const proceed = confirm(`Warning: Core identifier for ${table} is not mapped.\n\nDo you wish to proceed anyway?`);
@@ -7779,7 +7794,7 @@ async function executeCsvServerPush() {
       if (val !== undefined && val !== null) {
         val = String(val).trim();
         // Number sanitization
-        if (m.targetCol === 'record_id' || m.targetCol === 'salary' || m.targetCol === 'days_count' || m.targetCol === 'quantity' || m.targetCol === 'current_salary' || m.targetCol === 'new_salary') {
+        if (m.targetCol === 'employee_sys_id' || m.targetCol === 'salary' || m.targetCol === 'days_count' || m.targetCol === 'quantity' || m.targetCol === 'current_salary' || m.targetCol === 'new_salary') {
           const numVal = parseInt(val.replace(/[^\d]/g, ''), 10);
           if (!isNaN(numVal)) val = numVal;
         }
@@ -8090,7 +8105,7 @@ function nameBnOf(en){
 /* ============ SERIAL (MAIN) ID HELPERS ============ */
 /* Software identifies a person by RecordID (serial). Letters must show ONLY the
    official ID (EmployeeID) when it exists — and NO line at all (no gap) when it doesn't. */
-function serialOf(e){ return e.id || e.RecordID || e.EmployeeID || ''; }
+function serialOf(e){ return e.id  || e.EmployeeID || ''; }
 function officialIdOf(e){
   const oid = (e.EmployeeID||'').toString().trim();
   if(!oid) return '';
@@ -8186,7 +8201,7 @@ function buildNotifications(){
   DATA.employees.filter(e=>e.Status==='Active').forEach(e=>{
     const d = parseDate(e.JoinDate); if(!d) return;
     const left = Math.ceil((d.getTime()+183*86400000 - Date.now())/86400000);
-    const empRef = e.id || e.EmployeeID || e.RecordID;
+    const empRef = e.id || e.EmployeeID ;
     if(left>=0 && left<=7 && !NOTIFICATIONS.find(x=>x.type==='prob'&&(String(x.ref)===String(empRef) || String(x.ref)===String(e.RecordID)))){
       NOTIFICATIONS.push({ id:'prob'+empRef, type:'prob', ref:empRef, severity:'info',
         title:`Probation period ending — ${e.FullName}`,
@@ -8386,7 +8401,7 @@ function printParade(){
           </tr>
         </thead>
         <tbody>
-          ${rows.map(r=>{
+          ${rows.slice(0, 100).map(r=>{
             const gap = r.actualTotal-r.demandTotal;
             const gapChip = gap<0?`<span class="pillbox short">${gap}</span>`:gap>0?`<span class="pillbox over">+${gap}</span>`:`<span class="pillbox ok">Full</span>`;
             
@@ -8890,7 +8905,7 @@ function openProjMeetingHistory(proj, monthShift){
        <table>
          <thead><tr><th style="width:60px">#</th><th>${bn?'তারিখ':'Date'}</th><th>${bn?'দিন':'Day'}</th><th>${bn?'অবস্থা':'Status'}</th><th>${bn?'নোট':'Note'}</th></tr></thead>
          <tbody>
-           ${rows.map(r=>{
+           ${rows.slice(0, 100).map(r=>{
              const dt = new Date(r.iso);
              const dayName = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()];
              const dayNameBn = ['রবি','সোম','মঙ্গল','বুধ','বৃহস্পতি','শুক্র','শনি'][dt.getDay()];
@@ -8941,7 +8956,7 @@ function printProjMeetingHistory(proj, ymo){
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:10pt">
       <thead><tr style="background:#f1f5f9"><th style="border:1px solid #ccc;padding:5px">#</th><th style="border:1px solid #ccc;padding:5px">Date</th><th style="border:1px solid #ccc;padding:5px">Day</th><th style="border:1px solid #ccc;padding:5px">Status</th><th style="border:1px solid #ccc;padding:5px">Note</th></tr></thead>
-      <tbody>${rows.map(r=>`<tr><td style="border:1px solid #ccc;padding:5px;text-align:center">${r.d}</td><td style="border:1px solid #ccc;padding:5px">${r.d} ${monthNames[m].slice(0,3)} ${y}</td><td style="border:1px solid #ccc;padding:5px">${r.dayName}</td><td style="border:1px solid #ccc;padding:5px"><strong>${r.status}</strong></td><td style="border:1px solid #ccc;padding:5px;font-size:9pt">${(r.note||'').replace(/</g,'&lt;')}</td></tr>`).join('')}</tbody>
+      <tbody>${rows.slice(0, 100).map(r=>`<tr><td style="border:1px solid #ccc;padding:5px;text-align:center">${r.d}</td><td style="border:1px solid #ccc;padding:5px">${r.d} ${monthNames[m].slice(0,3)} ${y}</td><td style="border:1px solid #ccc;padding:5px">${r.dayName}</td><td style="border:1px solid #ccc;padding:5px"><strong>${r.status}</strong></td><td style="border:1px solid #ccc;padding:5px;font-size:9pt">${(r.note||'').replace(/</g,'&lt;')}</td></tr>`).join('')}</tbody>
     </table>
     <p style="margin-top:20px;font-size:9pt;color:#666;text-align:center">${(typeof COMPANY!=='undefined'?COMPANY.name:'MG Security')} — Meeting Attendance Report</p>
   </div>`);
@@ -9101,7 +9116,7 @@ function unifSubmit(event){
       
       const payload = {
         issue_id: newId,
-        record_id: String(e.id || ''),
+        employee_sys_id: e.id,
         employee_id: String(e.EmployeeID || e.id || ''),
         full_name: e.FullName || '',
         designation: e.Designation || '',
@@ -9536,12 +9551,12 @@ function findDuplicates({nid, phone, nameEn}){
   return out;
 }
 function lastExitOf(recordId){
-  return DATA.exits.filter(x=>String(x.id)===String(recordId) || String(x.EmployeeID)===String(recordId) || String(x.RecordID)===String(recordId))
+  return DATA.exits.filter(x=>String(x.employee_sys_id)===String(recordId) || String(x.EmployeeID)===String(recordId))
     .sort((a,b)=>parseDate(b.ExitDate)-parseDate(a.ExitDate))[0] || null;
 }
 function showDuplicateModal(dups, applicant, onForceNew){
   const rows = dups.map(d=>{
-    const e = d.emp, empId = e.id || e.EmployeeID || e.RecordID;
+    const e = d.emp, empId = e.id || e.EmployeeID ;
     const ex = lastExitOf(empId);
     const statusBn = e.Status==='Active' ? '<span class="pill active">বর্তমানে কর্মরত</span>' : '<span class="pill inactive">চাকরি ত্যাগ করেছেন</span>';
     const hist = ex ? `${'Joined'}: ${fmtDate(ex.JoinDate||e.JoinDate)} → ${'Left'}: ${fmtDate(ex.ExitDate||e.ExitDate)}` : '';
@@ -9566,8 +9581,8 @@ function showDuplicateModal(dups, applicant, onForceNew){
 }
 function rehireEmployee(recordId, applicant){
   if(!guardEdit()) return;
-  const e = DATA.employees.find(x=>String(x.id)===String(recordId) || String(x.EmployeeID)===String(recordId) || String(x.RecordID)===String(recordId)); if(!e) return;
-  const ex = lastExitOf(e.id || e.EmployeeID || e.RecordID);
+  const e = findEmp(recordId); if(!e) return;
+  const ex = lastExitOf(e.id || e.EmployeeID );
   e.EmploymentHistory = e.EmploymentHistory || [];
   e.EmploymentHistory.push({
     joinDate: e.JoinDate || (ex&&ex.JoinDate) || '',
@@ -9652,7 +9667,7 @@ function employmentHistoryTableBn(e){
     </table>`;
 }
 function printEmpProfile(recordId){
-  const e = DATA.employees.find(x=>String(x.id)===String(recordId) || String(x.EmployeeID)===String(recordId) || String(x.RecordID)===String(recordId)); if(!e) return;
+  const e = findEmp(recordId); if(!e) return;
   const cell = (k,v)=>`<td><strong>${k}:</strong> ${v||'—'}</td>`;
   openPrint(`<div class="print-doc compact" style="font-size:10.5pt;line-height:1.45;padding:12mm 15mm">
     ${letterhead()}
@@ -9803,7 +9818,7 @@ window.doSyncNow = function(){
       '<th style="padding:4px;border-bottom:1px solid #ccc;color:#c80">'+(bn?'বদল':'Change')+'</th>'+
       '<th style="padding:4px;border-bottom:1px solid #ccc;color:#c00">'+(bn?'মুছবে':'Delete')+'</th>'+
       '</tr></thead><tbody>' +
-      rows.map(function(r){
+      rows.slice(0, 100).map(function(r){
         var delCol = r.delPct>=20 ? 'background:#fee;color:#c00;font-weight:700' : (r.del>0?'color:#c00':'');
         return '<tr>'+
           '<td style="padding:4px;border-bottom:1px solid #eee">'+r.table+'</td>'+

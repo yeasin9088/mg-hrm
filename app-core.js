@@ -646,17 +646,30 @@
   }
 
   /* ---------- Real-Time WebSockets ---------- */
+  var _activeRealtimeChannel = null;
+  var _realtimeSubscribed = false;
+
   function subscribeRealtime() {
-    console.log('[Supabase] Initializing Real-Time WebSockets...');
     var client = (typeof _client === 'function' ? _client() : null) || sb || global.sb;
     if (!client) {
       console.warn('[Real-Time] Supabase client not initialized yet');
       return null;
     }
 
-    // Explicit channel for projects table real-time events
+    if (_activeRealtimeChannel && _realtimeSubscribed) {
+      return _activeRealtimeChannel;
+    }
+
+    if (_activeRealtimeChannel && typeof client.removeChannel === 'function') {
+      try {
+        client.removeChannel(_activeRealtimeChannel);
+      } catch (e) {}
+      _activeRealtimeChannel = null;
+    }
+
+    console.log('[Supabase] Initializing unified Real-Time channel...');
     try {
-      client.channel('projects-realtime')
+      _activeRealtimeChannel = client.channel('mghrm-live-sync')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, function (payload) {
           console.log('⚡ [Real-Time] Projects table changed:', payload);
           if (typeof global.handleProjectRealtimeUpdate === 'function') {
@@ -665,14 +678,6 @@
             handleRealtimeEvent(payload);
           }
         })
-        .subscribe();
-    } catch (e) {
-      console.warn('[Real-Time] projects-realtime subscription error:', e);
-    }
-
-    // Explicit channel for employees table real-time events
-    try {
-      client.channel('employees-realtime')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, function (payload) {
           console.log('⚡ [Real-Time] Employees table changed:', payload);
           if (typeof global.handleEmployeeRealtimeUpdate === 'function') {
@@ -681,23 +686,33 @@
             handleRealtimeEvent(payload);
           }
         })
-        .subscribe();
-    } catch (e) {
-      console.warn('[Real-Time] employees-realtime subscription error:', e);
-    }
+        .on('postgres_changes', { event: '*', schema: 'public' }, function (payload) {
+          if (payload && payload.table !== 'projects' && payload.table !== 'employees') {
+            console.log('⚡ [Real-Time] Remote change received:', payload);
+            handleRealtimeEvent(payload);
+          }
+        })
+        .subscribe(function (status, err) {
+          if (status === 'SUBSCRIBED') {
+            _realtimeSubscribed = true;
+            console.log('✅ [Real-Time] Connected to Supabase WebSockets');
+          } else if (status === 'CHANNEL_ERROR') {
+            _realtimeSubscribed = false;
+            console.warn('[Real-Time] Channel error on WebSocket (realtime replication may not be active on database). REST fallback is active.', err || '');
+          } else if (status === 'CLOSED') {
+            _realtimeSubscribed = false;
+            console.info('[Real-Time] Channel closed (' + status + '). REST fallback is active.');
+          } else if (status === 'TIMED_OUT') {
+            _realtimeSubscribed = false;
+            console.warn('[Real-Time] Channel timed out. REST fallback is active.');
+          }
+        });
 
-    return client.channel('custom-all-channel')
-      .on('postgres_changes', { event: '*', schema: 'public' }, function (payload) {
-        console.log('⚡ [Real-Time] Remote change received:', payload);
-        handleRealtimeEvent(payload);
-      })
-      .subscribe(function (status) {
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ [Real-Time] Connected to Supabase WebSockets');
-        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-          console.error('❌ [Real-Time] Disconnected or Error:', status);
-        }
-      });
+      return _activeRealtimeChannel;
+    } catch (e) {
+      console.warn('[Real-Time] Subscription error:', e);
+      return null;
+    }
   }
 
   function handleRealtimeEvent(payload) {

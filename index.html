@@ -2529,27 +2529,11 @@ function handleEmployeeRealtimeUpdate(payload) {
 window.handleEmployeeRealtimeUpdate = handleEmployeeRealtimeUpdate;
 
 function ensureEmployeesRealtime() {
-  const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
-                || (window.MGHRM && window.MGHRM.sb)
-                || window.sb
-                || (typeof sb !== 'undefined' ? sb : null);
-
-  if (!sbClient || typeof sbClient.channel !== 'function' || window.__employeesChannelSubscribed) return;
-  window.__employeesChannelSubscribed = true;
-
-  try {
-    sbClient.channel('employees-live-sync-ch')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, function (payload) {
-        console.log('⚡ [Employees Real-Time WebSocket]:', payload);
-        handleEmployeeRealtimeUpdate(payload);
-      })
-      .subscribe(function (status) {
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ [Employees Real-Time] Subscribed to employees table changes');
-        }
-      });
-  } catch (err) {
-    console.warn('[Employees Real-Time] Subscription error:', err);
+  if (window.MGHRM && typeof window.MGHRM.subscribeRealtime === 'function') {
+    return window.MGHRM.subscribeRealtime();
+  }
+  if (typeof subscribeRealtime === 'function') {
+    return subscribeRealtime();
   }
 }
 window.ensureEmployeesRealtime = ensureEmployeesRealtime;
@@ -4264,27 +4248,11 @@ function handleProjectRealtimeUpdate(payload) {
 window.handleProjectRealtimeUpdate = handleProjectRealtimeUpdate;
 
 function ensureProjectsRealtime() {
-  const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
-                || (window.MGHRM && window.MGHRM.sb)
-                || window.sb
-                || (typeof sb !== 'undefined' ? sb : null);
-
-  if (!sbClient || typeof sbClient.channel !== 'function' || window.__projectsChannelSubscribed) return;
-  window.__projectsChannelSubscribed = true;
-
-  try {
-    sbClient.channel('projects-live-sync-ch')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, function (payload) {
-        console.log('⚡ [Projects Real-Time WebSocket]:', payload);
-        handleProjectRealtimeUpdate(payload);
-      })
-      .subscribe(function (status) {
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ [Projects Real-Time] Subscribed to projects table changes');
-        }
-      });
-  } catch (err) {
-    console.warn('[Projects Real-Time] Subscription error:', err);
+  if (window.MGHRM && typeof window.MGHRM.subscribeRealtime === 'function') {
+    return window.MGHRM.subscribeRealtime();
+  }
+  if (typeof subscribeRealtime === 'function') {
+    return subscribeRealtime();
   }
 }
 window.ensureProjectsRealtime = ensureProjectsRealtime;
@@ -9946,27 +9914,47 @@ setInterval(()=>checkPendingToast(true), 180000);
     var client = (G && typeof G._client === 'function' ? G._client() : null) || window.sb || sb;
     if (!client) {
       console.warn('[Real-Time] Supabase client not initialized yet');
-      return;
+      return null;
     }
-    console.log('[Supabase] Initializing Real-Time WebSockets...');
-    
-    // Listen to all public tables
-    const channel = client.channel('custom-all-channel')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public' },
-        (payload) => {
-          console.log('[Real-Time] Change received:', payload);
-          handleRealtimeEvent(payload);
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ [Real-Time] Connected to Supabase WebSockets');
-        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-          console.error('❌ [Real-Time] Disconnected or Error:', status);
-        }
-      });
+    if (window.__unifiedRealtimeChannel && window.__unifiedRealtimeSubscribed) {
+      return window.__unifiedRealtimeChannel;
+    }
+    console.log('[Supabase] Initializing unified Real-Time channel...');
+    try {
+      window.__unifiedRealtimeChannel = client.channel('mghrm-live-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, function (payload) {
+          if (typeof handleProjectRealtimeUpdate === 'function') handleProjectRealtimeUpdate(payload);
+          else handleRealtimeEvent(payload);
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, function (payload) {
+          if (typeof handleEmployeeRealtimeUpdate === 'function') handleEmployeeRealtimeUpdate(payload);
+          else handleRealtimeEvent(payload);
+        })
+        .on('postgres_changes', { event: '*', schema: 'public' }, function (payload) {
+          if (payload && payload.table !== 'projects' && payload.table !== 'employees') {
+            handleRealtimeEvent(payload);
+          }
+        })
+        .subscribe(function (status, err) {
+          if (status === 'SUBSCRIBED') {
+            window.__unifiedRealtimeSubscribed = true;
+            console.log('✅ [Real-Time] Connected to Supabase WebSockets');
+          } else if (status === 'CHANNEL_ERROR') {
+            window.__unifiedRealtimeSubscribed = false;
+            console.warn('[Real-Time] Channel error on WebSocket (realtime replication may not be active on database). REST fallback is active.', err || '');
+          } else if (status === 'CLOSED') {
+            window.__unifiedRealtimeSubscribed = false;
+            console.info('[Real-Time] Channel closed (' + status + '). REST fallback is active.');
+          } else if (status === 'TIMED_OUT') {
+            window.__unifiedRealtimeSubscribed = false;
+            console.warn('[Real-Time] Channel timed out. REST fallback is active.');
+          }
+        });
+      return window.__unifiedRealtimeChannel;
+    } catch (e) {
+      console.warn('[Real-Time] Subscription error:', e);
+      return null;
+    }
   }
 
   function handleRealtimeEvent(payload) {
@@ -10048,6 +10036,24 @@ setInterval(()=>checkPendingToast(true), 180000);
           }
           if (typeof renderAll === 'function') renderAll();
         });
+      }
+
+      // Background periodic synchronization fallback for active views (every 35 seconds)
+      if (!window.__mghrmSyncInterval) {
+        window.__mghrmSyncInterval = setInterval(function() {
+          if (document.hidden) return;
+          if (typeof currentPage !== 'undefined') {
+            if (currentPage === 'projects' && typeof fetchProjectsDirectly === 'function') {
+              fetchProjectsDirectly().then(function(fresh) {
+                if (fresh && typeof updateProjectsTableUI === 'function') updateProjectsTableUI();
+              }).catch(function() {});
+            } else if (currentPage === 'employees' && typeof fetchEmployeesDirectly === 'function') {
+              fetchEmployeesDirectly().then(function(fresh) {
+                if (fresh && typeof renderEmpTable === 'function') renderEmpTable();
+              }).catch(function() {});
+            }
+          }
+        }, 35000);
       }
       
       var empties = window.__sbEmpties || [];

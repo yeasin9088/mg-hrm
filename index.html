@@ -1698,21 +1698,30 @@ function toBnDigits(s){
 function num(s){ return String(s??''); }
 
 DATA.activityLog = Array.isArray(DATA.activityLog) ? DATA.activityLog : [];
-function logActivity(action, table, refId, detail){
+async function logActivity(action, table, refId, detail){
   try {
     const u = (window.MGHRM && MGHRM.currentUser && MGHRM.currentUser()) || {email:'(local)'};
-    DATA.activityLog.unshift({
-      LogID: Date.now() + '-' + Math.random().toString(36).slice(2,7),
-      UserID: u.id || '',
-      UserEmail: u.email || '',
-      Action: action,
-      TableName: table,
-      RecordRef: String(refId||''),
-      Detail: detail||'',
-      CreatedAt: new Date().toISOString()
-    });
+    const payload = {
+      user_id: u.id || null,
+      user_email: u.email || 'Admin',
+      action: action,
+      table_name: table,
+      record_ref: String(refId||''),
+      detail: detail||'',
+      created_at: new Date().toISOString()
+    };
     
-    if(DATA.activityLog.length>500) DATA.activityLog.length = 500;
+    if (window.sb) {
+      const { error } = await window.sb.from('activity_log').insert([payload]);
+      if (error) throw error;
+      
+      if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
+        const freshData = await window.MGHRM.loadAll();
+        Object.assign(window.DATA, freshData);
+      }
+    } else {
+      console.warn('logActivity: window.sb not found');
+    }
   } catch(e){ console.warn('logActivity failed:', e); }
 }
 window.logActivity = logActivity;
@@ -4663,56 +4672,97 @@ function askCloseProject(pid){
 function doCloseProject(pid, deactivate){
   const bn = LANG==='bn';
   const p = DATA.projects.find(x=>String(x['Project ID'])===String(pid) || String(x.id)===String(pid) || x.ProjectName===pid || x.project_name===pid); if(!p) return;
-  const today = todayISO();
-  p.Status = 'Closed';
-  p.status = 'Closed';
-  p.is_active = false;
-  p.ClosedDate = today;
-  let count = 0;
   const pName = p.ProjectName || p.project_name;
-  if(deactivate){
-    DATA.employees.forEach(e=>{
-      if((e.ProjectName===pName || e.project_name===pName) && (e.Status==='Active' || e.status==='Active')){
-        e.Status = 'Inactive'; e.status = 'Inactive'; e.ExitDate = today; count++;
-        // Also record in exits table for audit trail
-        DATA.exits.unshift({
-          ExitID: String(Math.max(0,...DATA.exits.map(x=>+x.ExitID||0))+1),
-          EmployeeID: e.EmployeeID, FullName: e.FullName,
-          Designation: e.Designation, CurrentProject: pName,
-          JoinDate: e.JoinDate, ExitType: 'Project Closure',
-          ExitReason: `Project "${pName}" was closed`,
-          ExitDate: today, IssueDate: today
-        });
-      }
-    });
-  }
-  closeModal(); persist(); renderProjects(); renderAll();
-  toast(deactivate
-    ? (bn?`প্রজেক্ট বন্ধ — ${num(count)} জন কর্মী Inactive হয়েছেন`:`Project closed — ${count} employees deactivated`)
-    : (bn?'প্রজেক্ট বন্ধ হয়েছে':'Project closed'), 'success');
-
+  const today = todayISO();
   const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null) || window.sb;
-  if (sbClient) {
-    const targetId = p.id || p['Project ID'];
-    if (targetId) {
-      sbClient.from('projects').update({ status: 'Closed', is_active: false }).eq('id', targetId).then(() => fetchProjectsDirectly());
+  
+  const btn = event && event.target ? event.target : null;
+  if(btn) { btn.disabled = true; btn.innerHTML = 'Closing...'; }
+  
+  (async function() {
+    try {
+      if(!sbClient) throw new Error('Database not connected');
+      const targetId = p.id || p['Project ID'];
+      
+      const { error: projErr } = await sbClient.from('projects').update({ status: 'Closed', is_active: false }).eq('id', targetId);
+      if(projErr) throw projErr;
+      
+      let count = 0;
+      if(deactivate){
+        const activeStaff = DATA.employees.filter(e => (e.ProjectName===pName || e.project_name===pName) && (e.Status==='Active' || e.status==='Active'));
+        count = activeStaff.length;
+        
+        if (count > 0) {
+          const empIds = activeStaff.map(e => e.id || e.EmployeeID);
+          const { error: empErr } = await sbClient.from('employees').update({ status: 'Inactive', exit_date: today }).in('id', empIds.filter(id => typeof id === 'number' || (typeof id==='string' && id.length > 5)));
+          if(empErr) throw empErr;
+          
+          const exitRecords = activeStaff.map(e => ({
+            employee_id: String(e.EmployeeID || e.id || ''),
+            full_name: e.FullName || '',
+            designation: e.Designation || '',
+            current_project: pName,
+            join_date: e.JoinDate || null,
+            exit_type: 'Project Closure',
+            exit_reason: `Project "${pName}" was closed`,
+            exit_date: today,
+            issue_date: today,
+            created_at: new Date().toISOString()
+          }));
+          const { error: exErr } = await sbClient.from('exits').insert(exitRecords);
+          if(exErr) throw exErr;
+        }
+      }
+      
+      if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
+        const freshData = await window.MGHRM.loadAll();
+        Object.assign(window.DATA, freshData);
+      }
+      
+      closeModal();
+      renderProjects();
+      renderAll();
+      toast(deactivate
+        ? (bn?`প্রজেক্ট বন্ধ — ${num(count)} জন কর্মী Inactive হয়েছেন`:`Project closed — ${count} employees deactivated`)
+        : (bn?'প্রজেক্ট বন্ধ হয়েছে':'Project closed'), 'success');
+
+    } catch (err) {
+      console.error(err);
+      toast('Error closing project: ' + err.message, 'error');
+      if(btn) { btn.disabled = false; btn.innerHTML = bn?'হ্যাঁ, বন্ধ করুন এবং সবাইকে Inactive করুন':'Yes, Close & Deactivate All'; }
     }
-  }
+  })();
 }
 function reopenProject(pid){
   const bn = LANG==='bn';
   const p = DATA.projects.find(x=>String(x['Project ID'])===String(pid) || String(x.id)===String(pid) || x.ProjectName===pid || x.project_name===pid); if(!p) return;
-  p.Status = 'Active'; p.status = 'Active'; p.is_active = true; delete p.ClosedDate;
-  closeModal(); persist(); renderProjects();
-  toast(bn?'প্রজেক্ট পুনরায় চালু হয়েছে':'Project re-opened','success');
-
   const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null) || window.sb;
-  if (sbClient) {
-    const targetId = p.id || p['Project ID'];
-    if (targetId) {
-      sbClient.from('projects').update({ status: 'Active', is_active: true }).eq('id', targetId).then(() => fetchProjectsDirectly());
+  
+  const btn = event && event.target ? event.target : null;
+  if(btn) { btn.disabled = true; btn.innerHTML = 'Reopening...'; }
+
+  (async function() {
+    try {
+      if(!sbClient) throw new Error('Database not connected');
+      const targetId = p.id || p['Project ID'];
+      
+      const { error: projErr } = await sbClient.from('projects').update({ status: 'Active', is_active: true }).eq('id', targetId);
+      if(projErr) throw projErr;
+      
+      if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
+        const freshData = await window.MGHRM.loadAll();
+        Object.assign(window.DATA, freshData);
+      }
+      
+      closeModal();
+      renderProjects();
+      toast(bn?'প্রজেক্ট পুনরায় চালু হয়েছে':'Project re-opened','success');
+    } catch (err) {
+      console.error(err);
+      toast('Error reopening project: ' + err.message, 'error');
+      if(btn) { btn.disabled = false; btn.innerHTML = bn?'পুনরায় চালু':'Re-open'; }
     }
-  }
+  })();
 }
 
 /* ============ TRANSFER ============ */
@@ -6690,42 +6740,72 @@ function csvImportPreview(){
         </div>
         ${rows.length>50?`<p class="small-mute" style="text-align:center;padding:8px">${bn?'... আরও '+num(rows.length-50)+' সারি':'... '+num(rows.length-50)+' more rows'}</p>`:''}
         <div class="btn-row" style="margin-top:14px">
-          <button class="btn primary" onclick="csvImportConfirm(${jsQ(JSON.stringify(fresh))})">${bn?'নতুন '+num(fresh.length)+' জন ইমপোর্ট করুন':'Import '+fresh.length+' new'}</button>
+          <button class="btn primary" onclick="csvImportConfirm(${jsQ(JSON.stringify(fresh))}, event)">${bn?'নতুন '+num(fresh.length)+' জন ইমপোর্ট করুন':'Import '+fresh.length+' new'}</button>
           <button class="btn ghost" onclick="document.getElementById('csvPreview').innerHTML=''">${bn?'বাতিল':'Cancel'}</button>
         </div>
       </div>
     </div>`;
   document.getElementById('csvPreview').innerHTML = html;
 }
-function csvImportConfirm(rowsJson){
+function csvImportConfirm(rowsJson, event){
   if(!guardEdit()) return;
-  let rows = [];
-  try { rows = JSON.parse(String(rowsJson).replace(/&quot;/g,'"').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')); } catch(e){}
-  if(!rows.length){ toast('No new rows','warn'); return; }
-  const maxRec = Math.max(0, ...DATA.employees.map(e=>+e.RecordID||0));
-  const maxEmp = Math.max(0, ...DATA.employees.map(e=>parseInt(e.EmployeeID)||0));
-  rows.forEach((r,i)=>{
-    const rec = {
-      RecordID: String(maxRec+1+i),
-      EmployeeID: r.EmployeeID || String(maxEmp+1+i).padStart(4,'0'),
-      FullName: r.FullName||'',
-      FullNameBn: r.FullNameBn||'',
-      FatherName: r.FatherName||'', MotherName: r.MotherName||'',
-      DOB: r.DOB||'', NID: r.NID||'', 'NID/BirthCertificate': r.NID||'',
-      PhoneNumber: r.PhoneNumber||'',
-      Designation: r.Designation||'', ProjectName: r.ProjectName||'',
-      JoinDate: r.JoinDate || todayISO(),
-      Salary: +r.Salary||0,
-      Address: r.Address||'', MaritalStatus: r.MaritalStatus||'',
-      Education: r.Education||'', Religion: r.Religion||'',
-      Status:'Active'
-    };
-    DATA.employees.unshift(rec);
-    logActivity('create','employees', rec.EmployeeID, 'CSV import: '+rec.FullName);
-  });
-  toast(`${rows.length+' rows imported'}`, 'success');
-  persist(); renderReports(); showReport('csvImport');
-  renderAll && renderAll();
+  
+  const btn = event && event.target ? event.target : null;
+  if(btn) { btn.disabled = true; btn.innerHTML = 'Importing...'; }
+
+  (async function() {
+    try {
+      let rows = [];
+      try { rows = JSON.parse(String(rowsJson).replace(/&quot;/g,'"').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')); } catch(e){}
+      if(!rows.length){ toast('No new rows','warn'); return; }
+      
+      const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null) || window.sb;
+      if(!sbClient) throw new Error('Database connection not established.');
+      
+      const maxEmp = Math.max(0, ...DATA.employees.map(e=>parseInt(e.EmployeeID)||0));
+      
+      const dbPayload = rows.map((r, i) => ({
+        employee_id: r.EmployeeID || String(maxEmp+1+i).padStart(4,'0'),
+        full_name: r.FullName||'',
+        full_name_bn: r.FullNameBn||'',
+        father_name: r.FatherName||'',
+        mother_name: r.MotherName||'',
+        dob: r.DOB||null,
+        nid: r.NID||'',
+        phone: r.PhoneNumber||'',
+        designation: r.Designation||'',
+        project_name: r.ProjectName||'',
+        join_date: r.JoinDate || todayISO(),
+        salary: +r.Salary||0,
+        address: r.Address||'',
+        marital_status: r.MaritalStatus||'',
+        education: r.Education||'',
+        religion: r.Religion||'',
+        status: 'Active'
+      }));
+      
+      const { error } = await sbClient.from('employees').insert(dbPayload);
+      if(error) throw error;
+      
+      await logActivity('create', 'employees', 'CSV Import', `Imported ${rows.length} employees`);
+      
+      if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
+        const freshData = await window.MGHRM.loadAll();
+        Object.assign(window.DATA, freshData);
+      }
+      
+      toast(`${rows.length} rows imported successfully`, 'success');
+      persist(); 
+      renderReports(); 
+      showReport('csvImport');
+      
+    } catch (err) {
+      console.error(err);
+      toast('Import failed: ' + err.message, 'error');
+    } finally {
+      if(btn) { btn.disabled = false; btn.innerHTML = 'Import'; }
+    }
+  })();
 }
 
 function mrepShell({title, subtitle, kpis, body, landscape}){
@@ -6856,7 +6936,7 @@ function renderSettings(){
               <div class="field"><label>Phone (English)</label><input type="text" id="setCompanyPhoneEn" value="${COMPANY.phoneEn||''}"></div>
               <div class="field"><label>Email</label><input type="text" id="setCompanyEmail" value="${COMPANY.email||''}"></div>
             </div>
-            <button class="btn primary" style="margin-top:16px" onclick="saveCompanyProfile()">Save Profile</button>
+            <button class="btn primary" style="margin-top:16px" onclick="saveCompanyProfile(event)">Save Profile</button>
           </div>
         </div>
 
@@ -6961,16 +7041,48 @@ function handleLogoUpload(e) {
   reader.readAsDataURL(file);
 }
 
-function saveCompanyProfile() {
-  COMPANY.name = document.getElementById('setCompanyName').value;
-  COMPANY.nameBn = document.getElementById('setCompanyNameBn').value;
-  COMPANY.address = document.getElementById('setCompanyAddress').value;
-  COMPANY.addressBn = document.getElementById('setCompanyAddressBn').value;
-  COMPANY.phone = document.getElementById('setCompanyPhone').value;
-  COMPANY.phoneEn = document.getElementById('setCompanyPhoneEn').value;
-  COMPANY.email = document.getElementById('setCompanyEmail').value;
-  persist();
-  toast('Company profile saved', 'success');
+function saveCompanyProfile(event) {
+  const btn = event && event.target ? event.target : null;
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
+
+  (async function() {
+    try {
+      if (!window.sb) throw new Error('Database connection not established.');
+      
+      const newCompanyData = {
+        ...COMPANY,
+        name: document.getElementById('setCompanyName').value,
+        nameBn: document.getElementById('setCompanyNameBn').value,
+        address: document.getElementById('setCompanyAddress').value,
+        addressBn: document.getElementById('setCompanyAddressBn').value,
+        phone: document.getElementById('setCompanyPhone').value,
+        phoneEn: document.getElementById('setCompanyPhoneEn').value,
+        email: document.getElementById('setCompanyEmail').value
+      };
+
+      const payload = {
+        setting_key: 'company_profile',
+        setting_value: newCompanyData,
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await window.sb.from('app_settings').upsert(payload, { onConflict: 'setting_key' });
+      if (error) throw error;
+
+      Object.assign(COMPANY, newCompanyData);
+      
+      logActivity('update', 'app_settings', 'company_profile', 'Updated company profile settings');
+      toast('Company profile saved to database', 'success');
+      
+      if (typeof refreshAll === 'function') refreshAll();
+
+    } catch (err) {
+      console.error(err);
+      toast('Error saving company profile: ' + err.message, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = 'Save Profile'; }
+    }
+  })();
 }
 
 /* ============ SMART CSV UPLOADER CORE & FUZZY MAPPING ============ */
@@ -7709,27 +7821,14 @@ async function executeCsvServerPush() {
         }
       }, batchSize);
 
-      // Synchronize in-memory DATA[table] with imported rows
-      if (DATA[table]) {
-        transformedRows.forEach(row => {
-          const converted = window.MGHRM.fromDb ? window.MGHRM.fromDb(table, row) : row;
-          const idx = DATA[table].findIndex(item => {
-            if (row.record_id && (item.RecordID == row.record_id || item.record_id == row.record_id)) return true;
-            if (row.employee_id && (item.EmployeeID == row.employee_id || item.employee_id == row.employee_id)) return true;
-            return false;
-          });
-          if (idx >= 0) {
-            Object.assign(DATA[table][idx], converted);
-          } else {
-            DATA[table].unshift(converted);
-          }
-        });
+      // Synchronize in-memory DATA[table] by reloading from Supabase
+      if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
+        const freshData = await window.MGHRM.loadAll();
+        Object.assign(window.DATA, freshData);
       }
     } else {
-      // Local fallback
-      DATA[table] = DATA[table] || [];
-      transformedRows.forEach(r => DATA[table].unshift(r));
-      result = { count: transformedRows.length };
+      console.warn('MGHRM.batchUpsert not found, CSV import failed.');
+      throw new Error('Database connection not established.');
     }
 
     if (progressBarFill) progressBarFill.style.width = '100%';
@@ -7739,7 +7838,7 @@ async function executeCsvServerPush() {
     }
 
     toast(`Success: ${result.count || transformedRows.length} records imported into ${table}`, 'success');
-    logActivity('import', table, '', `Imported ${result.count || transformedRows.length} records via Smart CSV Uploader`);
+    await logActivity('import', table, '', `Imported ${result.count || transformedRows.length} records via Smart CSV Uploader`);
 
     persist();
     if (typeof renderAll === 'function') renderAll();
@@ -7781,21 +7880,18 @@ async function wipeAllData(){
     if(typeof exportBackupFile === 'function') exportBackupFile();
   } catch(e) {}
 
-  if(!confirm('Final warning: backup downloaded. All database tables and local records will be permanently deleted. Proceed with total wipe?')) {
+  if(!confirm('Final warning: backup downloaded. All transactional database tables will be permanently deleted. Proceed with total wipe?')) {
     return;
   }
 
   let wipeSuccess = true;
   /* Wipe Supabase Server Data */
-  const sb = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
-          || (window.MGHRM && window.MGHRM.sb)
-          || window.sb
-          || (typeof sb !== 'undefined' ? sb : null);
+  const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null) || window.sb;
 
-  if (sb) {
-    toast('Wiping server data, please wait...', 'info');
-    const tMap = (window.MGHRM && window.MGHRM.TABLE_MAP) || {};
-    // Child tables wiped before parent tables
+  if (sbClient) {
+    toast('Wiping server data sequentially, please wait...', 'info');
+    
+    // STRICT RULE: Do NOT wipe reference/system tables (divisions, districts, thanas, designations, profiles, app_settings).
     const tablesToWipe = [
       'meeting_attendance',
       'meetings',
@@ -7814,17 +7910,25 @@ async function wipeAllData(){
     
     try {
       for (const tableName of tablesToWipe) {
+        // Find PK from TABLE_MAP if available, default to 'id'
+        const tMap = (window.MGHRM && window.MGHRM.TABLE_MAP) || {};
         let pk = 'id';
         for (let k in tMap) {
           if (tMap[k].table === tableName) { pk = tMap[k].pk; break; }
         }
-        let query = sb.from(tableName).delete();
-        if (pk === 'id') {
-          query = query.neq('id', 0);
-        } else {
+        
+        let query = sbClient.from(tableName).delete();
+        // A dummy condition that matches all rows:
+        if (pk === 'id' || pk === 'demand_id') {
+          query = query.neq(pk, 0);
+        } else if (pk === 'setting_key' || pk === 'project_name') {
           query = query.neq(pk, '');
+        } else {
+          query = query.neq(pk, 0); // fallback
         }
+        
         const { error } = await query;
+        
         if (error) {
           console.error(`[Wipe Data] Failed to wipe ${tableName}:`, error.message || error);
           wipeSuccess = false;
@@ -7841,22 +7945,38 @@ async function wipeAllData(){
   if (!wipeSuccess) {
     toast('Failed to wipe some server tables (Check permissions or RLS policies).', 'error');
   } else {
-    toast('All data wiped successfully from server and local storage.', 'success');
+    toast('All transactional data wiped successfully from server.', 'success');
   }
 
-  DATA.employees = []; DATA.projects = []; DATA.transfers = []; DATA.disciplinary = [];
-  DATA.exits = []; DATA.leaves = []; DATA.career = []; DATA.uniforms = [];
-  DATA.todos = []; DATA.paradeState = []; DATA.paradeRecords = {}; DATA.meetings = {};
-  DATA.recruitmentArchive = []; DATA.activityLog = [];
+  // Clear local JS arrays so UI updates instantly
+  DATA.employees = []; 
+  DATA.projects = []; 
+  DATA.transfers = []; 
+  DATA.disciplinary = [];
+  DATA.exits = []; 
+  DATA.leaves = []; 
+  DATA.career = []; 
+  DATA.uniforms = [];
+  DATA.todos = []; 
+  DATA.paradeState = []; 
+  DATA.paradeRecords = {}; 
+  DATA.meetings = {};
+  DATA.demand = [];
+  DATA.recruitmentArchive = []; 
+  DATA.activityLog = [];
+  
   if(typeof RECRUITMENT !== 'undefined' && Array.isArray(RECRUITMENT)) RECRUITMENT.length = 0;
   if(typeof NOTIFICATIONS !== 'undefined' && Array.isArray(NOTIFICATIONS)) NOTIFICATIONS.length = 0;
   
-  logActivity('wipe', 'ALL', '', 'Database completely wiped by user');
+  await logActivity('wipe', 'ALL', '', 'Database completely wiped by user');
+  
+  // Reload fresh from server to ensure complete sync
+  if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
+    const freshData = await window.MGHRM.loadAll();
+    Object.assign(window.DATA, freshData);
+  }
+  
   persist();
-  renderAll();
-
-  if (typeof fetchEmployeesDirectly === 'function') await fetchEmployeesDirectly();
-  if (typeof fetchProjectsDirectly === 'function') await fetchProjectsDirectly();
   renderAll();
 }
 
@@ -10149,6 +10269,16 @@ setInterval(()=>checkPendingToast(true), 180000);
     var n = 0;
     window.__sbEmpties = [];
     Object.keys(d).forEach(function (k) {
+      if (k === 'appSettings' && d[k]) {
+        var profile = d[k].find(function(s) { return s.setting_key === 'company_profile'; });
+        if (profile && profile.setting_value) {
+          if (typeof window.COMPANY === 'object') {
+            Object.assign(window.COMPANY, profile.setting_value);
+          }
+        }
+        n++;
+        return;
+      }
       if (window.DATA && Object.prototype.hasOwnProperty.call(window.DATA, k)) {
         var srv = Array.isArray(d[k]) ? d[k] : null;
         var loc = Array.isArray(window.DATA[k]) ? window.DATA[k] : null;

@@ -367,6 +367,16 @@
         'CreatedAt': 'created_at'
       }
     },
+    appSettings: {
+      table: 'app_settings',
+      pk: 'setting_key',
+      allowed: ['setting_key', 'setting_value', 'updated_at'],
+      map: {
+        'setting_key': 'setting_key',
+        'setting_value': 'setting_value',
+        'updated_at': 'updated_at'
+      }
+    },
 
     recruitmentArchive: {
       table: 'recruitment_archive',

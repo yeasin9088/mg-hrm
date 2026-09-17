@@ -1441,7 +1441,7 @@ input:focus, select:focus, textarea:focus {
     </div>
     <div class="nav-item" data-nav="todo">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-      <span>টু-ডু / ফলো-আপ</span>
+      <span data-i18n="nav_todo">To-Do / Follow-up</span>
       <span class="badge" id="navTodoBadge" style="display:none;background:var(--warning)"></span>
     </div>
 
@@ -1582,24 +1582,24 @@ input:focus, select:focus, textarea:focus {
       <h3 data-i18n="print_preview">Document Preview</h3>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <!-- Orientation switch (only visible for modern report) -->
-        <div id="orientWrap" style="display:none;align-items:center;gap:4px;background:var(--bg-dim);padding:3px;border-radius:6px" title="A4 পেজ অরিয়েন্টেশন">
-          <button type="button" id="orientPortrait" class="btn sm" style="padding:4px 10px" onclick="setPrintOrientation('portrait')" title="পোর্ট্রেট (উঁচু)">
+        <div id="orientWrap" style="display:none;align-items:center;gap:4px;background:var(--bg-dim);padding:3px;border-radius:6px" title="A4 Page Orientation">
+          <button type="button" id="orientPortrait" class="btn sm" style="padding:4px 10px" onclick="setPrintOrientation('portrait')" title="Portrait (vertical)">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="3" width="12" height="18" rx="1"/></svg> Portrait
           </button>
-          <button type="button" id="orientLandscape" class="btn sm" style="padding:4px 10px" onclick="setPrintOrientation('landscape')" title="ল্যান্ডস্কেপ (চওড়া)">
+          <button type="button" id="orientLandscape" class="btn sm" style="padding:4px 10px" onclick="setPrintOrientation('landscape')" title="Landscape (wide)">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="1"/></svg> Landscape
           </button>
         </div>
         <!-- Color / B&W switch -->
-        <div id="colorWrap" style="display:none;align-items:center;gap:4px;background:var(--bg-dim);padding:3px;border-radius:6px" title="কালার = PDF/স্মার্ট লুক · B&W = কালি সাশ্রয়ী প্রিন্ট">
-          <button type="button" id="colorOn" class="btn sm" style="padding:4px 10px" onclick="setPrintColor('color')" title="কালারফুল (PDF এ সেভের জন্য)">
+        <div id="colorWrap" style="display:none;align-items:center;gap:4px;background:var(--bg-dim);padding:3px;border-radius:6px" title="Color = PDF/Smart · B&W = Ink-saving">
+          <button type="button" id="colorOn" class="btn sm" style="padding:4px 10px" onclick="setPrintColor('color')" title="Color (for saving as PDF)">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg> Color
           </button>
-          <button type="button" id="colorBW" class="btn sm" style="padding:4px 10px" onclick="setPrintColor('bw')" title="সাদা-কালো (সাধারণ প্রিন্টের জন্য — কালি বাঁচায়)">
+          <button type="button" id="colorBW" class="btn sm" style="padding:4px 10px" onclick="setPrintColor('bw')" title="Black & White (standard print — saves ink)">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg> B&W
           </button>
         </div>
-        <label id="ccWrap" style="display:none;align-items:center;gap:6px;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;color:var(--text-2)"><input type="checkbox" id="ccToggle" checked onchange="toggleCC(this)"> অনুলিপি সহ</label>
+        <label id="ccWrap" style="display:none;align-items:center;gap:6px;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;color:var(--text-2)"><input type="checkbox" id="ccToggle" checked onchange="toggleCC(this)"> Include CC</label>
         <button type="button" id="btnPrintDo" class="btn primary sm" onclick="doPrint(event)" style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;font-weight:700">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
           Print / PDF
@@ -1621,6 +1621,7 @@ const I18N = {
   en: {
     tagline:"HR Management System",
     nav_main:"Main", nav_dashboard:"Dashboard", nav_notifications:"Notifications",
+    nav_todo:"To-Do / Follow-up",
     nav_workforce:"Workforce", nav_employees:"Employees", nav_recruitment:"Recruitment",
     nav_parade:"Parade State", nav_projects:"Projects", nav_meeting:"Meeting Attendance",
     nav_uniform:"Uniform Management",
@@ -1636,6 +1637,7 @@ const I18N = {
   bn: {
     tagline:"এইচআর ম্যানেজমেন্ট সিস্টেম",
     nav_main:"প্রধান", nav_dashboard:"ড্যাশবোর্ড", nav_notifications:"নোটিফিকেশন",
+    nav_todo:"To-Do / Follow-up",
     nav_workforce:"জনবল", nav_employees:"কর্মচারী", nav_recruitment:"নিয়োগ",
     nav_parade:"প্যারেড স্টেট", nav_projects:"প্রজেক্ট", nav_meeting:"মিটিং হাজিরা",
     nav_uniform:"ইউনিফর্ম ম্যানেজমেন্ট",
@@ -1651,6 +1653,8 @@ const I18N = {
 };
 const PAGE_META = {
   dashboard:    {en:['Dashboard','Overview of workforce, activity and alerts'],                              bn:['ড্যাশবোর্ড','জনবল, কার্যক্রম ও সতর্কীকরণের সারসংক্ষেপ']},
+  notifications:{en:['Notifications','System alerts, reminders and actionable items'],                       bn:['নোটিফিকেশন','সিস্টেম সতর্কতা ও করণীয়']},
+  todo:         {en:['To-Do / Follow-up','Quick call notes and action tracking'],                            bn:['To-Do / Follow-up','কল নোট ও অ্যাকশন ট্র্যাকিং']},
   employees:    {en:['Employees','All personnel records with 360° profiles'],                                bn:['কর্মচারী তালিকা','সম্পূর্ণ কর্মচারী তথ্য ও ৩৬০° প্রোফাইল']},
   recruitment:  {en:['Recruitment Pipeline','Track applications from apply to onboarding'],                  bn:['নিয়োগ পাইপলাইন','আবেদন থেকে যোগদান পর্যন্ত ট্র্যাকিং']},
   parade:       {en:['Parade State','Manpower demand vs actual across all projects'],                        bn:['প্যারেড স্টেট','সকল প্রজেক্টে চাহিদা বনাম বর্তমান জনবল']},
@@ -2688,11 +2692,11 @@ function openNewEmp(){
     <p class="small-mute" style="margin-bottom:12px">${'Whether this person worked here before is auto-checked by NID/mobile/name. A match raises a duplicate alert with a re-hire option.'}</p>
     <div class="form-grid">
       <div class="field"><label>${'Full Name (English)'} *</label><input id="ne_nameEn" type="text" placeholder="Md ..." onchange="neDupHint()">${translateBtnHTML('ne_nameEn','ne_nameBn')}</div>
-      <div class="field"><label>${'Full Name (Bangla)'}</label><input id="ne_nameBn" type="text" placeholder="মোঃ ... (অনুবাদ বাটন চাপুন বা ম্যানুয়ালি লিখুন)"></div>
+      <div class="field"><label>${'Full Name (Bangla)'}</label><input id="ne_nameBn" type="text" placeholder="Md ... (Click translate button or type)"></div>
       <div class="field"><label>${'Official ID (if any)'}</label><input id="ne_officialId" type="text" placeholder="${'Company-issued ID'}"></div>
       <div class="field"><label>${"Father's Name"}</label><input id="ne_father" type="text"></div>
       <div class="field"><label>${'Date of Birth'}</label><input id="ne_dob" type="date"></div>
-      <div class="field"><label>NID / জন্ম সনদ</label><input id="ne_nid" type="text" placeholder="10/13/17 digits" onchange="neDupHint()"></div>
+      <div class="field"><label>NID / Birth Certificate</label><input id="ne_nid" type="text" placeholder="10/13/17 digits" onchange="neDupHint()"></div>
       <div class="field"><label>${'Phone'}</label><input id="ne_phone" type="text" placeholder="01XXXXXXXXX" onchange="neDupHint()"></div>
       <div class="field"><label>${'Designation'}</label><select id="ne_desig">${DESIGNATIONS.map(d=>`<option>${d}</option>`).join('')}</select></div>
       <div class="field"><label>${'Project'}</label><select id="ne_proj"><option>—</option>${activeProjects().map(p=>`<option>${p.ProjectName}</option>`).join('')}</select></div>
@@ -2925,9 +2929,9 @@ function openCandidateProfile(id){
       <div class="card-body">
         <p class="small-mute" style="margin-bottom:12px">${'Print on A4 — all 3 forms fit on one page each with Kalpurush font.'}</p>
         <div class="btn-row">
-          <button class="btn" onclick="closeModal();openPrint(printApplication(${r.id}))">${ico('print')} ১. ${'Job Application'}</button>
-          <button class="btn" onclick="closeModal();openPrint(printBiodata(${r.id}))">${ico('print')} ২. ${'Biodata (CV)'}</button>
-          <button class="btn primary" onclick="closeModal();openPrint(printAppointment(${r.id}))">${ico('print')} ৩. ${'Appointment Letter'}</button>
+          <button class="btn" onclick="closeModal();openPrint(printApplication(${r.id}))">${ico('print')} 1. ${'Job Application'}</button>
+          <button class="btn" onclick="closeModal();openPrint(printBiodata(${r.id}))">${ico('print')} 2. ${'Biodata (CV)'}</button>
+          <button class="btn primary" onclick="closeModal();openPrint(printAppointment(${r.id}))">${ico('print')} 3. ${'Appointment Letter'}</button>
         </div>
       </div>
     </div>
@@ -3119,7 +3123,7 @@ function openApplicantForm(){
     <div id="tab-naBasic" class="tab-panel active">
       <div class="form-grid">
         <div class="field"><label>Name (English) *</label><input id="na_nameEn" type="text" placeholder="Md ..." onchange="dupHintLive()">${translateBtnHTML('na_nameEn','na_name')}</div>
-        ${fld('name','Name (Bangla) *','text','মোঃ ... (translate button বা ম্যানুয়ালি)')}
+        ${fld('name','Name (Bangla) *','text','Md ... (translate button or manual)')}
         ${fld('father',"Father's Name")}
         ${fld('mother',"Mother's Name")}
         ${fld('dob','Date of Birth','date')}
@@ -3794,7 +3798,7 @@ function openProjectForm(pid){
         <div class="field wide"><label>Project Name (English) *</label>
           <input id="pf_name" type="text" value="${val('ProjectName')}" placeholder="e.g. ABC Textile Mills Ltd"></div>
         <div class="field wide"><label>${bn?'প্রজেক্টের নাম (বাংলা)':'Project Name (Bangla)'}</label>
-          <input id="pf_nameBn" type="text" value="${val('ProjectNameBangla')}" placeholder="যেমন: এবিসি টেক্সটাইল মিলস লিঃ"></div>
+          <input id="pf_nameBn" type="text" value="${val('ProjectNameBangla')}" placeholder="${bn?'যেমন: এবিসি টেক্সটাইল মিলস লিঃ':'e.g. ABC Textile Mills Ltd'}"></div>
         <div class="field"><label>${bn?'অ্যাডমিন নাম':'Admin Name'}</label>
           <input id="pf_admin" type="text" value="${val('Admin Name')}"></div>
         <div class="field"><label>${bn?'অ্যাডমিন ফোন':'Admin Phone'}</label>
@@ -7127,8 +7131,8 @@ function applyScheduledTransfers(){
       t._applied = true; t.Status = 'Awaiting Confirmation';
       NOTIFICATIONS.unshift({
         id:'tj'+t.TransferID, type:'transfer_join', transferId:t.TransferID, severity:'warning',
-        title:`${t.FullName} — যোগদান নিশ্চিত করুন`,
-        detail:`${fmtDateBnFormal(t.TransferDate)} তারিখে ${projName(t.CurrentProject)} → ${projName(t.NewProject)} বদলির কথা ছিল। তিনি কি নতুন প্রজেক্টে যোগদান করেছেন? "হ্যাঁ" চাপলে কর্মীর প্রজেক্ট পরিবর্তন হবে; "না" চাপলে ট্রান্সফার বাতিল হবে।`
+        title:`${t.FullName} — Confirm Joining`,
+        detail:`Scheduled transfer on ${fmtDate(t.TransferDate)} from ${projName(t.CurrentProject)} to ${projName(t.NewProject)}. Did they join the new project? Clicking "Joined" updates their project; clicking "Cancel order" cancels the transfer.`
       });
     }
   });
@@ -7144,7 +7148,7 @@ function confirmJoin(nid){
     t.Status='Completed'; t.IsProceed='1';
   }
   NOTIFICATIONS.splice(NOTIFICATIONS.indexOf(n),1);
-  toast('যোগদান নিশ্চিত হয়েছে — কর্মীর প্রজেক্ট নতুন প্রজেক্টে বদলে গেল','success');
+  toast('Joining confirmed — employee project updated to new project','success');
   persist(); renderAll();
 }
 function denyJoin(nid){
@@ -7154,7 +7158,7 @@ function denyJoin(nid){
   const t = DATA.transfers.find(x=>String(x.TransferID)===String(n.transferId));
   if(t) t.Status='Cancelled';
   NOTIFICATIONS.splice(NOTIFICATIONS.indexOf(n),1);
-  toast('বদলির আদেশ বাতিল — Employee.ProjectName অপরিবর্তিত','success');
+  toast('Transfer order cancelled — employee project unchanged','success');
   persist(); renderAll();
 }
 function markReplied(actionId){
@@ -7163,7 +7167,7 @@ function markReplied(actionId){
   if(d) d._replied = true;
   const i = NOTIFICATIONS.findIndex(x=>x.type==='sc'&&String(x.ref)===String(actionId));
   if(i>=0) NOTIFICATIONS.splice(i,1);
-  toast('শোকজের জবাব রেকর্ড হয়েছে — এখন সতর্কীকরণ/পরবর্তী ব্যবস্থা নিন','success');
+  toast('Show-cause reply recorded — proceed with warning or next action','success');
   persist(); renderAll();
 }
 function dismissNotif(nid){
@@ -7173,17 +7177,17 @@ function dismissNotif(nid){
 }
 function buildNotifications(){
   DATA.disciplinary.forEach(d=>{
-    if(d.ActionType && String(d.ActionType).includes('শোকজ') && !d._replied && daysAgo(d.IssueDate)>=1 && !NOTIFICATIONS.find(x=>x.type==='sc'&&String(x.ref)===String(d.ActionID))){
+    if(d.ActionType && (String(d.ActionType).includes('শোকজ') || String(d.ActionType).toLowerCase().includes('show-cause')) && !d._replied && daysAgo(d.IssueDate)>=1 && !NOTIFICATIONS.find(x=>x.type==='sc'&&String(x.ref)===String(d.ActionID))){
       NOTIFICATIONS.push({ id:'sc'+d.ActionID, type:'sc', ref:d.ActionID, severity:'warning',
-        title:`শোকজ নোটিশের ফলো-আপ — ${d.FullName}`,
-        detail:`${fmtDate(d.IssueDate)} তারিখে জারিকৃত শোকজের জবাবের সময় (০১ কর্মদিবস) শেষ। জবাব পেয়েছেন কি? পেলে সতর্কীকরণ পত্র জারি করুন।` });
+        title:`Show-cause follow-up — ${d.FullName}`,
+        detail:`Response window (01 working day) for show-cause notice issued on ${fmtDate(d.IssueDate)} has ended. Did you receive a response? If yes, issue a warning letter.` });
     }
   });
   RECRUITMENT.forEach(r=>{
     if(r.stage!=='Confirmed' && daysAgo(r.date)>=3 && !NOTIFICATIONS.find(x=>x.type==='rec'&&String(x.ref)===String(r.id))){
       NOTIFICATIONS.push({ id:'rec'+r.id, type:'rec', ref:r.id, severity:'info',
-        title:`নিয়োগ পাইপলাইনে আটকে আছে — ${r.name}`,
-        detail:`গত ${toBnDigits(daysAgo(r.date))} দিন ধরে "${r.stage}" ধাপে অপেক্ষমান। পরবর্তী পদক্ষেপ নিন।` });
+        title:`Stuck in recruitment pipeline — ${r.name}`,
+        detail:`Pending at "${r.stage}" stage for ${daysAgo(r.date)} days. Take next action.` });
     }
   });
   DATA.employees.filter(e=>e.Status==='Active').forEach(e=>{
@@ -7191,8 +7195,8 @@ function buildNotifications(){
     const left = Math.ceil((d.getTime()+183*86400000 - Date.now())/86400000);
     if(left>=0 && left<=7 && !NOTIFICATIONS.find(x=>x.type==='prob'&&String(x.ref)===String(e.RecordID))){
       NOTIFICATIONS.push({ id:'prob'+e.RecordID, type:'prob', ref:e.RecordID, severity:'info',
-        title:`শিক্ষানবিশ কাল শেষ হচ্ছে — ${e.FullName}`,
-        detail:`${fmtDate(e.JoinDate)} থেকে ৬ (ছয়) মাস পূর্ণ হবে ${left===0?'আজ':toBnDigits(left)+' দিনের মধ্যে'}। নিয়মিত কর্মচারীতে রূপান্তরের সিদ্ধান্ত নিন।` });
+        title:`Probation period ending — ${e.FullName}`,
+        detail:`6 months from join date (${fmtDate(e.JoinDate)}) will be completed ${left===0?'today':'in '+left+' days'}. Decide on conversion to regular employee.` });
     }
   });
 }
@@ -7383,7 +7387,7 @@ function printParade(){
             <th rowspan="2" style="width:8%;text-align:center">Status</th>
           </tr>
           <tr class="hg2">
-            ${K.map(()=>`<th class="sub dem-col" title="Demand — চাহিদা">Dem</th><th class="sub act-col" title="Actual — বর্তমান">Act</th><th class="sub diff-col" title="Difference — পার্থক্য">±</th>`).join('')}
+            ${K.map(()=>`<th class="sub dem-col" title="Demand">Dem</th><th class="sub act-col" title="Actual">Act</th><th class="sub diff-col" title="Difference">±</th>`).join('')}
             <th class="sub dem-col">Dem</th><th class="sub act-col">Act</th><th class="sub diff-col">±</th>
           </tr>
         </thead>
@@ -7430,9 +7434,9 @@ function printParade(){
       </div>
       <p class="mrep-legend">
         <strong>Legend:</strong>
-        <span class="lg-item"><span class="lg-sw dem"></span> <b>Dem</b> = অনুমোদিত চাহিদা / Approved demand</span>
-        <span class="lg-item"><span class="lg-sw act"></span> <b>Act</b> = বর্তমান মোতায়েন / Currently deployed</span>
-        <span class="lg-item"><span class="lg-sw diff"></span> <b>±</b> = পার্থক্য (Act − Dem) — <span style="color:#dc2626;font-weight:700">লাল</span> = ঘাটতি · <span style="color:#1d4ed8;font-weight:700">নীল</span> = উদ্বৃত্ত · <span style="color:#16a34a;font-weight:700">সবুজ</span> = পূর্ণ
+        <span class="lg-item"><span class="lg-sw dem"></span> <b>Dem</b> = Approved demand</span>
+        <span class="lg-item"><span class="lg-sw act"></span> <b>Act</b> = Currently deployed</span>
+        <span class="lg-item"><span class="lg-sw diff"></span> <b>±</b> = Difference (Act − Dem) — <span style="color:#dc2626;font-weight:700">Red</span> = Shortage · <span style="color:#1d4ed8;font-weight:700">Blue</span> = Surplus · <span style="color:#16a34a;font-weight:700">Green</span> = Full
       </p>
     </div>
     <div class="mrep-foot"><span>${COMPANY.name} — Security Division</span><span>Prepared by: ${nameEnOf(COMPANY.preparedByName)}, ${desigEn(COMPANY.preparedByDesig)} · Approved by: ${nameEnOf(COMPANY.securityMgr)}, ${desigEn(COMPANY.securityMgrTitle)}</span></div>
@@ -8156,13 +8160,16 @@ function printUniform(kind){
 
 DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
 const TODO_STATUS = [
-  {k:'pending',  bn:'⏳ অপেক্ষমান'},
-  {k:'informed', bn:'📞 ঊর্ধ্বতনকে জানানো হয়েছে'},
-  {k:'approved', bn:'✅ অনুমতি পাওয়া গেছে'},
-  {k:'done',     bn:'✔ সমাধান সম্পন্ন'},
+  {k:'pending',  label:'⏳ Pending',                 bn:'⏳ Pending'},
+  {k:'informed', label:'📞 Escalated to Management', bn:'📞 Escalated to Management'},
+  {k:'approved', label:'✅ Approved',                bn:'✅ Approved'},
+  {k:'done',     label:'✔ Resolved',                bn:'✔ Resolved'},
 ];
 function renderTodo(){
-  const stBadge = k => (TODO_STATUS.find(s=>s.k===k)||{bn:k}).bn;
+  const stBadge = k => {
+    const s = TODO_STATUS.find(x=>x.k===k || x.label===k || x.bn===k || (k && k.includes('অপেক্ষমান') && x.k==='pending') || (k && (k.includes('উর্ধ্বতন') || k.includes('ঊর্ধ্বতন')) && x.k==='informed') || (k && k.includes('অনুমতি') && x.k==='approved') || (k && k.includes('সমাধান') && x.k==='done'));
+    return s ? (s.label || s.bn) : (k || '⏳ Pending');
+  };
   document.getElementById('page-todo').innerHTML = `
     <div class="card">
       <div class="card-header"><h3>${'⚡ Quick Call Note'}</h3></div>
@@ -8172,7 +8179,7 @@ function renderTodo(){
           <div class="field"><label>${'Who called'}</label><input id="tdWho" type="text" placeholder="${'Incharge / Admin…'}"></div>
           <div class="field wide"><label>${'Issue note'}</label><textarea id="tdNote" rows="2" placeholder="${'e.g. Gate-2 guard absent, requesting replacement permission…'}"></textarea></div>
           <div class="field"><label>${'Follow-up date'}</label><input id="tdDate" type="date" value="${todayISO()}"></div>
-          <div class="field"><label>${'Status'}</label><select id="tdStatus">${TODO_STATUS.map(s=>`<option value="${s.k}">${s.bn}</option>`).join('')}</select></div>
+          <div class="field"><label>${'Status'}</label><select id="tdStatus">${TODO_STATUS.map(s=>`<option value="${s.k}">${s.label || s.bn}</option>`).join('')}</select></div>
         </div>
         <div class="btn-row" style="margin-top:12px"><button class="btn primary" onclick="addTodo()">${ico('plus')} ${'Save note'}</button></div>
       </div>
@@ -8637,7 +8644,7 @@ function restoreSidebar(){
 function renderAll(){
   if (typeof ensureSystemIDs === 'function') ensureSystemIDs();
   applyI18n();
-  const map = {dashboard:renderDashboard,notifications:renderNotifications,employees:renderEmployees,recruitment:renderRecruitment,parade:renderParade,projects:renderProjects,meeting:renderMeeting,uniform:renderUniform,transfer:renderTransfer,disciplinary:renderDisciplinary,leave:renderLeave,exit:renderExit,salary:renderSalary,increment:renderIncrement,reports:renderReports,settings:renderSettings};
+  const map = {dashboard:renderDashboard,notifications:renderNotifications,todo:renderTodo,employees:renderEmployees,recruitment:renderRecruitment,parade:renderParade,projects:renderProjects,meeting:renderMeeting,uniform:renderUniform,transfer:renderTransfer,disciplinary:renderDisciplinary,leave:renderLeave,exit:renderExit,salary:renderSalary,increment:renderIncrement,reports:renderReports,settings:renderSettings};
   const f = map[currentPage]; if(f) f();
   updateBackupStatus();
   updateNotifBadge();
@@ -8834,7 +8841,7 @@ window.openBackupMenu = function(){
   if(typeof openModal !== 'function') return;
   var autoKeys = Object.keys(localStorage).filter(function(k){ return k.indexOf('mghrm_autobackup_')===0; }).sort().reverse();
   var autoHtml = autoKeys.length===0
-    ? '<p class="small-mute" style="margin:0">এখনো কোনো অটো-ব্যাকআপ নেই — অ্যাপ পরের বার লোড হলে তৈরি হবে।</p>'
+    ? '<p class="small-mute" style="margin:0">No auto-backups yet — one will be created the next time the app loads.</p>'
     : '<ul style="list-style:none;padding:0;margin:0;display:grid;gap:6px">' + autoKeys.map(function(k){
         var lbl = k.replace('mghrm_autobackup_','');
         return '<li style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;border:1px solid var(--border);border-radius:6px"><span style="font-family:monospace;font-size:12px">'+lbl+'</span><button class="btn" style="padding:4px 10px;font-size:12px" onclick="doRestoreAuto(\''+k+'\')">Restore</button></li>';
@@ -8855,12 +8862,12 @@ window.openBackupMenu = function(){
       '  </div>'+
       '  <div style="padding:12px;border:1px solid var(--border);border-radius:8px;background:#f4f8ff">'+
       '    <h4 style="margin:0 0 6px;font-size:13px">🕒 Auto-backups (last 5)</h4>'+
-      '    <p class="small-mute" style="margin-bottom:8px">অ্যাপ প্রতি বুটে নিজে থেকে ব্রাউজারে একটি ব্যাকআপ রাখে (সর্বশেষ ৫টি রোলিং)। যেকোনো একটিতে ফিরে যেতে "Restore" চাপুন।</p>'+
+      '    <p class="small-mute" style="margin-bottom:8px">The app automatically saves a rolling backup in the browser on each boot (keeps the last 5). Click "Restore" to revert to any backup.</p>'+
       autoHtml +
       '  </div>'+
       '  <div style="padding:12px;border:1px solid var(--border);border-radius:8px;background:#fef9e7">'+
       '    <h4 style="margin:0 0 6px;font-size:13px">💡 Recommendation</h4>'+
-      '    <p class="small-mute" style="margin:0">সপ্তাহে একবার Download backup চাপুন, ফাইলটি Google Drive/pendrive-এ রাখুন। Supabase-এর free tier ৭ দিন নিষ্ক্রিয় থাকলে auto-pause হয় — তাই লোকাল ব্যাকআপ জরুরি।</p>'+
+      '    <p class="small-mute" style="margin:0">Click Download backup once a week and keep the file in Google Drive or a USB drive. Supabase free tier auto-pauses after 7 days of inactivity, so local backup is essential.</p>'+
       '  </div>'+
       '</div>',
     actions: '<button class="btn" onclick="closeModal()">Close</button>'
@@ -9175,7 +9182,7 @@ setInterval(()=>checkPendingToast(true), 180000);
     }
     try {
       var s = JSON.parse(localStorage.getItem(CFG_KEY) || 'null');
-      if (s && s.url && s.anonKey) { s.src = 'এই ডিভাইস'; return s; }
+      if (s && s.url && s.anonKey) { s.src = 'This Device'; return s; }
     } catch (e) {}
     return null;
   }
@@ -9324,7 +9331,7 @@ setInterval(()=>checkPendingToast(true), 180000);
       var n = fillData(d);
       hookPersist(); refreshAll();
       show('authGate', false);
-      console.log('[MG HRM] Supabase →', n, 'টি টেবিল লোড');
+      console.log('[MG HRM] Supabase →', n, 'tables loaded');
       
       var empties = window.__sbEmpties || [];
       if (empties.length) {
@@ -9431,16 +9438,16 @@ setInterval(()=>checkPendingToast(true), 180000);
   function doSetup(){
     var url = cleanUrl(el('setupUrl').value);
     var key = el('setupKey').value.trim().replace(/\s+/g, '');
-    if (!url || !key) { msg('setupMsg','দুটি ঘরই পূরণ করুন — URL এবং key।','err'); return; }
+    if (!url || !key) { msg('setupMsg','Please fill in both fields — URL and key.','err'); return; }
     if (!/^https:\/\/[a-z0-9-]+\.supabase\.(co|in)$/i.test(url)) {
-      msg('setupMsg','URL-টি ঠিক মনে হচ্ছে না। এমন হওয়া উচিত:<br><code>https://' +
+      msg('setupMsg','The URL does not look valid. It should look like:<br><code>https://' +
         url.replace(/[<>&]/g,'') + '</code>','err'); return;
     }
     if (key.length < 100) {
-      msg('setupMsg','key-টি খুব ছোট মনে হচ্ছে — পুরোটা কপি হয়নি। লম্বা <b>anon public</b> key-টি আবার কপি করুন।','err'); return;
+      msg('setupMsg','The key seems too short — not completely copied. Please copy the long <b>anon public</b> key again.','err'); return;
     }
     var b = el('setupGo'); b.disabled = true;
-    b.innerHTML = '<span class="spin"></span>পরীক্ষা করা হচ্ছে…';
+    b.innerHTML = '<span class="spin"></span>Testing connection…';
 
     G.connect({ url: url, anonKey: key }).then(function(){
       

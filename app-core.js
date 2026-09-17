@@ -408,7 +408,7 @@
       .replace(/^_|_$/g, '');
   }
 
-  function toDb(key, rec) {
+  function toDb(key, rec) { if (!rec) return {};
     var m = TABLE_MAP[key];
     if (!m) return rec;
     var out = {}, k, col, v;
@@ -779,7 +779,7 @@
       if (eventType === 'INSERT') {
         if (idx === -1) dataArr.unshift(jsRecord);
       } else if (eventType === 'UPDATE') {
-        if (idx !== -1) dataArr[idx] = Object.assign(dataArr[idx], jsRecord);
+        if (idx !== -1 && dataArr[idx]) if(dataArr[idx]) { dataArr[idx] = Object.assign(dataArr[idx], jsRecord); }
       }
     }
 
@@ -1017,7 +1017,7 @@
         return Promise.resolve({ success: true, count: total });
       }
 
-      var currentBatch = batches[idx].map(function (item) {
+      var currentBatch = batches[idx].filter(function(item) { return item != null; }).map(function (item) {
         return bucket ? toDb(bucket, item) : item;
       });
 

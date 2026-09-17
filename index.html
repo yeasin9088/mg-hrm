@@ -1732,7 +1732,13 @@ async function logActivity(action, table, refId, detail){
       
       if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
         const freshData = await window.MGHRM.loadAll();
-        Object.assign(window.DATA, freshData);
+        if (freshData) {
+          Object.keys(freshData).forEach(k => {
+            if (Array.isArray(freshData[k])) {
+              window.DATA[k] = freshData[k];
+            }
+          });
+        }
       }
     } else {
       console.warn('logActivity: window.sb not found');
@@ -2532,7 +2538,7 @@ function handleEmployeeRealtimeUpdate(payload) {
     const norm = normEmployee(newRow);
     const idx = DATA.employees.findIndex(e => (norm.id != null && String(e.id) === String(norm.id)) || (norm.EmployeeID && String(e.EmployeeID) === String(norm.EmployeeID)));
     if (idx !== -1) {
-      DATA.employees[idx] = Object.assign({}, DATA.employees[idx], norm);
+      if(DATA.employees[idx]) DATA.employees[idx] = Object.assign({}, DATA.employees[idx], norm);
     } else {
       DATA.employees.push(norm);
       DATA.employees.sort((a, b) => (+a.id || 0) - (+b.id || 0));
@@ -3768,7 +3774,13 @@ function onboardCandidate(id){
 
       if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
         const freshData = await window.MGHRM.loadAll();
-        Object.assign(window.DATA, freshData);
+        if (freshData) {
+          Object.keys(freshData).forEach(k => {
+            if (Array.isArray(freshData[k])) {
+              window.DATA[k] = freshData[k];
+            }
+          });
+        }
       }
 
       logActivity('create','employees', newEmpId, 'onboarded from recruitment: '+r.name);
@@ -3820,7 +3832,13 @@ function cancelCandidate(id){
 
       if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
         const freshData = await window.MGHRM.loadAll();
-        Object.assign(window.DATA, freshData);
+        if (freshData) {
+          Object.keys(freshData).forEach(k => {
+            if (Array.isArray(freshData[k])) {
+              window.DATA[k] = freshData[k];
+            }
+          });
+        }
       }
 
       logActivity('cancel','recruitment_archive', archId, 'Rejected: '+r.name+(reason?' — '+reason:''));
@@ -4173,7 +4191,13 @@ function saveDemand(projectName, event) {
 
       if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
         const freshData = await window.MGHRM.loadAll();
-        Object.assign(window.DATA, freshData);
+        if (freshData) {
+          Object.keys(freshData).forEach(k => {
+            if (Array.isArray(freshData[k])) {
+              window.DATA[k] = freshData[k];
+            }
+          });
+        }
       }
       
       toast(`Demand updated for ${projName(projectName)}`, 'success');
@@ -4401,7 +4425,7 @@ function handleProjectRealtimeUpdate(payload) {
     const norm = normProject(newRow);
     const idx = DATA.projects.findIndex(p => String(p.id) === String(norm.id) || String(p['Project ID']) === String(norm['Project ID']) || p.ProjectName === norm.ProjectName);
     if (idx !== -1) {
-      DATA.projects[idx] = Object.assign({}, DATA.projects[idx], norm);
+      if(DATA.projects[idx]) DATA.projects[idx] = Object.assign({}, DATA.projects[idx], norm);
     } else {
       DATA.projects.push(norm);
       DATA.projects.sort((a, b) => (+a.id || +a['Project ID'] || 0) - (+b.id || +b['Project ID'] || 0));
@@ -4562,7 +4586,7 @@ function saveProject(existingId){
       if(oldName && oldName!==rec.ProjectName){
         DATA.employees.forEach(e=>{ if(e.ProjectName===oldName || e.project_name===oldName) { e.ProjectName = rec.ProjectName; e.project_name = rec.ProjectName; } });
       }
-      DATA.projects[idx] = Object.assign({}, DATA.projects[idx], rec, normProject(rec));
+      if(DATA.projects[idx]) DATA.projects[idx] = Object.assign({}, DATA.projects[idx], rec, normProject(rec));
     }
   } else {
     if(DATA.projects.some(x=>x.ProjectName===name || x.project_name===name)){
@@ -4730,7 +4754,13 @@ function doCloseProject(pid, deactivate){
       
       if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
         const freshData = await window.MGHRM.loadAll();
-        Object.assign(window.DATA, freshData);
+        if (freshData) {
+          Object.keys(freshData).forEach(k => {
+            if (Array.isArray(freshData[k])) {
+              window.DATA[k] = freshData[k];
+            }
+          });
+        }
       }
       
       closeModal();
@@ -4765,7 +4795,13 @@ function reopenProject(pid){
       
       if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
         const freshData = await window.MGHRM.loadAll();
-        Object.assign(window.DATA, freshData);
+        if (freshData) {
+          Object.keys(freshData).forEach(k => {
+            if (Array.isArray(freshData[k])) {
+              window.DATA[k] = freshData[k];
+            }
+          });
+        }
       }
       
       closeModal();
@@ -5262,7 +5298,13 @@ async function submitTransfer(){
 
     if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
       const freshData = await window.MGHRM.loadAll();
-      Object.assign(window.DATA, freshData);
+      if (freshData) {
+          Object.keys(freshData).forEach(k => {
+            if (Array.isArray(freshData[k])) {
+              window.DATA[k] = freshData[k];
+            }
+          });
+        }
     }
     
     logActivity('create', 'transfers', newId, `Transfer for ${e.FullName} to ${np}`);
@@ -5547,7 +5589,13 @@ async function submitDisciplinary(){
 
     if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
       const freshData = await window.MGHRM.loadAll();
-      Object.assign(window.DATA, freshData);
+      if (freshData) {
+          Object.keys(freshData).forEach(k => {
+            if (Array.isArray(freshData[k])) {
+              window.DATA[k] = freshData[k];
+            }
+          });
+        }
     }
     
     toast(DC_TEMPLATES[type].label.en + ' saved successfully', 'success');
@@ -5766,7 +5814,13 @@ async function submitLeave(){
 
     if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
       const freshData = await window.MGHRM.loadAll();
-      Object.assign(window.DATA, freshData);
+      if (freshData) {
+          Object.keys(freshData).forEach(k => {
+            if (Array.isArray(freshData[k])) {
+              window.DATA[k] = freshData[k];
+            }
+          });
+        }
     }
     
     toast(`Leave application submitted (${num(days)} days)`,'success');
@@ -5991,7 +6045,13 @@ async function submitExit(){
 
     if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
       const freshData = await window.MGHRM.loadAll();
-      Object.assign(window.DATA, freshData);
+      if (freshData) {
+          Object.keys(freshData).forEach(k => {
+            if (Array.isArray(freshData[k])) {
+              window.DATA[k] = freshData[k];
+            }
+          });
+        }
     }
 
     logActivity('create','exits',newExitId,`${e.FullName} marked as Inactive (${r})`);
@@ -6179,7 +6239,13 @@ async function submitIncrement(){
 
     if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
       const freshData = await window.MGHRM.loadAll();
-      Object.assign(window.DATA, freshData);
+      if (freshData) {
+          Object.keys(freshData).forEach(k => {
+            if (Array.isArray(freshData[k])) {
+              window.DATA[k] = freshData[k];
+            }
+          });
+        }
     }
     
     logActivity('create','career',newChangeId,`${type} for ${e.FullName} to ${newDesig} (${newSal})`);
@@ -6805,7 +6871,13 @@ function csvImportConfirm(rowsJson, event){
       
       if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
         const freshData = await window.MGHRM.loadAll();
-        Object.assign(window.DATA, freshData);
+        if (freshData) {
+          Object.keys(freshData).forEach(k => {
+            if (Array.isArray(freshData[k])) {
+              window.DATA[k] = freshData[k];
+            }
+          });
+        }
       }
       
       toast(`${rows.length} rows imported successfully`, 'success');
@@ -7788,7 +7860,7 @@ async function executeCsvServerPush() {
   for (let i = 0; i < rawRows.length; i++) {
     const raw = rawRows[i];
     const rowObj = {};
-    activeMappings.forEach(m => {
+    activeMappings.forEach(m => { if(!raw) return;
       let val = raw[m.csvHeader];
       if (val !== undefined && val !== null) {
         val = String(val).trim();
@@ -7838,7 +7910,13 @@ async function executeCsvServerPush() {
       // Synchronize in-memory DATA[table] by reloading from Supabase
       if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
         const freshData = await window.MGHRM.loadAll();
-        Object.assign(window.DATA, freshData);
+        if (freshData) {
+          Object.keys(freshData).forEach(k => {
+            if (Array.isArray(freshData[k])) {
+              window.DATA[k] = freshData[k];
+            }
+          });
+        }
       }
     } else {
       console.warn('MGHRM.batchUpsert not found, CSV import failed.');
@@ -7987,7 +8065,13 @@ async function wipeAllData(){
   // Reload fresh from server to ensure complete sync
   if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
     const freshData = await window.MGHRM.loadAll();
-    Object.assign(window.DATA, freshData);
+    if (freshData) {
+          Object.keys(freshData).forEach(k => {
+            if (Array.isArray(freshData[k])) {
+              window.DATA[k] = freshData[k];
+            }
+          });
+        }
   }
   
   persist();
@@ -8639,7 +8723,13 @@ function mtSubmitDay(iso, event){
 
       if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
         const freshData = await window.MGHRM.loadAll();
-        Object.assign(window.DATA, freshData);
+        if (freshData) {
+          Object.keys(freshData).forEach(k => {
+            if (Array.isArray(freshData[k])) {
+              window.DATA[k] = freshData[k];
+            }
+          });
+        }
       }
 
       logActivity('submit','meetings', iso, `${presentProjs.length} present · ${added} follow-ups added to To-Do`);
@@ -9134,7 +9224,13 @@ function unifSubmit(event){
 
       if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
         const freshData = await window.MGHRM.loadAll();
-        Object.assign(window.DATA, freshData);
+        if (freshData) {
+          Object.keys(freshData).forEach(k => {
+            if (Array.isArray(freshData[k])) {
+              window.DATA[k] = freshData[k];
+            }
+          });
+        }
       }
       
       toast(`Uniform issue recorded for ${e.FullName}`, 'success');
@@ -10424,7 +10520,7 @@ setInterval(()=>checkPendingToast(true), 180000);
     } else if (eventType === 'UPDATE') {
       const idx = dataArr.findIndex(x => String(x[pk]) === String(jsRecord[pk]));
       if (idx !== -1) {
-        dataArr[idx] = Object.assign(dataArr[idx], jsRecord);
+        if (dataArr[idx]) dataArr[idx] = Object.assign(dataArr[idx], jsRecord);
       } else {
         dataArr.unshift(jsRecord);
       }

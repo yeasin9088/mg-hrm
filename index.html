@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MG Security HRM Suite</title>
+<meta name="description" content="Human resource management suite for MG Security - employee records, parade state, uniforms, transfers, and leaves.">
+<meta property="og:title" content="MG Security HRM Suite">
+<meta property="og:description" content="Human resource management suite for MG Security - employee records, parade state, uniforms, transfers, and leaves.">
 <script>
 /* Comprehensive shim for environments where fetch on Window or Window.prototype has only a getter */
 (function() {
@@ -2395,8 +2398,9 @@ function normEmployee(row) {
   if (!row) return {};
   return {
     id: row.id,
-    record_id: row.record_id || (row.id ? 'REC-' + row.id : ''),
-    RecordID: row.record_id || (row.id ? 'REC-' + row.id : ''),
+    record_id: row.id,
+    RecordID: row.id,
+    SystemID: row.id,
     EmployeeID: row.employee_id || '',
     employee_id: row.employee_id || '',
     FullName: row.full_name || '',
@@ -2565,7 +2569,7 @@ async function deleteEmployeeDirectly(empKey) {
     } else if (e.EmployeeID) {
       query = query.eq('employee_id', e.EmployeeID);
     } else {
-      query = query.eq('record_id', e.RecordID);
+      query = query.eq('id', e.RecordID);
     }
 
     const { error } = await query;
@@ -3049,8 +3053,10 @@ async function saveNewEmployee(force){
           query = query.eq('id', existingEmp.id);
         } else if (existingEmp && existingEmp.EmployeeID) {
           query = query.eq('employee_id', existingEmp.EmployeeID);
+        } else if (/^\d+$/.test(editKey)) {
+          query = query.eq('id', editKey);
         } else {
-          query = query.eq('record_id', editKey);
+          query = query.eq('employee_id', editKey);
         }
         const { error } = await query;
         if (error) {
@@ -6743,9 +6749,8 @@ function saveCompanyProfile() {
 /* ============ SMART CSV UPLOADER CORE & FUZZY MAPPING ============ */
 const CSV_SCHEMAS = {
   employees: [
-    { key: 'record_id', label: 'RecordID (Universal Root Identifier) ⭐', isRoot: true, required: true },
+    { key: 'id', label: 'ID (Supabase System ID) ⭐', isRoot: true },
     { key: 'employee_id', label: 'EmployeeID (Badge Code)' },
-    { key: 'system_id', label: 'SystemID (Legacy SID)' },
     { key: 'full_name', label: 'FullName (Employee Name) *', required: true },
     { key: 'full_name_bn', label: 'FullNameBn (Bangla Name)' },
     { key: 'father_name', label: 'FatherName' },
@@ -7214,7 +7219,7 @@ function renderCsvWorkspace() {
   ws.style.display = 'block';
   const schema = CSV_SCHEMAS[state.targetTable] || [];
   const activeMappings = state.mapping.filter(m => m.targetCol && m.targetCol !== '__skip__');
-  const isRootMapped = activeMappings.some(m => m.targetCol === 'record_id');
+  const isRootMapped = activeMappings.some(m => m.targetCol === 'id' || m.targetCol === 'employee_id' || m.targetCol === 'record_id');
   const hasRootRequirement = schema.some(c => c.isRoot || c.isFk);
 
   // Tab Header
@@ -7251,15 +7256,7 @@ function renderCsvWorkspace() {
           <div class="alert-item success" style="margin-bottom:14px;padding:8px 12px">
             ${ico('check')}
             <div style="font-size:12px">
-              <strong>Relational Root Verified:</strong> <code>record_id</code> is successfully mapped. MS Access primary/foreign key links will be preserved.
-            </div>
-          </div>`;
-      } else {
-        html += `
-          <div class="alert-item warning" style="margin-bottom:14px;padding:8px 12px">
-            ${ico('warn')}
-            <div style="font-size:12px">
-              <strong>RecordID Not Mapped:</strong> <code>record_id</code> is the core relational identifier. Please map the corresponding ID or Serial column from your file to ensure database relations remain intact.
+              <strong>Identifier Verified:</strong> Primary ID or EmployeeID is mapped for database alignment.
             </div>
           </div>`;
       }
@@ -7426,10 +7423,10 @@ async function executeCsvServerPush() {
 
   const schema = CSV_SCHEMAS[table] || [];
   const rootCol = schema.find(c => c.isRoot || c.isFk);
-  const isRootMapped = activeMappings.some(m => m.targetCol === 'record_id');
+  const isRootMapped = activeMappings.some(m => m.targetCol === 'id' || m.targetCol === 'employee_id' || m.targetCol === 'record_id');
 
-  if (rootCol && !isRootMapped) {
-    const proceed = confirm(`Warning: "record_id" is the Universal Root Identifier for ${table} in your relational architecture, but it is NOT mapped.\n\nDo you wish to proceed anyway?`);
+  if (rootCol && !isRootMapped && table !== 'employees') {
+    const proceed = confirm(`Warning: Core identifier for ${table} is not mapped.\n\nDo you wish to proceed anyway?`);
     if (!proceed) return;
   }
 

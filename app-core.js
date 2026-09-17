@@ -11,7 +11,7 @@
       table: 'employees',
       pk: 'id',
       allowed: [
-        'id', 'record_id', 'employee_id', 'full_name', 'full_name_bn',
+        'id', 'employee_id', 'full_name', 'full_name_bn',
         'father_name', 'mother_name', 'dob', 'phone', 'nid', 'education', 'religion',
         'height', 'weight', 'marital_status', 'spouse_name', 'spouse_phone',
         'ec_name', 'ec_relation', 'ec_phone', 'division', 'district', 'thana',
@@ -22,8 +22,6 @@
       ],
       map: {
         'id': 'id',
-        'record_id': 'record_id',
-        'RecordID': 'record_id',
         'EmployeeID': 'employee_id',
         'FullName': 'full_name',
         'FullNameBn': 'full_name_bn',
@@ -429,6 +427,12 @@
     delete out.created_at;
     delete out.updated_at;
     if (out.id === undefined || out.id === null) delete out.id;
+    if (key === 'employees') {
+      delete out.record_id;
+      delete out.RecordID;
+      delete out.system_id;
+      delete out.SystemID;
+    }
     return out;
   }
 
@@ -451,7 +455,14 @@
       out[col] = row[col];
     }
     // Explicit root identifier enforcement
-    if (row.id != null) out.id = row.id;
+    if (row.id != null) {
+      out.id = row.id;
+      if (key === 'employees') {
+        out.RecordID = row.id;
+        out.record_id = row.id;
+        out.SystemID = row.id;
+      }
+    }
     if (row.employee_id && !out.EmployeeID) out.EmployeeID = row.employee_id;
     if (row.full_name && !out.FullName) out.FullName = row.full_name;
     return out;

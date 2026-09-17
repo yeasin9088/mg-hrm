@@ -1,6 +1,6 @@
 /* =====================================================================
    MG Security HRM — Service Worker
-   কাজ: অ্যাপের ফাইলগুলো ফোনে/কম্পিউটারে জমা রাখা (offline-এ খোলার জন্য)
+   Role: Cache application assets offline
    ===================================================================== */
 const CACHE = 'mghrm-v14';  /* v3.5: bumped v9→v10 (Transfer action buttons + Meeting overhaul + Employee history bug fix + Toast top-right + To-Do reorder + Import module + Wipe DB + Serial columns) */
 const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './bd-geo.json', './config.js', './app-core.js'];
@@ -21,15 +21,15 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
 
-  // Supabase / auth / CDN → কখনো ক্যাশ করব না, সবসময় নেটওয়ার্ক
+  // Supabase / auth / CDN → bypass cache, always use network
   if (url.hostname.includes('supabase') ||
       url.hostname.includes('jsdelivr') ||
       url.hostname.includes('cloudflareinsights')) {
-    return; // ব্রাউজার নিজে হ্যান্ডল করবে
+    return; // Handled directly by browser
   }
   if (e.request.method !== 'GET') return;
 
-  // অ্যাপের নিজের ফাইল → network-first, না পেলে cache
+  // App shell files → network-first, fallback to cache
   e.respondWith(
     fetch(e.request)
       .then((res) => {

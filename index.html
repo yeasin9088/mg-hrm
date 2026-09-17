@@ -1328,7 +1328,7 @@ input:focus, select:focus, textarea:focus {
 .pipe-card:hover { transform:translateY(-2px); box-shadow:0 6px 18px rgba(30,27,75,.1);
   border-color:#c7d2fe; }
 </style>
-<!-- প্রিন্টের পেজ-সাইজ এখান থেকে নিয়ন্ত্রিত হয়: ল্যান্ডস্কেপ রিপোর্ট (প্যারেড/স্টাফ-লিস্ট/ইউনিফর্ম) খুললে openPrint নিজে বদলে দেয় -->
+<!-- Print page size controlled here: openPrint adjusts when landscape reports (parade/staff-list/uniform) are opened -->
 <style id="pageSizeStyle">@page { size: A4 portrait; margin: 0; }</style>
 
 <link rel="manifest" href="./manifest.json">
@@ -1514,7 +1514,7 @@ input:focus, select:focus, textarea:focus {
     <div class="modal-head">
       <h3 data-i18n="print_preview">Document Preview</h3>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <!-- Orientation switch (শুধু মডার্ন রিপোর্টের জন্য দেখা যাবে) -->
+        <!-- Orientation switch (only visible for modern report) -->
         <div id="orientWrap" style="display:none;align-items:center;gap:4px;background:var(--bg-dim);padding:3px;border-radius:6px" title="A4 পেজ অরিয়েন্টেশন">
           <button type="button" id="orientPortrait" class="btn sm" style="padding:4px 10px" onclick="setPrintOrientation('portrait')" title="পোর্ট্রেট (উঁচু)">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="3" width="12" height="18" rx="1"/></svg> Portrait
@@ -1995,6 +1995,7 @@ async function renderDashboard(){
   const desigRows = Object.entries(desigCount).sort((a,b)=>b[1]-a[1]);
 
   const alerts = computeAlerts();
+  const trend = monthlyTrend();
   
   container.innerHTML = `
     <div class="kpi-grid">
@@ -2226,6 +2227,7 @@ function monthlyTrend(){
   return buckets;
 }
 function renderTrendChart(buckets){
+  if (!buckets || !Array.isArray(buckets)) buckets = typeof monthlyTrend === 'function' ? monthlyTrend() : [];
   const max = Math.max(1, ...buckets.flatMap(b=>[b.joins,b.exits,b.transfers]));
   return `
     <div style="display:flex;align-items:flex-end;gap:8px;height:180px;padding:0 4px;position:relative">
@@ -5696,7 +5698,7 @@ function renderSettings(){
               ${COMPANY.logoDataUrl?`<img src="${COMPANY.logoDataUrl}" style="max-width:100%;max-height:100%;object-fit:contain">`:`<span class="small-mute" style="text-align:center;font-size:11px">${'No logo<br>(default used)'}</span>`}
             </div>
             <div style="flex:1">
-              <input type="file" id="logoInput" accept="image/*" onchange="handleLogoUpload(event)">
+              <input type="file" id="logoInput" accept="image/png,image/jpeg,image/webp,image/gif" onchange="handleLogoUpload(event)">
             </div>
           </div>
           <div class="form-grid">
@@ -5735,7 +5737,7 @@ function saveCompanyProfile() {
   persist();
   toast('Company profile saved', 'success');
 }
-function importHint(){unction importHint(){
+function importHint() {
   const t = document.getElementById('imType').value;
   const bn = LANG==='bn';
   const hints = {

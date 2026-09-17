@@ -5,7 +5,7 @@
   'use strict';
   'use strict';
 
-  /* ---------- ১. টেবিল ও কলাম ম্যাপিং -------------------------------- */
+  /* ---------- 1. Table & Column Mapping -------------------------------- */
   var TABLE_MAP = {
     employees: { table: 'employees', pk: 'record_id', allowed: ['id', 'record_id', 'employee_id', 'full_name', 'full_name_bn', 'father_name', 'mother_name', 'dob', 'phone', 'nid', 'education', 'religion', 'height', 'weight', 'marital_status', 'spouse_name', 'spouse_phone', 'ec_name', 'ec_relation', 'ec_phone', 'division', 'district', 'thana', 'address', 'address_bn', 'division_id', 'district_id', 'upazila_id', 'union_id', 'village', 'street', 'designation', 'project_name', 'join_date', 'duty_hour', 'salary', 'status', 'exit_date', 'exit_reason', 'remarks', 'photo_url', 'created_at', 'updated_at', 'system_id'], map: {
       'SystemID':'system_id','RecordID':'record_id','EmployeeID':'employee_id','FullName':'full_name',
@@ -70,8 +70,8 @@
     leaves:  { table: 'leaves',  pk: 'leave_id', allowed: ['id', 'leave_id', 'record_id', 'employee_id', 'name', 'type', 'start', 'end', 'days', 'reason', 'status', 'created_at'], map: {} },
     meetings:{ table: 'meetings',pk: 'meeting_id', allowed: ['id', 'meeting_id', 'date_iso', 'title', 'location', 'start_time', 'end_time', 'notes', 'status', 'created_at'], map: {} },
 
-    /* v3.4: অ্যাক্টিভিটি লগ ও রিক্রুটমেন্ট আর্কাইভ — এখন সার্ভারে সিঙ্ক হবে
-       (কলাম নাম supabase_setup.sql-এর সাথে align করা) */
+    /* v3.4: Activity log & recruitment archive - now synced to server
+       (Column names aligned with supabase_setup.sql) */
     activityLog:        { table: 'activity_log',        pk: 'id', allowed: ['id', 'user_id', 'user_email', 'action', 'table_name', 'record_ref', 'detail', 'created_at'], map: {
       'LogID':'id','UserID':'user_id','UserEmail':'user_email',
       'Action':'action','TableName':'table_name','RecordRef':'record_ref','Detail':'detail',
@@ -82,7 +82,7 @@
       'DecidedAt':'decided_at','Notes':'notes' } }
   };
 
-  /* ---------- ২. নাম রূপান্তর -------------------------------------- */
+  /* ---------- 2. Name Transformation -------------------------------------- */
   function camelToSnake(s) {
     return String(s)
       .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
@@ -108,7 +108,7 @@
 
     }
     delete out.created_at; delete out.updated_at;
-    if (out.id === undefined || out.id === null) delete out.id;  // identity কলাম
+    if (out.id === undefined || out.id === null) delete out.id;  // identity column
     return out;
   }
   function fromDb(key, row) {

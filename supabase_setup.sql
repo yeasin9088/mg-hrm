@@ -180,6 +180,8 @@ create table if not exists public.disciplinary (
   created_at      timestamptz not null default now()
 );
 
+alter table public.disciplinary add column if not exists employee_sys_id bigint references public.employees(id) on delete cascade;
+
 alter table public.disciplinary add column if not exists employee_id_bn text;
 alter table public.disciplinary add column if not exists issue_date_bn text;
 alter table public.disciplinary add column if not exists description_bn text;
@@ -204,6 +206,8 @@ create table if not exists public.exits (
   issue_date      text,
   created_at      timestamptz not null default now()
 );
+
+alter table public.exits add column if not exists employee_sys_id bigint references public.employees(id) on delete cascade;
 
 alter table public.exits add column if not exists employee_id text;
 
@@ -235,6 +239,8 @@ create table if not exists public.transfers (
   created_at          timestamptz not null default now()
 );
 
+alter table public.transfers add column if not exists employee_sys_id bigint references public.employees(id) on delete cascade;
+
 alter table public.transfers add column if not exists employee_id_bn text;
 alter table public.transfers add column if not exists transfer_date_bn text;
 alter table public.transfers add column if not exists issues_date_bn text;
@@ -264,6 +270,8 @@ create table if not exists public.career (
   created_at           timestamptz not null default now()
 );
 
+alter table public.career add column if not exists employee_sys_id bigint references public.employees(id) on delete cascade;
+
 alter table public.career add column if not exists notes text;
 
 create index if not exists career_record_idx on public.career (employee_sys_id);
@@ -291,6 +299,8 @@ create table if not exists public.uniform (
   created_at     timestamptz not null default now()
 );
 
+alter table public.uniform add column if not exists employee_sys_id bigint references public.employees(id) on delete cascade;
+
 
 create index if not exists uniform_record_idx on public.uniform (employee_sys_id);
 create index if not exists uniform_emp_idx    on public.uniform (employee_id);
@@ -316,6 +326,8 @@ create table if not exists public.leaves (
   approved_by  text,
   created_at   timestamptz not null default now()
 );
+
+alter table public.leaves add column if not exists employee_sys_id bigint references public.employees(id) on delete cascade;
 
 
 create index if not exists leaves_record_idx on public.leaves (employee_sys_id);
@@ -346,6 +358,8 @@ create table if not exists public.meeting_attendance (
   status       text default 'Present',   -- Present | Absent | Late | Excused
   remarks      text
 );
+
+alter table public.meeting_attendance add column if not exists employee_sys_id bigint references public.employees(id) on delete cascade;
 
 
 create index if not exists att_meeting_idx on public.meeting_attendance (meeting_id);
@@ -565,16 +579,6 @@ create policy "activity_insert" on public.activity_log
 
 
 
--- ---------------------------------------------------------------------
--- RELATIONAL MIGRATION: ADD employee_sys_id AND DROP record_id/system_id
--- ---------------------------------------------------------------------
-ALTER TABLE public.disciplinary ADD COLUMN IF NOT EXISTS employee_sys_id bigint references public.employees(id) on delete cascade;
-ALTER TABLE public.exits ADD COLUMN IF NOT EXISTS employee_sys_id bigint references public.employees(id) on delete cascade;
-ALTER TABLE public.transfers ADD COLUMN IF NOT EXISTS employee_sys_id bigint references public.employees(id) on delete cascade;
-ALTER TABLE public.career ADD COLUMN IF NOT EXISTS employee_sys_id bigint references public.employees(id) on delete cascade;
-ALTER TABLE public.uniform ADD COLUMN IF NOT EXISTS employee_sys_id bigint references public.employees(id) on delete cascade;
-ALTER TABLE public.leaves ADD COLUMN IF NOT EXISTS employee_sys_id bigint references public.employees(id) on delete cascade;
-ALTER TABLE public.meeting_attendance ADD COLUMN IF NOT EXISTS employee_sys_id bigint references public.employees(id) on delete cascade;
 
 ALTER TABLE public.disciplinary DROP COLUMN IF EXISTS record_id;
 ALTER TABLE public.disciplinary DROP COLUMN IF EXISTS system_id;

@@ -639,7 +639,11 @@
             return [
               k,
               (r.data || []).map(function (row) {
-                return fromDb(k, row);
+                var rec = fromDb(k, row);
+                if (k === 'projects' && typeof global.normProject === 'function') {
+                  rec = global.normProject(rec);
+                }
+                return rec;
               })
             ];
           });
@@ -656,11 +660,28 @@
   /* ---------- Real-Time WebSockets ---------- */
   function subscribeRealtime() {
     console.log('[Supabase] Initializing Real-Time WebSockets...');
-    var client = sb || global.sb;
+    var client = (typeof _client === 'function' ? _client() : null) || sb || global.sb;
     if (!client) {
       console.warn('[Real-Time] Supabase client not initialized yet');
       return null;
     }
+
+    // Explicit channel for projects table real-time events
+    try {
+      client.channel('projects-realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, function (payload) {
+          console.log('⚡ [Real-Time] Projects table changed:', payload);
+          if (typeof global.handleProjectRealtimeUpdate === 'function') {
+            global.handleProjectRealtimeUpdate(payload);
+          } else {
+            handleRealtimeEvent(payload);
+          }
+        })
+        .subscribe();
+    } catch (e) {
+      console.warn('[Real-Time] projects-realtime subscription error:', e);
+    }
+
     return client.channel('custom-all-channel')
       .on('postgres_changes', { event: '*', schema: 'public' }, function (payload) {
         console.log('⚡ [Real-Time] Remote change received:', payload);
@@ -676,6 +697,11 @@
   }
 
   function handleRealtimeEvent(payload) {
+    if (payload && payload.table === 'projects' && typeof global.handleProjectRealtimeUpdate === 'function') {
+      global.handleProjectRealtimeUpdate(payload);
+      return;
+    }
+
     var table = payload.table;
     var eventType = payload.eventType; // 'INSERT', 'UPDATE', 'DELETE'
 

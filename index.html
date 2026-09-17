@@ -1976,6 +1976,9 @@ function navigate(p){
   document.querySelectorAll('.page').forEach(el=>el.classList.toggle('active',el.id==='page-'+p));
   applyI18n(); renderAll();
   window.scrollTo(0,0);
+  if (p === 'projects' && typeof renderProjects === 'function') {
+    renderProjects();
+  }
 }
 
 /* Ctrl+K search */
@@ -3723,59 +3726,304 @@ function exportParadeExcel(){
 }
 
 /* ============ PROJECTS ============ */
+function normProject(row) {
+  if (!row) return row;
+  var p = (window.MGHRM && typeof window.MGHRM.fromDb === 'function')
+    ? window.MGHRM.fromDb('projects', row)
+    : Object.assign({}, row);
+
+  var id = p['Project ID'] != null ? p['Project ID'] : (p.id != null ? p.id : (row.id != null ? row.id : ''));
+  var name = p.ProjectName || p.project_name || row.project_name || '';
+  var nameBn = p.ProjectNameBangla || p.project_name_bn || row.project_name_bn || '';
+  var admin = p['Admin Name'] || p.admin_name || row.admin_name || '';
+  var phone = p['Admin Phone Num'] || p.admin_phone || row.admin_phone || '';
+  var whatsapp = p['Admin WhatsApp Num'] || p.admin_whatsapp || row.admin_whatsapp || '';
+  var gatePhone = p['Main Gate Phone Num'] || p.main_gate_phone || row.main_gate_phone || '';
+  var addr = p.Address || p.address || row.address || '';
+  var addrBn = p.AddressBangla || p.address_bn || row.address_bn || '';
+  var div = p.Division || p.division || row.division || '';
+  var dist = p.District || p.district || row.district || '';
+  var thana = p.Thana || p.thana || row.thana || '';
+  var divId = p.DivisionID || p.division_id || row.division_id || '';
+  var distId = p.DistrictID || p.district_id || row.district_id || '';
+  var upzId = p.UpazilaID || p.upazila_id || row.upazila_id || '';
+  var uniId = p.UnionID || p.union_id || row.union_id || '';
+  var village = p.Village || p.village || row.village || '';
+  var street = p.Street || p.street || row.street || '';
+  var start = p.StartDate || p.start_date || row.start_date || '';
+  var status = p.Status || p.status || (row.is_active === false ? 'Closed' : 'Active');
+  var isActive = row.is_active !== undefined ? row.is_active : (status !== 'Closed' && status !== 'Inactive');
+
+  p['Project ID'] = id;
+  p.id = id;
+  p.ProjectName = name;
+  p.project_name = name;
+  p.ProjectNameBangla = nameBn;
+  p.project_name_bn = nameBn;
+  p['Admin Name'] = admin;
+  p.admin_name = admin;
+  p['Admin Phone Num'] = phone;
+  p.admin_phone = phone;
+  p['Admin WhatsApp Num'] = whatsapp;
+  p.admin_whatsapp = whatsapp;
+  p['Main Gate Phone Num'] = gatePhone;
+  p.main_gate_phone = gatePhone;
+  p.Address = addr;
+  p.address = addr;
+  p.AddressBangla = addrBn;
+  p.address_bn = addrBn;
+  p.Division = div;
+  p.division = div;
+  p.District = dist;
+  p.district = dist;
+  p.Thana = thana;
+  p.thana = thana;
+  p.DivisionID = divId;
+  p.division_id = divId;
+  p.DistrictID = distId;
+  p.district_id = distId;
+  p.UpazilaID = upzId;
+  p.upazila_id = upzId;
+  p.UnionID = uniId;
+  p.union_id = uniId;
+  p.Village = village;
+  p.village = village;
+  p.Street = street;
+  p.street = street;
+  p.StartDate = start;
+  p.start_date = start;
+  p.Status = status;
+  p.status = status;
+  p.is_active = isActive;
+  return p;
+}
+window.normProject = normProject;
+
 /* Helper: is project active? (missing Status = Active for legacy data) */
-function isProjectActive(p){ return !p || !p.Status || p.Status !== 'Closed'; }
-function activeProjects(){ return DATA.projects.filter(isProjectActive); }
+function isProjectActive(p){
+  if (!p) return false;
+  if (p.is_active === false) return false;
+  var st = p.Status || p.status;
+  return !st || (st !== 'Closed' && st !== 'Inactive');
+}
+function activeProjects(){ return (DATA.projects || []).filter(isProjectActive); }
 function projStaffCount(name){
-  return DATA.employees.filter(e=>e.ProjectName===name && e.Status==='Active').length;
+  if (!name) return 0;
+  return (DATA.employees || []).filter(function(e){
+    var pName = e.ProjectName || e.project_name;
+    var st = e.Status || e.status;
+    return pName === name && (st === 'Active' || !st);
+  }).length;
 }
 
-function renderProjects(){
-  const bn = LANG==='bn';
-  const total = DATA.projects.length;
-  const active = DATA.projects.filter(isProjectActive).length;
+function renderProjectsTableRows(projects) {
+  const bn = LANG === 'bn';
+  if (!projects || projects.length === 0) {
+    return `<tr>
+      <td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">
+        ${bn ? 'কোনো প্রজেক্ট পাওয়া যায়নি' : 'No projects found'}
+      </td>
+    </tr>`;
+  }
+  return projects.map(p => {
+    const c = projStaffCount(p.ProjectName || p.project_name);
+    const closedRow = !isProjectActive(p);
+    const pid = p['Project ID'] != null ? p['Project ID'] : (p.id != null ? p.id : p.ProjectName);
+    const pName = p.ProjectName || p.project_name || '';
+    const pNameBn = p.ProjectNameBangla || p.project_name_bn || '';
+    const admin = p['Admin Name'] || p.admin_name || '';
+    const phone = p['Admin Phone Num'] || p.admin_phone || '';
+    const addr = p.Address || p.address || p.AddressBangla || p.address_bn || '';
+    return `<tr class="proj-row${closedRow ? ' proj-closed' : ''}" onclick="openProjectPopup(${jsQ(pid)})" style="cursor:pointer${closedRow ? ';opacity:.55' : ''}">
+      <td>${num(pid)}</td>
+      <td><strong>${pName}</strong>${pNameBn ? `<br><span class="small-mute">${pNameBn}</span>` : ''}</td>
+      <td>${admin}</td>
+      <td>${num(phone)}</td>
+      <td style="font-size:11px;color:var(--text-muted);max-width:280px">${addr}</td>
+      <td><span class="chip">${num(c)}</span></td>
+      <td>${closedRow
+        ? `<span class="chip" style="background:#fee2e2;color:#991b1b">${bn ? 'বন্ধ' : 'Closed'}</span>`
+        : `<span class="chip" style="background:#dcfce7;color:#166534">${bn ? 'সক্রিয়' : 'Active'}</span>`}</td>
+    </tr>`;
+  }).join('');
+}
+
+function updateProjectsTableUI() {
+  const bn = LANG === 'bn';
+  const total = (DATA.projects || []).length;
+  const active = (DATA.projects || []).filter(isProjectActive).length;
   const closed = total - active;
-  document.getElementById('page-projects').innerHTML = `
+
+  const activeChip = document.getElementById('projActiveCountChip');
+  if (activeChip) {
+    activeChip.textContent = `${bn ? 'সক্রিয়' : 'Active'}: ${num(active)}`;
+  }
+  const closedChip = document.getElementById('projClosedCountChip');
+  if (closedChip) {
+    if (closed > 0) {
+      closedChip.style.display = '';
+      closedChip.textContent = `${bn ? 'বন্ধ' : 'Closed'}: ${num(closed)}`;
+    } else {
+      closedChip.style.display = 'none';
+    }
+  }
+
+  const tbody = document.getElementById('projectsTableBody');
+  if (tbody) {
+    tbody.innerHTML = renderProjectsTableRows(DATA.projects);
+  }
+}
+window.updateProjectsTableUI = updateProjectsTableUI;
+
+async function fetchProjectsDirectly() {
+  const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
+                || (window.MGHRM && window.MGHRM.sb)
+                || window.sb
+                || (typeof sb !== 'undefined' ? sb : null);
+
+  if (!sbClient) {
+    console.warn('[Projects] Supabase client not initialized yet');
+    return null;
+  }
+
+  try {
+    const { data, error } = await sbClient
+      .from('projects')
+      .select('*')
+      .order('id', { ascending: true });
+
+    if (error) {
+      console.error('[Projects] Direct Supabase fetch error:', error.message || error);
+      const tbody = document.getElementById('projectsTableBody');
+      if (tbody && (!DATA.projects || DATA.projects.length === 0)) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:#dc2626">Failed to load projects: ${String(error.message || error)}</td></tr>`;
+      }
+      return null;
+    }
+
+    if (Array.isArray(data)) {
+      console.log('[Projects] Direct Supabase fetch retrieved ' + data.length + ' records');
+      DATA.projects = data.map(normProject);
+      return DATA.projects;
+    }
+  } catch (err) {
+    console.error('[Projects] Error fetching projects from Supabase:', err);
+  }
+  return null;
+}
+window.fetchProjectsDirectly = fetchProjectsDirectly;
+
+function handleProjectRealtimeUpdate(payload) {
+  if (!payload || payload.table !== 'projects') return;
+  const eventType = payload.eventType;
+  const newRow = payload.new;
+  const oldRow = payload.old;
+
+  if (!Array.isArray(DATA.projects)) DATA.projects = [];
+
+  if (eventType === 'DELETE') {
+    const delId = oldRow && (oldRow.id != null ? oldRow.id : oldRow['Project ID']);
+    DATA.projects = DATA.projects.filter(p => String(p.id) !== String(delId) && String(p['Project ID']) !== String(delId));
+  } else if (eventType === 'INSERT') {
+    const norm = normProject(newRow);
+    const exists = DATA.projects.some(p => String(p.id) === String(norm.id) || String(p['Project ID']) === String(norm['Project ID']) || p.ProjectName === norm.ProjectName);
+    if (!exists) {
+      DATA.projects.push(norm);
+      DATA.projects.sort((a, b) => (+a.id || +a['Project ID'] || 0) - (+b.id || +b['Project ID'] || 0));
+    }
+  } else if (eventType === 'UPDATE') {
+    const norm = normProject(newRow);
+    const idx = DATA.projects.findIndex(p => String(p.id) === String(norm.id) || String(p['Project ID']) === String(norm['Project ID']) || p.ProjectName === norm.ProjectName);
+    if (idx !== -1) {
+      DATA.projects[idx] = Object.assign({}, DATA.projects[idx], norm);
+    } else {
+      DATA.projects.push(norm);
+      DATA.projects.sort((a, b) => (+a.id || +a['Project ID'] || 0) - (+b.id || +b['Project ID'] || 0));
+    }
+  }
+
+  if (currentPage === 'projects') {
+    updateProjectsTableUI();
+  }
+  if (typeof updateNotifBadge === 'function') updateNotifBadge();
+}
+window.handleProjectRealtimeUpdate = handleProjectRealtimeUpdate;
+
+function ensureProjectsRealtime() {
+  const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
+                || (window.MGHRM && window.MGHRM.sb)
+                || window.sb
+                || (typeof sb !== 'undefined' ? sb : null);
+
+  if (!sbClient || typeof sbClient.channel !== 'function' || window.__projectsChannelSubscribed) return;
+  window.__projectsChannelSubscribed = true;
+
+  try {
+    sbClient.channel('projects-live-sync-ch')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, function (payload) {
+        console.log('⚡ [Projects Real-Time WebSocket]:', payload);
+        handleProjectRealtimeUpdate(payload);
+      })
+      .subscribe(function (status) {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ [Projects Real-Time] Subscribed to projects table changes');
+        }
+      });
+  } catch (err) {
+    console.warn('[Projects Real-Time] Subscription error:', err);
+  }
+}
+window.ensureProjectsRealtime = ensureProjectsRealtime;
+
+async function renderProjects(){
+  const page = document.getElementById('page-projects');
+  if (!page) return;
+  const bn = LANG === 'bn';
+  const total = (DATA.projects || []).length;
+  const active = (DATA.projects || []).filter(isProjectActive).length;
+  const closed = total - active;
+
+  page.innerHTML = `
     <div class="card">
       <div class="card-header">
-        <h3>${bn?'ক্লায়েন্ট প্রজেক্ট / ডিউটি পয়েন্ট':'Client Projects / Duty Points'}
-          <span class="chip" style="margin-left:8px">${bn?'সক্রিয়':'Active'}: ${num(active)}</span>
-          ${closed?`<span class="chip" style="background:#fee2e2;color:#991b1b;margin-left:4px">${bn?'বন্ধ':'Closed'}: ${num(closed)}</span>`:''}
+        <h3>${bn ? 'ক্লায়েন্ট প্রজেক্ট / ডিউটি পয়েন্ট' : 'Client Projects / Duty Points'}
+          <span class="chip" id="projActiveCountChip" style="margin-left:8px">${bn ? 'সক্রিয়' : 'Active'}: ${num(active)}</span>
+          <span class="chip" id="projClosedCountChip" style="background:#fee2e2;color:#991b1b;margin-left:4px;${closed ? '' : 'display:none'}">${bn ? 'বন্ধ' : 'Closed'}: ${num(closed)}</span>
         </h3>
-        <button class="btn primary sm" onclick="openProjectForm()">${ico('plus')} ${bn?'নতুন প্রজেক্ট যোগ':'Add New Project'}</button>
+        <button class="btn primary sm" onclick="openProjectForm()">${ico('plus')} ${bn ? 'নতুন প্রজেক্ট যোগ' : 'Add New Project'}</button>
       </div>
       <div class="table-wrap">
         <table>
           <thead><tr>
-            <th>ID</th><th>${bn?'প্রজেক্ট':'Project'}</th>
-            <th>${bn?'অ্যাডমিন':'Admin'}</th><th>${bn?'ফোন':'Phone'}</th>
-            <th>${bn?'ঠিকানা':'Address'}</th>
-            <th>${bn?'জনবল':'Staff'}</th>
-            <th>${bn?'অবস্থা':'Status'}</th>
+            <th>ID</th><th>${bn ? 'প্রজেক্ট' : 'Project'}</th>
+            <th>${bn ? 'অ্যাডমিন' : 'Admin'}</th><th>${bn ? 'ফোন' : 'Phone'}</th>
+            <th>${bn ? 'ঠিকানা' : 'Address'}</th>
+            <th>${bn ? 'জনবল' : 'Staff'}</th>
+            <th>${bn ? 'অবস্থা' : 'Status'}</th>
           </tr></thead>
-          <tbody>
-            ${DATA.projects.map(p=>{
-              const c = projStaffCount(p.ProjectName);
-              const closedRow = !isProjectActive(p);
-              return `<tr class="proj-row${closedRow?' proj-closed':''}" onclick="openProjectPopup(${jsQ(p['Project ID']||p.ProjectName)})" style="cursor:pointer${closedRow?';opacity:.55':''}">
-                <td>${num(p['Project ID'])}</td>
-                <td><strong>${p.ProjectName}</strong>${p.ProjectNameBangla?`<br><span class="small-mute">${p.ProjectNameBangla}</span>`:''}</td>
-                <td>${p['Admin Name']||''}</td>
-                <td>${num(p['Admin Phone Num']||'')}</td>
-                <td style="font-size:11px;color:var(--text-muted);max-width:280px">${p.Address||p.AddressBangla||''}</td>
-                <td><span class="chip">${num(c)}</span></td>
-                <td>${closedRow
-                  ? `<span class="chip" style="background:#fee2e2;color:#991b1b">${bn?'বন্ধ':'Closed'}</span>`
-                  : `<span class="chip" style="background:#dcfce7;color:#166534">${bn?'সক্রিয়':'Active'}</span>`}</td>
-              </tr>`;
-            }).join('')}
+          <tbody id="projectsTableBody">
+            ${total > 0
+              ? renderProjectsTableRows(DATA.projects)
+              : `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">
+                   <span class="spin" style="display:inline-block;width:16px;height:16px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;margin-right:8px;vertical-align:middle;animation:spin .8s linear infinite"></span>
+                   ${bn ? 'সার্ভার থেকে প্রজেক্ট লোড হচ্ছে…' : 'Loading projects from Supabase…'}
+                 </td></tr>`}
           </tbody>
         </table>
       </div>
-      <p class="small-mute" style="margin-top:10px;padding:0 6px">${bn?'💡 যেকোনো সারিতে ক্লিক করে বিস্তারিত দেখুন / সম্পাদনা করুন / বন্ধ করুন':'💡 Click any row to view / edit / close'}</p>
+      <p class="small-mute" style="margin-top:10px;padding:0 6px">${bn ? '💡 যেকোনো সারিতে ক্লিক করে বিস্তারিত দেখুন / সম্পাদনা করুন / বন্ধ করুন' : '💡 Click any row to view / edit / close'}</p>
     </div>
   `;
+
+  // Always fetch directly from Supabase (e.g. await supabase.from('projects').select('*'))
+  const fresh = await fetchProjectsDirectly();
+  if (fresh) {
+    updateProjectsTableUI();
+  }
+
+  ensureProjectsRealtime();
 }
+window.renderProjects = renderProjects;
 
 /* ---------- Add / Edit Project form ---------- */
 function openProjectForm(pid){
@@ -3857,49 +4105,83 @@ function saveProject(existingId){
   };
   if(rec.UnionID && rec.Village) rememberVillage(rec.UnionID, rec.Village);
   if(existingId){
-    const idx = DATA.projects.findIndex(x=>String(x['Project ID'])===String(existingId));
+    const idx = DATA.projects.findIndex(x=>String(x['Project ID'])===String(existingId) || String(x.id)===String(existingId));
     if(idx>=0){
       // If project name changed, propagate to employees
-      const oldName = DATA.projects[idx].ProjectName;
+      const oldName = DATA.projects[idx].ProjectName || DATA.projects[idx].project_name;
       if(oldName && oldName!==rec.ProjectName){
-        DATA.employees.forEach(e=>{ if(e.ProjectName===oldName) e.ProjectName = rec.ProjectName; });
+        DATA.employees.forEach(e=>{ if(e.ProjectName===oldName || e.project_name===oldName) { e.ProjectName = rec.ProjectName; e.project_name = rec.ProjectName; } });
       }
-      DATA.projects[idx] = Object.assign({}, DATA.projects[idx], rec);
+      DATA.projects[idx] = Object.assign({}, DATA.projects[idx], rec, normProject(rec));
     }
   } else {
-    if(DATA.projects.some(x=>x.ProjectName===name)){
+    if(DATA.projects.some(x=>x.ProjectName===name || x.project_name===name)){
       toast(bn?'এই নামের প্রজেক্ট আগে থেকেই আছে':'A project with this name already exists','error'); return;
     }
-    DATA.projects.push(rec);
+    DATA.projects.push(normProject(rec));
   }
   closeModal(); persist(); renderProjects(); renderAll();
   toast(existingId?(bn?'প্রজেক্ট আপডেট হয়েছে':'Project updated'):(bn?'নতুন প্রজেক্ট যোগ হয়েছে':'New project added'),'success');
+
+  // Push changes to Supabase
+  const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null) || window.sb;
+  if (sbClient) {
+    const dbPayload = {
+      project_name: rec.ProjectName,
+      project_name_bn: rec.ProjectNameBangla || null,
+      admin_name: rec['Admin Name'] || null,
+      admin_phone: rec['Admin Phone Num'] || null,
+      admin_whatsapp: rec['Admin WhatsApp Num'] || null,
+      main_gate_phone: rec['Main Gate Phone Num'] || null,
+      address: rec.Address || null,
+      address_bn: rec.AddressBangla || null,
+      division: rec.Division || null,
+      district: rec.District || null,
+      thana: rec.Thana || null,
+      division_id: rec.DivisionID || null,
+      district_id: rec.DistrictID || null,
+      upazila_id: rec.UpazilaID || null,
+      union_id: rec.UnionID || null,
+      village: rec.Village || null,
+      street: rec.Street || null,
+      start_date: rec.StartDate || null,
+      status: rec.Status || 'Active',
+      is_active: rec.Status !== 'Closed' && rec.Status !== 'Inactive'
+    };
+    if (existingId) {
+      sbClient.from('projects').update(dbPayload).or(`id.eq.${existingId},project_name.eq.${rec.ProjectName}`).then(() => fetchProjectsDirectly());
+    } else {
+      sbClient.from('projects').insert([dbPayload]).then(() => fetchProjectsDirectly());
+    }
+  }
 }
 
 /* ---------- Click-to-popup: project details ---------- */
 function openProjectPopup(pid){
   const bn = LANG==='bn';
-  const p = DATA.projects.find(x=>String(x['Project ID'])===String(pid) || x.ProjectName===pid);
+  const p = DATA.projects.find(x=>String(x['Project ID'])===String(pid) || String(x.id)===String(pid) || x.ProjectName===pid || x.project_name===pid);
   if(!p) return;
-  const staff = DATA.employees.filter(e=>e.ProjectName===p.ProjectName && e.Status==='Active');
+  const pName = p.ProjectName || p.project_name;
+  const staff = DATA.employees.filter(e=>(e.ProjectName===pName || e.project_name===pName) && (e.Status==='Active' || e.status==='Active'));
   const closed = !isProjectActive(p);
+  const projId = p['Project ID'] != null ? p['Project ID'] : (p.id != null ? p.id : (pName || '—'));
   openModal({
-    title: `${p.ProjectName}${p.ProjectNameBangla?' · '+p.ProjectNameBangla:''}`,
+    title: `${pName}${p.ProjectNameBangla?' · '+p.ProjectNameBangla:''}`,
     body: `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;font-size:13px;margin-bottom:14px">
-        <div><b>ID:</b> ${num(p['Project ID']||'—')}</div>
+        <div><b>ID:</b> ${num(projId)}</div>
         <div><b>${bn?'অবস্থা':'Status'}:</b> ${closed
           ? `<span class="chip" style="background:#fee2e2;color:#991b1b">${bn?'বন্ধ':'Closed'}</span>`
           : `<span class="chip" style="background:#dcfce7;color:#166534">${bn?'সক্রিয়':'Active'}</span>`}</div>
-        <div><b>${bn?'অ্যাডমিন':'Admin'}:</b> ${p['Admin Name']||'—'}</div>
-        <div><b>${bn?'ফোন':'Phone'}:</b> ${num(p['Admin Phone Num']||'—')}</div>
-        <div style="grid-column:1/-1"><b>${bn?'ঠিকানা':'Address'}:</b> ${p.Address||p.AddressBangla||'—'}</div>
-        <div><b>${bn?'বিভাগ':'Division'}:</b> ${bdDivName(p.DivisionID)||p.Division||'—'}</div>
-        <div><b>${bn?'জেলা':'District'}:</b> ${bdDistName(p.DistrictID)||p.District||'—'}</div>
-        <div><b>${bn?'উপজেলা':'Upazila'}:</b> ${bdUpzName(p.UpazilaID)||p.Thana||'—'}</div>
+        <div><b>${bn?'অ্যাডমিন':'Admin'}:</b> ${p['Admin Name']||p.admin_name||'—'}</div>
+        <div><b>${bn?'ফোন':'Phone'}:</b> ${num(p['Admin Phone Num']||p.admin_phone||'—')}</div>
+        <div style="grid-column:1/-1"><b>${bn?'ঠিকানা':'Address'}:</b> ${p.Address||p.address||p.AddressBangla||p.address_bn||'—'}</div>
+        <div><b>${bn?'বিভাগ':'Division'}:</b> ${bdDivName(p.DivisionID)||p.Division||p.division||'—'}</div>
+        <div><b>${bn?'জেলা':'District'}:</b> ${bdDistName(p.DistrictID)||p.District||p.district||'—'}</div>
+        <div><b>${bn?'উপজেলা':'Upazila'}:</b> ${bdUpzName(p.UpazilaID)||p.Thana||p.thana||'—'}</div>
         <div><b>${bn?'ইউনিয়ন':'Union'}:</b> ${bdUnionName(p.UnionID)||'—'}</div>
-        ${p.Village?`<div><b>${bn?'গ্রাম':'Village'}:</b> ${p.Village}</div>`:''}
-        <div><b>${bn?'শুরু':'Start'}:</b> ${p.StartDate?fmtDate(p.StartDate):'—'}</div>
+        ${p.Village||p.village?`<div><b>${bn?'গ্রাম':'Village'}:</b> ${p.Village||p.village}</div>`:''}
+        <div><b>${bn?'শুরু':'Start'}:</b> ${(p.StartDate||p.start_date)?fmtDate(p.StartDate||p.start_date):'—'}</div>
         <div><b>${bn?'বর্তমান জনবল':'Active Staff'}:</b> <span class="chip">${num(staff.length)}</span></div>
       </div>
       ${staff.length ? `
@@ -3914,17 +4196,18 @@ function openProjectPopup(pid){
     `,
     actions: `
       <button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>
-      <button class="btn" onclick="closeModal();openProjectForm('${String(p['Project ID']).replace(/'/g,"\\'")}')">${ico('edit')||''} ${bn?'সম্পাদনা':'Edit'}</button>
+      <button class="btn" onclick="closeModal();openProjectForm('${String(projId).replace(/'/g,"\\'")}')">${ico('edit')||''} ${bn?'সম্পাদনা':'Edit'}</button>
       ${closed
-        ? `<button class="btn" onclick="reopenProject('${String(p['Project ID']).replace(/'/g,"\\'")}')" style="background:#dcfce7;color:#166534">${bn?'পুনরায় চালু':'Re-open'}</button>`
-        : `<button class="btn danger" onclick="askCloseProject('${String(p['Project ID']).replace(/'/g,"\\'")}')">${bn?'বন্ধ হিসেবে চিহ্নিত':'Mark as Closed'}</button>`}
+        ? `<button class="btn" onclick="reopenProject('${String(projId).replace(/'/g,"\\'")}')" style="background:#dcfce7;color:#166534">${bn?'পুনরায় চালু':'Re-open'}</button>`
+        : `<button class="btn danger" onclick="askCloseProject('${String(projId).replace(/'/g,"\\'")}')">${bn?'বন্ধ হিসেবে চিহ্নিত':'Mark as Closed'}</button>`}
     `
   });
 }
 function askCloseProject(pid){
   const bn = LANG==='bn';
-  const p = DATA.projects.find(x=>String(x['Project ID'])===String(pid)); if(!p) return;
-  const staff = DATA.employees.filter(e=>e.ProjectName===p.ProjectName && e.Status==='Active');
+  const p = DATA.projects.find(x=>String(x['Project ID'])===String(pid) || String(x.id)===String(pid) || x.ProjectName===pid || x.project_name===pid); if(!p) return;
+  const pName = p.ProjectName || p.project_name;
+  const staff = DATA.employees.filter(e=>(e.ProjectName===pName || e.project_name===pName) && (e.Status==='Active' || e.status==='Active'));
   if(staff.length===0){
     doCloseProject(pid, false);
     return;
@@ -3933,7 +4216,7 @@ function askCloseProject(pid){
     title: `⚠️ ${bn?'সতর্কতা — প্রজেক্ট বন্ধ':'Warning — Close Project'}`,
     body: `
       <div style="background:#fef3c7;border-left:5px solid #d97706;border-radius:10px;padding:16px 18px;margin-bottom:12px">
-        <p style="margin:0 0 10px;font-size:14px;line-height:1.7"><b>${p.ProjectName}</b> — ${bn?'এই প্রজেক্টে বর্তমানে':'currently has'} <b style="color:#d97706;font-size:16px">${num(staff.length)}</b> ${bn?'জন কর্মী কর্মরত আছেন।':'active employees.'}</p>
+        <p style="margin:0 0 10px;font-size:14px;line-height:1.7"><b>${pName}</b> — ${bn?'এই প্রজেক্টে বর্তমানে':'currently has'} <b style="color:#d97706;font-size:16px">${num(staff.length)}</b> ${bn?'জন কর্মী কর্মরত আছেন।':'active employees.'}</p>
         <p style="margin:0;font-size:13.5px;line-height:1.7">${bn?'এখন প্রজেক্টটি বন্ধ করলে <b>এই মুহূর্ত থেকে</b> সবাই <b>Inactive</b> হিসেবে চিহ্নিত হবেন। এই কাজ সহজে ফেরানো যাবে না।':'If you close now, all of them will be marked <b>Inactive</b> from this moment onward. This action is hard to undo.'}</p>
       </div>
       <div style="max-height:200px;overflow:auto;border:1px solid var(--border);border-radius:8px">
@@ -3952,22 +4235,25 @@ function askCloseProject(pid){
 }
 function doCloseProject(pid, deactivate){
   const bn = LANG==='bn';
-  const p = DATA.projects.find(x=>String(x['Project ID'])===String(pid)); if(!p) return;
+  const p = DATA.projects.find(x=>String(x['Project ID'])===String(pid) || String(x.id)===String(pid) || x.ProjectName===pid || x.project_name===pid); if(!p) return;
   const today = todayISO();
   p.Status = 'Closed';
+  p.status = 'Closed';
+  p.is_active = false;
   p.ClosedDate = today;
   let count = 0;
+  const pName = p.ProjectName || p.project_name;
   if(deactivate){
     DATA.employees.forEach(e=>{
-      if(e.ProjectName===p.ProjectName && e.Status==='Active'){
-        e.Status = 'Inactive'; e.ExitDate = today; count++;
+      if((e.ProjectName===pName || e.project_name===pName) && (e.Status==='Active' || e.status==='Active')){
+        e.Status = 'Inactive'; e.status = 'Inactive'; e.ExitDate = today; count++;
         // Also record in exits table for audit trail
         DATA.exits.unshift({
           ExitID: String(Math.max(0,...DATA.exits.map(x=>+x.ExitID||0))+1),
           RecordID: e.RecordID, EmployeeID: e.EmployeeID, FullName: e.FullName,
-          Designation: e.Designation, CurrentProject: e.ProjectName,
+          Designation: e.Designation, CurrentProject: pName,
           JoinDate: e.JoinDate, ExitType: 'Project Closure',
-          ExitReason: `Project "${p.ProjectName}" was closed`,
+          ExitReason: `Project "${pName}" was closed`,
           ExitDate: today, IssueDate: today
         });
       }
@@ -3977,13 +4263,29 @@ function doCloseProject(pid, deactivate){
   toast(deactivate
     ? (bn?`প্রজেক্ট বন্ধ — ${num(count)} জন কর্মী Inactive হয়েছেন`:`Project closed — ${count} employees deactivated`)
     : (bn?'প্রজেক্ট বন্ধ হয়েছে':'Project closed'), 'success');
+
+  const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null) || window.sb;
+  if (sbClient) {
+    const targetId = p.id || p['Project ID'];
+    if (targetId) {
+      sbClient.from('projects').update({ status: 'Closed', is_active: false }).eq('id', targetId).then(() => fetchProjectsDirectly());
+    }
+  }
 }
 function reopenProject(pid){
   const bn = LANG==='bn';
-  const p = DATA.projects.find(x=>String(x['Project ID'])===String(pid)); if(!p) return;
-  p.Status = 'Active'; delete p.ClosedDate;
+  const p = DATA.projects.find(x=>String(x['Project ID'])===String(pid) || String(x.id)===String(pid) || x.ProjectName===pid || x.project_name===pid); if(!p) return;
+  p.Status = 'Active'; p.status = 'Active'; p.is_active = true; delete p.ClosedDate;
   closeModal(); persist(); renderProjects();
   toast(bn?'প্রজেক্ট পুনরায় চালু হয়েছে':'Project re-opened','success');
+
+  const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null) || window.sb;
+  if (sbClient) {
+    const targetId = p.id || p['Project ID'];
+    if (targetId) {
+      sbClient.from('projects').update({ status: 'Active', is_active: true }).eq('id', targetId).then(() => fetchProjectsDirectly());
+    }
+  }
 }
 
 /* ============ TRANSFER ============ */
@@ -9224,7 +9526,7 @@ setInterval(()=>checkPendingToast(true), 180000);
     return n;
   }
   function refreshAll(){
-    ['renderAll','renderUniform','renderLeave','renderMeeting','renderTodo','renderTransfer',
+    ['renderAll','renderProjects','renderUniform','renderLeave','renderMeeting','renderTodo','renderTransfer',
      'renderDisciplinary','renderRecruitment','renderExit','renderIncrement','buildNotifications',
      'renderBrandLogo'].forEach(function (fn) {
       if (typeof window[fn] === 'function') { try { window[fn](); } catch (e) {} }
@@ -9274,6 +9576,9 @@ setInterval(()=>checkPendingToast(true), 180000);
   }
 
   function handleRealtimeEvent(payload) {
+    if (payload && payload.table === 'projects' && typeof handleProjectRealtimeUpdate === 'function') {
+      handleProjectRealtimeUpdate(payload);
+    }
     if (G && typeof G.handleRealtimeEvent === 'function') {
       return G.handleRealtimeEvent(payload);
     }
@@ -9332,6 +9637,13 @@ setInterval(()=>checkPendingToast(true), 180000);
       hookPersist(); refreshAll();
       show('authGate', false);
       console.log('[MG HRM] Supabase →', n, 'tables loaded');
+      if (typeof fetchProjectsDirectly === 'function') {
+        fetchProjectsDirectly().then(function () {
+          if (currentPage === 'projects' && typeof renderProjects === 'function') {
+            renderProjects();
+          }
+        });
+      }
       
       var empties = window.__sbEmpties || [];
       if (empties.length) {

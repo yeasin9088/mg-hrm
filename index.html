@@ -1891,7 +1891,7 @@ function toggleCC(chk){
 /* ============ Data prep ============ */
 DATA.employees.forEach(e=>{
   e.Salary = e.Salary ? +e.Salary : 0;
-  e.RecordID = String(e.RecordID);
+  if(e.id != null) e.id = +e.id || e.id;
   e._joinDays = daysAgo(e.JoinDate);
 });
 DATA.meetings = DATA.meetings || {};   
@@ -2385,21 +2385,7 @@ function activityFeed(){
 
 /* ============ EMPLOYEES ============ */
 function ensureSystemIDs() {
-  let maxId = 0;
-  DATA.employees.forEach(e => {
-    if(e.SystemID) {
-      maxId = Math.max(maxId, parseInt(e.SystemID, 10) || 0);
-    }
-  });
-  let changed = false;
-  DATA.employees.forEach(e => {
-    if(!e.SystemID) {
-      maxId++;
-      e.SystemID = String(maxId);
-      changed = true;
-    }
-  });
-  if (changed) persist();
+  // System IDs are now managed exclusively by Supabase auto-incrementing primary key (id)
 }
 
 function renderEmployees(){
@@ -2436,6 +2422,7 @@ function renderEmployees(){
             <thead><tr>
               <th class="tickcol" style="display:none;width:36px">✓</th>
               <th>#</th>
+              <th>${'ID'}</th>
               <th>${'Employee'}</th>
               <th>${'Designation'}</th>
               <th>${'Project'}</th>
@@ -2478,7 +2465,7 @@ function renderEmpTable(){
     if(de && e.Designation!==de) return false;
     if(st && e.Status!==st) return false;
     if(q){
-      const hay = `${e.SystemID||''} ${e.RecordID||''} ${e.FullName||''} ${e.EmployeeID||''} ${e.PhoneNumber||''} ${e.Designation||''} ${e.ProjectName||''}`.toLowerCase();
+      const hay = `${e.id||''} ${e.FullName||''} ${e.EmployeeID||''} ${e.PhoneNumber||''} ${e.Designation||''} ${e.ProjectName||''}`.toLowerCase();
       if(!hay.includes(q)) return false;
     }
     return true;
@@ -2502,14 +2489,17 @@ function renderEmpTable(){
     ? `${num(rows.length)} / ${num(DATA.employees.length)} ${'employees'} — <strong style="color:var(--success)">✓ ${'ticked'}: ${num(VERIFY_TICKS.size)}</strong> <span class="small-mute">(${'tick only — no other action'})</span>`
     : `${num(rows.length)} / ${num(DATA.employees.length)} ${'employees'}`;
   document.querySelectorAll('#empTable .tickcol').forEach(el=>el.style.display = VERIFY_MODE?'':'none');
-  const html = rows.map((e,i)=>`
-    <tr class="clickable" onclick="${VERIFY_MODE?`toggleVerifyTick('${e.RecordID}')`:`openEmpDetail('${e.RecordID}')`}">
-      ${VERIFY_MODE?`<td><span style="display:inline-grid;place-items:center;width:20px;height:20px;border:2px solid ${VERIFY_TICKS.has(e.RecordID)?'var(--success)':'var(--border-strong)'};border-radius:5px;background:${VERIFY_TICKS.has(e.RecordID)?'var(--success)':'#fff'};color:#fff;font-size:13px;font-weight:700">${VERIFY_TICKS.has(e.RecordID)?'✓':''}</span></td>`:''}
+  const html = rows.map((e,i)=>{
+    const empKey = e.id || e.EmployeeID;
+    return `
+    <tr class="clickable" onclick="${VERIFY_MODE?`toggleVerifyTick('${empKey}')`:`openEmpDetail('${empKey}')`}">
+      ${VERIFY_MODE?`<td><span style="display:inline-grid;place-items:center;width:20px;height:20px;border:2px solid ${VERIFY_TICKS.has(empKey)?'var(--success)':'var(--border-strong)'};border-radius:5px;background:${VERIFY_TICKS.has(empKey)?'var(--success)':'#fff'};color:#fff;font-size:13px;font-weight:700">${VERIFY_TICKS.has(empKey)?'✓':''}</span></td>`:''}
       <td>${num(i+1)}</td>
+      <td><span class="chip" style="font-size:11px;font-weight:600">${e.id ? num(e.id) : '—'}</span></td>
       <td>
         <div style="display:flex;gap:10px;align-items:center">
           <div class="emp-avatar" style="width:32px;height:32px;font-size:12px">${initials(e.FullName)}</div>
-          <div><strong>${e.FullName||''}</strong><br><span class="small-mute">${'SID:'} ${num(e.SystemID||'')} • ${'ID:'} ${num(e.EmployeeID||'')}</span></div>
+          <div><strong>${e.FullName||''}</strong><br><span class="small-mute">${e.EmployeeID ? `${'Official ID:'} ${num(e.EmployeeID)}` : (e.id ? `${'System ID:'} ${num(e.id)}` : '')}</span></div>
         </div>
       </td>
       <td>${desig(e.Designation||'')}</td>
@@ -2518,9 +2508,9 @@ function renderEmpTable(){
       <td>${num(e.PhoneNumber||'')}</td>
       <td>${e.Salary?money(e.Salary):''}</td>
       <td><span class="pill ${e.Status==='Active'?'active':'inactive'}">${e.Status==='Active'?('Active'):('Inactive')}</span></td>
-      <td><button class="btn sm ghost" onclick="event.stopPropagation();openEmpDetail('${e.RecordID}')">${'View'}</button></td>
+      <td><button class="btn sm ghost" onclick="event.stopPropagation();openEmpDetail('${empKey}')">${'View'}</button></td>
     </tr>
-  `).join('');
+  `;}).join('');
   document.getElementById('empTableBody').innerHTML = html + (rows.length>200 ?
     `<tr><td colspan="9" style="text-align:center;padding:16px" class="small-mute">${'... '+(rows.length-200)+' more — narrow the filter'}</td></tr>` : '');
 }
@@ -2547,24 +2537,25 @@ function toggleVerifyTick(rid){
 }
 
 function openEmpDetail(recordId){
-  const e = DATA.employees.find(x=>String(x.RecordID)===String(recordId));
+  const e = DATA.employees.find(x=>String(x.id)===String(recordId) || String(x.EmployeeID)===String(recordId) || String(x.RecordID)===String(recordId));
   if(!e) return;
   
-  const ematch = (rec, keyE, keyR) => {
-     const rRid = String(rec[keyR||'RecordID']||'');
-     const rEid = String(rec[keyE||'EmployeeID']||'');
-     const eRid = String(e.RecordID||'');
+  const ematch = (rec, keyE) => {
+     const rEid = String(rec[keyE||'EmployeeID']||rec.employee_id||'');
      const eEid = String(e.EmployeeID||'');
-     if(rRid && eRid && rRid===eRid) return true;
      if(rEid && eEid && rEid===eEid) return true;
+     const rId = String(rec.id||rec.empId||'');
+     const eId = String(e.id||'');
+     if(rId && eId && rId===eId) return true;
      return false;
   };
   const empTransfers = DATA.transfers.filter(t=>ematch(t)).sort((a,b)=>parseDate(b.TransferDate)-parseDate(a.TransferDate));
   const empDisc = DATA.disciplinary.filter(d=>ematch(d)).sort((a,b)=>parseDate(b.IssueDate)-parseDate(a.IssueDate));
   const empCareer = DATA.career.filter(c=>ematch(c));
   const empExits = (DATA.exits||[]).filter(x=>ematch(x)).sort((a,b)=>parseDate(b.ExitDate)-parseDate(a.ExitDate));
-  const empLeaves = (DATA.leaves||[]).filter(l=>ematch(l, 'EmployeeID','RecordID')).sort((a,b)=>parseDate(b.start||b.startDate)-parseDate(a.start||a.startDate));
+  const empLeaves = (DATA.leaves||[]).filter(l=>ematch(l, 'EmployeeID')).sort((a,b)=>parseDate(b.start||b.startDate)-parseDate(a.start||a.startDate));
 
+  const empKey = e.id || e.EmployeeID;
   const html = `
     <div class="emp-header">
       <div class="emp-avatar" style="width:80px;height:80px;font-size:26px">${initials(e.FullName)}</div>
@@ -2572,18 +2563,19 @@ function openEmpDetail(recordId){
         <h3>${e.FullName||''}</h3>
         <div class="sub">${desig(e.Designation||'')} · ${projName(e.ProjectName||'')}</div>
         <div class="meta">
-          <span>🆔 ${'ID:'} <strong>${num(e.EmployeeID||'')}</strong></span>
+          <span>🆔 ${'System ID:'} <strong>${e.id ? num(e.id) : '—'}</strong></span>
+          ${e.EmployeeID ? `<span>💳 ${'Official ID:'} <strong>${num(e.EmployeeID)}</strong></span>` : ''}
           <span>📞 ${num(e.PhoneNumber||'')}</span>
           <span>📅 ${'Joined:'} ${fmtDate(e.JoinDate)}</span>
           <span class="pill ${e.Status==='Active'?'active':'inactive'}" style="text-transform:none">${e.Status||''}</span>
         </div>
       </div>
       <div class="btn-row">
-        <button class="btn sm" onclick="empActionQuick('transfer','${e.RecordID}')">${'Transfer'}</button>
-        <button class="btn sm" onclick="empActionQuick('disciplinary','${e.RecordID}')">${'Notice'}</button>
-        <button class="btn sm" onclick="empActionQuick('leave','${e.RecordID}')">${'Leave'}</button>
-        ${e.Status==='Active'?`<button class="btn sm danger" onclick="empActionQuick('exit','${e.RecordID}')">${'Exit'}</button>`:''}
-        <button class="btn sm primary" onclick="printEmpProfile('${e.RecordID}')">${ico('print')} ${'Print Profile'}</button>
+        <button class="btn sm" onclick="empActionQuick('transfer','${empKey}')">${'Transfer'}</button>
+        <button class="btn sm" onclick="empActionQuick('disciplinary','${empKey}')">${'Notice'}</button>
+        <button class="btn sm" onclick="empActionQuick('leave','${empKey}')">${'Leave'}</button>
+        ${e.Status==='Active'?`<button class="btn sm danger" onclick="empActionQuick('exit','${empKey}')">${'Exit'}</button>`:''}
+        <button class="btn sm primary" onclick="printEmpProfile('${empKey}')">${ico('print')} ${'Print Profile'}</button>
       </div>
     </div>
 
@@ -2753,11 +2745,6 @@ function saveNewEmployee(force){
     const dups = findDuplicates({ nid:applicant.nid, phone:applicant.phone, nameEn });
     if(dups.length){ showDuplicateModal(dups, applicant, ()=>saveNewEmployee(true)); return; }
   }
-  const newRid = String(Math.max(0,...DATA.employees.map(e=>+e.RecordID||0))+1);
-  const maxEmpSid = Math.max(0, ...DATA.employees.map(e=>parseInt(e.SystemID, 10)||0));
-  const maxRecSid = Math.max(0, ...RECRUITMENT.map(r=>parseInt(r.sid, 10)||0));
-  const maxArchSid = Math.max(0, ...(DATA.recruitmentArchive||[]).map(a=>parseInt(a.sid, 10)||0));
-  const newSysId = String(Math.max(maxEmpSid, maxRecSid, maxArchSid) + 1);
   const divId = (document.getElementById('ne_addrCascade_div')||{}).value||'';
   const distId = (document.getElementById('ne_addrCascade_dist')||{}).value||'';
   const upzId = (document.getElementById('ne_addrCascade_upz')||{}).value||'';
@@ -2765,20 +2752,29 @@ function saveNewEmployee(force){
   const village = ((document.getElementById('ne_village')||{}).value||'').trim();
   const street = ((document.getElementById('ne_street')||{}).value||'').trim();
   if(uniId && village) rememberVillage(uniId, village);
-  DATA.employees.push({
-    SystemID: newSysId,
-    RecordID:newRid, EmployeeID:g('ne_officialId').trim()||newRid,
-    FullName:nameEn, FullNameBn:applicant.name, FatherName:g('ne_father').trim(),
-    DOB:g('ne_dob'), PhoneNumber:applicant.phone, NID:applicant.nid,
-    Designation:applicant.desig, ProjectName:applicant.project,
-    JoinDate:g('ne_join')||todayISO(), DutyHour:'8', Salary:String(+g('ne_salary')||0),
-    Status:'Active', Address:g('ne_addr'),
-    DivisionID:divId, DistrictID:distId, UpazilaID:upzId, UnionID:uniId, Village:village, Street:street,
-    Division:bdDivName(divId), District:bdDistName(distId), Thana:bdUpzName(upzId),
-    _joinDays:0
-  });
+  const officialId = g('ne_officialId').trim();
+  const newEmp = {
+    EmployeeID: officialId,
+    FullName: nameEn, FullNameBn: applicant.name, FatherName: g('ne_father').trim(),
+    DOB: g('ne_dob'), PhoneNumber: applicant.phone, NID: applicant.nid,
+    Designation: applicant.desig, ProjectName: applicant.project,
+    JoinDate: g('ne_join')||todayISO(), DutyHour: '8', Salary: String(+g('ne_salary')||0),
+    Status: 'Active', Address: g('ne_addr'),
+    DivisionID: divId, DistrictID: distId, UpazilaID: upzId, UnionID: uniId, Village: village, Street: street,
+    Division: bdDivName(divId), District: bdDistName(distId), Thana: bdUpzName(upzId),
+    _joinDays: 0
+  };
+  DATA.employees.push(newEmp);
   closeModal();
-  toast(`${nameEn} — ${'registered'} (#${num(newRid)})`,'success');
+  toast(`${nameEn} — ${'registered'}`, 'success');
+  if (window.MGHRM && typeof window.MGHRM.insert === 'function') {
+    window.MGHRM.insert('employees', newEmp).then(inserted => {
+      if (inserted && inserted[0] && inserted[0].id) {
+        newEmp.id = inserted[0].id;
+        renderAll();
+      }
+    }).catch(console.error);
+  }
   persist(); renderAll();
 }
 function exportEmployees(){
@@ -3070,7 +3066,7 @@ function senioritySort(list){
     const da = parseDate(a.JoinDate), db = parseDate(b.JoinDate);
     const ta = da?da.getTime():Infinity, tb = db?db.getTime():Infinity;
     if(ta!==tb) return ta-tb;
-    return (+a.RecordID||0)-(+b.RecordID||0);
+    return (+a.id||0)-(+b.id||0);
   });
 }
 function projectUsageCounts(){
@@ -3105,17 +3101,8 @@ function openApplicantForm(){
   const relOpts = usageSortedOptions(['Islam','Hindu','Buddhist','Christian'], relCounts).map(r=>`<option>${r}</option>`).join('');
   const distOpts = `<option value="">— Select District —</option>` + Object.keys(BD_CASC).sort().map(d=>`<option>${d}</option>`).join('');
 
-  const maxEmpSid = Math.max(0, ...DATA.employees.map(e=>parseInt(e.SystemID, 10)||0));
-  const maxRecSid = Math.max(0, ...RECRUITMENT.map(r=>parseInt(r.sid, 10)||0));
-  const maxArchSid = Math.max(0, ...(DATA.recruitmentArchive||[]).map(a=>parseInt(a.sid, 10)||0));
-  const nextSID = Math.max(maxEmpSid, maxRecSid, maxArchSid) + 1;
-
   openModal('New Candidate Entry — Full Data Entry', `
     <p class="small-mute" style="margin-bottom:12px">${'Fill the form in English — only the candidate name is also kept in Bangla (needed for official letters). On submit the candidate moves to "Data Entry" and 3 forms become printable.'}</p>
-    <div style="margin-bottom:15px;padding:10px;background:var(--bg-dim);border-radius:6px;font-weight:600;">
-      <span style="color:var(--primary)">${'System Generated SID:'}</span> 
-      <span style="font-size:16px;margin-left:8px;" id="na_next_sid">${nextSID}</span>
-    </div>
     <div class="tabs" id="naTabs">
       ${tab('naBasic','1. Basic',true)}
       ${tab('naAddr','2. Address')}
@@ -3316,7 +3303,6 @@ function collectApplicantData(g){
   const bdD = window.bdDistName||function(){return '';};
   const bdU = window.bdUpzName||function(){return '';};
   return {
-    sid: document.getElementById('na_next_sid') ? document.getElementById('na_next_sid').textContent : '',
     name:g('name'), nameEn:g('nameEn'), father:g('father'), mother:g('mother'), dob:g('dob'), nid:g('nid'), phone:g('phone'),
     education:g('education'), religion:g('religion')||'Islam', bloodGroup:g('bloodGroup'),
     height:g('height'), weight:g('weight'), maritalStatus:g('maritalStatus'),
@@ -3340,7 +3326,7 @@ function collectApplicantData(g){
 }
 function commitApplicant(a){
   const newId = Math.max(0,...RECRUITMENT.map(x=>x.id))+1;
-  RECRUITMENT.push({ id:newId, sid:a.sid, stage:'DataEntry', date:todayISO(),
+  RECRUITMENT.push({ id:newId, stage:'DataEntry', date:todayISO(),
     name:a.name, nameEn:a.nameEn, father:a.father, mother:a.mother, dob:a.dob, nid:a.nid, phone:a.phone,
     fatherMobile:'', motherMobile:'',
     education:a.education, religion:a.religion, bloodGroup:a.bloodGroup,
@@ -3382,10 +3368,7 @@ function onboardCandidate(id){
   const newEmpId = 'MGS' + String(maxId+1).padStart(4,'0');
   r.empId = newEmpId;
   const pa = r.permanentAddress||{};
-  const maxRecordId = Math.max(0, ...DATA.employees.map(e=>+e.RecordID||0));
-  DATA.employees.unshift({
-    SystemID: r.sid || String(Math.max(0, ...DATA.employees.map(e=>parseInt(e.SystemID,10)||0))+1),
-    RecordID: String(maxRecordId+1),
+  const newEmp = {
     EmployeeID: newEmpId,
     FullName: r.nameEn||r.name, FullNameBn: r.name||'',
     FatherName: r.father, MotherName: r.mother,
@@ -3400,7 +3383,16 @@ function onboardCandidate(id){
     Designation:r.desig, ProjectName:r.project,
     JoinDate: todayISO(), DutyHour:r.dutyHours,
     Salary: (r.salary&&r.salary.total)||0, Status:'Active', _joinDays:0
-  });
+  };
+  DATA.employees.unshift(newEmp);
+  if (window.MGHRM && typeof window.MGHRM.insert === 'function') {
+    window.MGHRM.insert('employees', newEmp).then(inserted => {
+      if (inserted && inserted[0] && inserted[0].id) {
+        newEmp.id = inserted[0].id;
+        renderAll&&renderAll();
+      }
+    }).catch(console.error);
+  }
   
   DATA.recruitmentArchive = DATA.recruitmentArchive || [];
   const archId = 'ARCH-' + Date.now() + '-' + (DATA.recruitmentArchive.length+1);
@@ -4250,7 +4242,7 @@ function doCloseProject(pid, deactivate){
         // Also record in exits table for audit trail
         DATA.exits.unshift({
           ExitID: String(Math.max(0,...DATA.exits.map(x=>+x.ExitID||0))+1),
-          RecordID: e.RecordID, EmployeeID: e.EmployeeID, FullName: e.FullName,
+          EmployeeID: e.EmployeeID, FullName: e.FullName,
           Designation: e.Designation, CurrentProject: pName,
           JoinDate: e.JoinDate, ExitType: 'Project Closure',
           ExitReason: `Project "${pName}" was closed`,
@@ -4321,7 +4313,7 @@ function renderTransfer(){
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>#</th><th>SID</th><th>${'Name'}</th><th>${'From'}</th><th>${'To'}</th><th>${'Date'}</th><th>${'Status'}</th><th></th></tr></thead>
+          <thead><tr><th>#</th><th>ID</th><th>${'Name'}</th><th>${'From'}</th><th>${'To'}</th><th>${'Date'}</th><th>${'Status'}</th><th></th></tr></thead>
           <tbody id="trTableBody"></tbody>
         </table>
       </div>
@@ -4334,7 +4326,7 @@ function renderTransfer(){
   let changed = false;
   DATA.transfers.forEach(t => {
     if (t.Status === 'Join Pending' || t.Status === 'Awaiting Confirmation' || t.Status === 'Scheduled' || t.IsProceed === '0') {
-      const e = DATA.employees.find(x => String(x.EmployeeID) === String(t.EmployeeID) || String(x.RecordID) === String(t.RecordID));
+      const e = DATA.employees.find(x => (t.EmployeeID && String(x.EmployeeID) === String(t.EmployeeID)) || (t.id && String(x.id) === String(t.id)) || (x.RecordID && String(x.RecordID) === String(t.RecordID)));
       if (e && e.ProjectName && t.NewProject && String(e.ProjectName).trim() === String(t.NewProject).trim()) {
         t.Status = 'Completed'; t.IsProceed = '1'; t._applied = true; changed = true;
       }
@@ -4349,26 +4341,26 @@ function renderTransferTable() {
   const q = (document.getElementById('trSearch')?.value || '').toLowerCase();
   const idq = (document.getElementById('trIdSearch')?.value || '').toLowerCase();
   const rows = DATA.transfers.filter(t => {
-    const e = DATA.employees.find(x => String(x.EmployeeID) === String(t.EmployeeID) || String(x.RecordID) === String(t.RecordID));
-    const sysId = e ? (e.SystemID || '') : '';
+    const e = DATA.employees.find(x => (t.EmployeeID && String(x.EmployeeID) === String(t.EmployeeID)) || (t.id && String(x.id) === String(t.id)) || (x.RecordID && String(x.RecordID) === String(t.RecordID)));
+    const empId = e ? (e.id || e.EmployeeID || '') : (t.EmployeeID || '');
     
     if (idq) {
-      if (String(t.EmployeeID).toLowerCase() !== idq && String(t.RecordID).toLowerCase() !== idq && sysId.toLowerCase() !== idq) return false;
+      if (String(t.EmployeeID||'').toLowerCase() !== idq && String(empId).toLowerCase() !== idq) return false;
     }
     
     if (q) {
-      const hay = `${t.TransferID} ${t.FullName} ${t.EmployeeID} ${t.RecordID} ${sysId} ${t.CurrentProject} ${t.NewProject}`.toLowerCase();
+      const hay = `${t.TransferID||''} ${t.FullName||''} ${t.EmployeeID||''} ${empId} ${t.CurrentProject||''} ${t.NewProject||''}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
   }).sort((a,b)=>+b.TransferID-+a.TransferID);
 
   document.getElementById('trTableBody').innerHTML = rows.map(t=>{
-    const e = DATA.employees.find(x => String(x.EmployeeID) === String(t.EmployeeID) || String(x.RecordID) === String(t.RecordID));
-    const sysId = e ? (e.SystemID || '') : '';
+    const e = DATA.employees.find(x => (t.EmployeeID && String(x.EmployeeID) === String(t.EmployeeID)) || (t.id && String(x.id) === String(t.id)) || (x.RecordID && String(x.RecordID) === String(t.RecordID)));
+    const empId = e ? (e.id || e.EmployeeID || '') : (t.EmployeeID || '—');
     return `<tr class="row-click" onclick="openTransferPopup(${jsQ(t.TransferID)})" style="cursor:pointer">
       <td>${num(t.TransferID)}</td>
-      <td>${num(sysId)}</td>
+      <td><span class="chip" style="font-size:11px;font-weight:600">${num(empId)}</span></td>
       <td><strong>${t.FullName}</strong></td>
       <td>${projName(t.CurrentProject)}</td>
       <td>${projName(t.NewProject)}</td>
@@ -4393,7 +4385,7 @@ function openTransferPopup(tid){
     'Awaiting Confirmation':'যোগদানের অপেক্ষায়', 'Join Pending':'যোগদানের অপেক্ষায় (Join Pending)', 'Scheduled':'নির্ধারিত', 'Recorded':'রেকর্ডকৃত'
   })[status] || status : status;
   const statusPill = `<span class="pill ${pillCls}">${pillTxt}</span>`;
-  const emp = DATA.employees.find(x=>String(x.EmployeeID)===String(t.EmployeeID) || String(x.RecordID)===String(t.RecordID));
+  const emp = DATA.employees.find(x=>(t.EmployeeID && String(x.EmployeeID)===String(t.EmployeeID)) || (t.id && String(x.id)===String(t.id)) || (x.RecordID && String(x.RecordID)===String(t.RecordID)));
   const empActive = emp && emp.Status==='Active';
   openModal(bn?`ট্রান্সফার #${num(t.TransferID)}`:`Transfer #${t.TransferID}`,
     `<div class="pop-detail">
@@ -4422,12 +4414,15 @@ function markTransferJoined(tid){
   if(!guardEdit()) return;
   const t = DATA.transfers.find(x=>String(x.TransferID)===String(tid)); if(!t) return;
   const bn = LANG==='bn';
-  const emp = DATA.employees.find(x=>String(x.EmployeeID)===String(t.EmployeeID) || String(x.RecordID)===String(t.RecordID));
+  const emp = DATA.employees.find(x=>(t.EmployeeID && String(x.EmployeeID)===String(t.EmployeeID)) || (t.id && String(x.id)===String(t.id)) || (x.RecordID && String(x.RecordID)===String(t.RecordID)));
   if(!emp){ toast(bn?'কর্মচারী পাওয়া যায়নি':'Employee not found','error'); return; }
   if(emp.Status!=='Active'){ toast(bn?'নিষ্ক্রিয় কর্মচারীর ট্রান্সফার সম্পন্ন করা যাবে না — আগে পুনর্বহাল করুন':'Cannot complete transfer of inactive employee — reactivate first','error'); return; }
   if(!confirm(bn?`"${t.FullName}" নতুন প্রজেক্ট "${t.NewProject}" এ যোগদান করেছেন — নিশ্চিত?\n\nএতে Employeetbl.ProjectName বদলে যাবে এবং ট্রান্সফার Complete হিসেবে চিহ্নিত হবে।`:`Confirm "${t.FullName}" joined "${t.NewProject}"?\n\nThis updates Employeetbl.ProjectName and marks the transfer Complete.`)) return;
   emp.ProjectName = t.NewProject;   
   t.Status='Completed'; t.IsProceed='1'; t._applied=true;
+  if(window.MGHRM && typeof window.MGHRM.update === 'function') {
+    window.MGHRM.update('employees', emp.id || emp.EmployeeID, { ProjectName: t.NewProject }).catch(console.error);
+  }
   
   if(typeof NOTIFICATIONS!=='undefined'){
     const ni = NOTIFICATIONS.findIndex(n=>n.type==='transfer_join' && String(n.transferId)===String(tid));
@@ -4504,7 +4499,7 @@ function fillEmpSelect(id) {
   wrap.id = id + '_wrap';
   wrap.innerHTML = `
     <input type="text" id="${id}_q" autocomplete="off"
-      placeholder="${'Type RecordID or employee name…'}"
+      placeholder="${'Type ID or employee name…'}"
       onfocus="empPickOpen('${id}')" oninput="empPickFilter('${id}')">
     <input type="hidden" id="${id}">
     <div id="${id}_badge" class="emp-fetch-badge" style="display:none"></div>
@@ -4517,13 +4512,14 @@ function empPickList(id, q) {
   let list = (DATA.employees || []).slice();
   if (q) {
     list = list.filter(e =>
-      String(e.RecordID || '').toLowerCase().includes(q) ||
+      String(e.id || '').toLowerCase().includes(q) ||
       String(e.EmployeeID || '').toLowerCase().includes(q) ||
+      String(e.RecordID || '').toLowerCase().includes(q) ||
       (e.FullName || '').toLowerCase().includes(q)
     );
   }
-  const act = list.filter(e => e.Status === 'Active').sort((a, b) => (+a.RecordID) - (+b.RecordID));
-  const ina = list.filter(e => e.Status !== 'Active').sort((a, b) => (+a.RecordID) - (+b.RecordID));
+  const act = list.filter(e => e.Status === 'Active').sort((a, b) => String(a.id || a.EmployeeID || '').localeCompare(String(b.id || b.EmployeeID || ''), undefined, {numeric: true}));
+  const ina = list.filter(e => e.Status !== 'Active').sort((a, b) => String(a.id || a.EmployeeID || '').localeCompare(String(b.id || b.EmployeeID || ''), undefined, {numeric: true}));
   return [...act, ...ina].slice(0, 60);
 }
 
@@ -4533,8 +4529,10 @@ function empPickRender(id, q) {
   const list = empPickList(id, q);
   box.innerHTML = list.length ? list.map(e => {
     const ina = e.Status !== 'Active';
-    return `<div class="emp-pick-item" style="${ina ? 'opacity:.55' : ''}" onclick="empPickChoose('${id}','${e.RecordID}')">
-      <span class="epi-ser">${num(e.RecordID)}</span>
+    const empKey = e.id || e.EmployeeID || e.RecordID;
+    const empDisplayId = e.EmployeeID || e.id || e.RecordID;
+    return `<div class="emp-pick-item" style="${ina ? 'opacity:.55' : ''}" onclick="empPickChoose('${id}','${empKey}')">
+      <span class="epi-ser">${num(empDisplayId)}</span>
       <div>
         <div class="epi-name">${e.FullName || ''} ${ina ? `<span class="chip" style="background:var(--danger-soft);color:var(--danger);font-size:9.5px">${'Inactive'}</span>` : ''}</div>
         <div class="epi-meta">${desig(e.Designation || '')} · ${projName(e.ProjectName || '')}</div>
@@ -4571,37 +4569,40 @@ function empPickFilter(id) {
     return;
   }
 
-  // 1. Instant local search in DATA.employees by RecordID or EmployeeID (MS Access style)
+  // 1. Instant local search in DATA.employees by id, EmployeeID, or RecordID
   const exact = (DATA.employees || []).find(function (e) {
     return (
-      String(e.RecordID || '').trim().toLowerCase() === q.toLowerCase() ||
-      String(e.EmployeeID || '').trim().toLowerCase() === q.toLowerCase()
+      String(e.id || '').trim().toLowerCase() === q.toLowerCase() ||
+      String(e.EmployeeID || '').trim().toLowerCase() === q.toLowerCase() ||
+      String(e.RecordID || '').trim().toLowerCase() === q.toLowerCase()
     );
   });
 
   if (exact) {
-    empPickChoose(id, exact.RecordID, true);
+    empPickChoose(id, exact.id || exact.EmployeeID || exact.RecordID, true);
     return;
   }
 
   // 2. Real-time server query to Supabase if input is numeric or code
-  if (q.length >= 1 && (/\d/.test(q) || q.startsWith('EMP') || q.startsWith('SEC'))) {
+  if (q.length >= 1 && (/\d/.test(q) || q.startsWith('EMP') || q.startsWith('SEC') || q.startsWith('MGS'))) {
     if (badgeEl) {
       badgeEl.className = 'emp-fetch-badge info';
       badgeEl.style.display = 'inline-flex';
-      badgeEl.innerHTML = '<span>' + ico('search') + ' Searching Supabase for RecordID "' + q + '"...</span>';
+      badgeEl.innerHTML = '<span>' + ico('search') + ' Searching Supabase for ID "' + q + '"...</span>';
     }
     clearTimeout(_empFetchDebounce);
     _empFetchDebounce = setTimeout(async function () {
       try {
-        if (window.MGHRM && typeof window.MGHRM.fetchEmployeeByRecordId === 'function') {
-          const emp = await window.MGHRM.fetchEmployeeByRecordId(q);
-          if (emp && emp.RecordID) {
-            empPickChoose(id, emp.RecordID, true);
+        if (window.MGHRM && typeof window.MGHRM.fetchEmployeeById === 'function') {
+          const emp = await window.MGHRM.fetchEmployeeById(q);
+          if (emp && (emp.id || emp.EmployeeID)) {
+            const empKey = emp.id || emp.EmployeeID || emp.RecordID;
+            const empDisplayId = emp.EmployeeID || emp.id || emp.RecordID;
+            empPickChoose(id, empKey, true);
             if (badgeEl) {
               badgeEl.className = 'emp-fetch-badge success';
               badgeEl.style.display = 'inline-flex';
-              badgeEl.innerHTML = '<span>' + ico('check') + ' Auto-Fetched from Supabase: #' + emp.RecordID + ' · ' + emp.FullName + ' (' + (emp.Designation || '') + ' · ' + (emp.ProjectName || 'No Project') + ')</span>';
+              badgeEl.innerHTML = '<span>' + ico('check') + ' Auto-Fetched from Supabase: #' + empDisplayId + ' · ' + emp.FullName + ' (' + (emp.Designation || '') + ' · ' + (emp.ProjectName || 'No Project') + ')</span>';
             }
           } else {
             if (badgeEl) {
@@ -4619,24 +4620,26 @@ function empPickFilter(id) {
 
 function empPickChoose(id, rid, isAutoFetch) {
   const e = (DATA.employees || []).find(function (x) {
-    return String(x.RecordID) === String(rid);
+    return String(x.id) === String(rid) || String(x.EmployeeID) === String(rid) || String(x.RecordID) === String(rid);
   });
   if (!e) return;
+  const empKey = e.id || e.EmployeeID || e.RecordID;
+  const empDisplayId = e.EmployeeID || e.id || e.RecordID;
   if (e.Status !== 'Active') {
     const listEl = document.getElementById(id + '_list');
     if (listEl) listEl.classList.remove('open');
     openModal('⚠ Inactive Employee', `
       <div class="alert-item danger">${ico('warn')}
-        <div><h5>${e.FullName} (#${num(e.RecordID)}) is not currently employed</h5>
+        <div><h5>${e.FullName} (#${num(empDisplayId)}) is not currently employed</h5>
         <p>This employee has exited or is inactive. Transfer, disciplinary, leave or increment actions are only permitted for Active employees.</p></div>
       </div>
       <div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn primary" onclick="closeModal()">Understood</button></div>`);
     return;
   }
   const hid = document.getElementById(id);
-  if (hid) hid.value = e.RecordID;
+  if (hid) hid.value = empKey;
   const inp = document.getElementById(id + '_q');
-  if (inp) inp.value = '#' + e.RecordID + ' · ' + e.FullName + ' — ' + (e.Designation || '');
+  if (inp) inp.value = '#' + empDisplayId + ' · ' + e.FullName + ' — ' + (e.Designation || '');
   const wrap = document.getElementById(id + '_wrap');
   if (wrap) wrap.classList.add('chosen');
   const listEl = document.getElementById(id + '_list');
@@ -4646,7 +4649,7 @@ function empPickChoose(id, rid, isAutoFetch) {
   if (badgeEl) {
     badgeEl.className = 'emp-fetch-badge success';
     badgeEl.style.display = 'inline-flex';
-    badgeEl.innerHTML = '<span>' + ico('check') + ' Linked: #' + e.RecordID + ' · ' + e.FullName + ' · ' + (e.Designation || '') + ' (' + (e.ProjectName || 'Unassigned') + ')</span>';
+    badgeEl.innerHTML = '<span>' + ico('check') + ' Linked: #' + empDisplayId + ' · ' + e.FullName + ' · ' + (e.Designation || '') + ' (' + (e.ProjectName || 'Unassigned') + ')</span>';
   }
 
   const cb = EMP_PICKER_CB[id];
@@ -4654,13 +4657,15 @@ function empPickChoose(id, rid, isAutoFetch) {
 }
 
 function setEmpPicker(id, rid) {
-  const e = (DATA.employees || []).find(x => String(x.RecordID) === String(rid));
+  const e = (DATA.employees || []).find(x => String(x.id) === String(rid) || String(x.EmployeeID) === String(rid) || String(x.RecordID) === String(rid));
   if (!e) return;
+  const empKey = e.id || e.EmployeeID || e.RecordID;
+  const empDisplayId = e.EmployeeID || e.id || e.RecordID;
   const hid = document.getElementById(id);
   if (!hid) return;
-  hid.value = e.RecordID;
+  hid.value = empKey;
   const inp = document.getElementById(id + '_q');
-  if (inp) inp.value = '#' + e.RecordID + ' · ' + e.FullName + ' — ' + (e.Designation || '');
+  if (inp) inp.value = '#' + empDisplayId + ' · ' + e.FullName + ' — ' + (e.Designation || '');
   const w = document.getElementById(id + '_wrap');
   if (w) w.classList.add('chosen');
   const cb = EMP_PICKER_CB[id];
@@ -4681,12 +4686,13 @@ function fillProjectSelect(id){
 }
 
 function assertActiveEmp(rid){
-  const e = DATA.employees.find(x => String(x.RecordID) === String(rid) || String(x.EmployeeID) === String(rid));
+  const e = DATA.employees.find(x => String(x.id) === String(rid) || String(x.EmployeeID) === String(rid) || String(x.RecordID) === String(rid));
   if(!e) return null;
   if(e.Status!=='Active'){
+    const empDisplayId = e.EmployeeID || e.id || e.RecordID;
     openModal(`⚠ ${'Inactive Employee'}`, `
       <div class="alert-item danger">${ico('warn')}
-        <div><h5>${e.FullName} (#${num(e.RecordID)}) ${'is not currently employed'}</h5>
+        <div><h5>${e.FullName} (#${num(empDisplayId)}) ${'is not currently employed'}</h5>
         <p>${'This action is not allowed on an inactive employee. Re-hire first — entering their NID/mobile in Recruitment or Employees shows a duplicate alert with a Re-hire option; the old serial and history are preserved.'}</p></div>
       </div>
       <div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn primary" onclick="closeModal()">${'Understood'}</button></div>`);
@@ -4696,11 +4702,12 @@ function assertActiveEmp(rid){
 }
 function trFillEmp(){
   const rid = document.getElementById('trEmp')?.value;
-  const e = DATA.employees.find(x => String(x.RecordID) === String(rid) || String(x.EmployeeID) === String(rid));
+  const e = DATA.employees.find(x => String(x.id) === String(rid) || String(x.EmployeeID) === String(rid) || String(x.RecordID) === String(rid));
   document.getElementById('trCurr').value = e ? e.ProjectName : '';
   const badgeEl = document.getElementById('trEmpBadge');
   if (badgeEl) {
-    badgeEl.innerHTML = e ? `<span class="emp-fetch-badge success">✓ ${e.FullName} (RecordID #${e.RecordID})</span>` : '';
+    const empDisplayId = e ? (e.EmployeeID || e.id || e.RecordID) : '';
+    badgeEl.innerHTML = e ? `<span class="emp-fetch-badge success">✓ ${e.FullName} (ID #${empDisplayId})</span>` : '';
   }
 }
 async function submitTransfer(){
@@ -4710,17 +4717,15 @@ async function submitTransfer(){
   const td = document.getElementById('trDate').value;
   if(!rid||!np||!td){ toast('Fill Employee, New Project, and Date', 'error'); return; }
   let e = assertActiveEmp(rid);
-  if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeByRecordId === 'function') {
-    e = await window.MGHRM.fetchEmployeeByRecordId(rid);
+  if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeById === 'function') {
+    e = await window.MGHRM.fetchEmployeeById(rid);
   }
   if(!e) { toast('Employee not found or inactive', 'error'); return; }
   const isFuture = new Date(td) > new Date();
   const newId = Math.max(0, ...DATA.transfers.map(t => +t.TransferID || 0)) + 1;
   const payload = {
     TransferID: String(newId),
-    RecordID: e.RecordID,
-    EmployeeID: e.EmployeeID,
-    SystemID: e.SystemID || '',
+    EmployeeID: e.EmployeeID || String(e.id || ''),
     FullName: e.FullName,
     Designation: e.Designation,
     CurrentProject: e.ProjectName,
@@ -4735,13 +4740,12 @@ async function submitTransfer(){
   try {
     const btn = event && event.target ? event.target : document.getElementById('btnSubmitTransfer');
     if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
+    DATA.transfers.unshift(payload);
     if (window.MGHRM && typeof window.MGHRM.insert === 'function') {
       await window.MGHRM.insert('transfers', payload);
       if (!isFuture) {
-        await window.MGHRM.update('employees', e.RecordID, { ProjectName: np });
+        await window.MGHRM.update('employees', e.id || e.EmployeeID, { ProjectName: np });
       }
-    } else {
-      DATA.transfers.unshift(payload);
     }
     if (!isFuture) e.ProjectName = np;
     if (btn) { btn.disabled = false; btn.innerHTML = 'Submit'; }
@@ -4772,7 +4776,7 @@ function previewTransferOrder(){
   const notes = document.getElementById('trNotes').value;
   const ref = document.getElementById('trRef').value;
   if(!rid||!np){ toast('Select employee and new project first','error'); return; }
-  const e = DATA.employees.find(x=>x.RecordID===rid);
+  const e = DATA.employees.find(x=>String(x.id)===String(rid) || String(x.EmployeeID)===String(rid) || String(x.RecordID)===String(rid));
   openPrint(bangleTransferOrder({emp:e, np, td, iss, notes, refNo:ref}));
 }
 
@@ -4899,7 +4903,7 @@ function renderDisciplinary(){
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th style="width:50px">${'#'}</th><th>SID</th><th>${'Ref'}</th><th>${'Employee'}</th><th>${'Type'}</th><th>${'Date'}</th><th></th></tr></thead>
+          <thead><tr><th style="width:50px">${'#'}</th><th>ID</th><th>${'Ref'}</th><th>${'Employee'}</th><th>${'Type'}</th><th>${'Date'}</th><th></th></tr></thead>
           <tbody id="dcTableBody"></tbody>
         </table>
       </div>
@@ -4913,15 +4917,15 @@ function renderDisciplinaryTable() {
   const q = (document.getElementById('dcSearch')?.value || '').toLowerCase();
   const idq = (document.getElementById('dcIdSearch')?.value || '').toLowerCase();
   const rows = DATA.disciplinary.filter(d => {
-    const e = DATA.employees.find(x => String(x.EmployeeID) === String(d.EmployeeID) || String(x.RecordID) === String(d.RecordID));
-    const sysId = e ? (e.SystemID || '') : '';
+    const e = DATA.employees.find(x => (d.EmployeeID && String(x.EmployeeID) === String(d.EmployeeID)) || (d.id && String(x.id) === String(d.id)) || (d.RecordID && String(x.RecordID) === String(d.RecordID)));
+    const empId = e ? (e.id || e.EmployeeID || '') : (d.EmployeeID || '');
     
     if (idq) {
-      if (String(d.EmployeeID).toLowerCase() !== idq && String(d.RecordID).toLowerCase() !== idq && sysId.toLowerCase() !== idq) return false;
+      if (String(d.EmployeeID||'').toLowerCase() !== idq && String(empId).toLowerCase() !== idq) return false;
     }
     
     if (q) {
-      const hay = `${d.ActionID} ${d.RefNo} ${d.FullName} ${d.ActionType} ${d.EmployeeID} ${d.RecordID} ${sysId}`.toLowerCase();
+      const hay = `${d.ActionID||''} ${d.RefNo||''} ${d.FullName||''} ${d.ActionType||''} ${d.EmployeeID||''} ${empId}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -4931,11 +4935,11 @@ function renderDisciplinaryTable() {
   if (countSpan) countSpan.textContent = `${num(rows.length)} ${'records'}`;
   
   document.getElementById('dcTableBody').innerHTML = rows.map((d,i)=>{
-    const e = DATA.employees.find(x => String(x.EmployeeID) === String(d.EmployeeID) || String(x.RecordID) === String(d.RecordID));
-    const sysId = e ? (e.SystemID || '') : '';
+    const e = DATA.employees.find(x => (d.EmployeeID && String(x.EmployeeID) === String(d.EmployeeID)) || (d.id && String(x.id) === String(d.id)) || (d.RecordID && String(x.RecordID) === String(d.RecordID)));
+    const empId = e ? (e.id || e.EmployeeID || '') : (d.EmployeeID || '—');
     return `<tr class="row-click" onclick="openDisciplinaryPopup(${jsQ(d.ActionID)})" style="cursor:pointer">
       <td>${num(d.ActionID)}</td>
-      <td>${num(sysId)}</td>
+      <td><span class="chip" style="font-size:11px;font-weight:600">${num(empId)}</span></td>
       <td><strong>${num(d.RefNo||'')}</strong></td>
       <td>${d.FullName||''}</td>
       <td>${d.ActionType||''}</td>
@@ -4983,7 +4987,7 @@ function deleteDisciplinary(aid){
 }
 function dcFillEmp() {
   const rid = document.getElementById('dcEmp')?.value;
-  const e = (DATA.employees || []).find(x => String(x.RecordID) === String(rid));
+  const e = (DATA.employees || []).find(x => String(x.id) === String(rid) || String(x.EmployeeID) === String(rid) || String(x.RecordID) === String(rid));
   const infoEl = document.getElementById('dcEmpInfo');
   if (infoEl) {
     infoEl.innerHTML = e ? `<span class="chip success" style="margin-top:6px;display:inline-block">✓ ${e.FullName} · ${e.Designation || ''} · Project: ${e.ProjectName || 'Unassigned'}</span>` : '';
@@ -4999,7 +5003,7 @@ async function submitDisciplinary(){
   const payload = {
     ActionID:String(newId),
     RefNo:document.getElementById('dcRef').value,
-    RecordID:e.RecordID, EmployeeID:e.EmployeeID,
+    EmployeeID:e.EmployeeID || String(e.id || ''),
     FullName:e.FullName, Designation:e.Designation, ProjectName:e.ProjectName,
     ActionType:DC_TEMPLATES[type].label.en,
     IncidentDate:document.getElementById('dcIncident').value,
@@ -5010,10 +5014,14 @@ async function submitDisciplinary(){
   try {
     const btn = event && event.target ? event.target : document.getElementById('btnSubmitDisc');
     if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
-    await window.MGHRM.insert('disciplinary', payload);
+    DATA.disciplinary.unshift(payload);
+    if (window.MGHRM && typeof window.MGHRM.insert === 'function') {
+      await window.MGHRM.insert('disciplinary', payload);
+    }
     if (btn) { btn.disabled = false; btn.innerHTML = 'Submit Action'; }
     
     toast(DC_TEMPLATES[type].label.en + ' saved successfully', 'success');
+    persist();
     renderDisciplinary();
   } catch (err) {
     const btn = event && event.target ? event.target : document.getElementById('btnSubmitDisc');
@@ -5025,7 +5033,7 @@ function reprintDisc(id){
   const d = DATA.disciplinary.find(x=>x.ActionID===id); if(!d) return;
   const templateKey = Object.keys(DC_TEMPLATES).find(k=>DC_TEMPLATES[k].label.bn===d.ActionType || DC_TEMPLATES[k].label.en===d.ActionType) || 'ShowCause';
   openPrint(banglaDisciplinaryLetter({
-    emp: DATA.employees.find(x=>x.EmployeeID===d.EmployeeID) || {FullName:d.FullName,EmployeeID:d.EmployeeID,Designation:d.Designation,ProjectName:d.ProjectName},
+    emp: DATA.employees.find(x=>(d.EmployeeID && String(x.EmployeeID)===String(d.EmployeeID)) || (d.id && String(x.id)===String(d.id)) || (d.RecordID && String(x.RecordID)===String(d.RecordID))) || {FullName:d.FullName,EmployeeID:d.EmployeeID,Designation:d.Designation,ProjectName:d.ProjectName},
     templateKey, ref:d.RefNo, incident:d.IncidentDate, issue:d.IssueDate, desc:d.Description
   }));
 }
@@ -5033,7 +5041,7 @@ function previewDisciplinary(){
   const rid = document.getElementById('dcEmp').value;
   const type = document.getElementById('dcType').value;
   if(!rid){ toast('Select employee first','error'); return; }
-  const e = DATA.employees.find(x=>x.RecordID===rid);
+  const e = DATA.employees.find(x=>String(x.id)===String(rid) || String(x.EmployeeID)===String(rid) || String(x.RecordID)===String(rid));
   openPrint(banglaDisciplinaryLetter({
     emp:e, templateKey:type,
     ref:document.getElementById('dcRef').value,
@@ -5123,15 +5131,15 @@ function renderLeave(){
         <div class="card-header"><h3>${'Recent Leave Applications'}</h3></div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th style="width:50px">${'#'}</th><th>SID</th><th>${'Employee'}</th><th>${'Type'}</th><th>${'Days'}</th><th>${'Status'}</th><th></th></tr></thead>
+            <thead><tr><th style="width:50px">${'#'}</th><th>ID</th><th>${'Employee'}</th><th>${'Type'}</th><th>${'Days'}</th><th>${'Status'}</th><th></th></tr></thead>
             <tbody>
               ${SAMPLE_LEAVES.slice().sort((a,b)=>+b.id-+a.id).map((l,i)=>{
                 const lt = LEAVE_TYPES.find(x=>x.key===l.type);
-                const emp = DATA.employees.find(e => String(e.EmployeeID) === String(l.empId));
-                const sysId = emp ? emp.SystemID : '';
+                const emp = DATA.employees.find(e => (l.empId && String(e.EmployeeID) === String(l.empId)) || (l.empId && String(e.id) === String(l.empId)) || (l.RecordID && String(e.RecordID) === String(l.RecordID)));
+                const empId = emp ? (emp.id || emp.EmployeeID || '') : (l.empId || '—');
                 return `<tr class="row-click" onclick="openLeavePopup(${jsQ(l.id)})" style="cursor:pointer">
                   <td>${num(l.id)}</td>
-                  <td>${num(sysId)}</td>
+                  <td><span class="chip" style="font-size:11px;font-weight:600">${num(empId)}</span></td>
                   <td><strong>${l.name}</strong><br><span class="small-mute">${fmtDate(l.start)} — ${fmtDate(l.end)}</span></td>
                   <td><span class="chip" style="color:${lt.color}">${lt[LANG]}</span></td>
                   <td>${num(l.days)}</td>
@@ -5179,7 +5187,7 @@ function renderLeaveCalendar(){
 }
 function lvFillEmp() {
   const rid = document.getElementById('lvEmp')?.value;
-  const e = (DATA.employees || []).find(x => String(x.RecordID) === String(rid));
+  const e = (DATA.employees || []).find(x => String(x.id) === String(rid) || String(x.EmployeeID) === String(rid) || String(x.RecordID) === String(rid));
   const infoEl = document.getElementById('lvEmpInfo');
   if (infoEl) {
     infoEl.innerHTML = e ? `<span class="chip success" style="margin-top:6px;display:inline-block">✓ ${e.FullName} · ${e.Designation || ''} · Project: ${e.ProjectName || 'Unassigned'}</span>` : '';
@@ -5198,12 +5206,9 @@ async function submitLeave(){
   const leaveObj = {
     id: newId,
     leave_id: String(newId),
-    RecordID: emp.RecordID,
-    record_id: emp.RecordID,
-    SystemID: emp.SystemID || '',
-    employee_id: emp.EmployeeID,
-    EmployeeID: emp.EmployeeID,
-    empId: emp.EmployeeID,
+    employee_id: emp.EmployeeID || String(emp.id || ''),
+    EmployeeID: emp.EmployeeID || String(emp.id || ''),
+    empId: emp.EmployeeID || String(emp.id || ''),
     name: emp.FullName,
     full_name: emp.FullName,
     type,
@@ -5321,13 +5326,13 @@ function renderExit(){
       <div class="card-header"><h3>${'Recent Exits'}</h3><span class="sub">${num(DATA.exits.length)} ${'records'}</span></div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th style="width:50px">${'#'}</th><th>SID</th><th>${'Name'}</th><th>${'Designation'}</th><th>${'Project'}</th><th>${'Exit Date'}</th><th>${'Reason'}</th></tr></thead>
+          <thead><tr><th style="width:50px">${'#'}</th><th>ID</th><th>${'Name'}</th><th>${'Designation'}</th><th>${'Project'}</th><th>${'Exit Date'}</th><th>${'Reason'}</th></tr></thead>
           <tbody>${DATA.exits.slice().sort((a,b)=>+b.ExitID-+a.ExitID).map((x,i)=>{
-            const e = DATA.employees.find(emp => String(emp.EmployeeID) === String(x.EmployeeID) || String(emp.RecordID) === String(x.RecordID));
-            const sysId = e ? e.SystemID : '';
+            const e = DATA.employees.find(emp => (x.EmployeeID && String(emp.EmployeeID) === String(x.EmployeeID)) || (x.id && String(emp.id) === String(x.id)) || (x.RecordID && String(emp.RecordID) === String(x.RecordID)));
+            const empId = e ? (e.id || e.EmployeeID || '') : (x.EmployeeID || '—');
             return `<tr class="row-click" onclick="openExitPopup(${jsQ(x.ExitID)})" style="cursor:pointer">
             <td>${num(x.ExitID)}</td>
-            <td>${num(sysId)}</td>
+            <td><span class="chip" style="font-size:11px;font-weight:600">${num(empId)}</span></td>
             <td><strong>${x.FullName||''}</strong></td>
             <td>${desig(x.Designation||'')}</td>
             <td>${projName(x.CurrentProject||x.ProjectName||'')}</td>
@@ -5341,21 +5346,24 @@ function renderExit(){
 }
 function exFillEmp(){
   const rid = document.getElementById('exEmp')?.value;
-  const e = DATA.employees.find(x => String(x.RecordID) === String(rid) || String(x.EmployeeID) === String(rid));
+  const e = DATA.employees.find(x => String(x.id) === String(rid) || String(x.EmployeeID) === String(rid) || String(x.RecordID) === String(rid));
   document.getElementById('exProj').value = e ? e.ProjectName : '';
   const badgeEl = document.getElementById('exEmpBadge');
   if (badgeEl) {
-    badgeEl.innerHTML = e ? `<span class="emp-fetch-badge success">✓ ${e.FullName} (RecordID #${e.RecordID})</span>` : '';
+    const empDisplayId = e ? (e.EmployeeID || e.id || e.RecordID) : '';
+    badgeEl.innerHTML = e ? `<span class="emp-fetch-badge success">✓ ${e.FullName} (ID #${empDisplayId})</span>` : '';
   }
 }
 
 function openExitPopup(eid){
   const x = DATA.exits.find(r=>String(r.ExitID)===String(eid)); if(!x) return;
   const bn = LANG==='bn';
-  const emp = DATA.employees.find(e=>String(e.EmployeeID)===String(x.EmployeeID) || String(e.RecordID)===String(x.RecordID));
+  const emp = DATA.employees.find(e=>(x.EmployeeID && String(e.EmployeeID)===String(x.EmployeeID)) || (x.id && String(e.id)===String(x.id)) || (x.RecordID && String(e.RecordID)===String(x.RecordID)));
+  const empKey = emp ? (emp.id || emp.EmployeeID || emp.RecordID) : (x.EmployeeID || '');
+  const empDisplayId = emp ? (emp.EmployeeID || emp.id || emp.RecordID) : (x.EmployeeID || '');
   openModal(bn?`চাকরি ত্যাগ — ${x.FullName}`:`Exit — ${x.FullName}`,
     `<div class="pop-detail">
-      <div class="pop-row"><span>${bn?'কর্মচারী':'Employee'}</span><b>${x.FullName} <span class="small-mute">(#${num(x.EmployeeID||'')})</span></b></div>
+      <div class="pop-row"><span>${bn?'কর্মচারী':'Employee'}</span><b>${x.FullName} <span class="small-mute">(#${num(empDisplayId)})</span></b></div>
       <div class="pop-row"><span>${bn?'পদবি':'Designation'}</span><b>${x.Designation||''}</b></div>
       <div class="pop-row"><span>${bn?'প্রজেক্ট':'Project'}</span><b>${projName(x.CurrentProject)}</b></div>
       <div class="pop-row"><span>${bn?'যোগদানের তারিখ':'Join Date'}</span><b>${fmtDate(x.JoinDate)}</b></div>
@@ -5366,16 +5374,19 @@ function openExitPopup(eid){
     </div>
     <div class="pop-hint">${bn?'⚠ কর্মচারীর বর্তমান অবস্থা Employeetbl-এর Status থেকে আসে; এই পপআপ থেকে সংশোধন করতে চাইলে "স্ট্যাটাস পুনর্বহাল" চাপুন।':'⚠ Employee current status comes from Employeetbl.Status; use "Reactivate" to restore.'}</div>`,
     `<button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>
-     ${emp?`<button class="btn" onclick="reactivateEmployee(${jsQ(emp.RecordID)})">${bn?'পুনর্বহাল করুন':'Reactivate'}</button>`:''}
-     <button class="btn" onclick="closeModal();openPrint(banglaClearance(${jsQ(x.RecordID||x.EmployeeID)}?DATA.employees.find(e=>String(e.RecordID)===${jsQ(x.RecordID)}||String(e.EmployeeID)===${jsQ(x.EmployeeID)}):null, ${jsQ(x.ExitDate)}))">${ico('print')} ${bn?'ছাড়পত্র':'Clearance'}</button>
+     ${emp?`<button class="btn" onclick="reactivateEmployee(${jsQ(empKey)})">${bn?'পুনর্বহাল করুন':'Reactivate'}</button>`:''}
+     <button class="btn" onclick="closeModal();openPrint(banglaClearance(${emp?jsQ(empKey):'null'}, ${jsQ(x.ExitDate)}))">${ico('print')} ${bn?'ছাড়পত্র':'Clearance'}</button>
      <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteExit(${jsQ(x.ExitID)})">${bn?'রেকর্ড ডিলিট':'Delete'}</button>`);
 }
 function reactivateEmployee(rid){
   if(!guardEdit()) return;
-  const e = DATA.employees.find(x=>String(x.RecordID)===String(rid)); if(!e) return;
+  const e = DATA.employees.find(x=>String(x.id)===String(rid) || String(x.EmployeeID)===String(rid) || String(x.RecordID)===String(rid)); if(!e) return;
   if(!confirm('Reactivate this employee to Active?')) return;
   e.Status='Active'; delete e.ExitDate; delete e.ExitReason;
-  logActivity('update','employees',rid,'reactivated from Inactive');
+  if(window.MGHRM && typeof window.MGHRM.update === 'function') {
+    window.MGHRM.update('employees', e.id || e.EmployeeID, { Status: 'Active', ExitDate: null, ExitReason: null }).catch(console.error);
+  }
+  logActivity('update','employees',e.id || e.EmployeeID,'reactivated from Inactive');
   toast('Reactivated','success');
   persist(); closeModal(); if(typeof renderExit==='function') renderExit(); if(typeof renderEmployees==='function') renderEmployees();
 }
@@ -5395,16 +5406,14 @@ async function submitExit(){
   const r   = document.getElementById('exReason').value;
   if(!rid||!d||!r){ toast('Fill all required fields','error'); return; }
   let e = assertActiveEmp(rid);
-  if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeByRecordId === 'function') {
-    e = await window.MGHRM.fetchEmployeeByRecordId(rid);
+  if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeById === 'function') {
+    e = await window.MGHRM.fetchEmployeeById(rid);
   }
   if(!e){ toast('Employee not found or inactive','error'); return; }
   const newExitId = String(DATA.exits.length + 1);
   const exitPayload = {
     ExitID: newExitId,
-    RecordID: e.RecordID,
-    EmployeeID: e.EmployeeID,
-    SystemID: e.SystemID || '',
+    EmployeeID: e.EmployeeID || String(e.id || ''),
     FullName: e.FullName,
     Designation: e.Designation,
     CurrentProject: e.ProjectName,
@@ -5421,7 +5430,7 @@ async function submitExit(){
   if (window.MGHRM && typeof window.MGHRM.insert === 'function') {
     try {
       await window.MGHRM.insert('exits', exitPayload);
-      await window.MGHRM.update('employees', e.RecordID, { Status: 'Inactive', ExitDate: d });
+      await window.MGHRM.update('employees', e.id || e.EmployeeID, { Status: 'Inactive', ExitDate: d });
     } catch(err) {
       console.warn('Exit sync note:', err);
     }
@@ -5433,14 +5442,14 @@ async function submitExit(){
 function previewClearance(){
   const rid = document.getElementById('exEmp').value;
   if(!rid){ toast('Select employee first','error'); return; }
-  const e = DATA.employees.find(x=>x.RecordID===rid);
+  const e = DATA.employees.find(x=>String(x.id)===String(rid) || String(x.EmployeeID)===String(rid) || String(x.RecordID)===String(rid));
   const d = document.getElementById('exDate').value || todayISO();
   openPrint(banglaClearance(e,d));
 }
 function previewExperience(){
   const rid = document.getElementById('exEmp').value;
   if(!rid){ toast('Select employee first','error'); return; }
-  const e = DATA.employees.find(x=>x.RecordID===rid);
+  const e = DATA.employees.find(x=>String(x.id)===String(rid) || String(x.EmployeeID)===String(rid) || String(x.RecordID)===String(rid));
   const d = document.getElementById('exDate').value || todayISO();
   openPrint(banglaExperience(e,d));
 }
@@ -5526,8 +5535,12 @@ function renderIncrement(){
       <div class="card-header"><h3>${'Career History'}</h3></div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>${'Employee'}</th><th>${'Type'}</th><th>${'Prev'}</th><th>${'New'}</th><th>${'Date'}</th></tr></thead>
-          <tbody>${DATA.career.map(c=>`<tr class="row-click" onclick="openCareerPopup(${jsQ(c.ChangeID)})" style="cursor:pointer"><td><strong>${c.FullName||''}</strong></td><td><span class="chip">${c.ChangeType||''}</span></td><td>${c.CurrentDesignation||''} · ${c.PreviousSalary?money(c.PreviousSalary):''}</td><td style="color:var(--purple)">${c.NewDesignation||''} · ${c.NewSalary?money(c.NewSalary):''}</td><td>${fmtDate(c.EffectiveDate)}</td></tr>`).join('')||`<tr><td colspan="5" class="small-mute" style="text-align:center;padding:20px">${'No records yet'}</td></tr>`}</tbody>
+          <thead><tr><th style="width:60px">${'ID'}</th><th>${'Employee'}</th><th>${'Type'}</th><th>${'Prev'}</th><th>${'New'}</th><th>${'Date'}</th></tr></thead>
+          <tbody>${DATA.career.map(c=>{
+            const emp = DATA.employees.find(e=>(c.EmployeeID && String(e.EmployeeID)===String(c.EmployeeID)) || (c.id && String(e.id)===String(c.id)) || (c.RecordID && String(e.RecordID)===String(c.RecordID)));
+            const empId = emp ? (emp.id || emp.EmployeeID || '') : (c.EmployeeID || '—');
+            return `<tr class="row-click" onclick="openCareerPopup(${jsQ(c.ChangeID)})" style="cursor:pointer"><td><span class="chip" style="font-size:11px;font-weight:600">${num(empId)}</span></td><td><strong>${c.FullName||''}</strong></td><td><span class="chip">${c.ChangeType||''}</span></td><td>${c.CurrentDesignation||''} · ${c.PreviousSalary?money(c.PreviousSalary):''}</td><td style="color:var(--purple)">${c.NewDesignation||''} · ${c.NewSalary?money(c.NewSalary):''}</td><td>${fmtDate(c.EffectiveDate)}</td></tr>`;
+          }).join('')||`<tr><td colspan="6" class="small-mute" style="text-align:center;padding:20px">${'No records yet'}</td></tr>`}</tbody>
         </table>
       </div>
     </div>
@@ -5536,7 +5549,7 @@ function renderIncrement(){
 }
 function ipFillEmp(){
   const rid=document.getElementById('ipEmp').value;
-  const e=DATA.employees.find(x=>x.RecordID===rid); if(!e) return;
+  const e=DATA.employees.find(x=>String(x.id)===String(rid) || String(x.EmployeeID)===String(rid) || String(x.RecordID)===String(rid)); if(!e) return;
   document.getElementById('ipCurrDesig').value=e.Designation||'';
   document.getElementById('ipPrevSal').value=e.Salary||0;
   document.getElementById('ipNewDesig').value=e.Designation||DESIGNATIONS[0];
@@ -5553,8 +5566,8 @@ async function submitIncrement(){
   const type=document.getElementById('ipType').value;
   if(!rid){ toast('Select employee','error'); return; }
   let e = assertActiveEmp(rid);
-  if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeByRecordId === 'function') {
-    e = await window.MGHRM.fetchEmployeeByRecordId(rid);
+  if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeById === 'function') {
+    e = await window.MGHRM.fetchEmployeeById(rid);
   }
   if(!e) { toast('Employee not found or inactive','error'); return; }
   const newDesig=document.getElementById('ipNewDesig').value;
@@ -5566,9 +5579,7 @@ async function submitIncrement(){
   const newChangeId = String(DATA.career.length + 1);
   const careerPayload = {
     ChangeID: newChangeId,
-    RecordID: e.RecordID,
-    EmployeeID: e.EmployeeID,
-    SystemID: e.SystemID || '',
+    EmployeeID: e.EmployeeID || String(e.id || ''),
     FullName: e.FullName,
     ProjectName: e.ProjectName,
     ChangeType: type,
@@ -5586,7 +5597,7 @@ async function submitIncrement(){
   if (window.MGHRM && typeof window.MGHRM.insert === 'function') {
     try {
       await window.MGHRM.insert('career', careerPayload);
-      await window.MGHRM.update('employees', e.RecordID, { Designation: newDesig, Salary: newSal });
+      await window.MGHRM.update('employees', e.id || e.EmployeeID, { Designation: newDesig, Salary: newSal });
     } catch(err) {
       console.warn('Career sync note:', err);
     }
@@ -5599,10 +5610,11 @@ async function submitIncrement(){
 function openCareerPopup(cid){
   const c = DATA.career.find(r=>String(r.ChangeID)===String(cid)); if(!c) return;
   const bn = LANG==='bn';
-  const emp = DATA.employees.find(e=>String(e.RecordID)===String(c.RecordID) || String(e.EmployeeID)===String(c.EmployeeID));
+  const emp = DATA.employees.find(e=>(c.EmployeeID && String(e.EmployeeID)===String(c.EmployeeID)) || (c.id && String(e.id)===String(c.id)) || (c.RecordID && String(e.RecordID)===String(c.RecordID)));
+  const empDisplayId = emp ? (emp.EmployeeID || emp.id || emp.RecordID) : (c.EmployeeID || '');
   openModal(bn?`ক্যারিয়ার পরিবর্তন — ${c.FullName}`:`Career Change — ${c.FullName}`,
     `<div class="pop-detail">
-      <div class="pop-row"><span>${bn?'কর্মচারী':'Employee'}</span><b>${c.FullName} <span class="small-mute">(#${num(c.EmployeeID||'')})</span></b></div>
+      <div class="pop-row"><span>${bn?'কর্মচারী':'Employee'}</span><b>${c.FullName} <span class="small-mute">(#${num(empDisplayId)})</span></b></div>
       <div class="pop-row"><span>${bn?'প্রজেক্ট':'Project'}</span><b>${projName(c.ProjectName)}</b></div>
       <div class="pop-row"><span>${bn?'ধরন':'Change Type'}</span><b><span class="chip">${c.ChangeType||''}</span></b></div>
       <div class="pop-row"><span>${bn?'কার্যকর তারিখ':'Effective Date'}</span><b>${fmtDate(c.EffectiveDate)}</b></div>
@@ -5622,12 +5634,18 @@ function openCareerPopup(cid){
 function revertCareer(cid){
   if(!guardEdit()) return;
   const c = DATA.career.find(r=>String(r.ChangeID)===String(cid)); if(!c) return;
-  const emp = DATA.employees.find(e=>String(e.RecordID)===String(c.RecordID) || String(e.EmployeeID)===String(c.EmployeeID));
+  const emp = DATA.employees.find(e=>(c.EmployeeID && String(e.EmployeeID)===String(c.EmployeeID)) || (c.id && String(e.id)===String(c.id)) || (c.RecordID && String(e.RecordID)===String(c.RecordID)));
   if(!emp){ toast('Employee not found','error'); return; }
   if(!confirm(`Revert? Salary ${money(emp.Salary)} → ${money(c.PreviousSalary)}; Designation ${emp.Designation} → ${c.CurrentDesignation}`)) return;
   emp.Designation = c.CurrentDesignation || emp.Designation;
   emp.Salary = c.PreviousSalary || emp.Salary;
   DATA.career = DATA.career.filter(r=>String(r.ChangeID)!==String(cid));
+  if(window.MGHRM && typeof window.MGHRM.update === 'function') {
+    window.MGHRM.update('employees', emp.id || emp.EmployeeID, { Designation: emp.Designation, Salary: emp.Salary }).catch(console.error);
+  }
+  if(window.MGHRM && typeof window.MGHRM.remove === 'function') {
+    window.MGHRM.remove('career', cid).catch(console.error);
+  }
   logActivity('revert','career',cid,`reverted ${c.ChangeType}`);
   toast('Reverted','success');
   persist(); closeModal(); renderIncrement();
@@ -5873,7 +5891,7 @@ function showReport(kind){
         ${rows.filter(r=>r.list.length).map(r=>`
           <h4 style="font-size:13px;margin:14px 0 8px;background:var(--bg-dim);padding:8px 12px;border-radius:6px">${r.k} — <span class="chip">${num(r.list.length)}</span></h4>
           <div class="table-wrap"><table><thead><tr><th>#</th><th>${'ID'}</th><th>${'Name'}</th><th>${'Designation'}</th><th>${'Project'}</th></tr></thead>
-          <tbody>${r.list.slice(0,50).map((e,i)=>`<tr class="row-click" onclick="openEmpDetail('${e.RecordID}')" style="cursor:pointer"><td>${num(i+1)}</td><td>${num(e.EmployeeID)}</td><td>${e.FullName}</td><td>${desig(e.Designation)}</td><td>${projName(e.ProjectName)}</td></tr>`).join('')}</tbody></table></div>
+          <tbody>${r.list.slice(0,50).map((e,i)=>`<tr class="row-click" onclick="openEmpDetail('${e.id || e.EmployeeID || e.RecordID}')" style="cursor:pointer"><td>${num(i+1)}</td><td>${num(e.EmployeeID || e.id || e.RecordID)}</td><td>${e.FullName}</td><td>${desig(e.Designation)}</td><td>${projName(e.ProjectName)}</td></tr>`).join('')}</tbody></table></div>
           ${r.list.length>50?`<p class="small-mute" style="text-align:center;padding:8px">${'... '+(r.list.length-50)+' more'}</p>`:''}
         `).join('')}
       </div></div>`;
@@ -5890,7 +5908,7 @@ function showReport(kind){
       <div class="btn-row"><button class="btn sm" onclick="printReport()">${ico('print')} Print</button></div></div>
       <div class="card-body" id="reportPrintable">
         ${soon.length ? `<div class="table-wrap"><table><thead><tr><th>#</th><th>${'ID'}</th><th>${'Name'}</th><th>${'Designation'}</th><th>${'Project'}</th><th>${'End Date'}</th><th>${'Days Left'}</th></tr></thead>
-          <tbody>${soon.map((s,i)=>`<tr class="row-click" onclick="openEmpDetail('${s.emp.RecordID}')" style="cursor:pointer;${s.days<=15?'background:#fee2e2':(s.days<=30?'background:#fef3c7':'')}"><td>${num(i+1)}</td><td>${num(s.emp.EmployeeID)}</td><td>${s.emp.FullName}</td><td>${desig(s.emp.Designation)}</td><td>${projName(s.emp.ProjectName)}</td><td>${fmtDate(s.endDate)}</td><td><strong>${num(s.days)}</strong> ${'days'}</td></tr>`).join('')}</tbody></table></div>` :
+          <tbody>${soon.map((s,i)=>`<tr class="row-click" onclick="openEmpDetail('${s.emp.id || s.emp.EmployeeID || s.emp.RecordID}')" style="cursor:pointer;${s.days<=15?'background:#fee2e2':(s.days<=30?'background:#fef3c7':'')}"><td>${num(i+1)}</td><td>${num(s.emp.EmployeeID || s.emp.id || s.emp.RecordID)}</td><td>${s.emp.FullName}</td><td>${desig(s.emp.Designation)}</td><td>${projName(s.emp.ProjectName)}</td><td>${fmtDate(s.endDate)}</td><td><strong>${num(s.days)}</strong> ${'days'}</td></tr>`).join('')}</tbody></table></div>` :
           `<p class="small-mute" style="text-align:center;padding:24px">${'No contracts expiring in 60 days (or ContractEnd field is empty)'}</p>`}
         <p class="small-mute" style="margin-top:14px">${'Note: Requires ContractEnd field on employees; add it and sync if missing'}</p>
       </div></div>`;
@@ -5900,7 +5918,7 @@ function showReport(kind){
     out = `<div class="card"><div class="card-header"><h3>${'Salary Slip'}</h3></div>
       <div class="card-body">
         <div class="form-grid">
-          <div class="field"><label>${'Employee'} *</label><select id="ssEmp">${DATA.employees.filter(e=>e.Status==='Active').map(e=>`<option value="${e.RecordID}">${e.FullName} — ${num(e.EmployeeID)} — ${projName(e.ProjectName)}</option>`).join('')}</select></div>
+          <div class="field"><label>${'Employee'} *</label><select id="ssEmp">${DATA.employees.filter(e=>e.Status==='Active').map(e=>`<option value="${e.id || e.EmployeeID || e.RecordID}">${e.FullName} — ${num(e.EmployeeID || e.id || e.RecordID)} — ${projName(e.ProjectName)}</option>`).join('')}</select></div>
           <div class="field"><label>${'Month'} *</label><select id="ssMonth">${monthsBn.map((m,i)=>{const mo=String(i+1).padStart(2,'0');const d=new Date();const val=`${d.getFullYear()}-${mo}`;return `<option value="${val}" ${i===new Date().getMonth()?'selected':''}>${new Date(0,i,1).toLocaleString('en',{month:'long'})} ${d.getFullYear()}</option>`}).join('')}</select></div>
           <div class="field"><label>${'Other Allowance (৳)'}</label><input id="ssOther" type="number" value="0"></div>
           <div class="field"><label>${'Deduction (৳)'}</label><input id="ssDeduct" type="number" value="0"></div>
@@ -6022,7 +6040,7 @@ function printSalarySlip(){
   const monthVal = document.getElementById('ssMonth')?.value;
   const other = +(document.getElementById('ssOther')?.value||0);
   const deduct = +(document.getElementById('ssDeduct')?.value||0);
-  const e = DATA.employees.find(x=>x.RecordID===rid);
+  const e = DATA.employees.find(x=>String(x.id)===String(rid) || String(x.EmployeeID)===String(rid) || String(x.RecordID)===String(rid));
   if(!e){ toast('Select an employee','error'); return; }
   const monthsBn=['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
   const monthsEn=['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -6061,7 +6079,7 @@ function printSalarySlip(){
       <div><div style="border-top:1px solid #000;padding-top:5px;text-align:center">${bn?'ব্যবস্থাপনা পরিচালক':'Managing Director'}</div></div>
     </div>
   </div>`;
-  logActivity('print','salary_slip', e.RecordID, e.FullName+' '+monthName);
+  logActivity('print','salary_slip', e.id || e.EmployeeID || e.RecordID, e.FullName+' '+monthName);
   openPrint(html);
 }
 
@@ -7399,11 +7417,11 @@ function nameBnOf(en){
 /* ============ SERIAL (MAIN) ID HELPERS ============ */
 /* Software identifies a person by RecordID (serial). Letters must show ONLY the
    official ID (EmployeeID) when it exists — and NO line at all (no gap) when it doesn't. */
-function serialOf(e){ return e.RecordID || e.EmployeeID || ''; }
+function serialOf(e){ return e.id || e.RecordID || e.EmployeeID || ''; }
 function officialIdOf(e){
   const oid = (e.EmployeeID||'').toString().trim();
   if(!oid) return '';
-  if(e.RecordID && oid===String(e.RecordID)) return ''; /* same as serial = not a real official ID */
+  if((e.id && oid===String(e.id)) || (e.RecordID && oid===String(e.RecordID))) return ''; /* same as serial = not a real official ID */
   return oid;
 }
 function empIdLine(e){
@@ -7495,8 +7513,9 @@ function buildNotifications(){
   DATA.employees.filter(e=>e.Status==='Active').forEach(e=>{
     const d = parseDate(e.JoinDate); if(!d) return;
     const left = Math.ceil((d.getTime()+183*86400000 - Date.now())/86400000);
-    if(left>=0 && left<=7 && !NOTIFICATIONS.find(x=>x.type==='prob'&&String(x.ref)===String(e.RecordID))){
-      NOTIFICATIONS.push({ id:'prob'+e.RecordID, type:'prob', ref:e.RecordID, severity:'info',
+    const empRef = e.id || e.EmployeeID || e.RecordID;
+    if(left>=0 && left<=7 && !NOTIFICATIONS.find(x=>x.type==='prob'&&(String(x.ref)===String(empRef) || String(x.ref)===String(e.RecordID)))){
+      NOTIFICATIONS.push({ id:'prob'+empRef, type:'prob', ref:empRef, severity:'info',
         title:`Probation period ending — ${e.FullName}`,
         detail:`6 months from join date (${fmtDate(e.JoinDate)}) will be completed ${left===0?'today':'in '+left+' days'}. Decide on conversion to regular employee.` });
     }
@@ -8785,21 +8804,22 @@ function findDuplicates({nid, phone, nameEn}){
   return out;
 }
 function lastExitOf(recordId){
-  return DATA.exits.filter(x=>String(x.RecordID)===String(recordId))
+  return DATA.exits.filter(x=>String(x.id)===String(recordId) || String(x.EmployeeID)===String(recordId) || String(x.RecordID)===String(recordId))
     .sort((a,b)=>parseDate(b.ExitDate)-parseDate(a.ExitDate))[0] || null;
 }
 function showDuplicateModal(dups, applicant, onForceNew){
   const rows = dups.map(d=>{
-    const e = d.emp, ex = lastExitOf(e.RecordID);
+    const e = d.emp, empId = e.id || e.EmployeeID || e.RecordID;
+    const ex = lastExitOf(empId);
     const statusBn = e.Status==='Active' ? '<span class="pill active">বর্তমানে কর্মরত</span>' : '<span class="pill inactive">চাকরি ত্যাগ করেছেন</span>';
     const hist = ex ? `${'Joined'}: ${fmtDate(ex.JoinDate||e.JoinDate)} → ${'Left'}: ${fmtDate(ex.ExitDate||e.ExitDate)}` : '';
     return `<div style="border:1px solid var(--border-strong);border-radius:8px;padding:12px;margin-bottom:10px;background:var(--bg-dim)">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-        <div><strong>#${num(e.RecordID)} ${e.FullName}</strong> — ${desig(e.Designation||'')} · ${projName(e.ProjectName||'')}<br>
+        <div><strong>#${num(e.EmployeeID || empId)} ${e.FullName}</strong> — ${desig(e.Designation||'')} · ${projName(e.ProjectName||'')}<br>
         <span class="small-mute">${'Matched by'}: ${d.why.join(', ')}${hist?' · '+hist:''}</span></div>
         ${statusBn}
       </div>
-      ${e.Status!=='Active' ? `<div style="margin-top:8px"><button class="btn success sm" onclick="rehireEmployee('${e.RecordID}', window.__pendingApplicant)">↻ ${'Re-hire this person'}</button></div>` : ''}
+      ${e.Status!=='Active' ? `<div style="margin-top:8px"><button class="btn success sm" onclick="rehireEmployee('${empId}', window.__pendingApplicant)">↻ ${'Re-hire this person'}</button></div>` : ''}
     </div>`;
   }).join('');
   window.__pendingApplicant = applicant;
@@ -8814,8 +8834,8 @@ function showDuplicateModal(dups, applicant, onForceNew){
 }
 function rehireEmployee(recordId, applicant){
   if(!guardEdit()) return;
-  const e = DATA.employees.find(x=>x.RecordID===String(recordId)); if(!e) return;
-  const ex = lastExitOf(e.RecordID);
+  const e = DATA.employees.find(x=>String(x.id)===String(recordId) || String(x.EmployeeID)===String(recordId) || String(x.RecordID)===String(recordId)); if(!e) return;
+  const ex = lastExitOf(e.id || e.EmployeeID || e.RecordID);
   e.EmploymentHistory = e.EmploymentHistory || [];
   e.EmploymentHistory.push({
     joinDate: e.JoinDate || (ex&&ex.JoinDate) || '',
@@ -8833,6 +8853,19 @@ function rehireEmployee(recordId, applicant){
     if(applicant.name)    e.FullNameBn  = applicant.name;      /* Bangla name from the form */
     if(applicant.phone)   e.PhoneNumber = applicant.phone;
     if(applicant.nid)     e['NID/BirthCertificate'] = applicant.nid;
+  }
+  if(window.MGHRM && typeof window.MGHRM.update === 'function') {
+    window.MGHRM.update('employees', e.id || e.EmployeeID, {
+      Status: 'Active',
+      JoinDate: e.JoinDate,
+      ProjectName: e.ProjectName,
+      Designation: e.Designation,
+      Salary: e.Salary,
+      FullNameBn: e.FullNameBn,
+      PhoneNumber: e.PhoneNumber,
+      'NID/BirthCertificate': e['NID/BirthCertificate'],
+      ExitDate: null
+    }).catch(console.error);
   }
   NOTIFICATIONS.unshift({ id:'rh'+Date.now(), type:'rehire', severity:'info',
     title:`${'Re-hire completed'} — ${e.FullName}`,
@@ -8887,7 +8920,7 @@ function employmentHistoryTableBn(e){
     </table>`;
 }
 function printEmpProfile(recordId){
-  const e = DATA.employees.find(x=>x.RecordID===recordId); if(!e) return;
+  const e = DATA.employees.find(x=>String(x.id)===String(recordId) || String(x.EmployeeID)===String(recordId) || String(x.RecordID)===String(recordId)); if(!e) return;
   const cell = (k,v)=>`<td><strong>${k}:</strong> ${v||'—'}</td>`;
   openPrint(`<div class="print-doc compact" style="font-size:10.5pt;line-height:1.45;padding:12mm 15mm">
     ${letterhead()}

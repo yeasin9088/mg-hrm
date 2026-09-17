@@ -1,6 +1,6 @@
 /* =====================================================================
    MG SECURITY HRM — Supabase Data Layer (Real-Time Server-Side)
-   Universal Root Identifier: record_id
+   Universal Root Identifier: id (Supabase Auto-Incrementing Primary Key)
    ===================================================================== */
 (function (global) {
   'use strict';
@@ -9,9 +9,9 @@
   var TABLE_MAP = {
     employees: {
       table: 'employees',
-      pk: 'record_id',
+      pk: 'id',
       allowed: [
-        'id', 'record_id', 'system_id', 'employee_id', 'full_name', 'full_name_bn',
+        'id', 'employee_id', 'full_name', 'full_name_bn',
         'father_name', 'mother_name', 'dob', 'phone', 'nid', 'education', 'religion',
         'height', 'weight', 'marital_status', 'spouse_name', 'spouse_phone',
         'ec_name', 'ec_relation', 'ec_phone', 'division', 'district', 'thana',
@@ -21,8 +21,7 @@
         'remarks', 'photo_url', 'created_at', 'updated_at'
       ],
       map: {
-        'SystemID': 'system_id',
-        'RecordID': 'record_id',
+        'id': 'id',
         'EmployeeID': 'employee_id',
         'FullName': 'full_name',
         'FullNameBangla': 'full_name_bn',
@@ -111,18 +110,16 @@
       table: 'disciplinary',
       pk: 'action_id',
       allowed: [
-        'id', 'action_id', 'ref_no', 'ref_no_bn', 'record_id', 'system_id',
+        'id', 'action_id', 'ref_no', 'ref_no_bn',
         'employee_id', 'employee_id_bn', 'full_name', 'full_name_bn',
         'designation', 'designation_bn', 'project_name', 'project_name_bn',
         'action_type', 'issue_date', 'issue_date_bn', 'incident_date',
         'description', 'description_bn', 'created_at'
       ],
       map: {
-        'SystemID': 'system_id',
         'ActionID': 'action_id',
         'RefNo': 'ref_no',
         'RefNoBangla': 'ref_no_bn',
-        'RecordID': 'record_id',
         'EmployeeID': 'employee_id',
         'EmployeeIDBangla': 'employee_id_bn',
         'FullName': 'full_name',
@@ -144,14 +141,12 @@
       table: 'exits',
       pk: 'exit_id',
       allowed: [
-        'id', 'exit_id', 'record_id', 'system_id', 'employee_id',
+        'id', 'exit_id', 'employee_id',
         'full_name', 'designation', 'current_project', 'join_date',
         'exit_reason', 'exit_date', 'issue_date', 'created_at'
       ],
       map: {
-        'SystemID': 'system_id',
         'ExitID': 'exit_id',
-        'RecordID': 'record_id',
         'EmployeeID': 'employee_id',
         'FullName': 'full_name',
         'Designation': 'designation',
@@ -167,16 +162,14 @@
       table: 'transfers',
       pk: 'transfer_id',
       allowed: [
-        'id', 'transfer_id', 'record_id', 'system_id', 'employee_id',
+        'id', 'transfer_id', 'employee_id',
         'employee_id_bn', 'full_name', 'full_name_bn', 'designation',
         'designation_bn', 'current_project', 'current_project_bn',
         'new_project', 'new_project_bn', 'transfer_date', 'transfer_date_bn',
         'issues_date', 'issues_date_bn', 'is_proceed', 'status', 'notes', 'created_at'
       ],
       map: {
-        'SystemID': 'system_id',
         'TransferID': 'transfer_id',
-        'RecordID': 'record_id',
         'EmployeeID': 'employee_id',
         'EmployeeIDBangla': 'employee_id_bn',
         'FullName': 'full_name',
@@ -201,15 +194,13 @@
       table: 'career',
       pk: 'change_id',
       allowed: [
-        'id', 'change_id', 'record_id', 'system_id', 'employee_id',
+        'id', 'change_id', 'employee_id',
         'full_name', 'project_name', 'change_type', 'effective_date',
         'current_designation', 'new_designation', 'previous_salary',
         'increment_amount', 'new_salary', 'notes', 'created_at'
       ],
       map: {
-        'SystemID': 'system_id',
         'ChangeID': 'change_id',
-        'RecordID': 'record_id',
         'EmployeeID': 'employee_id',
         'FullName': 'full_name',
         'ProjectName': 'project_name',
@@ -228,16 +219,14 @@
       table: 'leaves',
       pk: 'leave_id',
       allowed: [
-        'id', 'leave_id', 'record_id', 'system_id', 'employee_id',
+        'id', 'leave_id', 'employee_id',
         'full_name', 'designation', 'project_name', 'leave_type',
         'from_date', 'to_date', 'days_count', 'reason', 'status',
         'applied_on', 'approved_by', 'created_at'
       ],
       map: {
-        'SystemID': 'system_id',
         'LeaveID': 'leave_id',
         'id': 'leave_id',
-        'RecordID': 'record_id',
         'EmployeeID': 'employee_id',
         'empId': 'employee_id',
         'FullName': 'full_name',
@@ -263,15 +252,13 @@
       table: 'uniform',
       pk: 'issue_id',
       allowed: [
-        'id', 'issue_id', 'record_id', 'system_id', 'employee_id',
+        'id', 'issue_id', 'employee_id',
         'full_name', 'designation', 'project_name', 'item_name',
         'size_text', 'quantity', 'issue_date', 'return_date',
         'condition_text', 'status', 'remarks', 'created_at'
       ],
       map: {
-        'SystemID': 'system_id',
         'IssueID': 'issue_id',
-        'RecordID': 'record_id',
         'EmployeeID': 'employee_id',
         'FullName': 'full_name',
         'Designation': 'designation',
@@ -308,12 +295,11 @@
       table: 'meeting_attendance',
       pk: 'id',
       allowed: [
-        'id', 'meeting_id', 'record_id', 'employee_id', 'full_name',
+        'id', 'meeting_id', 'employee_id', 'full_name',
         'designation', 'project_name', 'status', 'remarks'
       ],
       map: {
         'MeetingID': 'meeting_id',
-        'RecordID': 'record_id',
         'EmployeeID': 'employee_id',
         'FullName': 'full_name',
         'Designation': 'designation',
@@ -462,8 +448,7 @@
       out[col] = row[col];
     }
     // Explicit root identifier enforcement
-    if (row.record_id && !out.RecordID) out.RecordID = row.record_id;
-    if (row.system_id && !out.SystemID) out.SystemID = row.system_id;
+    if (row.id != null) out.id = row.id;
     if (row.employee_id && !out.EmployeeID) out.EmployeeID = row.employee_id;
     if (row.full_name && !out.FullName) out.FullName = row.full_name;
     return out;
@@ -854,6 +839,11 @@
 
   function update(bucket, primaryKeyName, primaryKeyValue, jsObject) {
     if (!ready || !sb) return Promise.resolve(null);
+    if (arguments.length === 3) {
+      jsObject = primaryKeyValue;
+      primaryKeyValue = primaryKeyName;
+      primaryKeyName = (TABLE_MAP[bucket] && TABLE_MAP[bucket].pk) || 'id';
+    }
     var table = TABLE_MAP[bucket].table;
     var dbRecord = toDb(bucket, jsObject);
     var dbPkColumn = (TABLE_MAP[bucket].map && TABLE_MAP[bucket].map[primaryKeyName]) || primaryKeyName;
@@ -875,6 +865,10 @@
 
   function remove(bucket, primaryKeyName, primaryKeyValue) {
     if (!ready || !sb) return Promise.resolve(null);
+    if (arguments.length === 2) {
+      primaryKeyValue = primaryKeyName;
+      primaryKeyName = (TABLE_MAP[bucket] && TABLE_MAP[bucket].pk) || 'id';
+    }
     var table = TABLE_MAP[bucket].table;
     var dbPkColumn = (TABLE_MAP[bucket].map && TABLE_MAP[bucket].map[primaryKeyName]) || primaryKeyName;
 
@@ -892,18 +886,18 @@
       });
   }
 
-  /* ---------- Real-Time Auto-Fetch by RecordID (MS Access Style) ---------- */
-  function fetchEmployeeByRecordId(recordId) {
-    if (!recordId) return Promise.resolve(null);
-    var ridStr = String(recordId).trim();
+  /* ---------- Real-Time Auto-Fetch by Primary Key ID or EmployeeID ---------- */
+  function fetchEmployeeById(id) {
+    if (!id) return Promise.resolve(null);
+    var idStr = String(id).trim();
 
     // 1. Check local cache first
     if (global.DATA && Array.isArray(global.DATA.employees)) {
       var foundLocal = global.DATA.employees.find(function (e) {
         return (
-          String(e.RecordID || '').trim() === ridStr ||
-          String(e.EmployeeID || '').trim() === ridStr ||
-          String(e.record_id || '').trim() === ridStr
+          String(e.id || '').trim() === idStr ||
+          String(e.EmployeeID || '').trim() === idStr ||
+          String(e.RecordID || '').trim() === idStr
         );
       });
       if (foundLocal) return Promise.resolve(foundLocal);
@@ -912,11 +906,11 @@
     // 2. Query Supabase server directly in real-time
     if (!ready || !sb) return Promise.resolve(null);
 
-    return sb
-      .from('employees')
-      .select('*')
-      .or('record_id.eq.' + ridStr + ',employee_id.eq.' + ridStr)
-      .limit(1)
+    var query = /^\d+$/.test(idStr)
+      ? sb.from('employees').select('*').or('id.eq.' + idStr + ',employee_id.eq.' + idStr).limit(1)
+      : sb.from('employees').select('*').eq('employee_id', idStr).limit(1);
+
+    return query
       .then(function (r) {
         if (r.error || !r.data || !r.data.length) return null;
         var empObj = fromDb('employees', r.data[0]);
@@ -924,7 +918,7 @@
         // Cache into local memory if missing
         if (global.DATA && Array.isArray(global.DATA.employees)) {
           var exists = global.DATA.employees.some(function (e) {
-            return String(e.RecordID) === String(empObj.RecordID);
+            return String(e.id) === String(empObj.id);
           });
           if (!exists) {
             global.DATA.employees.push(empObj);
@@ -937,6 +931,7 @@
         return null;
       });
   }
+  var fetchEmployeeByRecordId = fetchEmployeeById;
 
   /* ---------- Direct Batch Uploader (For Smart CSV Importer) ---------- */
   function batchUpsert(tableName, rows, onProgress, batchSize) {
@@ -1098,6 +1093,7 @@
     insert: insert,
     update: update,
     remove: remove,
+    fetchEmployeeById: fetchEmployeeById,
     fetchEmployeeByRecordId: fetchEmployeeByRecordId,
     batchUpsert: batchUpsert,
     pushAll: pushAll,

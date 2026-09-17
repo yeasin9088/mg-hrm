@@ -1,16 +1,13 @@
 const fs = require('fs');
 let html = fs.readFileSync('index.html', 'utf8');
 
-const regex = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
-let match;
-while ((match = regex.exec(html)) !== null) {
-  if (match.index === 234533) {
-      const code = match[1];
-      const lines = code.split('\n');
-      console.log(lines[6571 - 3]);
-      console.log(lines[6571 - 2]);
-      console.log(lines[6571 - 1]);
-      console.log(lines[6571]);
-      console.log(lines[6571 + 1]);
-  }
+const bad = "msg('setupMsg','URL-টি ঠিক মনে হচ্ছে না। এমন হওয়া উচিত:<br><code>https:\n        url.replace(/[<>&]/g,'') + '</code>','err'); return;";
+const good = "msg('setupMsg','URL-টি ঠিক মনে হচ্ছে না। এমন হওয়া উচিত:<br><code>https://' +\n        url.replace(/[<>&]/g,'') + '</code>','err'); return;";
+
+if (html.includes(bad)) {
+    html = html.replace(bad, good);
+    fs.writeFileSync('index.html', html);
+    console.log("Fixed!");
+} else {
+    console.log("Not found.");
 }

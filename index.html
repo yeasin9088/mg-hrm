@@ -717,6 +717,73 @@ tbody tr.clickable { cursor: pointer; }
 .emp-pick-item .epi-meta { color: var(--text-muted); font-size: 11px; margin-top: 1px; }
 .emp-pick-empty { padding: 14px; text-align: center; color: var(--text-muted); font-size: 12px; }
 .emp-pick.chosen > input[type="text"] { border-color: var(--success); background: var(--success-soft); font-weight: 600; }
+.emp-fetch-badge { margin-top: 6px; font-size: 11.5px; border-radius: 6px; padding: 4px 8px; display: inline-flex; align-items: center; gap: 6px; }
+.emp-fetch-badge.success { background: var(--success-soft); color: var(--success); font-weight: 600; }
+.emp-fetch-badge.info { background: var(--purple-soft); color: var(--purple); }
+.emp-fetch-badge.muted { background: var(--bg-dim); color: var(--text-3); }
+
+/* ============ SMART CSV UPLOADER STYLES ============ */
+.csv-drop-zone {
+  border: 2px dashed var(--border-strong, #cbd5e1);
+  border-radius: 10px;
+  background: var(--bg-dim, #f8fafc);
+  padding: 24px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.csv-drop-zone:hover, .csv-drop-zone.dragover {
+  border-color: var(--purple, #6366f1);
+  background: var(--purple-soft, #ede9fe);
+}
+.csv-drop-icon { font-size: 32px; margin-bottom: 6px; }
+.csv-badge-root {
+  background: #dcfce7;
+  color: #15803d;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  border: 1px solid #bbf7d0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.csv-badge-fk {
+  background: #ede9fe;
+  color: #6366f1;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  border: 1px solid #ddd6fe;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.csv-badge-match {
+  background: #e0f2fe;
+  color: #0369a1;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.csv-badge-manual {
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.csv-badge-skip {
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 10.5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
 
 /* ============ DESIGNATION COUNT STRIP (Employees tab) ============ */
 .count-strip {
@@ -3922,7 +3989,7 @@ function renderTransfer(){
       <div class="card-header"><h3>${'New Transfer Order'}</h3></div>
       <div class="card-body">
         <div class="form-grid">
-          <div class="field"><label>${'Select Employee'} *</label><select id="trEmp" onchange="trFillEmp()"></select></div>
+          <div class="field"><label>${'Select Employee'} *</label><select id="trEmp" onchange="trFillEmp()"></select><div id="trEmpBadge"></div></div>
           <div class="field"><label>${'Current Project'}</label><input id="trCurr" type="text" readonly></div>
           <div class="field"><label>${'New Project'} *</label><select id="trNew"></select></div>
           <div class="field"><label>${'Transfer Date'} *</label><input id="trDate" type="date"></div>
@@ -4115,98 +4182,191 @@ function editTransferNewProject(tid){
      <button class="btn primary" onclick="(function(){var v=document.getElementById('_np').value; var t=DATA.transfers.find(x=>String(x.TransferID)===String(${JSON.stringify(String(tid))})); if(t){t.NewProject=v; logActivity('update','transfers',${JSON.stringify(String(tid))}, 'destination changed to '+v); persist(); closeModal(); renderTransfer(); toast('${bn?'গন্তব্য বদলে গেছে':'Destination updated'}','success');}})()">${bn?'সেভ':'Save'}</button>`);
 }
 
-const EMP_PICKER_CB = { trEmp:'trFillEmp', dcEmp:'dcFillEmp', exEmp:'exFillEmp', ipEmp:'ipFillEmp' };
-function fillEmpSelect(id){
+const EMP_PICKER_CB = {
+  trEmp: 'trFillEmp',
+  dcEmp: 'dcFillEmp',
+  exEmp: 'exFillEmp',
+  ipEmp: 'ipFillEmp',
+  lvEmp: 'lvFillEmp'
+};
+
+function fillEmpSelect(id) {
   const sel = document.getElementById(id);
-  if(!sel) return;
+  if (!sel) return;
   const wrap = document.createElement('div');
-  wrap.className = 'emp-pick'; wrap.id = id+'_wrap';
+  wrap.className = 'emp-pick';
+  wrap.id = id + '_wrap';
   wrap.innerHTML = `
     <input type="text" id="${id}_q" autocomplete="off"
-      placeholder="${'Type serial or name…'}"
+      placeholder="${'Type RecordID or employee name…'}"
       onfocus="empPickOpen('${id}')" oninput="empPickFilter('${id}')">
     <input type="hidden" id="${id}">
+    <div id="${id}_badge" class="emp-fetch-badge" style="display:none"></div>
     <div class="emp-pick-list" id="${id}_list"></div>`;
   sel.replaceWith(wrap);
 }
-function empPickList(id, q){
-  q = (q||'').trim().toLowerCase();
-  let list = DATA.employees.slice();
-  if(q){
-    list = list.filter(e=>
-      String(e.RecordID||'').includes(q) ||
-      String(e.EmployeeID||'').toLowerCase().includes(q) ||
-      (e.FullName||'').toLowerCase().includes(q));
+
+function empPickList(id, q) {
+  q = (q || '').trim().toLowerCase();
+  let list = (DATA.employees || []).slice();
+  if (q) {
+    list = list.filter(e =>
+      String(e.RecordID || '').toLowerCase().includes(q) ||
+      String(e.EmployeeID || '').toLowerCase().includes(q) ||
+      (e.FullName || '').toLowerCase().includes(q)
+    );
   }
-  
-  const act = list.filter(e=>e.Status==='Active').sort((a,b)=>(+a.RecordID)-(+b.RecordID));
-  const ina = list.filter(e=>e.Status!=='Active').sort((a,b)=>(+a.RecordID)-(+b.RecordID));
-  return [...act, ...ina].slice(0,60);
-}
-function empPickRender(id, q){
-  const box = document.getElementById(id+'_list'); if(!box) return;
-  const list = empPickList(id, q);
-  box.innerHTML = list.length ? list.map(e=>{
-    const ina = e.Status!=='Active';
-    return `<div class="emp-pick-item" style="${ina?'opacity:.55':''}" onclick="empPickChoose('${id}','${e.RecordID}')">
-      <span class="epi-ser">${num(e.RecordID)}</span>
-      <div><div class="epi-name">${e.FullName||''} ${ina?`<span class="chip" style="background:var(--danger-soft);color:var(--danger);font-size:9.5px">${'Inactive'}</span>`:''}</div>
-      <div class="epi-meta">${desig(e.Designation||'')} · ${projName(e.ProjectName||'')}</div></div>
-    </div>`;
-  }).join('') : `<div class="emp-pick-empty">${'No match found'}</div>`;
-}
-function empPickOpen(id){
-  const q = document.getElementById(id+'_q');
-  empPickRender(id, q && q.value);
-  document.getElementById(id+'_list').classList.add('open');
-}
-function empPickFilter(id){
-  const q = document.getElementById(id+'_q').value;
-  empPickRender(id, q);
-  document.getElementById(id+'_list').classList.add('open');
-}
-function empPickChoose(id, rid){
-  const e = DATA.employees.find(x=>x.RecordID===rid); if(!e) return;
-  if(e.Status!=='Active'){           
-    document.getElementById(id+'_list').classList.remove('open');
-    openModal(`⚠ ${'Inactive Employee'}`, `
-      <div class="alert-item danger">${ico('warn')}
-        <div><h5>${e.FullName} (#${num(e.RecordID)}) ${'is not currently employed'}</h5>
-        <p>${'This employee has exited or is inactive. Transfer, disciplinary, leave or increment actions are only possible for Active employees. To re-hire, use the duplicate-alert Re-hire option in the Recruitment/Employees tab.'}</p></div>
-      </div>
-      <div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn primary" onclick="closeModal()">${'Understood'}</button></div>`);
-    return;
-  }
-  const hid = document.getElementById(id); hid.value = rid;
-  const inp = document.getElementById(id+'_q');
-  inp.value = `#${e.RecordID} · ${e.FullName} — ${e.Designation||''}`;
-  document.getElementById(id+'_wrap').classList.add('chosen');
-  document.getElementById(id+'_list').classList.remove('open');
-  const cb = EMP_PICKER_CB[id]; if(cb && window[cb]) window[cb]();
-}
-function empPickClearIfTyping(id){
-  
-  const hid = document.getElementById(id); if(hid) hid.value='';
-  const w = document.getElementById(id+'_wrap'); if(w) w.classList.remove('chosen');
-}
-function setEmpPicker(id, rid){
-  const e = DATA.employees.find(x=>x.RecordID===String(rid)); if(!e) return;
-  const hid = document.getElementById(id); if(!hid) return;
-  hid.value = e.RecordID;
-  const inp = document.getElementById(id+'_q');
-  if(inp) inp.value = `#${e.RecordID} · ${e.FullName} — ${e.Designation||''}`;
-  const w = document.getElementById(id+'_wrap'); if(w) w.classList.add('chosen');
-  const cb = EMP_PICKER_CB[id]; if(cb && window[cb]) window[cb]();
+  const act = list.filter(e => e.Status === 'Active').sort((a, b) => (+a.RecordID) - (+b.RecordID));
+  const ina = list.filter(e => e.Status !== 'Active').sort((a, b) => (+a.RecordID) - (+b.RecordID));
+  return [...act, ...ina].slice(0, 60);
 }
 
-document.addEventListener('click', ev=>{
-  document.querySelectorAll('.emp-pick-list.open').forEach(l=>{
-    if(!l.parentElement.contains(ev.target)) l.classList.remove('open');
+function empPickRender(id, q) {
+  const box = document.getElementById(id + '_list');
+  if (!box) return;
+  const list = empPickList(id, q);
+  box.innerHTML = list.length ? list.map(e => {
+    const ina = e.Status !== 'Active';
+    return `<div class="emp-pick-item" style="${ina ? 'opacity:.55' : ''}" onclick="empPickChoose('${id}','${e.RecordID}')">
+      <span class="epi-ser">${num(e.RecordID)}</span>
+      <div>
+        <div class="epi-name">${e.FullName || ''} ${ina ? `<span class="chip" style="background:var(--danger-soft);color:var(--danger);font-size:9.5px">${'Inactive'}</span>` : ''}</div>
+        <div class="epi-meta">${desig(e.Designation || '')} · ${projName(e.ProjectName || '')}</div>
+      </div>
+    </div>`;
+  }).join('') : `<div class="emp-pick-empty">${'No matching employee found'}</div>`;
+}
+
+function empPickOpen(id) {
+  const q = document.getElementById(id + '_q');
+  empPickRender(id, q && q.value);
+  const listEl = document.getElementById(id + '_list');
+  if (listEl) listEl.classList.add('open');
+}
+
+let _empFetchDebounce = null;
+function empPickFilter(id) {
+  const inp = document.getElementById(id + '_q');
+  const q = (inp && inp.value || '').trim();
+  empPickRender(id, q);
+  const listEl = document.getElementById(id + '_list');
+  if (listEl) listEl.classList.add('open');
+
+  const badgeEl = document.getElementById(id + '_badge');
+  const hid = document.getElementById(id);
+
+  if (!q) {
+    if (hid) hid.value = '';
+    if (badgeEl) { badgeEl.style.display = 'none'; badgeEl.innerHTML = ''; }
+    const wrap = document.getElementById(id + '_wrap');
+    if (wrap) wrap.classList.remove('chosen');
+    const cb = EMP_PICKER_CB[id];
+    if (cb && typeof window[cb] === 'function') window[cb]();
+    return;
+  }
+
+  // 1. Instant local search in DATA.employees by RecordID or EmployeeID (MS Access style)
+  const exact = (DATA.employees || []).find(function (e) {
+    return (
+      String(e.RecordID || '').trim().toLowerCase() === q.toLowerCase() ||
+      String(e.EmployeeID || '').trim().toLowerCase() === q.toLowerCase()
+    );
+  });
+
+  if (exact) {
+    empPickChoose(id, exact.RecordID, true);
+    return;
+  }
+
+  // 2. Real-time server query to Supabase if input is numeric or code
+  if (q.length >= 1 && (/\d/.test(q) || q.startsWith('EMP') || q.startsWith('SEC'))) {
+    if (badgeEl) {
+      badgeEl.className = 'emp-fetch-badge info';
+      badgeEl.style.display = 'inline-flex';
+      badgeEl.innerHTML = '<span>' + ico('search') + ' Searching Supabase for RecordID "' + q + '"...</span>';
+    }
+    clearTimeout(_empFetchDebounce);
+    _empFetchDebounce = setTimeout(async function () {
+      try {
+        if (window.MGHRM && typeof window.MGHRM.fetchEmployeeByRecordId === 'function') {
+          const emp = await window.MGHRM.fetchEmployeeByRecordId(q);
+          if (emp && emp.RecordID) {
+            empPickChoose(id, emp.RecordID, true);
+            if (badgeEl) {
+              badgeEl.className = 'emp-fetch-badge success';
+              badgeEl.style.display = 'inline-flex';
+              badgeEl.innerHTML = '<span>' + ico('check') + ' Auto-Fetched from Supabase: #' + emp.RecordID + ' · ' + emp.FullName + ' (' + (emp.Designation || '') + ' · ' + (emp.ProjectName || 'No Project') + ')</span>';
+            }
+          } else {
+            if (badgeEl) {
+              badgeEl.className = 'emp-fetch-badge muted';
+              badgeEl.innerHTML = '<span>No record found with ID "' + q + '"</span>';
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[Auto-Fetch error]', err);
+      }
+    }, 220);
+  }
+}
+
+function empPickChoose(id, rid, isAutoFetch) {
+  const e = (DATA.employees || []).find(function (x) {
+    return String(x.RecordID) === String(rid);
+  });
+  if (!e) return;
+  if (e.Status !== 'Active') {
+    const listEl = document.getElementById(id + '_list');
+    if (listEl) listEl.classList.remove('open');
+    openModal('⚠ Inactive Employee', `
+      <div class="alert-item danger">${ico('warn')}
+        <div><h5>${e.FullName} (#${num(e.RecordID)}) is not currently employed</h5>
+        <p>This employee has exited or is inactive. Transfer, disciplinary, leave or increment actions are only permitted for Active employees.</p></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn primary" onclick="closeModal()">Understood</button></div>`);
+    return;
+  }
+  const hid = document.getElementById(id);
+  if (hid) hid.value = e.RecordID;
+  const inp = document.getElementById(id + '_q');
+  if (inp) inp.value = '#' + e.RecordID + ' · ' + e.FullName + ' — ' + (e.Designation || '');
+  const wrap = document.getElementById(id + '_wrap');
+  if (wrap) wrap.classList.add('chosen');
+  const listEl = document.getElementById(id + '_list');
+  if (listEl) listEl.classList.remove('open');
+
+  const badgeEl = document.getElementById(id + '_badge');
+  if (badgeEl) {
+    badgeEl.className = 'emp-fetch-badge success';
+    badgeEl.style.display = 'inline-flex';
+    badgeEl.innerHTML = '<span>' + ico('check') + ' Linked: #' + e.RecordID + ' · ' + e.FullName + ' · ' + (e.Designation || '') + ' (' + (e.ProjectName || 'Unassigned') + ')</span>';
+  }
+
+  const cb = EMP_PICKER_CB[id];
+  if (cb && typeof window[cb] === 'function') window[cb]();
+}
+
+function setEmpPicker(id, rid) {
+  const e = (DATA.employees || []).find(x => String(x.RecordID) === String(rid));
+  if (!e) return;
+  const hid = document.getElementById(id);
+  if (!hid) return;
+  hid.value = e.RecordID;
+  const inp = document.getElementById(id + '_q');
+  if (inp) inp.value = '#' + e.RecordID + ' · ' + e.FullName + ' — ' + (e.Designation || '');
+  const w = document.getElementById(id + '_wrap');
+  if (w) w.classList.add('chosen');
+  const cb = EMP_PICKER_CB[id];
+  if (cb && typeof window[cb] === 'function') window[cb]();
+}
+
+document.addEventListener('click', ev => {
+  document.querySelectorAll('.emp-pick-list.open').forEach(l => {
+    if (!l.parentElement.contains(ev.target)) l.classList.remove('open');
   });
 });
-document.addEventListener('input', ev=>{
-  if(ev.target && ev.target.id && ev.target.id.endsWith('_q')) empPickClearIfTyping(ev.target.id.slice(0,-2));
-});
+
 function fillProjectSelect(id){
   const sel = document.getElementById(id);
   sel.innerHTML = `<option value="">— ${'select'} —</option>` +
@@ -4215,7 +4375,7 @@ function fillProjectSelect(id){
 }
 
 function assertActiveEmp(rid){
-  const e = DATA.employees.find(x=>x.RecordID===String(rid));
+  const e = DATA.employees.find(x => String(x.RecordID) === String(rid) || String(x.EmployeeID) === String(rid));
   if(!e) return null;
   if(e.Status!=='Active'){
     openModal(`⚠ ${'Inactive Employee'}`, `
@@ -4229,9 +4389,13 @@ function assertActiveEmp(rid){
   return e;
 }
 function trFillEmp(){
-  const rid = document.getElementById('trEmp').value;
-  const e = DATA.employees.find(x=>x.RecordID===rid);
-  document.getElementById('trCurr').value = e?e.ProjectName:'';
+  const rid = document.getElementById('trEmp')?.value;
+  const e = DATA.employees.find(x => String(x.RecordID) === String(rid) || String(x.EmployeeID) === String(rid));
+  document.getElementById('trCurr').value = e ? e.ProjectName : '';
+  const badgeEl = document.getElementById('trEmpBadge');
+  if (badgeEl) {
+    badgeEl.innerHTML = e ? `<span class="emp-fetch-badge success">✓ ${e.FullName} (RecordID #${e.RecordID})</span>` : '';
+  }
 }
 async function submitTransfer(){
   if(!guardEdit()) return;
@@ -4239,32 +4403,53 @@ async function submitTransfer(){
   const np = document.getElementById('trNew').value;
   const td = document.getElementById('trDate').value;
   if(!rid||!np||!td){ toast('Fill Employee, New Project, and Date', 'error'); return; }
-  const e = assertActiveEmp(rid); if(!e) return;
-  const isFuture = new Date(td)>new Date();
-  const newId = Math.max(0,...DATA.transfers.map(t=>+t.TransferID))+1;
+  let e = assertActiveEmp(rid);
+  if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeByRecordId === 'function') {
+    e = await window.MGHRM.fetchEmployeeByRecordId(rid);
+  }
+  if(!e) { toast('Employee not found or inactive', 'error'); return; }
+  const isFuture = new Date(td) > new Date();
+  const newId = Math.max(0, ...DATA.transfers.map(t => +t.TransferID || 0)) + 1;
   const payload = {
-    TransferID:String(newId), RecordID:e.RecordID, EmployeeID:e.EmployeeID,
-    FullName:e.FullName, Designation:e.Designation,
-    CurrentProject:e.ProjectName, NewProject:np, TransferDate:td,
-    'Issues Date':document.getElementById('trIssue').value,
-    Notes:document.getElementById('trNotes').value,
-    IsProceed:isFuture?'0':'1', Status:isFuture?'Scheduled':'Recorded',
+    TransferID: String(newId),
+    RecordID: e.RecordID,
+    EmployeeID: e.EmployeeID,
+    SystemID: e.SystemID || '',
+    FullName: e.FullName,
+    Designation: e.Designation,
+    CurrentProject: e.ProjectName,
+    NewProject: np,
+    TransferDate: td,
+    'Issues Date': document.getElementById('trIssue').value,
+    Notes: document.getElementById('trNotes').value,
+    IsProceed: isFuture ? '0' : '1',
+    Status: isFuture ? 'Scheduled' : 'Recorded',
   };
   
   try {
     const btn = event && event.target ? event.target : document.getElementById('btnSubmitTransfer');
     if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
-    await window.MGHRM.insert('transfers', payload);
-    if (btn) { btn.disabled = false; btn.innerHTML = 'Submit Transfer'; }
+    if (window.MGHRM && typeof window.MGHRM.insert === 'function') {
+      await window.MGHRM.insert('transfers', payload);
+      if (!isFuture) {
+        await window.MGHRM.update('employees', e.RecordID, { ProjectName: np });
+      }
+    } else {
+      DATA.transfers.unshift(payload);
+    }
+    if (!isFuture) e.ProjectName = np;
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Submit'; }
     
+    logActivity('create', 'transfers', String(newId), `Transfer for ${e.FullName} to ${np}`);
     toast(isFuture 
       ? 'Scheduled — employee project NOT changed (edit on Employees tab)'
-      : 'Recorded in history — employee project NOT changed', 'success');
+      : `Recorded — ${e.FullName} transferred to ${np}`, 'success');
       
+    persist();
     renderTransfer();
   } catch (err) {
     const btn = event && event.target ? event.target : document.getElementById('btnSubmitTransfer');
-    if (btn) { btn.disabled = false; btn.innerHTML = 'Submit Transfer'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Submit'; }
     toast('Transfer failed to save: ' + err.message, 'error');
   }
 }
@@ -4377,7 +4562,7 @@ function renderDisciplinary(){
       <div class="card-header"><h3>${'New Disciplinary Action'}</h3></div>
       <div class="card-body">
         <div class="form-grid">
-          <div class="field"><label>${'Employee'} *</label><select id="dcEmp" onchange="dcFillEmp()"></select></div>
+          <div class="field"><label>${'Employee'} *</label><select id="dcEmp" onchange="dcFillEmp()"></select><div id="dcEmpInfo"></div></div>
           <div class="field"><label>${'Action Type'} *</label><select id="dcType">
             ${Object.entries(DC_TEMPLATES).map(([k,v])=>`<option value="${k}">${v.label[LANG]||v.label.en}</option>`).join('')}
           </select></div>
@@ -4490,7 +4675,14 @@ function deleteDisciplinary(aid){
   toast('Deleted','success');
   persist(); closeModal(); renderDisciplinary();
 }
-function dcFillEmp(){ /* placeholder */ }
+function dcFillEmp() {
+  const rid = document.getElementById('dcEmp')?.value;
+  const e = (DATA.employees || []).find(x => String(x.RecordID) === String(rid));
+  const infoEl = document.getElementById('dcEmpInfo');
+  if (infoEl) {
+    infoEl.innerHTML = e ? `<span class="chip success" style="margin-top:6px;display:inline-block">✓ ${e.FullName} · ${e.Designation || ''} · Project: ${e.ProjectName || 'Unassigned'}</span>` : '';
+  }
+}
 async function submitDisciplinary(){
   if(!guardEdit()) return;
   const rid = document.getElementById('dcEmp').value;
@@ -4608,7 +4800,7 @@ function renderLeave(){
       <div class="card-header"><h3>${'New Leave Application'}</h3></div>
       <div class="card-body">
         <div class="form-grid">
-          <div class="field"><label>${'Employee'} *</label><select id="lvEmp"></select></div>
+          <div class="field"><label>${'Employee'} *</label><select id="lvEmp" onchange="lvFillEmp()"></select><div id="lvEmpInfo"></div></div>
           <div class="field"><label>${'Leave Type'} *</label><select id="lvType">${LEAVE_TYPES.map(l=>`<option value="${l.key}">${l[LANG]}</option>`).join('')}</select></div>
           <div class="field"><label>${'Start Date'} *</label><input id="lvStart" type="date"></div>
           <div class="field"><label>${'End Date'} *</label><input id="lvEnd" type="date"></div>
@@ -4679,7 +4871,15 @@ function renderLeaveCalendar(){
   html += `</div>`;
   return html;
 }
-function submitLeave(){
+function lvFillEmp() {
+  const rid = document.getElementById('lvEmp')?.value;
+  const e = (DATA.employees || []).find(x => String(x.RecordID) === String(rid));
+  const infoEl = document.getElementById('lvEmpInfo');
+  if (infoEl) {
+    infoEl.innerHTML = e ? `<span class="chip success" style="margin-top:6px;display:inline-block">✓ ${e.FullName} · ${e.Designation || ''} · Project: ${e.ProjectName || 'Unassigned'}</span>` : '';
+  }
+}
+async function submitLeave(){
   if(!guardEdit()) return;
   const rid = document.getElementById('lvEmp').value;
   const type = document.getElementById('lvType').value;
@@ -4688,7 +4888,38 @@ function submitLeave(){
   if(!rid||!s||!e){ toast('Fill Employee, Start & End dates','error'); return; }
   const emp = assertActiveEmp(rid); if(!emp) return;
   const days = Math.floor((new Date(e) - new Date(s))/86400000)+1;
-  SAMPLE_LEAVES.unshift({id:SAMPLE_LEAVES.length+1, empId:emp.EmployeeID, name:emp.FullName, type, start:s, end:e, days, reason:document.getElementById('lvReason').value, status:'Pending'});
+  const newId = SAMPLE_LEAVES.length + 1;
+  const leaveObj = {
+    id: newId,
+    leave_id: String(newId),
+    RecordID: emp.RecordID,
+    record_id: emp.RecordID,
+    SystemID: emp.SystemID || '',
+    employee_id: emp.EmployeeID,
+    EmployeeID: emp.EmployeeID,
+    empId: emp.EmployeeID,
+    name: emp.FullName,
+    full_name: emp.FullName,
+    type,
+    leave_type: type,
+    start: s,
+    from_date: s,
+    end: e,
+    to_date: e,
+    days,
+    days_count: days,
+    reason: document.getElementById('lvReason').value,
+    status: 'Pending'
+  };
+  SAMPLE_LEAVES.unshift(leaveObj);
+  if(DATA.leaves) DATA.leaves.unshift(leaveObj);
+  if(window.MGHRM && typeof MGHRM.insert === 'function') {
+    try {
+      await MGHRM.insert('leaves', leaveObj);
+    } catch(err) {
+      console.warn('Leaves insert note:', err);
+    }
+  }
   toast(`${'Leave application submitted'} (${num(days)} ${'days'})`,'success');
   persist(); renderLeave();
 }
@@ -4754,7 +4985,7 @@ function renderExit(){
       <div class="card-header"><h3>${'Employee Exit Process'}</h3></div>
       <div class="card-body">
         <div class="form-grid">
-          <div class="field"><label>${'Employee'} *</label><select id="exEmp" onchange="exFillEmp()"></select></div>
+          <div class="field"><label>${'Employee'} *</label><select id="exEmp" onchange="exFillEmp()"></select><div id="exEmpBadge"></div></div>
           <div class="field"><label>${'Current Project'}</label><input id="exProj" type="text" readonly></div>
           <div class="field"><label>${'Exit Type'}</label><select id="exType">
             <option>${'Voluntary Resignation'}</option>
@@ -4803,9 +5034,13 @@ function renderExit(){
   fillEmpSelect('exEmp');
 }
 function exFillEmp(){
-  const rid = document.getElementById('exEmp').value;
-  const e = DATA.employees.find(x=>x.RecordID===rid);
-  document.getElementById('exProj').value = e?e.ProjectName:'';
+  const rid = document.getElementById('exEmp')?.value;
+  const e = DATA.employees.find(x => String(x.RecordID) === String(rid) || String(x.EmployeeID) === String(rid));
+  document.getElementById('exProj').value = e ? e.ProjectName : '';
+  const badgeEl = document.getElementById('exEmpBadge');
+  if (badgeEl) {
+    badgeEl.innerHTML = e ? `<span class="emp-fetch-badge success">✓ ${e.FullName} (RecordID #${e.RecordID})</span>` : '';
+  }
 }
 
 function openExitPopup(eid){
@@ -4847,16 +5082,46 @@ function deleteExit(eid){
   toast('Deleted','success');
   persist(); closeModal(); renderExit();
 }
-function submitExit(){
+async function submitExit(){
   if(!guardEdit()) return;
   const rid = document.getElementById('exEmp').value;
   const d   = document.getElementById('exDate').value;
   const r   = document.getElementById('exReason').value;
   if(!rid||!d||!r){ toast('Fill all required fields','error'); return; }
-  const e = assertActiveEmp(rid); if(!e) return;
-  DATA.exits.unshift({ExitID:String(DATA.exits.length+1),RecordID:e.RecordID,EmployeeID:e.EmployeeID,FullName:e.FullName,Designation:e.Designation,CurrentProject:e.ProjectName,JoinDate:e.JoinDate,ExitType:document.getElementById('exType').value,ExitReason:r,ExitDate:d,IssueDate:document.getElementById('exIssue').value});
-  e.Status='Inactive'; e.ExitDate=d;
-  toast(`${e.FullName} ${'marked as Inactive'}`,'success');
+  let e = assertActiveEmp(rid);
+  if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeByRecordId === 'function') {
+    e = await window.MGHRM.fetchEmployeeByRecordId(rid);
+  }
+  if(!e){ toast('Employee not found or inactive','error'); return; }
+  const newExitId = String(DATA.exits.length + 1);
+  const exitPayload = {
+    ExitID: newExitId,
+    RecordID: e.RecordID,
+    EmployeeID: e.EmployeeID,
+    SystemID: e.SystemID || '',
+    FullName: e.FullName,
+    Designation: e.Designation,
+    CurrentProject: e.ProjectName,
+    JoinDate: e.JoinDate,
+    ExitType: document.getElementById('exType').value,
+    ExitReason: r,
+    ExitDate: d,
+    IssueDate: document.getElementById('exIssue').value
+  };
+  DATA.exits.unshift(exitPayload);
+  e.Status = 'Inactive';
+  e.ExitDate = d;
+  e.ExitReason = r;
+  if (window.MGHRM && typeof window.MGHRM.insert === 'function') {
+    try {
+      await window.MGHRM.insert('exits', exitPayload);
+      await window.MGHRM.update('employees', e.RecordID, { Status: 'Inactive', ExitDate: d });
+    } catch(err) {
+      console.warn('Exit sync note:', err);
+    }
+  }
+  logActivity('create','exits',newExitId,`${e.FullName} marked as Inactive (${r})`);
+  toast(`${e.FullName} marked as Inactive`,'success');
   persist(); renderExit();
 }
 function previewClearance(){
@@ -4976,20 +5241,51 @@ function ipCalcNew(){
   const inc=+document.getElementById('ipIncAmt').value||0;
   document.getElementById('ipNewSal').value=prev+inc;
 }
-function submitIncrement(){
+async function submitIncrement(){
   if(!guardEdit()) return;
   const rid=document.getElementById('ipEmp').value;
   const type=document.getElementById('ipType').value;
   if(!rid){ toast('Select employee','error'); return; }
-  const e=assertActiveEmp(rid); if(!e) return;
+  let e = assertActiveEmp(rid);
+  if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeByRecordId === 'function') {
+    e = await window.MGHRM.fetchEmployeeByRecordId(rid);
+  }
+  if(!e) { toast('Employee not found or inactive','error'); return; }
   const newDesig=document.getElementById('ipNewDesig').value;
   const newSal=+document.getElementById('ipNewSal').value;
   const prev=+document.getElementById('ipPrevSal').value;
   if(type==='Increment' && newSal===prev){ toast("For 'Increment', new salary must differ",'error'); return; }
   if(type==='Promotion' && newDesig===e.Designation){ toast("For 'Promotion', new designation must differ",'error'); return; }
   if(type==='Increment & Promotion' && (newDesig===e.Designation || newSal===prev)){ toast('Both must change','error'); return; }
-  DATA.career.push({ChangeID:String(DATA.career.length+1),RecordID:e.RecordID,EmployeeID:e.EmployeeID,FullName:e.FullName,ProjectName:e.ProjectName,ChangeType:type,EffectiveDate:document.getElementById('ipDate').value,CurrentDesignation:e.Designation,NewDesignation:newDesig,PreviousSalary:prev,IncrementAmount:newSal-prev,NewSalary:newSal,Notes:document.getElementById('ipNotes').value});
-  e.Designation=newDesig; e.Salary=newSal;
+  const newChangeId = String(DATA.career.length + 1);
+  const careerPayload = {
+    ChangeID: newChangeId,
+    RecordID: e.RecordID,
+    EmployeeID: e.EmployeeID,
+    SystemID: e.SystemID || '',
+    FullName: e.FullName,
+    ProjectName: e.ProjectName,
+    ChangeType: type,
+    EffectiveDate: document.getElementById('ipDate').value,
+    CurrentDesignation: e.Designation,
+    NewDesignation: newDesig,
+    PreviousSalary: prev,
+    IncrementAmount: newSal - prev,
+    NewSalary: newSal,
+    Notes: document.getElementById('ipNotes').value
+  };
+  DATA.career.push(careerPayload);
+  e.Designation = newDesig;
+  e.Salary = newSal;
+  if (window.MGHRM && typeof window.MGHRM.insert === 'function') {
+    try {
+      await window.MGHRM.insert('career', careerPayload);
+      await window.MGHRM.update('employees', e.RecordID, { Designation: newDesig, Salary: newSal });
+    } catch(err) {
+      console.warn('Career sync note:', err);
+    }
+  }
+  logActivity('create','career',newChangeId,`${type} for ${e.FullName} to ${newDesig} (${newSal})`);
   toast('Saved and profile updated','success');
   persist(); renderIncrement();
 }
@@ -5687,34 +5983,125 @@ function printEmpList(){
 function renderSettings(){
   document.getElementById('page-settings').innerHTML = `
     <div class="grid-2">
+      <div style="display:flex;flex-direction:column;gap:18px">
+        <!-- Card 1: Company Profile & Letterhead -->
+        <div class="card">
+          <div class="card-header">
+            <h3>Company Profile & Letterhead</h3>
+            <span class="sub">Used across all printed letters, vouchers & letterheads</span>
+          </div>
+          <div class="card-body">
+            <h4 style="font-size:12.5px;margin-bottom:10px;color:var(--text-2);text-transform:uppercase;letter-spacing:.4px">Logo</h4>
+            <div style="display:flex;gap:16px;align-items:flex-start;margin-bottom:18px">
+              <div id="logoPreview" style="width:110px;height:110px;border:2px dashed var(--border-strong);border-radius:8px;display:grid;place-items:center;background:var(--bg-dim);overflow:hidden">
+                ${COMPANY.logoDataUrl ? `<img src="${COMPANY.logoDataUrl}" style="max-width:100%;max-height:100%;object-fit:contain">` : `<span class="small-mute" style="text-align:center;font-size:11px">No logo<br>(default used)</span>`}
+              </div>
+              <div style="flex:1">
+                <input type="file" id="logoInput" accept="image/png,image/jpeg,image/webp,image/gif" onchange="handleLogoUpload(event)">
+              </div>
+            </div>
+            <div class="form-grid">
+              <div class="field"><label>Company Name</label><input type="text" id="setCompanyName" value="${COMPANY.name||''}"></div>
+              <div class="field"><label>Company Name (Bengali)</label><input type="text" id="setCompanyNameBn" value="${COMPANY.nameBn||''}"></div>
+              <div class="field wide"><label>Address</label><input type="text" id="setCompanyAddress" value="${COMPANY.address||''}"></div>
+              <div class="field wide"><label>Address (Bengali)</label><input type="text" id="setCompanyAddressBn" value="${COMPANY.addressBn||''}"></div>
+              <div class="field"><label>Phone</label><input type="text" id="setCompanyPhone" value="${COMPANY.phone||''}"></div>
+              <div class="field"><label>Phone (English)</label><input type="text" id="setCompanyPhoneEn" value="${COMPANY.phoneEn||''}"></div>
+              <div class="field"><label>Email</label><input type="text" id="setCompanyEmail" value="${COMPANY.email||''}"></div>
+            </div>
+            <button class="btn primary" style="margin-top:16px" onclick="saveCompanyProfile()">Save Profile</button>
+          </div>
+        </div>
+
+        <!-- Card 2: Database Maintenance & Danger Zone -->
+        <div class="card" style="border:1px solid rgba(220,38,38,0.25)">
+          <div class="card-header" style="background:var(--danger-soft, #fef2f2)">
+            <h3 style="color:var(--danger, #dc2626)">Database Maintenance</h3>
+            <span class="sub">Backup, export, or wipe system records</span>
+          </div>
+          <div class="card-body">
+            <p class="small-mute" style="margin-bottom:14px">
+              Manage system state or reset database records. Prior to performing a total wipe, an automatic JSON snapshot is exported and downloaded to your machine.
+            </p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn" onclick="exportBackupFile()">Export Complete Backup</button>
+              <button class="btn" style="background:#dc2626;color:#fff" onclick="wipeAllData()">Wipe All Data</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Column 2: Smart CSV & MS Access Importer -->
       <div class="card">
-        <div class="card-header"><h3>${'Company Profile & Letterhead'}</h3>
-          <span class="sub">${'Used across all letters'}</span>
+        <div class="card-header">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:34px;height:34px;border-radius:8px;background:var(--purple-soft, #ede9fe);color:var(--purple, #6366f1);display:flex;align-items:center;justify-content:center;font-size:18px">
+              📁
+            </div>
+            <div>
+              <h3 style="margin:0;font-size:16px">Smart CSV & MS Access Importer</h3>
+              <span class="sub">Intelligent fuzzy column catching & direct server push</span>
+            </div>
+          </div>
         </div>
         <div class="card-body">
-          <h4 style="font-size:12.5px;margin-bottom:10px;color:var(--text-2);text-transform:uppercase;letter-spacing:.4px">${'Logo'}</h4>
-          <div style="display:flex;gap:16px;align-items:flex-start;margin-bottom:18px">
-            <div id="logoPreview" style="width:110px;height:110px;border:2px dashed var(--border-strong);border-radius:8px;display:grid;place-items:center;background:var(--bg-dim);overflow:hidden">
-              ${COMPANY.logoDataUrl?`<img src="${COMPANY.logoDataUrl}" style="max-width:100%;max-height:100%;object-fit:contain">`:`<span class="small-mute" style="text-align:center;font-size:11px">${'No logo<br>(default used)'}</span>`}
+          <div class="form-grid" style="margin-bottom:14px">
+            <div class="field">
+              <label>Target Supabase Table *</label>
+              <select id="csvTargetTable" onchange="handleCsvTargetChange()">
+                <option value="employees">Employees (Master Root · RecordID ⭐)</option>
+                <option value="transfers">Transfers & Postings (FK: RecordID ⭐)</option>
+                <option value="disciplinary">Disciplinary Actions (FK: RecordID ⭐)</option>
+                <option value="exits">Exits & Resignations (FK: RecordID ⭐)</option>
+                <option value="career">Increments & Promotions (FK: RecordID ⭐)</option>
+                <option value="leaves">Leave Applications (FK: RecordID ⭐)</option>
+                <option value="uniform">Uniform Issues (FK: RecordID ⭐)</option>
+                <option value="projects">Projects & Sites</option>
+                <option value="demand">Security Demands</option>
+              </select>
             </div>
-            <div style="flex:1">
-              <input type="file" id="logoInput" accept="image/png,image/jpeg,image/webp,image/gif" onchange="handleLogoUpload(event)">
+            <div class="field">
+              <label>Batch Size (Server Push)</label>
+              <select id="csvBatchSize">
+                <option value="50" selected>50 records / batch (Optimal & Stable)</option>
+                <option value="100">100 records / batch (High Speed)</option>
+                <option value="25">25 records / batch (Small batches)</option>
+              </select>
             </div>
           </div>
-          <div class="form-grid">
-            <div class="field"><label>Company Name</label><input type="text" id="setCompanyName" value="${COMPANY.name||''}"></div>
-            <div class="field"><label>Company Name (Bengali)</label><input type="text" id="setCompanyNameBn" value="${COMPANY.nameBn||''}"></div>
-            <div class="field wide"><label>Address</label><input type="text" id="setCompanyAddress" value="${COMPANY.address||''}"></div>
-            <div class="field wide"><label>Address (Bengali)</label><input type="text" id="setCompanyAddressBn" value="${COMPANY.addressBn||''}"></div>
-            <div class="field"><label>Phone</label><input type="text" id="setCompanyPhone" value="${COMPANY.phone||''}"></div>
-            <div class="field"><label>Phone (English)</label><input type="text" id="setCompanyPhoneEn" value="${COMPANY.phoneEn||''}"></div>
-            <div class="field"><label>Email</label><input type="text" id="setCompanyEmail" value="${COMPANY.email||''}"></div>
+
+          <div id="csvDropZone" class="csv-drop-zone" onclick="document.getElementById('csvFileInput').click()">
+            <input type="file" id="csvFileInput" accept=".csv,.tsv,.txt" style="display:none" onchange="handleCsvFileSelected(event)">
+            <div class="csv-drop-icon">📤</div>
+            <div style="font-weight:600;font-size:13.5px;color:var(--text-1);margin-bottom:4px">Click to choose CSV/TSV or drag and drop here</div>
+            <div class="small-mute">Auto-detects delimiter (comma, tab, semicolon) & character encodings</div>
           </div>
-          <button class="btn primary" style="margin-top:16px" onclick="saveCompanyProfile()">Save Profile</button>
+
+          <div id="csvSchemaHint" style="margin-top:12px"></div>
+
+          <!-- Live workspace rendered upon file load -->
+          <div id="csvWorkspace" style="margin-top:16px;display:none"></div>
         </div>
       </div>
     </div>`;
+
+  setTimeout(() => {
+    handleCsvTargetChange();
+    const dropZone = document.getElementById('csvDropZone');
+    if (dropZone) {
+      dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+      dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+      dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+          handleCsvFileSelected({ target: { files: e.dataTransfer.files } });
+        }
+      });
+    }
+  }, 0);
 }
+
 function handleLogoUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -5726,6 +6113,7 @@ function handleLogoUpload(e) {
   };
   reader.readAsDataURL(file);
 }
+
 function saveCompanyProfile() {
   COMPANY.name = document.getElementById('setCompanyName').value;
   COMPANY.nameBn = document.getElementById('setCompanyNameBn').value;
@@ -5737,194 +6125,812 @@ function saveCompanyProfile() {
   persist();
   toast('Company profile saved', 'success');
 }
-function importHint() {
-  const t = document.getElementById('imType').value;
-  const bn = LANG==='bn';
-  const hints = {
-    employees: bn?'হেডার: RecordID (বা সিরিয়াল), EmployeeID, FullName, FatherName, MotherName, DOB, NID, PhoneNumber, Designation, ProjectName, JoinDate, Salary, Status, Address, DivisionID, DistrictID, UpazilaID':'Headers: RecordID (or Serial), EmployeeID, FullName, FatherName, MotherName, DOB, NID, PhoneNumber, Designation, ProjectName, JoinDate, Salary, Status, Address, ...',
-    projects: bn?'হেডার: ProjectID, ProjectName, ProjectNameBangla, StartDate, Location, Status':'Headers: ProjectID, ProjectName, ProjectNameBangla, StartDate, Location, Status',
-    transfers: bn?'হেডার: TransferID, EmployeeID, FullName, Designation, CurrentProject, NewProject, TransferDate, IssueDate, Status':'Headers: TransferID, EmployeeID, FullName, Designation, CurrentProject, NewProject, TransferDate, IssueDate, Status',
-    disciplinary: bn?'হেডার: ActionID, RefNo, EmployeeID, FullName, Designation, ProjectName, ActionType, IncidentDate, IssueDate, Description':'Headers: ActionID, RefNo, EmployeeID, FullName, Designation, ProjectName, ActionType, IncidentDate, IssueDate, Description',
-    exits: bn?'হেডার: ExitID, EmployeeID, FullName, Designation, CurrentProject, JoinDate, ExitDate, IssueDate, ExitType, ExitReason':'Headers: ExitID, EmployeeID, FullName, Designation, CurrentProject, JoinDate, ExitDate, IssueDate, ExitType, ExitReason',
-    leaves: bn?'হেডার: id (বা LeaveID), EmployeeID, name, type, start, end, days, reason, status':'Headers: id, EmployeeID, name, type, start, end, days, reason, status',
-    career: bn?'হেডার: CareerID, EmployeeID, FullName, ChangeType, CurrentDesignation, NewDesignation, CurrentSalary, NewSalary, EffectiveDate':'Headers: CareerID, EmployeeID, FullName, ChangeType, CurrentDesignation, NewDesignation, CurrentSalary, NewSalary, EffectiveDate',
-  };
-  document.getElementById('imHint').innerHTML = t ? `<div style="background:var(--bg-dim);padding:10px 12px;border-radius:6px;border-left:3px solid var(--purple)"><strong>${bn?'প্রত্যাশিত হেডার:':'Expected headers:'}</strong> <code style="font-size:11px">${hints[t]||''}</code><br><span class="small-mute">${bn?'হেডার নাম না মিললেও একই অর্থের বিকল্প নাম (যেমন FullName↔Name, PhoneNumber↔Mobile) auto-detect হবে।':'Alternate header names auto-detected (e.g. FullName↔Name, PhoneNumber↔Mobile).'}</span></div>` : '';
+
+/* ============ SMART CSV UPLOADER CORE & FUZZY MAPPING ============ */
+const CSV_SCHEMAS = {
+  employees: [
+    { key: 'record_id', label: 'RecordID (Universal Root Identifier) ⭐', isRoot: true, required: true },
+    { key: 'employee_id', label: 'EmployeeID (Badge Code)' },
+    { key: 'system_id', label: 'SystemID (Legacy SID)' },
+    { key: 'full_name', label: 'FullName (Employee Name) *', required: true },
+    { key: 'full_name_bn', label: 'FullNameBn (Bangla Name)' },
+    { key: 'father_name', label: 'FatherName' },
+    { key: 'mother_name', label: 'MotherName' },
+    { key: 'dob', label: 'DOB (Date of Birth)' },
+    { key: 'nid', label: 'NID / Birth Certificate' },
+    { key: 'phone', label: 'PhoneNumber (Mobile)' },
+    { key: 'designation', label: 'Designation (Rank)' },
+    { key: 'project_name', label: 'ProjectName (Posting)' },
+    { key: 'duty_hour', label: 'DutyHour (Shift Hours)' },
+    { key: 'education', label: 'Education / Qualification' },
+    { key: 'marital_status', label: 'MaritalStatus' },
+    { key: 'spouse_name', label: 'SpouseName' },
+    { key: 'spouse_phone', label: 'SpousePhone' },
+    { key: 'ec_name', label: 'Emergency Contact Person' },
+    { key: 'ec_phone', label: 'Emergency Contact Phone' },
+    { key: 'ec_relation', label: 'Emergency Contact Relation' },
+    { key: 'division', label: 'Division' },
+    { key: 'district', label: 'District (Home Zila)' },
+    { key: 'thana', label: 'Thana / Upazila' },
+    { key: 'religion', label: 'Religion' },
+    { key: 'address', label: 'Address (Present / Permanent)' },
+    { key: 'join_date', label: 'JoinDate (Joining Date)' },
+    { key: 'salary', label: 'Salary (Gross Salary)' },
+    { key: 'status', label: 'Status (Active / Inactive)' },
+    { key: 'notes', label: 'Notes' }
+  ],
+  transfers: [
+    { key: 'transfer_id', label: 'TransferID (Primary Key)' },
+    { key: 'record_id', label: 'RecordID (Root Foreign Key → Employees) ⭐', isFk: true, required: true },
+    { key: 'employee_id', label: 'EmployeeID' },
+    { key: 'full_name', label: 'FullName' },
+    { key: 'designation', label: 'Designation' },
+    { key: 'current_project', label: 'CurrentProject (Previous Site)' },
+    { key: 'new_project', label: 'NewProject (Destination Site)' },
+    { key: 'transfer_date', label: 'TransferDate (Effective Date)' },
+    { key: 'issue_date', label: 'IssueDate' },
+    { key: 'status', label: 'Status' },
+    { key: 'notes', label: 'Notes' }
+  ],
+  disciplinary: [
+    { key: 'action_id', label: 'ActionID (Primary Key)' },
+    { key: 'record_id', label: 'RecordID (Root Foreign Key → Employees) ⭐', isFk: true, required: true },
+    { key: 'employee_id', label: 'EmployeeID' },
+    { key: 'full_name', label: 'FullName' },
+    { key: 'designation', label: 'Designation' },
+    { key: 'project_name', label: 'ProjectName' },
+    { key: 'action_type', label: 'ActionType (Show Cause, Warning, etc.)' },
+    { key: 'ref_no', label: 'RefNo (Memo No.)' },
+    { key: 'incident_date', label: 'IncidentDate' },
+    { key: 'issue_date', label: 'IssueDate' },
+    { key: 'description', label: 'Description (Allegations / Findings)' }
+  ],
+  exits: [
+    { key: 'exit_id', label: 'ExitID (Primary Key)' },
+    { key: 'record_id', label: 'RecordID (Root Foreign Key → Employees) ⭐', isFk: true, required: true },
+    { key: 'employee_id', label: 'EmployeeID' },
+    { key: 'full_name', label: 'FullName' },
+    { key: 'designation', label: 'Designation' },
+    { key: 'current_project', label: 'CurrentProject' },
+    { key: 'join_date', label: 'JoinDate' },
+    { key: 'exit_date', label: 'ExitDate' },
+    { key: 'issue_date', label: 'IssueDate' },
+    { key: 'exit_type', label: 'ExitType (Resignation, Termination, etc.)' },
+    { key: 'exit_reason', label: 'ExitReason' },
+    { key: 'notes', label: 'Notes' }
+  ],
+  career: [
+    { key: 'career_id', label: 'CareerID (Primary Key)' },
+    { key: 'record_id', label: 'RecordID (Root Foreign Key → Employees) ⭐', isFk: true, required: true },
+    { key: 'employee_id', label: 'EmployeeID' },
+    { key: 'full_name', label: 'FullName' },
+    { key: 'change_type', label: 'ChangeType (Increment, Promotion, Demotion)' },
+    { key: 'current_designation', label: 'CurrentDesignation' },
+    { key: 'new_designation', label: 'NewDesignation' },
+    { key: 'current_salary', label: 'CurrentSalary' },
+    { key: 'new_salary', label: 'NewSalary' },
+    { key: 'increment_amount', label: 'IncrementAmount' },
+    { key: 'effective_date', label: 'EffectiveDate' },
+    { key: 'notes', label: 'Notes' }
+  ],
+  leaves: [
+    { key: 'leave_id', label: 'LeaveID / id (Primary Key)' },
+    { key: 'record_id', label: 'RecordID (Root Foreign Key → Employees) ⭐', isFk: true, required: true },
+    { key: 'employee_id', label: 'EmployeeID' },
+    { key: 'full_name', label: 'FullName / Name' },
+    { key: 'leave_type', label: 'LeaveType / Type' },
+    { key: 'from_date', label: 'FromDate / Start' },
+    { key: 'to_date', label: 'ToDate / End' },
+    { key: 'days_count', label: 'Days / DaysCount' },
+    { key: 'reason', label: 'Reason' },
+    { key: 'status', label: 'Status' }
+  ],
+  uniform: [
+    { key: 'uniform_id', label: 'UniformID (Primary Key)' },
+    { key: 'record_id', label: 'RecordID (Root Foreign Key → Employees) ⭐', isFk: true, required: true },
+    { key: 'employee_id', label: 'EmployeeID' },
+    { key: 'full_name', label: 'FullName' },
+    { key: 'item_name', label: 'ItemName (Shirt, Pants, Cap, Shoes, etc.)' },
+    { key: 'quantity', label: 'Quantity' },
+    { key: 'issue_date', label: 'IssueDate' },
+    { key: 'notes', label: 'Notes' }
+  ],
+  projects: [
+    { key: 'project_id', label: 'ProjectID (Primary Key)' },
+    { key: 'project_name', label: 'ProjectName *', required: true },
+    { key: 'project_name_bn', label: 'ProjectNameBangla' },
+    { key: 'location', label: 'Location' },
+    { key: 'start_date', label: 'StartDate' },
+    { key: 'status', label: 'Status' }
+  ],
+  demand: [
+    { key: 'demand_id', label: 'DemandID (Primary Key)' },
+    { key: 'project_name', label: 'ProjectName *', required: true },
+    { key: 'designation', label: 'Designation' },
+    { key: 'required_qty', label: 'RequiredQty' },
+    { key: 'posted_qty', label: 'PostedQty' },
+    { key: 'status', label: 'Status' }
+  ]
+};
+
+const CSV_SYNONYMS = {
+  record_id: ['recordid', 'record_id', 'record id', 'serial', 'serialno', 'serial no', 'sl', 'sl no', 'slno', 'rootid', 'root id', 'master id', 'rec id', 'rec_id', 'id'],
+  employee_id: ['employeeid', 'employee_id', 'employee id', 'empid', 'emp id', 'emp_id', 'badge', 'badgeid', 'badge id', 'card no', 'id card', 'emp code', 'employee code'],
+  system_id: ['systemid', 'system_id', 'system id', 'sid', 'legacy id', 'legacy sid'],
+  full_name: ['fullname', 'full_name', 'full name', 'employee name', 'employeename', 'staff name', 'candidate name', 'person name', 'name'],
+  full_name_bn: ['fullnamebn', 'full_name_bn', 'fullname bn', 'name bn', 'namebn', 'bangla name', 'bengali name'],
+  father_name: ['fathername', 'father_name', 'father name', 'fathers name', 'father'],
+  mother_name: ['mothername', 'mother_name', 'mother name', 'mothers name', 'mother'],
+  dob: ['dob', 'date of birth', 'birthdate', 'birth date', 'birth_date'],
+  nid: ['nid', 'nid/birthcertificate', 'nationalid', 'national id', 'birth certificate', 'nid no', 'nid number', 'national id no', 'nid_no', 'smart card', 'nidcard'],
+  phone: ['phone', 'phonenumber', 'phone number', 'mobile', 'mobile no', 'cell', 'cellphone', 'contact no', 'mobile number', 'contact number', 'phone no', 'contact num', 'contact'],
+  designation: ['designation', 'rank', 'post', 'position', 'role', 'title', 'designation name', 'job title'],
+  project_name: ['projectname', 'project_name', 'project name', 'project', 'site', 'posting', 'client', 'current project', 'present project', 'assigned project', 'place of posting', 'site name'],
+  duty_hour: ['dutyhour', 'duty_hour', 'duty hour', 'duty hours', 'duty_hours', 'shift hours', 'working hours', 'duty time'],
+  education: ['education', 'educational qualification', 'qualification', 'academic qualification', 'last degree', 'edu'],
+  religion: ['religion', 'faith'],
+  marital_status: ['maritalstatus', 'marital_status', 'marital status', 'marital'],
+  spouse_name: ['spousename', 'spouse_name', 'spouse name', 'wife name', 'husband name', 'spouse'],
+  spouse_phone: ['spousephone', 'spouse_phone', 'spouse phone', 'spouse mobile'],
+  ec_name: ['ecname', 'ec_name', 'emergency contact name', 'emergency contact person', 'emergency name', 'ec name', 'emergency contact'],
+  ec_phone: ['ecphone', 'ec_phone', 'emergency contact phone', 'emergency phone', 'emergency mobile', 'ec phone', 'emergency contact no'],
+  ec_relation: ['ecrelation', 'ec_relation', 'emergency relation', 'relation', 'ec relation', 'contact relation'],
+  division: ['division', 'bibhag', 'division name'],
+  district: ['district', 'permanent district', 'zila', 'home district', 'district name'],
+  thana: ['thana', 'upazila', 'police station', 'ps', 'thana/upazila', 'thana name'],
+  address: ['address', 'present address', 'permanent address', 'village', 'address details', 'full address', 'location'],
+  join_date: ['joindate', 'join_date', 'join date', 'date of join', 'joining date', 'appointment date'],
+  salary: ['salary', 'gross salary', 'basic salary', 'gross', 'basic', 'pay', 'wage', 'current salary', 'net salary', 'total salary'],
+  status: ['status', 'employment status', 'active', 'state', 'job status'],
+  transfer_id: ['transferid', 'transfer_id', 'transfer id', 'tid'],
+  current_project: ['currentproject', 'current_project', 'current project', 'from project', 'from', 'old project', 'previous project', 'source project'],
+  new_project: ['newproject', 'new_project', 'new project', 'to project', 'to', 'transfer project', 'target project', 'destination project', 'destination'],
+  transfer_date: ['transferdate', 'transfer_date', 'transfer date', 'effective date', 'date of transfer'],
+  action_id: ['actionid', 'action_id', 'action id', 'aid'],
+  ref_no: ['refno', 'ref_no', 'ref no', 'reference', 'memo', 'memo no', 'memo number'],
+  action_type: ['actiontype', 'action_type', 'action type', 'action', 'type of action', 'disciplinary type'],
+  incident_date: ['incidentdate', 'incident_date', 'incident date'],
+  issue_date: ['issuedate', 'issue_date', 'issue date', 'issues date', 'date of issue'],
+  description: ['description', 'desc', 'allegation', 'details', 'body', 'remarks'],
+  exit_id: ['exitid', 'exit_id', 'exit id', 'eid'],
+  exit_date: ['exitdate', 'exit_date', 'exit date', 'resignation date', 'release date', 'date of exit'],
+  exit_type: ['exittype', 'exit_type', 'exit type', 'type of exit'],
+  exit_reason: ['exitreason', 'exit_reason', 'exit reason', 'reason'],
+  career_id: ['careerid', 'career_id', 'career id', 'cid'],
+  change_type: ['changetype', 'change_type', 'change type', 'event type', 'career type'],
+  current_designation: ['currentdesignation', 'current_designation', 'current designation', 'prev designation', 'previous designation'],
+  new_designation: ['newdesignation', 'new_designation', 'new designation', 'promoted designation'],
+  current_salary: ['currentsalary', 'current_salary', 'current salary', 'prev salary', 'previous salary'],
+  new_salary: ['newsalary', 'new_salary', 'new salary', 'revised salary', 'updated salary'],
+  increment_amount: ['incrementamount', 'increment_amount', 'increment amount', 'increment', 'inc amt'],
+  effective_date: ['effectivedate', 'effective_date', 'effective date'],
+  leave_id: ['leaveid', 'leave_id', 'leave id', 'id', 'lid'],
+  leave_type: ['leavetype', 'leave_type', 'leave type', 'type'],
+  from_date: ['fromdate', 'from_date', 'from date', 'start', 'start date', 'startdate'],
+  to_date: ['todate', 'to_date', 'to date', 'end', 'end date', 'enddate'],
+  days_count: ['dayscount', 'days_count', 'days count', 'days', 'total days'],
+  reason: ['reason', 'cause', 'purpose'],
+  uniform_id: ['uniformid', 'uniform_id', 'uniform id', 'uid', 'order id', 'order_id'],
+  item_name: ['itemname', 'item_name', 'item name', 'item', 'uniform item'],
+  quantity: ['quantity', 'qty', 'piece', 'count'],
+  project_id: ['projectid', 'project_id', 'project id', 'pid'],
+  project_name_bn: ['projectnamebangla', 'project_name_bn', 'project name bn'],
+  demand_id: ['demandid', 'demand_id', 'demand id'],
+  required_qty: ['requiredqty', 'required_qty', 'required qty', 'demand qty', 'required'],
+  posted_qty: ['postedqty', 'posted_qty', 'posted qty', 'deployed qty', 'posted']
+};
+
+function levenshteinDist(s1, s2) {
+  s1 = String(s1 || '').toLowerCase().trim();
+  s2 = String(s2 || '').toLowerCase().trim();
+  if (s1 === s2) return 0;
+  if (!s1.length) return s2.length;
+  if (!s2.length) return s1.length;
+  const matrix = [];
+  for (let i = 0; i <= s2.length; i++) matrix[i] = [i];
+  for (let j = 0; j <= s1.length; j++) matrix[0][j] = j;
+  for (let i = 1; i <= s2.length; i++) {
+    for (let j = 1; j <= s1.length; j++) {
+      if (s2.charAt(i - 1) === s1.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+  return matrix[s2.length][s1.length];
 }
-function importPreview(){
-  const t = document.getElementById('imType').value;
-  const fileEl = document.getElementById('imFile');
-  const file = fileEl && fileEl.files && fileEl.files[0];
-  const box = document.getElementById('imPreview');
-  if(!t){ box.innerHTML = '<p style="color:var(--danger)">'+('Select data type first.')+'</p>'; return; }
-  if(!file){ box.innerHTML = ''; return; }
+
+function calculateSimilarity(str1, str2) {
+  const s1 = String(str1 || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const s2 = String(str2 || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!s1 && !s2) return 1.0;
+  if (!s1 || !s2) return 0.0;
+  if (s1 === s2) return 1.0;
+  const maxLen = Math.max(s1.length, s2.length);
+  const dist = levenshteinDist(s1, s2);
+  return Math.max(0, 1.0 - (dist / maxLen));
+}
+
+function fuzzyMatchColumn(csvHeader, targetTable) {
+  const schema = CSV_SCHEMAS[targetTable] || [];
+  const cleanHeader = String(csvHeader || '').trim();
+  const norm = cleanHeader.toLowerCase().replace(/[\s_\-\.]/g, '');
+
+  if (!norm) return { targetCol: '__skip__', confidence: 0, isAuto: false };
+
+  // 1. Direct synonym lookup
+  for (const [colKey, synonyms] of Object.entries(CSV_SYNONYMS)) {
+    const schemaCol = schema.find(c => c.key === colKey);
+    if (!schemaCol) continue;
+    for (const syn of synonyms) {
+      const synNorm = syn.toLowerCase().replace(/[\s_\-\.]/g, '');
+      if (norm === synNorm) {
+        return { targetCol: colKey, confidence: 1.0, isAuto: true, schemaCol };
+      }
+    }
+  }
+
+  // 2. Direct schema key match
+  for (const col of schema) {
+    const keyNorm = col.key.toLowerCase().replace(/[\s_\-\.]/g, '');
+    if (norm === keyNorm) {
+      return { targetCol: col.key, confidence: 0.98, isAuto: true, schemaCol: col };
+    }
+  }
+
+  // 3. Substring matching for compound headers (sorted by length descending, min length 4)
+  let bestSubMatch = null;
+  let maxSubLen = 0;
+  for (const col of schema) {
+    const synonyms = CSV_SYNONYMS[col.key] || [];
+    for (const syn of synonyms) {
+      const synNorm = syn.toLowerCase().replace(/[\s_\-\.]/g, '');
+      if (synNorm.length >= 4 && norm.includes(synNorm)) {
+        if (synNorm.length > maxSubLen) {
+          maxSubLen = synNorm.length;
+          bestSubMatch = { targetCol: col.key, confidence: 0.92, isAuto: true, schemaCol: col };
+        }
+      }
+    }
+  }
+  if (bestSubMatch) return bestSubMatch;
+
+  // 4. Fuzzy similarity
+  let bestMatch = null;
+  let highestScore = 0;
+  for (const col of schema) {
+    const colKeyNorm = col.key.toLowerCase().replace(/[\s_\-\.]/g, '');
+    let score = calculateSimilarity(norm, colKeyNorm);
+    const synonyms = CSV_SYNONYMS[col.key] || [];
+    for (const syn of synonyms) {
+      const synNorm = syn.toLowerCase().replace(/[\s_\-\.]/g, '');
+      const sScore = calculateSimilarity(norm, synNorm);
+      if (sScore > score) score = sScore;
+    }
+    if (score > highestScore && score >= 0.70) {
+      highestScore = score;
+      bestMatch = col;
+    }
+  }
+
+  if (bestMatch) {
+    return { targetCol: bestMatch.key, confidence: highestScore, isAuto: true, schemaCol: bestMatch };
+  }
+
+  return { targetCol: '__skip__', confidence: 0, isAuto: false };
+}
+
+function handleCsvTargetChange() {
+  const t = document.getElementById('csvTargetTable')?.value || 'employees';
+  const hintEl = document.getElementById('csvSchemaHint');
+  if (!hintEl) return;
+
+  if (t === 'employees') {
+    hintEl.innerHTML = `
+      <div class="alert-item info" style="margin:0;font-size:12px">
+        ${ico('users')}
+        <div>
+          <strong>Master Relational Root (Employees):</strong>
+          <span class="csv-badge-root">Universal Root: RecordID</span>
+          <p style="margin-top:2px">Legacy CSVs with <code>RecordID</code> or <code>Serial</code> are strictly preserved as the primary relational root key for all modules.</p>
+        </div>
+      </div>`;
+  } else if (['transfers', 'disciplinary', 'exits', 'career', 'leaves', 'uniform'].includes(t)) {
+    hintEl.innerHTML = `
+      <div class="alert-item info" style="margin:0;font-size:12px">
+        ${ico('link')}
+        <div>
+          <strong>Relational Child Table (${t}):</strong>
+          <span class="csv-badge-fk">Foreign Key: RecordID → employees.record_id</span>
+          <p style="margin-top:2px">Records automatically link to the corresponding employee via <code>RecordID</code> to maintain absolute relational integrity.</p>
+        </div>
+      </div>`;
+  } else {
+    hintEl.innerHTML = `
+      <div class="alert-item info" style="margin:0;font-size:12px">
+        ${ico('building')}
+        <div>
+          <strong>Reference Table (${t}):</strong>
+          <p style="margin-top:2px">Managed through primary keys and direct server push to Supabase.</p>
+        </div>
+      </div>`;
+  }
+
+  if (window.__csvImportState && window.__csvImportState.headers) {
+    window.__csvImportState.targetTable = t;
+    const headers = window.__csvImportState.headers;
+    window.__csvImportState.mapping = headers.map(h => {
+      const match = fuzzyMatchColumn(h, t);
+      return {
+        csvHeader: h,
+        targetCol: match.targetCol,
+        confidence: match.confidence,
+        isAuto: match.isAuto
+      };
+    });
+    renderCsvWorkspace();
+  }
+}
+
+function parseCSVLike(text) {
+  const firstLine = (text.split(/\r?\n/)[0] || '');
+  const delim = firstLine.indexOf('\t') >= 0 ? '\t' : firstLine.indexOf(';') >= 0 ? ';' : ',';
+  const rows = [];
+  let cur = [];
+  let field = '';
+  let inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQ = false;
+      } else {
+        field += c;
+      }
+    } else {
+      if (c === '"') {
+        inQ = true;
+      } else if (c === delim) {
+        cur.push(field);
+        field = '';
+      } else if (c === '\n') {
+        cur.push(field);
+        rows.push(cur);
+        cur = [];
+        field = '';
+      } else if (c === '\r') {
+        // skip carriage return
+      } else {
+        field += c;
+      }
+    }
+  }
+  if (field.length || cur.length) {
+    cur.push(field);
+    rows.push(cur);
+  }
+  return { rows, delim };
+}
+
+function handleCsvFileSelected(event) {
+  const file = event.target?.files?.[0];
+  if (!file) return;
+
   const name = file.name.toLowerCase();
-  const isXlsx = name.endsWith('.xlsx') || name.endsWith('.xls');
-  if(isXlsx){
-    box.innerHTML = `<p style="color:var(--warning);background:var(--warning-soft);padding:10px;border-radius:6px">⚠ ${'.xlsx not directly supported — in Excel, "Save As → CSV UTF-8" then upload. Safest, keeps Unicode intact.'}</p>`;
+  if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+    openModal('Excel File Notice', `
+      <div class="alert-item warning">
+        ${ico('warn')}
+        <div>
+          <h5>Excel Format Detected</h5>
+          <p>Please open the file in Excel and choose <strong>"File → Save As → CSV UTF-8"</strong> before uploading. This preserves Unicode encoding and character safety.</p>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:10px">
+        <button class="btn primary" onclick="closeModal()">Understood</button>
+      </div>`);
     return;
   }
+
+  const targetTable = document.getElementById('csvTargetTable')?.value || 'employees';
   const reader = new FileReader();
-  reader.onload = function(e){
+  reader.onload = function(e) {
     let text = e.target.result;
-    if(text.charCodeAt(0)===0xFEFF) text = text.slice(1);  /* strip BOM */
-    const rows = parseCSVLike(text);
-    if(!rows.length){ box.innerHTML = '<p style="color:var(--danger)">'+('File is empty or unreadable.')+'</p>'; return; }
-    const headers = rows[0].map(h=>String(h||'').trim());
-    const data = rows.slice(1).filter(r=>r.some(v=>String(v||'').trim()));
-    const mapped = data.map(r=>{
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1); // Strip BOM
+
+    const { rows, delim } = parseCSVLike(text);
+    if (!rows.length) {
+      toast('The selected file is empty or could not be read.', 'error');
+      return;
+    }
+
+    const headers = rows[0].map(h => String(h || '').trim()).filter(Boolean);
+    const dataRows = rows.slice(1).filter(r => r.some(v => String(v || '').trim()));
+
+    if (!dataRows.length) {
+      toast('The CSV contains headers but no data rows.', 'error');
+      return;
+    }
+
+    const rawObjects = dataRows.map(r => {
       const obj = {};
-      headers.forEach((h,i)=>{ if(h) obj[h] = String(r[i]||'').trim(); });
-      return normalizeImportRow(t, obj);
+      headers.forEach((h, i) => {
+        obj[h] = String(r[i] !== undefined ? r[i] : '').trim();
+      });
+      return obj;
     });
-    const bn = LANG==='bn';
-    const preview = mapped.slice(0,10);
-    const previewHeaders = Object.keys(preview[0]||{}).slice(0,8);
-    box.innerHTML = `
-      <div class="alert-item info" style="margin-bottom:10px">${ico('check')}
-        <div><h5>${bn?'ফাইল পড়া হয়েছে':'File parsed'} — ${num(mapped.length)} ${bn?'সারি':'rows'}, ${num(headers.length)} ${bn?'কলাম':'columns'}</h5>
-        <p>${bn?'নিচে প্রথম ১০ সারি প্রিভিউ। মিলে গেলে "ইম্পোর্ট নিশ্চিত" চাপুন।':'First 10 rows preview below. If correct, click Confirm Import.'}</p></div>
-      </div>
-      <div class="table-wrap" style="max-height:280px;overflow:auto">
-        <table style="font-size:11px">
-          <thead><tr>${previewHeaders.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
-          <tbody>${preview.map(r=>`<tr>${previewHeaders.map(h=>`<td>${String(r[h]||'').replace(/</g,'&lt;').slice(0,80)}</td>`).join('')}</tr>`).join('')}</tbody>
-        </table>
-      </div>
-      <div class="btn-row" style="margin-top:12px">
-        <button class="btn success" style="font-weight:700" onclick="importConfirm()">✓ ${bn?'ইম্পোর্ট নিশ্চিত করুন':'Confirm Import'} (${num(mapped.length)})</button>
-        <span class="small-mute">${bn?'বিদ্যমান রেকর্ডের সাথে ID মিললে আপডেট হবে; না মিললে নতুন যোগ হবে।':'Rows with matching ID update in place; others are added new.'}</span>
-      </div>
-    `;
-    
-    window.__importPendingType = t;
-    window.__importPendingRows = mapped;
+
+    const mapping = headers.map(h => {
+      const match = fuzzyMatchColumn(h, targetTable);
+      return {
+        csvHeader: h,
+        targetCol: match.targetCol,
+        confidence: match.confidence,
+        isAuto: match.isAuto
+      };
+    });
+
+    window.__csvImportState = {
+      targetTable,
+      fileName: file.name,
+      fileSize: (file.size / 1024).toFixed(1) + ' KB',
+      delimiter: delim === '\t' ? 'Tab (TSV)' : delim === ';' ? 'Semicolon (;)' : 'Comma (,)',
+      headers,
+      rows: rawObjects,
+      mapping,
+      activeTab: 'mapping'
+    };
+
+    renderCsvWorkspace();
   };
   reader.readAsText(file, 'utf-8');
 }
-function parseCSVLike(text){
-  /* CSV/TSV/TXT auto-detect delimiter (comma / tab / semicolon) with quoted-field support */
-  const firstLine = (text.split(/\r?\n/)[0]||'');
-  const delim = firstLine.indexOf('\t')>=0 ? '\t' : firstLine.indexOf(';')>=0 ? ';' : ',';
-  const rows = []; let cur=[]; let field=''; let inQ=false;
-  for(let i=0; i<text.length; i++){
-    const c = text[i];
-    if(inQ){
-      if(c==='"'){ if(text[i+1]==='"'){ field+='"'; i++; } else inQ=false; }
-      else field+=c;
-    } else {
-      if(c==='"'){ inQ=true; }
-      else if(c===delim){ cur.push(field); field=''; }
-      else if(c==='\n'){ cur.push(field); rows.push(cur); cur=[]; field=''; }
-      else if(c==='\r'){ /* skip */ }
-      else field+=c;
-    }
-  }
-  if(field.length || cur.length){ cur.push(field); rows.push(cur); }
-  return rows;
-}
-function normalizeImportRow(type, raw){
-  /* header alias mapping — Bengali + English */
-  const alias = {
-    'name':'FullName','পূর্ণ নাম':'FullName','নাম':'FullName',
-    'mobile':'PhoneNumber','phone':'PhoneNumber','মোবাইল':'PhoneNumber','ফোন':'PhoneNumber',
-    'nid':'NID','জাতীয় পরিচয়':'NID',
-    'designation':'Designation','পদবি':'Designation','pad':'Designation',
-    'project':'ProjectName','প্রজেক্ট':'ProjectName',
-    'joindate':'JoinDate','যোগদান':'JoinDate',
-    'exitdate':'ExitDate','ছাঁটাই তারিখ':'ExitDate','ত্যাগের তারিখ':'ExitDate',
-    'exitreason':'ExitReason','reason':'ExitReason','কারণ':'ExitReason',
-    'exittype':'ExitType','type':'ExitType','ধরন':'ExitType',
-    'salary':'Salary','বেতন':'Salary',
-    'status':'Status','অবস্থা':'Status',
-    'transferdate':'TransferDate','বদলি তারিখ':'TransferDate',
-    'currentproject':'CurrentProject','from':'CurrentProject',
-    'newproject':'NewProject','to':'NewProject',
-    'refno':'RefNo','ref':'RefNo','স্মারক':'RefNo',
-    'actiontype':'ActionType','action':'ActionType',
-    'incidentdate':'IncidentDate','issuedate':'IssueDate',
-    'description':'Description','বর্ণনা':'Description',
-    'serial':'RecordID','ক্রম':'RecordID','#':'RecordID',
-    'employeeid':'EmployeeID','id':'EmployeeID','আইডি':'EmployeeID',
-    'systemid':'SystemID','sid':'SystemID','এসআইডি':'SystemID',
-  };
-  const out = {};
-  Object.keys(raw).forEach(k=>{
-    const key = alias[k.toLowerCase().replace(/[\s_\-\.]/g,'')] || k;
-    out[key] = raw[k];
-  });
-  return out;
-}
-function importConfirm(){
-  if(!guardEdit()) return;
-  const type = window.__importPendingType;
-  const rows = window.__importPendingRows;
-  if(!type || !Array.isArray(rows) || !rows.length){
-    toast('No pending import data — please select the file again','error');
-    return;
-  }
-  if(!confirm(('Confirm? ')+num(rows.length)+(' rows will be imported.'))) return;
-  
-  const bucket = { employees:'employees', projects:'projects', transfers:'transfers', disciplinary:'disciplinary', exits:'exits', leaves:'leaves', career:'career' }[type];
-  if(!bucket){ toast('Unknown type','error'); return; }
-  DATA[bucket] = DATA[bucket] || [];
-  
-  const pkMap = { employees:'RecordID', projects:'ProjectID', transfers:'TransferID', disciplinary:'ActionID', exits:'ExitID', leaves:'id', career:'CareerID' };
-  const pk = pkMap[type];
-  
-  let currentMax = DATA[bucket].reduce((mx,x)=>{ const v=parseInt(x&&x[pk])||0; return v>mx?v:mx; }, 0);
-  let added=0, updated=0;
-  
-  /* Calculate max SystemID for new employee generation */
-  let maxEmpSid = Math.max(0, ...DATA.employees.map(e=>parseInt(e.SystemID, 10)||0));
-  let maxRecSid = Math.max(0, ...(window.RECRUITMENT||[]).map(r=>parseInt(r.sid, 10)||0));
-  let maxArchSid = Math.max(0, ...(DATA.recruitmentArchive||[]).map(a=>parseInt(a.sid, 10)||0));
-  let globalMaxSid = Math.max(maxEmpSid, maxRecSid, maxArchSid);
 
-  rows.forEach(r=>{
-    /* Auto-assign SystemID for Employees if missing */
-    if (bucket === 'employees' && !r.SystemID) {
-      globalMaxSid++;
-      r.SystemID = String(globalMaxSid);
-    }
-    /* Auto-link SystemID for other tables if missing */
-    if (bucket !== 'employees' && bucket !== 'projects' && !r.SystemID) {
-      let empId = r.EmployeeID || r.empId;
-      let recId = r.RecordID;
-      let match = DATA.employees.find(e => (empId && String(e.EmployeeID) === String(empId)) || (recId && String(e.RecordID) === String(recId)));
-      if (match) {
-        r.SystemID = match.SystemID;
+function renderCsvWorkspace() {
+  const state = window.__csvImportState;
+  const ws = document.getElementById('csvWorkspace');
+  if (!state || !ws) return;
+
+  ws.style.display = 'block';
+  const schema = CSV_SCHEMAS[state.targetTable] || [];
+  const activeMappings = state.mapping.filter(m => m.targetCol && m.targetCol !== '__skip__');
+  const isRootMapped = activeMappings.some(m => m.targetCol === 'record_id');
+  const hasRootRequirement = schema.some(c => c.isRoot || c.isFk);
+
+  // Tab Header
+  let html = `
+    <div style="background:var(--bg-dim);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-weight:700;font-size:13.5px;color:var(--text-1);display:flex;align-items:center;gap:8px">
+          <span>📄 ${state.fileName}</span>
+          <span class="chip" style="font-size:10px">${state.fileSize}</span>
+          <span class="chip" style="font-size:10px">${state.delimiter}</span>
+        </div>
+        <div class="small-mute" style="margin-top:3px">
+          ${num(state.rows.length)} data rows detected · ${num(state.headers.length)} CSV columns · Target: <strong>${state.targetTable}</strong>
+        </div>
+      </div>
+      <button class="btn ghost sm" onclick="resetCsvUploader()">✕ Remove File</button>
+    </div>
+
+    <div style="display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:14px">
+      <button class="btn ${state.activeTab==='mapping'?'primary':'ghost'} sm" style="border-radius:6px 6px 0 0" onclick="switchCsvTab('mapping')">
+        1. Column Mapping & Schema (${num(activeMappings.length)}/${num(state.headers.length)})
+      </button>
+      <button class="btn ${state.activeTab==='preview'?'primary':'ghost'} sm" style="border-radius:6px 6px 0 0" onclick="switchCsvTab('preview')">
+        2. Live Data Preview (First 10 Rows)
+      </button>
+    </div>
+  `;
+
+  if (state.activeTab === 'mapping') {
+    // Relational Integrity Alert
+    if (hasRootRequirement) {
+      if (isRootMapped) {
+        html += `
+          <div class="alert-item success" style="margin-bottom:14px;padding:8px 12px">
+            ${ico('check')}
+            <div style="font-size:12px">
+              <strong>Relational Root Verified:</strong> <code>record_id</code> is successfully mapped. MS Access primary/foreign key links will be preserved.
+            </div>
+          </div>`;
+      } else {
+        html += `
+          <div class="alert-item warning" style="margin-bottom:14px;padding:8px 12px">
+            ${ico('warn')}
+            <div style="font-size:12px">
+              <strong>RecordID Not Mapped:</strong> <code>record_id</code> is the core relational identifier. Please map the corresponding ID or Serial column from your file to ensure database relations remain intact.
+            </div>
+          </div>`;
       }
     }
 
-    if(pk && r[pk]){
-      const i = DATA[bucket].findIndex(x=>String(x[pk])===String(r[pk]));
-      if(i>=0){ Object.assign(DATA[bucket][i], r); updated++; return; }
-    }
-    if(pk && !r[pk]){
-      currentMax++;
-      r[pk] = String(currentMax);
-    }
-    DATA[bucket].unshift(r); added++;
-  });
-  
-  logActivity('import', bucket, '', `imported ${rows.length} rows (${added} added, ${updated} updated)`);
-  toast(('Import done — ')+num(added)+(' added, ')+num(updated)+(' updated'),'success');
-  
-  window.__importPendingType = null;
-  window.__importPendingRows = null;
-  
-  persist();
-  
-  if(bucket==='employees'){
-    DATA.employees.forEach(e=>{
-      const d = parseDate(e.JoinDate);
-      e._joinDays = d ? Math.floor((Date.now()-d)/86400000) : Infinity;
+    // Mapping Table
+    html += `
+      <div class="table-wrap" style="max-height:360px;overflow:auto;border:1px solid var(--border);border-radius:6px;margin-bottom:14px">
+        <table style="font-size:11.5px;margin:0">
+          <thead>
+            <tr style="background:var(--bg-dim)">
+              <th style="width:25%">CSV Header (Source)</th>
+              <th style="width:30%">Sample Data (Row 1-2)</th>
+              <th style="width:30%">Target Database Column</th>
+              <th style="width:15%">Match Status</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    state.mapping.forEach((m, idx) => {
+      const sample1 = state.rows[0] ? state.rows[0][m.csvHeader] || '' : '';
+      const sample2 = state.rows[1] ? state.rows[1][m.csvHeader] || '' : '';
+      const sampleText = [sample1, sample2].filter(Boolean).join(' | ');
+
+      const isRootCol = m.targetCol === 'record_id';
+      const statusBadge = m.targetCol === '__skip__'
+        ? `<span class="csv-badge-skip">Skipped</span>`
+        : m.isAuto
+        ? `<span class="csv-badge-match">✓ Auto-Matched</span>`
+        : `<span class="csv-badge-manual">Manual</span>`;
+
+      html += `
+        <tr style="${isRootCol ? 'background:rgba(34,197,94,0.06)' : ''}">
+          <td>
+            <div style="font-weight:600;color:var(--text-1)">${m.csvHeader}</div>
+          </td>
+          <td>
+            <div style="color:var(--text-2);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${sampleText}">
+              ${sampleText || '<span class="small-mute">(Empty)</span>'}
+            </div>
+          </td>
+          <td>
+            <select style="width:100%;font-size:11.5px;padding:4px 6px;border-radius:4px" onchange="updateCsvMapping(${idx}, this.value)">
+              <option value="__skip__">-- Skip / Do Not Import --</option>
+              ${schema.map(c => `
+                <option value="${c.key}" ${m.targetCol===c.key ? 'selected' : ''}>
+                  ${c.label}
+                </option>
+              `).join('')}
+            </select>
+          </td>
+          <td>
+            ${statusBadge}
+            ${isRootCol ? `<div style="margin-top:2px"><span class="csv-badge-root">Root ID</span></div>` : ''}
+          </td>
+        </tr>
+      `;
     });
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+  } else {
+    // Preview Table
+    const previewRows = state.rows.slice(0, 10);
+    const cols = activeMappings.map(m => m.targetCol);
+
+    html += `
+      <div class="table-wrap" style="max-height:360px;overflow:auto;border:1px solid var(--border);border-radius:6px;margin-bottom:14px">
+        <table style="font-size:11px;margin:0">
+          <thead>
+            <tr style="background:var(--bg-dim)">
+              ${activeMappings.map(m => `<th>${m.targetCol} ${m.targetCol==='record_id'?'⭐':''}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${previewRows.map(r => `
+              <tr>
+                ${activeMappings.map(m => {
+                  const val = r[m.csvHeader] || '';
+                  return `<td>${String(val).replace(/</g,'&lt;').slice(0, 70)}</td>`;
+                }).join('')}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="small-mute" style="margin-bottom:12px">Displaying first 10 rows formatted according to your column mapping.</div>
+    `;
   }
-  renderSettings();
-  if(typeof renderAll==='function') renderAll();
+
+  // Push Action Bar & Real-time Progress Bar
+  html += `
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <button id="csvBtnPush" class="btn success" style="font-weight:700;font-size:13.5px;padding:8px 20px" onclick="executeCsvServerPush()">
+        🚀 Direct Server Push to Supabase (${num(state.rows.length)} Records)
+      </button>
+      <div class="small-mute">
+        Direct batch-upsert with real-time relational verification.
+      </div>
+    </div>
+
+    <div id="csvProgressBarContainer" style="display:none;margin-top:14px;background:var(--bg-dim);padding:14px;border-radius:8px;border:1px solid var(--border)">
+      <div style="font-size:12px;font-weight:600;margin-bottom:6px;display:flex;justify-content:space-between">
+        <span id="csvProgressTitle">Streaming records to Supabase...</span>
+        <span id="csvProgressPercent">0%</span>
+      </div>
+      <div style="height:9px;background:var(--border-strong);border-radius:5px;overflow:hidden">
+        <div id="csvProgressBarFill" style="height:100%;width:0%;background:var(--success);transition:width 0.2s ease"></div>
+      </div>
+      <div id="csvProgressStatus" style="font-size:11.5px;margin-top:6px;color:var(--text-2)">
+        Preparing batches...
+      </div>
+    </div>
+  `;
+
+  ws.innerHTML = html;
 }
+
+function switchCsvTab(tab) {
+  if (window.__csvImportState) {
+    window.__csvImportState.activeTab = tab;
+    renderCsvWorkspace();
+  }
+}
+
+function updateCsvMapping(index, targetCol) {
+  if (!window.__csvImportState || !window.__csvImportState.mapping[index]) return;
+  window.__csvImportState.mapping[index].targetCol = targetCol;
+  window.__csvImportState.mapping[index].isAuto = false;
+  renderCsvWorkspace();
+}
+
+function resetCsvUploader() {
+  window.__csvImportState = null;
+  const fileInput = document.getElementById('csvFileInput');
+  if (fileInput) fileInput.value = '';
+  const ws = document.getElementById('csvWorkspace');
+  if (ws) { ws.style.display = 'none'; ws.innerHTML = ''; }
+  toast('File selection cleared', 'info');
+}
+
+async function executeCsvServerPush() {
+  if (!guardEdit()) return;
+  const state = window.__csvImportState;
+  if (!state || !state.rows || !state.rows.length) {
+    toast('No CSV data available to upload. Please load a file first.', 'error');
+    return;
+  }
+
+  const table = state.targetTable;
+  const mapping = state.mapping;
+  const rawRows = state.rows;
+  const batchSize = parseInt(document.getElementById('csvBatchSize')?.value, 10) || 50;
+
+  const activeMappings = mapping.filter(m => m.targetCol && m.targetCol !== '__skip__');
+  if (!activeMappings.length) {
+    toast('Please map at least one column before uploading.', 'error');
+    return;
+  }
+
+  const schema = CSV_SCHEMAS[table] || [];
+  const rootCol = schema.find(c => c.isRoot || c.isFk);
+  const isRootMapped = activeMappings.some(m => m.targetCol === 'record_id');
+
+  if (rootCol && !isRootMapped) {
+    const proceed = confirm(`Warning: "record_id" is the Universal Root Identifier for ${table} in your relational architecture, but it is NOT mapped.\n\nDo you wish to proceed anyway?`);
+    if (!proceed) return;
+  }
+
+  // Transform rows to Supabase-ready payload
+  const transformedRows = [];
+  for (let i = 0; i < rawRows.length; i++) {
+    const raw = rawRows[i];
+    const rowObj = {};
+    activeMappings.forEach(m => {
+      let val = raw[m.csvHeader];
+      if (val !== undefined && val !== null) {
+        val = String(val).trim();
+        // Number sanitization
+        if (m.targetCol === 'record_id' || m.targetCol === 'salary' || m.targetCol === 'days_count' || m.targetCol === 'quantity' || m.targetCol === 'current_salary' || m.targetCol === 'new_salary') {
+          const numVal = parseInt(val.replace(/[^\d]/g, ''), 10);
+          if (!isNaN(numVal)) val = numVal;
+        }
+        rowObj[m.targetCol] = val;
+      }
+    });
+
+    if (Object.keys(rowObj).length > 0) {
+      transformedRows.push(rowObj);
+    }
+  }
+
+  if (!transformedRows.length) {
+    toast('No valid data rows found to push.', 'error');
+    return;
+  }
+
+  const btnPush = document.getElementById('csvBtnPush');
+  const progressContainer = document.getElementById('csvProgressBarContainer');
+  const progressBarFill = document.getElementById('csvProgressBarFill');
+  const progressPercent = document.getElementById('csvProgressPercent');
+  const progressStatus = document.getElementById('csvProgressStatus');
+
+  if (btnPush) {
+    btnPush.disabled = true;
+    btnPush.innerHTML = '⏳ Uploading Batches...';
+  }
+  if (progressContainer) progressContainer.style.display = 'block';
+
+  try {
+    let result = null;
+    if (window.MGHRM && typeof window.MGHRM.batchUpsert === 'function') {
+      result = await window.MGHRM.batchUpsert(table, transformedRows, function (progress) {
+        const pct = (typeof progress === 'object' ? progress.percent : 0) || 0;
+        if (progressBarFill) progressBarFill.style.width = pct + '%';
+        if (progressPercent) progressPercent.innerText = pct + '%';
+        if (progressStatus && typeof progress === 'object') {
+          progressStatus.innerHTML = `Batch ${progress.batch} of ${progress.totalBatches} (${pct}%): Uploaded ${progress.processed} of ${progress.total} records...`;
+        }
+      }, batchSize);
+
+      // Synchronize in-memory DATA[table] with imported rows
+      if (DATA[table]) {
+        transformedRows.forEach(row => {
+          const converted = window.MGHRM.fromDb ? window.MGHRM.fromDb(table, row) : row;
+          const idx = DATA[table].findIndex(item => {
+            if (row.record_id && (item.RecordID == row.record_id || item.record_id == row.record_id)) return true;
+            if (row.employee_id && (item.EmployeeID == row.employee_id || item.employee_id == row.employee_id)) return true;
+            return false;
+          });
+          if (idx >= 0) {
+            Object.assign(DATA[table][idx], converted);
+          } else {
+            DATA[table].unshift(converted);
+          }
+        });
+      }
+    } else {
+      // Local fallback
+      DATA[table] = DATA[table] || [];
+      transformedRows.forEach(r => DATA[table].unshift(r));
+      result = { count: transformedRows.length };
+    }
+
+    if (progressBarFill) progressBarFill.style.width = '100%';
+    if (progressPercent) progressPercent.innerText = '100%';
+    if (progressStatus) {
+      progressStatus.innerHTML = `<span style="color:var(--success);font-weight:600">✓ Server Push Complete! ${result.count || transformedRows.length} records successfully upserted into "${table}".</span>`;
+    }
+
+    toast(`Success: ${result.count || transformedRows.length} records imported into ${table}`, 'success');
+    logActivity('import', table, '', `Imported ${result.count || transformedRows.length} records via Smart CSV Uploader`);
+
+    persist();
+    if (typeof renderAll === 'function') renderAll();
+
+    setTimeout(() => {
+      if (btnPush) {
+        btnPush.disabled = false;
+        btnPush.innerHTML = `🚀 Direct Server Push to Supabase (${transformedRows.length} Records)`;
+      }
+    }, 1200);
+
+  } catch (err) {
+    console.error('CSV Server Push failed:', err);
+    if (progressStatus) {
+      progressStatus.innerHTML = `<span style="color:var(--danger)">❌ Push Error: ${err.message || 'Database error'}</span>`;
+    }
+    toast('Import failed: ' + (err.message || 'Check console logs'), 'error');
+    if (btnPush) {
+      btnPush.disabled = false;
+      btnPush.innerHTML = 'Retry Direct Server Push';
+    }
+  }
+}
+
+/* Fallback adapter for legacy import button */
+function importHint() { handleCsvTargetChange(); }
+function importPreview() { handleCsvFileSelected({ target: document.getElementById('imFile') }); }
+function importConfirm() { executeCsvServerPush(); }
+
 async function wipeAllData(){
   if(!guardEdit()) return;
   const bn = LANG==='bn';

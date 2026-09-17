@@ -563,6 +563,34 @@ create policy "activity_select" on public.activity_log
 create policy "activity_insert" on public.activity_log
   for insert to authenticated with check (true);
 
+
+
+-- ---------------------------------------------------------------------
+-- RELATIONAL MIGRATION: ADD employee_sys_id AND DROP record_id/system_id
+-- ---------------------------------------------------------------------
+ALTER TABLE public.disciplinary ADD COLUMN IF NOT EXISTS employee_sys_id bigint references public.employees(id) on delete cascade;
+ALTER TABLE public.exits ADD COLUMN IF NOT EXISTS employee_sys_id bigint references public.employees(id) on delete cascade;
+ALTER TABLE public.transfers ADD COLUMN IF NOT EXISTS employee_sys_id bigint references public.employees(id) on delete cascade;
+ALTER TABLE public.career ADD COLUMN IF NOT EXISTS employee_sys_id bigint references public.employees(id) on delete cascade;
+ALTER TABLE public.uniform ADD COLUMN IF NOT EXISTS employee_sys_id bigint references public.employees(id) on delete cascade;
+ALTER TABLE public.leaves ADD COLUMN IF NOT EXISTS employee_sys_id bigint references public.employees(id) on delete cascade;
+ALTER TABLE public.meeting_attendance ADD COLUMN IF NOT EXISTS employee_sys_id bigint references public.employees(id) on delete cascade;
+
+ALTER TABLE public.disciplinary DROP COLUMN IF EXISTS record_id;
+ALTER TABLE public.disciplinary DROP COLUMN IF EXISTS system_id;
+ALTER TABLE public.exits DROP COLUMN IF EXISTS record_id;
+ALTER TABLE public.exits DROP COLUMN IF EXISTS system_id;
+ALTER TABLE public.transfers DROP COLUMN IF EXISTS record_id;
+ALTER TABLE public.transfers DROP COLUMN IF EXISTS system_id;
+ALTER TABLE public.career DROP COLUMN IF EXISTS record_id;
+ALTER TABLE public.career DROP COLUMN IF EXISTS system_id;
+ALTER TABLE public.uniform DROP COLUMN IF EXISTS record_id;
+ALTER TABLE public.uniform DROP COLUMN IF EXISTS system_id;
+ALTER TABLE public.leaves DROP COLUMN IF EXISTS record_id;
+ALTER TABLE public.leaves DROP COLUMN IF EXISTS system_id;
+ALTER TABLE public.meeting_attendance DROP COLUMN IF EXISTS record_id;
+ALTER TABLE public.meeting_attendance DROP COLUMN IF EXISTS system_id;
+
 -- ---------------------------------------------------------------------
 -- Real-Time WebSockets Replication
 -- ---------------------------------------------------------------------

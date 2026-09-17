@@ -2422,9 +2422,8 @@ function normEmployee(row) {
   if (!row) return {};
   return {
     id: row.id,
-    record_id: row.id,
+    employee_sys_id: row.id,
     
-    SystemID: row.id,
     EmployeeID: row.employee_id || '',
     employee_id: row.employee_id || '',
     FullName: row.full_name || '',
@@ -2520,7 +2519,7 @@ function handleEmployeeRealtimeUpdate(payload) {
   if (!Array.isArray(DATA.employees)) DATA.employees = [];
 
   if (eventType === 'DELETE') {
-    const delId = oldRow && (oldRow.id != null ? oldRow.id : (oldRow.employee_id || oldRow.record_id));
+    const delId = oldRow && (oldRow.id != null ? oldRow.id : (oldRow.employee_id));
     DATA.employees = DATA.employees.filter(e => String(e.id) !== String(delId) && String(e.EmployeeID) !== String(delId));
   } else if (eventType === 'INSERT') {
     const norm = normEmployee(newRow);

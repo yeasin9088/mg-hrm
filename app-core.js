@@ -438,10 +438,6 @@
     delete out.updated_at;
     if (out.id === undefined || out.id === null) delete out.id;
     if (key === 'employees') {
-      delete out.record_id;
-      delete out.RecordID;
-      delete out.system_id;
-      delete out.SystemID;
     }
     return out;
   }
@@ -468,9 +464,6 @@
     if (row.id != null) {
       out.id = row.id;
       if (key === 'employees') {
-        out.RecordID = row.id;
-        out.record_id = row.id;
-        out.SystemID = row.id;
       }
     }
     if (row.employee_id && !out.EmployeeID) out.EmployeeID = row.employee_id;
@@ -956,7 +949,6 @@
         return (
           String(e.id || '').trim() === idStr ||
           String(e.EmployeeID || '').trim() === idStr ||
-          String(e.RecordID || '').trim() === idStr
         );
       });
       if (foundLocal) return Promise.resolve(foundLocal);

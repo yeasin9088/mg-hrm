@@ -1979,6 +1979,9 @@ function navigate(p){
   if (p === 'projects' && typeof renderProjects === 'function') {
     renderProjects();
   }
+  if (p === 'employees' && typeof renderEmployees === 'function') {
+    renderEmployees();
+  }
 }
 
 /* Ctrl+K search */
@@ -2388,8 +2391,223 @@ function ensureSystemIDs() {
   // System IDs are now managed exclusively by Supabase auto-incrementing primary key (id)
 }
 
-function renderEmployees(){
+function normEmployee(row) {
+  if (!row) return {};
+  return {
+    id: row.id,
+    record_id: row.record_id || (row.id ? 'REC-' + row.id : ''),
+    RecordID: row.record_id || (row.id ? 'REC-' + row.id : ''),
+    EmployeeID: row.employee_id || '',
+    employee_id: row.employee_id || '',
+    FullName: row.full_name || '',
+    FullNameBn: row.full_name_bn || '',
+    FullNameBangla: row.full_name_bn || '',
+    FatherName: row.father_name || '',
+    MotherName: row.mother_name || '',
+    DOB: row.dob || '',
+    PhoneNumber: row.phone || '',
+    NID: row.nid || '',
+    'NID/BirthCertificate': row.nid || '',
+    Education: row.education || '',
+    Religion: row.religion || '',
+    Height: row.height || '',
+    Weight: row.weight || 0,
+    MaritalStatus: row.marital_status || '',
+    SpouseName: row.spouse_name || '',
+    SpousePhoneNum: row.spouse_phone || '',
+    ECName: row.ec_name || '',
+    ECRelation: row.ec_relation || '',
+    ECPhoneNumber: row.ec_phone || '',
+    Division: row.division || '',
+    District: row.district || '',
+    Thana: row.thana || '',
+    Address: row.address || '',
+    DivisionID: row.division_id || '',
+    DistrictID: row.district_id || '',
+    UpazilaID: row.upazila_id || '',
+    UnionID: row.union_id || '',
+    Village: row.village || '',
+    Street: row.street || '',
+    Designation: row.designation || '',
+    ProjectName: row.project_name || '',
+    JoinDate: row.join_date || '',
+    DutyHour: row.duty_hour || '8',
+    Salary: row.salary ? +row.salary : 0,
+    Status: row.status || 'Active',
+    ExitDate: row.exit_date || '',
+    ExitReason: row.exit_reason || '',
+    Remarks: row.remarks || '',
+    PhotoURL: row.photo_url || '',
+    CreatedAt: row.created_at || '',
+    UpdatedAt: row.updated_at || '',
+    _joinDays: 0
+  };
+}
+window.normEmployee = normEmployee;
+
+async function fetchEmployeesDirectly() {
+  const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
+                || (window.MGHRM && window.MGHRM.sb)
+                || window.sb
+                || (typeof sb !== 'undefined' ? sb : null);
+
+  if (!sbClient) {
+    console.warn('[Employees] Supabase client not initialized yet');
+    return null;
+  }
+
+  try {
+    const { data, error } = await sbClient
+      .from('employees')
+      .select('*')
+      .order('id', { ascending: true });
+
+    if (error) {
+      console.error('[Employees] Direct Supabase fetch error:', error.message || error);
+      const tbody = document.getElementById('empTableBody');
+      if (tbody && (!DATA.employees || DATA.employees.length === 0)) {
+        tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:24px;color:#dc2626">Failed to load employees: ${escapeHtml(error.message || String(error))}</td></tr>`;
+      }
+      return null;
+    }
+
+    if (Array.isArray(data)) {
+      console.log('[Employees] Direct Supabase fetch retrieved ' + data.length + ' records');
+      DATA.employees = data.map(normEmployee);
+      return DATA.employees;
+    }
+  } catch (err) {
+    console.error('[Employees] Error fetching employees from Supabase:', err);
+  }
+  return null;
+}
+window.fetchEmployeesDirectly = fetchEmployeesDirectly;
+
+function handleEmployeeRealtimeUpdate(payload) {
+  if (!payload || payload.table !== 'employees') return;
+  const eventType = payload.eventType;
+  const newRow = payload.new;
+  const oldRow = payload.old;
+
+  if (!Array.isArray(DATA.employees)) DATA.employees = [];
+
+  if (eventType === 'DELETE') {
+    const delId = oldRow && (oldRow.id != null ? oldRow.id : (oldRow.employee_id || oldRow.record_id));
+    DATA.employees = DATA.employees.filter(e => String(e.id) !== String(delId) && String(e.EmployeeID) !== String(delId) && String(e.RecordID) !== String(delId));
+  } else if (eventType === 'INSERT') {
+    const norm = normEmployee(newRow);
+    const exists = DATA.employees.some(e => (norm.id != null && String(e.id) === String(norm.id)) || (norm.EmployeeID && String(e.EmployeeID) === String(norm.EmployeeID)) || (norm.RecordID && String(e.RecordID) === String(norm.RecordID)));
+    if (!exists) {
+      DATA.employees.push(norm);
+      DATA.employees.sort((a, b) => (+a.id || 0) - (+b.id || 0));
+    }
+  } else if (eventType === 'UPDATE') {
+    const norm = normEmployee(newRow);
+    const idx = DATA.employees.findIndex(e => (norm.id != null && String(e.id) === String(norm.id)) || (norm.EmployeeID && String(e.EmployeeID) === String(norm.EmployeeID)) || (norm.RecordID && String(e.RecordID) === String(norm.RecordID)));
+    if (idx !== -1) {
+      DATA.employees[idx] = Object.assign({}, DATA.employees[idx], norm);
+    } else {
+      DATA.employees.push(norm);
+      DATA.employees.sort((a, b) => (+a.id || 0) - (+b.id || 0));
+    }
+  }
+
+  // Refresh filter options if project or designation list updated
+  const projFilter = document.getElementById('empProjectFilter');
+  if (projFilter) {
+    const currVal = projFilter.value;
+    const projs = usageSortedProjects([...new Set(DATA.employees.map(e => e.ProjectName).filter(Boolean))], projectUsageCounts());
+    projFilter.innerHTML = `<option value="">All Projects</option>` + projs.map(p => `<option value="${p}">${p}</option>`).join('');
+    projFilter.value = currVal;
+  }
+
+  if (currentPage === 'employees') {
+    renderEmpTable();
+  }
+  if (typeof updateNotifBadge === 'function') updateNotifBadge();
+}
+window.handleEmployeeRealtimeUpdate = handleEmployeeRealtimeUpdate;
+
+function ensureEmployeesRealtime() {
+  const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
+                || (window.MGHRM && window.MGHRM.sb)
+                || window.sb
+                || (typeof sb !== 'undefined' ? sb : null);
+
+  if (!sbClient || typeof sbClient.channel !== 'function' || window.__employeesChannelSubscribed) return;
+  window.__employeesChannelSubscribed = true;
+
+  try {
+    sbClient.channel('employees-live-sync-ch')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, function (payload) {
+        console.log('⚡ [Employees Real-Time WebSocket]:', payload);
+        handleEmployeeRealtimeUpdate(payload);
+      })
+      .subscribe(function (status) {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ [Employees Real-Time] Subscribed to employees table changes');
+        }
+      });
+  } catch (err) {
+    console.warn('[Employees Real-Time] Subscription error:', err);
+  }
+}
+window.ensureEmployeesRealtime = ensureEmployeesRealtime;
+
+async function deleteEmployeeDirectly(empKey) {
+  if (!guardEdit()) return;
+  const e = DATA.employees.find(x => String(x.id) === String(empKey) || String(x.EmployeeID) === String(empKey) || String(x.RecordID) === String(empKey));
+  if (!e) return;
+
+  if (!confirm(`Are you sure you want to permanently delete employee "${e.FullName}" (ID: ${e.id || e.EmployeeID}) from the database?`)) {
+    return;
+  }
+
+  const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
+                || (window.MGHRM && window.MGHRM.sb)
+                || window.sb
+                || (typeof sb !== 'undefined' ? sb : null);
+
+  if (!sbClient) {
+    toast('Error: Database connection not ready', 'error');
+    return;
+  }
+
+  try {
+    const targetId = e.id;
+    let query = sbClient.from('employees').delete();
+    if (targetId) {
+      query = query.eq('id', targetId);
+    } else if (e.EmployeeID) {
+      query = query.eq('employee_id', e.EmployeeID);
+    } else {
+      query = query.eq('record_id', e.RecordID);
+    }
+
+    const { error } = await query;
+    if (error) {
+      console.error('[Employees] Delete error:', error);
+      toast('Failed to delete employee: ' + (error.message || error), 'error');
+      return;
+    }
+
+    closeModal();
+    toast(`Employee "${e.FullName}" deleted successfully`, 'success');
+    DATA.employees = DATA.employees.filter(x => String(x.id) !== String(e.id) && String(x.EmployeeID) !== String(e.EmployeeID));
+    await fetchEmployeesDirectly();
+    renderEmpTable();
+    if (typeof updateNotifBadge === 'function') updateNotifBadge();
+  } catch (err) {
+    console.error('[Employees] Error deleting employee:', err);
+    toast('Error: ' + (err.message || err), 'error');
+  }
+}
+window.deleteEmployeeDirectly = deleteEmployeeDirectly;
+
+async function renderEmployees(){
   const page = document.getElementById('page-employees');
+  if(!page) return;
+
   if(!page.innerHTML) {
     page.innerHTML = `
       <div class="card">
@@ -2432,13 +2650,18 @@ function renderEmployees(){
               <th>${'Status'}</th>
               <th></th>
             </tr></thead>
-            <tbody id="empTableBody"></tbody>
+            <tbody id="empTableBody">
+              ${(DATA.employees && DATA.employees.length > 0) ? '' : `<tr><td colspan="11" style="text-align:center;padding:32px;color:var(--text-muted)">
+                <span class="spin" style="display:inline-block;width:16px;height:16px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;margin-right:8px;vertical-align:middle;animation:spin .8s linear infinite"></span>
+                Loading employees from Supabase…
+              </td></tr>`}
+            </tbody>
           </table>
         </div>
       </div>
     `;
     
-    const projs = usageSortedProjects([...new Set(DATA.employees.map(e=>e.ProjectName).filter(Boolean))], projectUsageCounts());
+    const projs = usageSortedProjects([...new Set((DATA.employees||[]).map(e=>e.ProjectName).filter(Boolean))], projectUsageCounts());
     document.getElementById('empProjectFilter').innerHTML =
       `<option value="">${'All Projects'}</option>` +
       projs.map(p=>`<option value="${p}">${p}</option>`).join('');
@@ -2447,6 +2670,27 @@ function renderEmployees(){
       usageSortedOptions(DESIGNATIONS, desigUsageCounts()).map(d=>`<option value="${d}">${d}</option>`).join('');
   }
   renderEmpTable();
+
+  // Direct fetch from Supabase (mirroring golden projects pattern)
+  const fresh = await fetchEmployeesDirectly();
+  if (fresh) {
+    const projs = usageSortedProjects([...new Set(fresh.map(e=>e.ProjectName).filter(Boolean))], projectUsageCounts());
+    const pf = document.getElementById('empProjectFilter');
+    if (pf) {
+      const cur = pf.value;
+      pf.innerHTML = `<option value="">${'All Projects'}</option>` + projs.map(p=>`<option value="${p}">${p}</option>`).join('');
+      pf.value = cur;
+    }
+    const df = document.getElementById('empDesigFilter');
+    if (df) {
+      const cur = df.value;
+      df.innerHTML = `<option value="">${'All Designations'}</option>` + usageSortedOptions(DESIGNATIONS, desigUsageCounts()).map(d=>`<option value="${d}">${d}</option>`).join('');
+      df.value = cur;
+    }
+    renderEmpTable();
+  }
+
+  ensureEmployeesRealtime();
 }
 function resetEmpFilter(){
   document.getElementById('empSearch').value='';
@@ -2575,6 +2819,8 @@ function openEmpDetail(recordId){
         <button class="btn sm" onclick="empActionQuick('disciplinary','${empKey}')">${'Notice'}</button>
         <button class="btn sm" onclick="empActionQuick('leave','${empKey}')">${'Leave'}</button>
         ${e.Status==='Active'?`<button class="btn sm danger" onclick="empActionQuick('exit','${empKey}')">${'Exit'}</button>`:''}
+        <button class="btn sm" onclick="closeModal();openNewEmp('${empKey}')">${ico('edit')} ${'Edit'}</button>
+        <button class="btn sm danger" onclick="deleteEmployeeDirectly('${empKey}')">${ico('trash')} ${'Delete'}</button>
         <button class="btn sm primary" onclick="printEmpProfile('${empKey}')">${ico('print')} ${'Print Profile'}</button>
       </div>
     </div>
@@ -2592,7 +2838,7 @@ function openEmpDetail(recordId){
         ${row("Father's Name", e.FatherName)}
         ${row("Mother's Name", e.MotherName)}
         ${row('Date of Birth', fmtDate(e.DOB))}
-        ${row('NID / জন্ম সনদ', num(e['NID/BirthCertificate']||e.NID||''))}
+        ${row('NID / Birth Certificate', num(e['NID/BirthCertificate']||e.NID||''))}
         ${row('Phone', num(e.PhoneNumber||''))}
         ${row('Education', e.Education)}
         ${row('Religion', e.Religion)}
@@ -2682,43 +2928,56 @@ function empActionQuick(action, rid){
   const pickId = { transfer:'trEmp', disciplinary:'dcEmp', leave:'lvEmp', exit:'exEmp' }[action];
   setTimeout(()=>{ if(pickId) setEmpPicker(pickId, rid); },100);
 }
-function openNewEmp(){
-  openModal('Register New Employee', `
-    <p class="small-mute" style="margin-bottom:12px">${'Whether this person worked here before is auto-checked by NID/mobile/name. A match raises a duplicate alert with a re-hire option.'}</p>
+function openNewEmp(empKey){
+  const isEdit = !!empKey;
+  const existing = isEdit ? DATA.employees.find(x => String(x.id) === String(empKey) || String(x.EmployeeID) === String(empKey) || String(x.RecordID) === String(empKey)) : null;
+
+  openModal(isEdit ? 'Edit Employee' : 'Register New Employee', `
+    <p class="small-mute" style="margin-bottom:12px">${isEdit ? 'Update employee details and save to sync directly to Supabase.' : 'Whether this person worked here before is auto-checked by NID/mobile/name. A match raises a duplicate alert with a re-hire option.'}</p>
+    <input type="hidden" id="ne_editKey" value="${isEdit && existing ? (existing.id || existing.EmployeeID || existing.RecordID || '') : ''}">
     <div class="form-grid">
-      <div class="field"><label>${'Full Name (English)'} *</label><input id="ne_nameEn" type="text" placeholder="Md ..." onchange="neDupHint()">${translateBtnHTML('ne_nameEn','ne_nameBn')}</div>
-      <div class="field"><label>${'Full Name (Bangla)'}</label><input id="ne_nameBn" type="text" placeholder="Md ... (Click translate button or type)"></div>
-      <div class="field"><label>${'Official ID (if any)'}</label><input id="ne_officialId" type="text" placeholder="${'Company-issued ID'}"></div>
-      <div class="field"><label>${"Father's Name"}</label><input id="ne_father" type="text"></div>
-      <div class="field"><label>${'Date of Birth'}</label><input id="ne_dob" type="date"></div>
-      <div class="field"><label>NID / Birth Certificate</label><input id="ne_nid" type="text" placeholder="10/13/17 digits" onchange="neDupHint()"></div>
-      <div class="field"><label>${'Phone'}</label><input id="ne_phone" type="text" placeholder="01XXXXXXXXX" onchange="neDupHint()"></div>
-      <div class="field"><label>${'Designation'}</label><select id="ne_desig">${DESIGNATIONS.map(d=>`<option>${d}</option>`).join('')}</select></div>
-      <div class="field"><label>${'Project'}</label><select id="ne_proj"><option>—</option>${activeProjects().map(p=>`<option>${p.ProjectName}</option>`).join('')}</select></div>
-      <div class="field"><label>${'Join Date'}</label><input id="ne_join" type="date" value="${todayISO()}"></div>
-      <div class="field"><label>${'Salary'}</label><input id="ne_salary" type="number" placeholder="0"></div>
+      <div class="field"><label>${'Full Name (English)'} *</label><input id="ne_nameEn" type="text" placeholder="Md ..." value="${escapeHtml(existing ? (existing.FullName||'') : '')}" onchange="neDupHint()">${translateBtnHTML('ne_nameEn','ne_nameBn')}</div>
+      <div class="field"><label>${'Full Name (Bangla)'}</label><input id="ne_nameBn" type="text" placeholder="Md ... (Click translate button or type)" value="${escapeHtml(existing ? (existing.FullNameBn||existing.FullNameBangla||'') : '')}"></div>
+      <div class="field"><label>${'Official ID (if any)'}</label><input id="ne_officialId" type="text" placeholder="${'Company-issued ID'}" value="${escapeHtml(existing ? (existing.EmployeeID||'') : '')}"></div>
+      <div class="field"><label>${"Father's Name"}</label><input id="ne_father" type="text" value="${escapeHtml(existing ? (existing.FatherName||'') : '')}"></div>
+      <div class="field"><label>${'Date of Birth'}</label><input id="ne_dob" type="date" value="${existing ? (existing.DOB||'') : ''}"></div>
+      <div class="field"><label>NID / Birth Certificate</label><input id="ne_nid" type="text" placeholder="10/13/17 digits" value="${escapeHtml(existing ? (existing.NID || existing['NID/BirthCertificate'] || '') : '')}" onchange="neDupHint()"></div>
+      <div class="field"><label>${'Phone'}</label><input id="ne_phone" type="text" placeholder="01XXXXXXXXX" value="${escapeHtml(existing ? (existing.PhoneNumber||'') : '')}" onchange="neDupHint()"></div>
+      <div class="field"><label>${'Designation'}</label><select id="ne_desig">${DESIGNATIONS.map(d=>`<option ${existing && existing.Designation === d ? 'selected' : ''}>${d}</option>`).join('')}</select></div>
+      <div class="field"><label>${'Project'}</label><select id="ne_proj"><option>—</option>${activeProjects().map(p=>`<option ${existing && existing.ProjectName === p.ProjectName ? 'selected' : ''}>${p.ProjectName}</option>`).join('')}</select></div>
+      <div class="field"><label>${'Join Date'}</label><input id="ne_join" type="date" value="${existing ? (existing.JoinDate||todayISO()) : todayISO()}"></div>
+      <div class="field"><label>${'Salary'}</label><input id="ne_salary" type="number" placeholder="0" value="${existing ? (existing.Salary||0) : ''}"></div>
+      <div class="field"><label>${'Status'}</label><select id="ne_status">
+        <option value="Active" ${!existing || existing.Status === 'Active' ? 'selected' : ''}>Active</option>
+        <option value="Inactive" ${existing && existing.Status === 'Inactive' ? 'selected' : ''}>Inactive</option>
+      </select></div>
       <div class="field wide" style="grid-column:1/-1">
         <label style="color:var(--purple);font-weight:600">${'📍 Permanent Address (Cascade)'}</label>
         <div id="ne_addrCascade" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-top:4px"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px">
           <div><label style="font-size:11px">${'Village'}</label>
-            <input id="ne_village" list="ne_villageList" type="text" placeholder="${'Type village name'}">
+            <input id="ne_village" list="ne_villageList" type="text" placeholder="${'Type village name'}" value="${escapeHtml(existing ? (existing.Village||'') : '')}">
             <datalist id="ne_villageList"></datalist>
             <span class="small-mute" style="font-size:10px">${'💡 Once typed, it suggests next time'}</span></div>
           <div><label style="font-size:11px">${'House / Holding / Street'}</label>
-            <input id="ne_street" type="text"></div>
+            <input id="ne_street" type="text" value="${escapeHtml(existing ? (existing.Street||'') : '')}"></div>
         </div>
       </div>
-      <div class="field wide"><label>${'Additional Address Notes'}</label><textarea id="ne_addr" rows="2"></textarea></div>
+      <div class="field wide"><label>${'Additional Address Notes'}</label><textarea id="ne_addr" rows="2">${escapeHtml(existing ? (existing.Address||'') : '')}</textarea></div>
     </div>
     <div id="neDupHint" class="small-mute" style="margin-top:8px"></div>
     <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px">
       <button class="btn" onclick="closeModal()">${'Cancel'}</button>
-      <button class="btn primary" onclick="saveNewEmployee()">${'Save'}</button>
+      <button class="btn primary" onclick="saveNewEmployee()">${isEdit ? 'Update Employee' : 'Save Employee'}</button>
     </div>
   `);
   setTimeout(function(){
-    if(typeof buildAddressCascade==='function') buildAddressCascade('ne_addrCascade', {}, function(state){
+    if(typeof buildAddressCascade==='function') buildAddressCascade('ne_addrCascade', {
+      divId: existing ? existing.DivisionID : '',
+      distId: existing ? existing.DistrictID : '',
+      upzId: existing ? existing.UpazilaID : '',
+      uniId: existing ? existing.UnionID : ''
+    }, function(state){
       var vl = document.getElementById('ne_villageList'); if(vl) vl.innerHTML = getVillages(state.unionId).map(function(v){return '<option value="'+v.replace(/"/g,'&quot;')+'">';}).join('');
     });
   }, 40);
@@ -2731,20 +2990,30 @@ function neDupHint(){
     ? `<span style="color:var(--warning);font-weight:600">⚠ ${'This data matches'} ${num(d.length)} ${'existing record(s) — saving will raise the duplicate alert with a re-hire option'}</span>`
     : '';
 }
-function saveNewEmployee(force){
+async function saveNewEmployee(force){
   if(!guardEdit()) return;
   const g = id => (document.getElementById(id)||{}).value||'';
   const nameEn = g('ne_nameEn').trim();
   if(!nameEn){ toast('English name is required','error'); return; }
+
+  const editKey = g('ne_editKey').trim();
+  const isEdit = !!editKey;
+
   const applicant = {
-    name: g('ne_nameBn').trim(), nameEn, nid: g('ne_nid').trim(), phone: g('ne_phone').trim(),
-    desig: g('ne_desig'), project: g('ne_proj')==='—'?'':g('ne_proj'),
-    salary:{ total:+g('ne_salary')||0 }
+    name: g('ne_nameBn').trim(),
+    nameEn,
+    nid: g('ne_nid').trim(),
+    phone: g('ne_phone').trim(),
+    desig: g('ne_desig'),
+    project: g('ne_proj')==='—'?'':g('ne_proj'),
+    salary: { total: +g('ne_salary')||0 }
   };
-  if(!force){
+
+  if(!isEdit && !force){
     const dups = findDuplicates({ nid:applicant.nid, phone:applicant.phone, nameEn });
     if(dups.length){ showDuplicateModal(dups, applicant, ()=>saveNewEmployee(true)); return; }
   }
+
   const divId = (document.getElementById('ne_addrCascade_div')||{}).value||'';
   const distId = (document.getElementById('ne_addrCascade_dist')||{}).value||'';
   const upzId = (document.getElementById('ne_addrCascade_upz')||{}).value||'';
@@ -2752,30 +3021,83 @@ function saveNewEmployee(force){
   const village = ((document.getElementById('ne_village')||{}).value||'').trim();
   const street = ((document.getElementById('ne_street')||{}).value||'').trim();
   if(uniId && village) rememberVillage(uniId, village);
+
   const officialId = g('ne_officialId').trim();
-  const newEmp = {
-    EmployeeID: officialId,
-    FullName: nameEn, FullNameBn: applicant.name, FatherName: g('ne_father').trim(),
-    DOB: g('ne_dob'), PhoneNumber: applicant.phone, NID: applicant.nid,
-    Designation: applicant.desig, ProjectName: applicant.project,
-    JoinDate: g('ne_join')||todayISO(), DutyHour: '8', Salary: String(+g('ne_salary')||0),
-    Status: 'Active', Address: g('ne_addr'),
-    DivisionID: divId, DistrictID: distId, UpazilaID: upzId, UnionID: uniId, Village: village, Street: street,
-    Division: bdDivName(divId), District: bdDistName(distId), Thana: bdUpzName(upzId),
-    _joinDays: 0
+  const status = g('ne_status') || 'Active';
+
+  const dbPayload = {
+    employee_id: officialId || null,
+    full_name: nameEn,
+    full_name_bn: applicant.name || null,
+    father_name: g('ne_father').trim() || null,
+    dob: g('ne_dob') || null,
+    phone: applicant.phone || null,
+    nid: applicant.nid || null,
+    designation: applicant.desig || null,
+    project_name: applicant.project || null,
+    join_date: g('ne_join') || todayISO(),
+    duty_hour: '8',
+    salary: +g('ne_salary') || 0,
+    status: status,
+    address: g('ne_addr') || null,
+    division_id: divId || null,
+    district_id: distId || null,
+    upazila_id: upzId || null,
+    union_id: uniId || null,
+    village: village || null,
+    street: street || null,
+    division: bdDivName(divId) || null,
+    district: bdDistName(distId) || null,
+    thana: bdUpzName(upzId) || null
   };
-  DATA.employees.push(newEmp);
-  closeModal();
-  toast(`${nameEn} — ${'registered'}`, 'success');
-  if (window.MGHRM && typeof window.MGHRM.insert === 'function') {
-    window.MGHRM.insert('employees', newEmp).then(inserted => {
-      if (inserted && inserted[0] && inserted[0].id) {
-        newEmp.id = inserted[0].id;
-        renderAll();
+
+  const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
+                || (window.MGHRM && window.MGHRM.sb)
+                || window.sb
+                || (typeof sb !== 'undefined' ? sb : null);
+
+  if (sbClient) {
+    try {
+      if (isEdit) {
+        let query = sbClient.from('employees').update(dbPayload);
+        const existingEmp = DATA.employees.find(x => String(x.id) === String(editKey) || String(x.EmployeeID) === String(editKey) || String(x.RecordID) === String(editKey));
+        if (existingEmp && existingEmp.id) {
+          query = query.eq('id', existingEmp.id);
+        } else if (existingEmp && existingEmp.EmployeeID) {
+          query = query.eq('employee_id', existingEmp.EmployeeID);
+        } else {
+          query = query.eq('record_id', editKey);
+        }
+        const { error } = await query;
+        if (error) {
+          console.error('[Employees] Update error:', error);
+          toast('Failed to update employee: ' + (error.message || error), 'error');
+          return;
+        }
+        toast(`${nameEn} — updated successfully`, 'success');
+      } else {
+        const { error } = await sbClient.from('employees').insert([dbPayload]);
+        if (error) {
+          console.error('[Employees] Insert error:', error);
+          toast('Failed to save employee: ' + (error.message || error), 'error');
+          return;
+        }
+        toast(`${nameEn} — registered successfully`, 'success');
       }
-    }).catch(console.error);
+    } catch(err) {
+      console.error('[Employees] Supabase mutation exception:', err);
+      toast('Error saving to server: ' + (err.message || err), 'error');
+      return;
+    }
+  } else {
+    toast('Error: Supabase client not connected', 'error');
+    return;
   }
-  persist(); renderAll();
+
+  closeModal();
+  await fetchEmployeesDirectly();
+  renderEmpTable();
+  if (typeof updateNotifBadge === 'function') updateNotifBadge();
 }
 function exportEmployees(){
   const rows = DATA.employees;
@@ -7257,54 +7579,93 @@ function importConfirm() { executeCsvServerPush(); }
 
 async function wipeAllData(){
   if(!guardEdit()) return;
-  const bn = LANG==='bn';
-  const step1 = prompt(bn?'সতর্কতা: সব ডেটা মুছে ফেলবেন? নিশ্চিত করতে টাইপ করুন: DELETE ALL':'WARNING: Wipe ALL data? To confirm, type exactly: DELETE ALL');
-  if(step1!=='DELETE ALL'){ toast(bn?'বাতিল করা হয়েছে':'Cancelled','warning'); return; }
+  const step1 = prompt('WARNING: Wipe ALL data? To confirm, type exactly: DELETE ALL');
+  if(step1 !== 'DELETE ALL'){
+    toast('Wipe cancelled', 'warning');
+    return;
+  }
   /* auto-download backup first */
-  try{ if(typeof exportBackupFile==='function') exportBackupFile(); }catch(e){}
-  if(!confirm(bn?'শেষ সতর্কতা: ব্যাকআপ ডাউনলোড হয়ে গেছে (সম্ভবত)। এখন সব wipe হবে — এগোবেন?':'Final warning: backup downloaded (probably). Wipe now?')) return;
+  try {
+    if(typeof exportBackupFile === 'function') exportBackupFile();
+  } catch(e) {}
+
+  if(!confirm('Final warning: backup downloaded. All database tables and local records will be permanently deleted. Proceed with total wipe?')) {
+    return;
+  }
 
   let wipeSuccess = true;
   /* Wipe Supabase Server Data */
-  if (window.MGHRM && (window.MGHRM._client || window.sb)) {
-    toast(bn?'সার্ভার থেকে ডেটা মোছা হচ্ছে, অপেক্ষা করুন...':'Wiping server data, please wait...', 'info');
-    const sb = (typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : window.MGHRM._client) || window.sb;
-    const tMap = window.MGHRM.TABLE_MAP;
-    const tablesToWipe = ['employees', 'projects', 'demand', 'disciplinary', 'exits', 'transfers', 'career', 'uniform', 'leaves', 'meetings', 'activity_log', 'recruitment_archive'];
+  const sb = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
+          || (window.MGHRM && window.MGHRM.sb)
+          || window.sb
+          || (typeof sb !== 'undefined' ? sb : null);
+
+  if (sb) {
+    toast('Wiping server data, please wait...', 'info');
+    const tMap = (window.MGHRM && window.MGHRM.TABLE_MAP) || {};
+    // Child tables wiped before parent tables
+    const tablesToWipe = [
+      'meeting_attendance',
+      'meetings',
+      'uniform',
+      'leaves',
+      'career',
+      'transfers',
+      'exits',
+      'disciplinary',
+      'recruitment_archive',
+      'demand',
+      'activity_log',
+      'employees',
+      'projects'
+    ];
     
     try {
-      await Promise.all(tablesToWipe.map(async (tableName) => {
+      for (const tableName of tablesToWipe) {
         let pk = 'id';
         for (let k in tMap) {
           if (tMap[k].table === tableName) { pk = tMap[k].pk; break; }
         }
-        const { error } = await sb.from(tableName).delete().not(pk, 'is', null);
-        if (error) {
-          console.error(`Failed to wipe ${tableName}:`, error);
-          wipeSuccess = false;
+        let query = sb.from(tableName).delete();
+        if (pk === 'id') {
+          query = query.neq('id', 0);
+        } else {
+          query = query.neq(pk, '');
         }
-      }));
+        const { error } = await query;
+        if (error) {
+          console.error(`[Wipe Data] Failed to wipe ${tableName}:`, error.message || error);
+          wipeSuccess = false;
+        } else {
+          console.log(`[Wipe Data] Successfully wiped table: ${tableName}`);
+        }
+      }
     } catch(e) {
-      console.error('Failed to wipe Supabase:', e);
+      console.error('[Wipe Data] Failed to wipe Supabase:', e);
       wipeSuccess = false;
     }
   }
 
   if (!wipeSuccess) {
-    toast(bn?'সার্ভারের সব ডেটা মুছতে সমস্যা হয়েছে (Permission Error হতে পারে)।':'Failed to wipe server data completely (Permission Error).', 'error');
+    toast('Failed to wipe some server tables (Check permissions or RLS policies).', 'error');
   } else {
-    toast(bn?'সব ডেটা মুছে ফেলা হয়েছে — এখন Settings থেকে ইম্পোর্ট করুন':'All data wiped — now import from Settings','success');
+    toast('All data wiped successfully from server and local storage.', 'success');
   }
 
-  DATA.employees=[]; DATA.projects=[]; DATA.transfers=[]; DATA.disciplinary=[];
-  DATA.exits=[]; DATA.leaves=[]; DATA.career=[]; DATA.uniforms=[];
-  DATA.todos=[]; DATA.paradeState=[]; DATA.paradeRecords={}; DATA.meetings={};
-  DATA.recruitmentArchive=[]; DATA.activityLog=[];
-  if(typeof RECRUITMENT!=='undefined' && Array.isArray(RECRUITMENT)) RECRUITMENT.length=0;
-  if(typeof NOTIFICATIONS!=='undefined' && Array.isArray(NOTIFICATIONS)) NOTIFICATIONS.length=0;
+  DATA.employees = []; DATA.projects = []; DATA.transfers = []; DATA.disciplinary = [];
+  DATA.exits = []; DATA.leaves = []; DATA.career = []; DATA.uniforms = [];
+  DATA.todos = []; DATA.paradeState = []; DATA.paradeRecords = {}; DATA.meetings = {};
+  DATA.recruitmentArchive = []; DATA.activityLog = [];
+  if(typeof RECRUITMENT !== 'undefined' && Array.isArray(RECRUITMENT)) RECRUITMENT.length = 0;
+  if(typeof NOTIFICATIONS !== 'undefined' && Array.isArray(NOTIFICATIONS)) NOTIFICATIONS.length = 0;
   
-  logActivity('wipe','ALL','','database blanked by user');
-  persist(); renderAll();
+  logActivity('wipe', 'ALL', '', 'Database completely wiped by user');
+  persist();
+  renderAll();
+
+  if (typeof fetchEmployeesDirectly === 'function') await fetchEmployeesDirectly();
+  if (typeof fetchProjectsDirectly === 'function') await fetchProjectsDirectly();
+  renderAll();
 }
 
 function uploadLogo(ev){
@@ -9612,6 +9973,9 @@ setInterval(()=>checkPendingToast(true), 180000);
     if (payload && payload.table === 'projects' && typeof handleProjectRealtimeUpdate === 'function') {
       handleProjectRealtimeUpdate(payload);
     }
+    if (payload && payload.table === 'employees' && typeof handleEmployeeRealtimeUpdate === 'function') {
+      handleEmployeeRealtimeUpdate(payload);
+    }
     if (G && typeof G.handleRealtimeEvent === 'function') {
       return G.handleRealtimeEvent(payload);
     }
@@ -9675,6 +10039,14 @@ setInterval(()=>checkPendingToast(true), 180000);
           if (currentPage === 'projects' && typeof renderProjects === 'function') {
             renderProjects();
           }
+        });
+      }
+      if (typeof fetchEmployeesDirectly === 'function') {
+        fetchEmployeesDirectly().then(function () {
+          if (currentPage === 'employees' && typeof renderEmployees === 'function') {
+            renderEmployees();
+          }
+          if (typeof renderAll === 'function') renderAll();
         });
       }
       

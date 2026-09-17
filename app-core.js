@@ -11,7 +11,7 @@
       table: 'employees',
       pk: 'id',
       allowed: [
-        'id', 'employee_id', 'full_name', 'full_name_bn',
+        'id', 'record_id', 'employee_id', 'full_name', 'full_name_bn',
         'father_name', 'mother_name', 'dob', 'phone', 'nid', 'education', 'religion',
         'height', 'weight', 'marital_status', 'spouse_name', 'spouse_phone',
         'ec_name', 'ec_relation', 'ec_phone', 'division', 'district', 'thana',
@@ -22,8 +22,11 @@
       ],
       map: {
         'id': 'id',
+        'record_id': 'record_id',
+        'RecordID': 'record_id',
         'EmployeeID': 'employee_id',
         'FullName': 'full_name',
+        'FullNameBn': 'full_name_bn',
         'FullNameBangla': 'full_name_bn',
         'FatherName': 'father_name',
         'MotherName': 'mother_name',
@@ -667,6 +670,22 @@
       console.warn('[Real-Time] projects-realtime subscription error:', e);
     }
 
+    // Explicit channel for employees table real-time events
+    try {
+      client.channel('employees-realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, function (payload) {
+          console.log('⚡ [Real-Time] Employees table changed:', payload);
+          if (typeof global.handleEmployeeRealtimeUpdate === 'function') {
+            global.handleEmployeeRealtimeUpdate(payload);
+          } else {
+            handleRealtimeEvent(payload);
+          }
+        })
+        .subscribe();
+    } catch (e) {
+      console.warn('[Real-Time] employees-realtime subscription error:', e);
+    }
+
     return client.channel('custom-all-channel')
       .on('postgres_changes', { event: '*', schema: 'public' }, function (payload) {
         console.log('⚡ [Real-Time] Remote change received:', payload);
@@ -684,6 +703,10 @@
   function handleRealtimeEvent(payload) {
     if (payload && payload.table === 'projects' && typeof global.handleProjectRealtimeUpdate === 'function') {
       global.handleProjectRealtimeUpdate(payload);
+      return;
+    }
+    if (payload && payload.table === 'employees' && typeof global.handleEmployeeRealtimeUpdate === 'function') {
+      global.handleEmployeeRealtimeUpdate(payload);
       return;
     }
 

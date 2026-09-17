@@ -3675,79 +3675,145 @@ function markStage(id, target){
 function onboardCandidate(id){
   if(!guardEdit()) return;
   const r = RECRUITMENT.find(x=>x.id===id); if(!r) return;
-  // Assign a new employee ID
-  const maxId = Math.max(0, ...DATA.employees.map(e=>parseInt(e.EmployeeID)||0));
-  const newEmpId = 'MGS' + String(maxId+1).padStart(4,'0');
-  r.empId = newEmpId;
-  const pa = r.permanentAddress||{};
-  const newEmp = {
-    EmployeeID: newEmpId,
-    FullName: r.nameEn||r.name, FullNameBn: r.name||'',
-    FatherName: r.father, MotherName: r.mother,
-    DOB: r.dob, 'NID/BirthCertificate': r.nid, NID: r.nid, PhoneNumber: r.phone,
-    Education: r.education, Religion: r.religion, Height: r.height, Weight: +r.weight||0,
-    Division:'', District: pa.district||'', Thana: pa.thana||'',
-    DivisionID: pa.division_id||'', DistrictID: pa.district_id||'', UpazilaID: pa.upazila_id||'', UnionID: pa.union_id||'',
-    Village: pa.village||'', Street: pa.street||'',
-    Address: [pa.street, pa.village, pa.thana, pa.district].filter(Boolean).join(', '),
-    MaritalStatus:r.maritalStatus, SpouseName:r.spouse, SpousePhoneNum:r.spousePhone,
-    ECName:(r.ec1&&r.ec1.name)||'', ECRelation:(r.ec1&&r.ec1.relation)||'', ECPhoneNumber:(r.ec1&&r.ec1.mobile)||'',
-    Designation:r.desig, ProjectName:r.project,
-    JoinDate: todayISO(), DutyHour:r.dutyHours,
-    Salary: (r.salary&&r.salary.total)||0, Status:'Active', _joinDays:0
-  };
-  DATA.employees.unshift(newEmp);
-  if (window.MGHRM && typeof window.MGHRM.insert === 'function') {
-    window.MGHRM.insert('employees', newEmp).then(inserted => {
-      if (inserted && inserted[0] && inserted[0].id) {
-        newEmp.id = inserted[0].id;
-        renderAll&&renderAll();
+  
+  if(!confirm('Confirm appointment for ' + r.name + '?')) return;
+
+  const btn = event && event.target ? event.target : null;
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
+
+  (async function() {
+    try {
+      if (!window.sb) throw new Error('Database connection not established.');
+      
+      const newEmpId = 'MGS' + String(Date.now()).slice(-4);
+      const pa = r.permanentAddress||{};
+      
+      const newEmp = {
+        employee_id: newEmpId,
+        full_name_bn: r.name||'', 
+        full_name_en: r.nameEn||r.name||'',
+        father_name_bn: r.father||'', 
+        mother_name_bn: r.mother||'',
+        date_of_birth: r.dob||'', 
+        national_id: r.nid||'', 
+        phone: r.phone||'',
+        education_bn: r.education||'', 
+        religion: r.religion||'', 
+        height: String(r.height||''), 
+        weight: String(r.weight||'0'),
+        division_id: pa.division_id||'', 
+        district_id: pa.district_id||'', 
+        upazila_id: pa.upazila_id||'', 
+        union_id: pa.union_id||'',
+        village_bn: pa.village||'', 
+        street_bn: pa.street||'',
+        marital_status: r.maritalStatus||'', 
+        spouse_name_bn: r.spouse||'', 
+        spouse_phone: r.spousePhone||'',
+        ec_name_bn: (r.ec1&&r.ec1.name)||'', 
+        ec_relation_bn: (r.ec1&&r.ec1.relation)||'', 
+        ec_phone: (r.ec1&&r.ec1.mobile)||'',
+        designation: r.desig||'', 
+        project_name: r.project||'',
+        join_date: todayISO(), 
+        duty_hour: r.dutyHours||'',
+        salary: (r.salary&&r.salary.total)||0, 
+        status: 'Active'
+      };
+
+      const { data: empData, error: empErr } = await window.sb.from('employees').insert([newEmp]).select();
+      if (empErr) throw empErr;
+
+      const empDbId = empData && empData[0] ? empData[0].id : '';
+
+      const archPayload = {
+        candidate_name: r.name,
+        designation: r.desig || '',
+        project_name: r.project || '',
+        result: 'Confirmed',
+        employee_id: String(empDbId || newEmpId),
+        notes: 'Onboarded as employee'
+      };
+
+      const { data: archData, error: archErr } = await window.sb.from('recruitment_archive').insert([archPayload]).select();
+      if (archErr) throw archErr;
+      
+      const archId = archData && archData[0] ? archData[0].archive_id : '';
+
+      const idx = RECRUITMENT.findIndex(x=>x.id===id);
+      if(idx>-1) RECRUITMENT.splice(idx,1);
+
+      if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
+        const freshData = await window.MGHRM.loadAll();
+        Object.assign(window.DATA, freshData);
       }
-    }).catch(console.error);
-  }
-  
-  DATA.recruitmentArchive = DATA.recruitmentArchive || [];
-  const archId = 'ARCH-' + Date.now() + '-' + (DATA.recruitmentArchive.length+1);
-  DATA.recruitmentArchive.unshift({
-    ArchiveID: archId,
-    CandidateName: r.name, CandidateNameEn: r.nameEn||'',
-    Designation: r.desig, ProjectName: r.project,
-    Result: 'Confirmed', EmployeeID: newEmpId,
-    ActionDate: todayISO(),
-    Reason: '', Note: ('Onboarded as employee'),
-    Snapshot: JSON.stringify(r)
-  });
-  
-  const idx = RECRUITMENT.findIndex(x=>x.id===id);
-  if(idx>-1) RECRUITMENT.splice(idx,1);
-  logActivity('create','employees', newEmpId, 'onboarded from recruitment: '+r.name);
-  logActivity('create','recruitment_archive', archId, 'Confirmed: '+r.name);
-  toast(`${r.name} → ${'appointment confirmed (ID: '}${newEmpId}) — ${'moved to archive'}`, 'success');
-  closeModal();
-  persist(); renderRecruitment(); renderAll&&renderAll();
+
+      logActivity('create','employees', newEmpId, 'onboarded from recruitment: '+r.name);
+      logActivity('create','recruitment_archive', archId, 'Confirmed: '+r.name);
+      toast(`${r.name} → appointment confirmed (ID: ${newEmpId}) — moved to archive`, 'success');
+      
+      closeModal();
+      persist(); renderRecruitment(); 
+      if (typeof refreshAll === 'function') refreshAll();
+
+    } catch (err) {
+      console.error(err);
+      toast('Error confirming candidate: ' + err.message, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = 'Onboard to Employees'; }
+    }
+  })();
 }
 
 function cancelCandidate(id){
   if(!guardEdit()) return;
   const r = RECRUITMENT.find(x=>x.id===id); if(!r) return;
   const reason = prompt('Cancellation reason (optional):','');
-  if(reason===null) return; /* user cancelled the prompt itself */
-  DATA.recruitmentArchive = DATA.recruitmentArchive || [];
-  const archId = 'ARCH-' + Date.now() + '-' + (DATA.recruitmentArchive.length+1);
-  DATA.recruitmentArchive.unshift({
-    ArchiveID: archId,
-    CandidateName: r.name, CandidateNameEn: r.nameEn||'',
-    Designation: r.desig, ProjectName: r.project,
-    Result: 'Rejected', EmployeeID: '',
-    ActionDate: todayISO(),
-    Reason: reason||'', Note: ('Cancelled from pipeline'),
-    Snapshot: JSON.stringify(r)
-  });
-  const idx = RECRUITMENT.findIndex(x=>x.id===id);
-  if(idx>-1) RECRUITMENT.splice(idx,1);
-  logActivity('cancel','recruitment_archive', archId, 'Rejected: '+r.name+(reason?' — '+reason:''));
-  toast(`${r.name} → ${'Cancelled & archived'}`, 'success');
-  closeModal(); persist(); renderRecruitment();
+  if(reason===null) return; 
+
+  const btn = event && event.target ? event.target : null;
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
+
+  (async function() {
+    try {
+      if (!window.sb) throw new Error('Database connection not established.');
+      
+      const archPayload = {
+        candidate_name: r.name,
+        designation: r.desig || '',
+        project_name: r.project || '',
+        result: 'Rejected',
+        employee_id: '',
+        notes: ('Cancelled from pipeline' + (reason ? ' - ' + reason : ''))
+      };
+
+      const { data: archData, error: archErr } = await window.sb.from('recruitment_archive').insert([archPayload]).select();
+      if (archErr) throw archErr;
+      
+      const archId = archData && archData[0] ? archData[0].archive_id : '';
+
+      const idx = RECRUITMENT.findIndex(x=>x.id===id);
+      if(idx>-1) RECRUITMENT.splice(idx,1);
+
+      if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
+        const freshData = await window.MGHRM.loadAll();
+        Object.assign(window.DATA, freshData);
+      }
+
+      logActivity('cancel','recruitment_archive', archId, 'Rejected: '+r.name+(reason?' — '+reason:''));
+      toast(`${r.name} → Cancelled & archived`, 'success');
+      
+      closeModal(); 
+      persist(); renderRecruitment();
+      if (typeof refreshAll === 'function') refreshAll();
+
+    } catch (err) {
+      console.error(err);
+      toast('Error archiving candidate: ' + err.message, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = 'Reject'; }
+    }
+  })();
 }
 
 function openArchivePopup(archId){
@@ -4000,9 +4066,9 @@ function renderParade(){
             ${rows.map(r=>{
               const gap = r.demandTotal - r.actualTotal;
               const status = gap>0?`<span class="pill inactive">-${num(gap)}</span>`:gap<0?`<span class="pill active">+${num(-gap)}</span>`:`<span class="pill completed">${'Full'}</span>`;
-              return `<tr>
+              return `<tr class="row-click" onclick="editDemand('${r.project.replace(/'/g,"\\'")}')" style="cursor:pointer" title="Click to edit demand">
                 <td>${num(r.idx)}</td>
-                <td style="font-size:12px">${projName(r.project)}</td>
+                <td style="font-size:12px"><strong>${projName(r.project)}</strong></td>
                 ${cell(r.demand.Incharge,r.actual.Incharge)}
                 ${cell(r.demand.Supervisor,r.actual.Supervisor)}
                 ${cell(r.demand.AsstSup,r.actual.AsstSup)}
@@ -4027,6 +4093,79 @@ function exportParadeExcel(){
   const url = URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
   const a = document.createElement('a'); a.href=url; a.download='parade_state.csv'; a.click();
   toast('Parade State exported','success');
+}
+
+function editDemand(projectName) {
+  if (!guardEdit()) return;
+  const d = (DATA.demand || []).find(x => x.ProjectName === projectName || x.project_name === projectName) || {};
+  
+  openModal({
+    title: `Edit Manpower Demand — ${projName(projectName)}`,
+    body: `
+      <div class="form-grid" style="gap:12px; margin-bottom:10px;">
+        <div class="field"><label>Security Incharge</label><input id="dem_inc" type="number" min="0" value="${d.DemandSecurityIncharge||0}"></div>
+        <div class="field"><label>Security Supervisor</label><input id="dem_sup" type="number" min="0" value="${d.DemandSecuritySupervisor||0}"></div>
+        <div class="field"><label>Asst. Security Supervisor</label><input id="dem_asup" type="number" min="0" value="${d.DemandAsstSecuritySupervisor||0}"></div>
+        <div class="field"><label>Security Guard</label><input id="dem_grd" type="number" min="0" value="${d.DemandSecurityGuard||0}"></div>
+        <div class="field"><label>Lady Guard</label><input id="dem_lady" type="number" min="0" value="${d.DemandLadyGuard||0}"></div>
+      </div>
+    `,
+    actions: `
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" onclick="saveDemand('${projectName.replace(/'/g,"\\'")}', event)">Save Demand</button>
+    `
+  });
+}
+
+function saveDemand(projectName, event) {
+  if (!guardEdit()) return;
+
+  const btn = event && event.target ? event.target : null;
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
+
+  (async function() {
+    try {
+      if (!window.sb) throw new Error('Database connection not established.');
+      
+      const incharge = parseInt(document.getElementById('dem_inc').value, 10) || 0;
+      const supervisor = parseInt(document.getElementById('dem_sup').value, 10) || 0;
+      const asup = parseInt(document.getElementById('dem_asup').value, 10) || 0;
+      const guard = parseInt(document.getElementById('dem_grd').value, 10) || 0;
+      const lady = parseInt(document.getElementById('dem_lady').value, 10) || 0;
+      const total = incharge + supervisor + asup + guard + lady;
+
+      const payload = {
+        project_name: projectName,
+        demand_incharge: incharge,
+        demand_supervisor: supervisor,
+        demand_assst_sup: asup,
+        demand_guard: guard,
+        demand_lady_guard: lady,
+        demand_total: total,
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await window.sb.from('demand').upsert(payload, { onConflict: 'project_name' });
+      if (error) throw error;
+
+      if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
+        const freshData = await window.MGHRM.loadAll();
+        Object.assign(window.DATA, freshData);
+      }
+      
+      toast(`Demand updated for ${projName(projectName)}`, 'success');
+      
+      closeModal();
+      renderParade();
+      if (typeof refreshAll === 'function') refreshAll();
+
+    } catch (err) {
+      console.error(err);
+      toast('Error updating demand: ' + err.message, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = 'Save Demand'; }
+    }
+  })();
 }
 
 /* ============ PROJECTS ============ */
@@ -5011,52 +5150,69 @@ async function submitTransfer(){
   const rid = document.getElementById('trEmp').value;
   const np = document.getElementById('trNew').value;
   const td = document.getElementById('trDate').value;
+  const iss = document.getElementById('trIssue').value;
+  const notes = document.getElementById('trNotes').value;
   if(!rid||!np||!td){ toast('Fill Employee, New Project, and Date', 'error'); return; }
-  let e = assertActiveEmp(rid);
-  if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeById === 'function') {
-    e = await window.MGHRM.fetchEmployeeById(rid);
-  }
-  if(!e) { toast('Employee not found or inactive', 'error'); return; }
-  const isFuture = new Date(td) > new Date();
-  const newId = Math.max(0, ...DATA.transfers.map(t => +t.TransferID || 0)) + 1;
-  const payload = {
-    TransferID: String(newId),
-    EmployeeID: e.EmployeeID || String(e.id || ''),
-    FullName: e.FullName,
-    Designation: e.Designation,
-    CurrentProject: e.ProjectName,
-    NewProject: np,
-    TransferDate: td,
-    'Issues Date': document.getElementById('trIssue').value,
-    Notes: document.getElementById('trNotes').value,
-    IsProceed: isFuture ? '0' : '1',
-    Status: isFuture ? 'Scheduled' : 'Recorded',
-  };
-  
+
+  const btn = event && event.target ? event.target : document.getElementById('btnSubmitTransfer');
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
+
   try {
-    const btn = event && event.target ? event.target : document.getElementById('btnSubmitTransfer');
-    if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
-    DATA.transfers.unshift(payload);
-    if (window.MGHRM && typeof window.MGHRM.insert === 'function') {
-      await window.MGHRM.insert('transfers', payload);
-      if (!isFuture) {
-        await window.MGHRM.update('employees', e.id || e.EmployeeID, { ProjectName: np });
-      }
+    let e = assertActiveEmp(rid);
+    if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeById === 'function') {
+      e = await window.MGHRM.fetchEmployeeById(rid);
     }
-    if (!isFuture) e.ProjectName = np;
-    if (btn) { btn.disabled = false; btn.innerHTML = 'Submit'; }
+    if(!e){ throw new Error('Employee not found or inactive'); }
+
+    if (!window.sb) {
+      throw new Error('Database connection not established.');
+    }
+
+    const isFuture = new Date(td) > new Date();
+    const newId = String(Date.now()); // Unique ID instead of Math.max over local array
+
+    const payload = {
+      transfer_id: newId,
+      record_id: String(e.id || ''),
+      employee_id: String(e.EmployeeID || e.id || ''),
+      full_name: e.FullName || '',
+      designation: e.Designation || '',
+      current_project: e.ProjectName || '',
+      new_project: np,
+      transfer_date: td,
+      issues_date: iss || '',
+      notes: notes || '',
+      is_proceed: isFuture ? '0' : '1',
+      status: isFuture ? 'Scheduled' : 'Recorded'
+    };
     
-    logActivity('create', 'transfers', String(newId), `Transfer for ${e.FullName} to ${np}`);
+    const { error: trErr } = await window.sb.from('transfers').insert([payload]);
+    if (trErr) throw trErr;
+
+    if (!isFuture) {
+      const { error: empErr } = await window.sb.from('employees').update({
+        project_name: np
+      }).eq('id', e.id);
+      if (empErr) throw empErr;
+    }
+
+    if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
+      const freshData = await window.MGHRM.loadAll();
+      Object.assign(window.DATA, freshData);
+    }
+    
+    logActivity('create', 'transfers', newId, `Transfer for ${e.FullName} to ${np}`);
     toast(isFuture 
       ? 'Scheduled — employee project NOT changed (edit on Employees tab)'
       : `Recorded — ${e.FullName} transferred to ${np}`, 'success');
       
-    persist();
-    renderTransfer();
+    closeModal();
+    if (typeof refreshAll === 'function') refreshAll();
   } catch (err) {
-    const btn = event && event.target ? event.target : document.getElementById('btnSubmitTransfer');
+    console.error(err);
+    toast('Error: ' + err.message, 'error');
+  } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = 'Submit'; }
-    toast('Transfer failed to save: ' + err.message, 'error');
   }
 }
 function reprintTransfer(id){
@@ -5293,36 +5449,51 @@ async function submitDisciplinary(){
   if(!guardEdit()) return;
   const rid = document.getElementById('dcEmp').value;
   if(!rid){ toast('Select employee first','error'); return; }
-  const e = assertActiveEmp(rid); if(!e) return;
-  const type = document.getElementById('dcType').value;
-  const newId = Math.max(0,...DATA.disciplinary.map(x=>+x.ActionID))+1;
-  const payload = {
-    ActionID:String(newId),
-    RefNo:document.getElementById('dcRef').value,
-    EmployeeID:e.EmployeeID || String(e.id || ''),
-    FullName:e.FullName, Designation:e.Designation, ProjectName:e.ProjectName,
-    ActionType:DC_TEMPLATES[type].label.en,
-    IncidentDate:document.getElementById('dcIncident').value,
-    IssueDate:document.getElementById('dcIssue').value,
-    Description:document.getElementById('dcDesc').value,
-  };
   
+  const btn = event && event.target ? event.target : document.getElementById('btnSubmitDisc');
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
+
   try {
-    const btn = event && event.target ? event.target : document.getElementById('btnSubmitDisc');
-    if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
-    DATA.disciplinary.unshift(payload);
-    if (window.MGHRM && typeof window.MGHRM.insert === 'function') {
-      await window.MGHRM.insert('disciplinary', payload);
+    let e = assertActiveEmp(rid);
+    if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeById === 'function') {
+      e = await window.MGHRM.fetchEmployeeById(rid);
     }
-    if (btn) { btn.disabled = false; btn.innerHTML = 'Submit Action'; }
+    if(!e) throw new Error('Employee not found or inactive');
+    if(!window.sb) throw new Error('Database connection not established.');
+
+    const type = document.getElementById('dcType').value;
+    const newId = String(Date.now());
+    
+    const payload = {
+      action_id: newId,
+      ref_no: document.getElementById('dcRef').value || '',
+      record_id: String(e.id || ''),
+      employee_id: String(e.EmployeeID || e.id || ''),
+      full_name: e.FullName || '',
+      designation: e.Designation || '',
+      project_name: e.ProjectName || '',
+      action_type: DC_TEMPLATES[type].label.en || '',
+      incident_date: document.getElementById('dcIncident').value || '',
+      issue_date: document.getElementById('dcIssue').value || '',
+      description: document.getElementById('dcDesc').value || ''
+    };
+    
+    const { error } = await window.sb.from('disciplinary').insert([payload]);
+    if (error) throw error;
+
+    if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
+      const freshData = await window.MGHRM.loadAll();
+      Object.assign(window.DATA, freshData);
+    }
     
     toast(DC_TEMPLATES[type].label.en + ' saved successfully', 'success');
-    persist();
-    renderDisciplinary();
+    closeModal();
+    if (typeof refreshAll === 'function') refreshAll();
   } catch (err) {
-    const btn = event && event.target ? event.target : document.getElementById('btnSubmitDisc');
+    console.error(err);
+    toast('Disciplinary action failed: ' + err.message, 'error');
+  } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = 'Submit Action'; }
-    toast('Disciplinary action failed to save: ' + err.message, 'error');
   }
 }
 function reprintDisc(id){
@@ -5496,39 +5667,53 @@ async function submitLeave(){
   const s = document.getElementById('lvStart').value;
   const e = document.getElementById('lvEnd').value;
   if(!rid||!s||!e){ toast('Fill Employee, Start & End dates','error'); return; }
-  const emp = assertActiveEmp(rid); if(!emp) return;
-  const days = Math.floor((new Date(e) - new Date(s))/86400000)+1;
-  const newId = SAMPLE_LEAVES.length + 1;
-  const leaveObj = {
-    id: newId,
-    leave_id: String(newId),
-    employee_id: emp.EmployeeID || String(emp.id || ''),
-    EmployeeID: emp.EmployeeID || String(emp.id || ''),
-    empId: emp.EmployeeID || String(emp.id || ''),
-    name: emp.FullName,
-    full_name: emp.FullName,
-    type,
-    leave_type: type,
-    start: s,
-    from_date: s,
-    end: e,
-    to_date: e,
-    days,
-    days_count: days,
-    reason: document.getElementById('lvReason').value,
-    status: 'Pending'
-  };
-  SAMPLE_LEAVES.unshift(leaveObj);
-  if(DATA.leaves) DATA.leaves.unshift(leaveObj);
-  if(window.MGHRM && typeof MGHRM.insert === 'function') {
-    try {
-      await MGHRM.insert('leaves', leaveObj);
-    } catch(err) {
-      console.warn('Leaves insert note:', err);
+  
+  const btn = event && event.target ? event.target : null;
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Submitting...'; }
+
+  try {
+    let emp = assertActiveEmp(rid);
+    if(!emp && window.MGHRM && typeof window.MGHRM.fetchEmployeeById === 'function') {
+      emp = await window.MGHRM.fetchEmployeeById(rid);
     }
+    if(!emp) throw new Error('Employee not found or inactive');
+    if(!window.sb) throw new Error('Database connection not established.');
+
+    const days = Math.floor((new Date(e) - new Date(s))/86400000)+1;
+    const newId = String(Date.now());
+    
+    const leaveObj = {
+      leave_id: newId,
+      record_id: String(emp.id || ''),
+      employee_id: String(emp.EmployeeID || emp.id || ''),
+      full_name: emp.FullName || '',
+      designation: emp.Designation || '',
+      project_name: emp.ProjectName || '',
+      leave_type: type,
+      from_date: s,
+      to_date: e,
+      days_count: days,
+      reason: document.getElementById('lvReason').value || '',
+      status: 'Pending'
+    };
+    
+    const { error } = await window.sb.from('leaves').insert([leaveObj]);
+    if (error) throw error;
+
+    if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
+      const freshData = await window.MGHRM.loadAll();
+      Object.assign(window.DATA, freshData);
+    }
+    
+    toast(`Leave application submitted (${num(days)} days)`,'success');
+    closeModal();
+    if (typeof refreshAll === 'function') refreshAll();
+  } catch (err) {
+    console.error(err);
+    toast('Leave submission failed: ' + err.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Submit'; }
   }
-  toast(`${'Leave application submitted'} (${num(days)} ${'days'})`,'success');
-  persist(); renderLeave();
 }
 function approveLeave(id){
   if(!guardEdit()) return;
@@ -5701,39 +5886,60 @@ async function submitExit(){
   const d   = document.getElementById('exDate').value;
   const r   = document.getElementById('exReason').value;
   if(!rid||!d||!r){ toast('Fill all required fields','error'); return; }
-  let e = assertActiveEmp(rid);
-  if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeById === 'function') {
-    e = await window.MGHRM.fetchEmployeeById(rid);
-  }
-  if(!e){ toast('Employee not found or inactive','error'); return; }
-  const newExitId = String(DATA.exits.length + 1);
-  const exitPayload = {
-    ExitID: newExitId,
-    EmployeeID: e.EmployeeID || String(e.id || ''),
-    FullName: e.FullName,
-    Designation: e.Designation,
-    CurrentProject: e.ProjectName,
-    JoinDate: e.JoinDate,
-    ExitType: document.getElementById('exType').value,
-    ExitReason: r,
-    ExitDate: d,
-    IssueDate: document.getElementById('exIssue').value
-  };
-  DATA.exits.unshift(exitPayload);
-  e.Status = 'Inactive';
-  e.ExitDate = d;
-  e.ExitReason = r;
-  if (window.MGHRM && typeof window.MGHRM.insert === 'function') {
-    try {
-      await window.MGHRM.insert('exits', exitPayload);
-      await window.MGHRM.update('employees', e.id || e.EmployeeID, { Status: 'Inactive', ExitDate: d });
-    } catch(err) {
-      console.warn('Exit sync note:', err);
+  
+  const btn = event && event.target ? event.target : document.getElementById('btnSubmitExit');
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
+
+  try {
+    let e = assertActiveEmp(rid);
+    if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeById === 'function') {
+      e = await window.MGHRM.fetchEmployeeById(rid);
     }
+    if(!e){ throw new Error('Employee not found or inactive'); }
+
+    if (!window.sb) {
+      throw new Error('Database connection not established.');
+    }
+
+    const newExitId = String(Date.now());
+    const exitPayload = {
+      exit_id: newExitId,
+      record_id: String(e.id || ''),
+      employee_id: String(e.EmployeeID || e.id || ''),
+      full_name: e.FullName || '',
+      designation: e.Designation || '',
+      current_project: e.ProjectName || '',
+      join_date: e.JoinDate || '',
+      exit_reason: r,
+      exit_date: d,
+      issue_date: document.getElementById('exIssue').value || ''
+    };
+
+    const { error: exitErr } = await window.sb.from('exits').insert([exitPayload]);
+    if (exitErr) throw exitErr;
+
+    const { error: empErr } = await window.sb.from('employees').update({
+      status: 'Inactive',
+      exit_date: d,
+      exit_reason: r
+    }).eq('id', e.id);
+    if (empErr) throw empErr;
+
+    if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
+      const freshData = await window.MGHRM.loadAll();
+      Object.assign(window.DATA, freshData);
+    }
+
+    logActivity('create','exits',newExitId,`${e.FullName} marked as Inactive (${r})`);
+    toast(`${e.FullName} marked as Inactive`,'success');
+    closeModal();
+    if (typeof refreshAll === 'function') refreshAll();
+  } catch(err) {
+    console.error(err);
+    toast('Error: ' + err.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Submit'; }
   }
-  logActivity('create','exits',newExitId,`${e.FullName} marked as Inactive (${r})`);
-  toast(`${e.FullName} marked as Inactive`,'success');
-  persist(); renderExit();
 }
 function previewClearance(){
   const rid = document.getElementById('exEmp').value;
@@ -5861,46 +6067,67 @@ async function submitIncrement(){
   const rid=document.getElementById('ipEmp').value;
   const type=document.getElementById('ipType').value;
   if(!rid){ toast('Select employee','error'); return; }
-  let e = assertActiveEmp(rid);
-  if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeById === 'function') {
-    e = await window.MGHRM.fetchEmployeeById(rid);
-  }
-  if(!e) { toast('Employee not found or inactive','error'); return; }
-  const newDesig=document.getElementById('ipNewDesig').value;
-  const newSal=+document.getElementById('ipNewSal').value;
-  const prev=+document.getElementById('ipPrevSal').value;
-  if(type==='Increment' && newSal===prev){ toast("For 'Increment', new salary must differ",'error'); return; }
-  if(type==='Promotion' && newDesig===e.Designation){ toast("For 'Promotion', new designation must differ",'error'); return; }
-  if(type==='Increment & Promotion' && (newDesig===e.Designation || newSal===prev)){ toast('Both must change','error'); return; }
-  const newChangeId = String(DATA.career.length + 1);
-  const careerPayload = {
-    ChangeID: newChangeId,
-    EmployeeID: e.EmployeeID || String(e.id || ''),
-    FullName: e.FullName,
-    ProjectName: e.ProjectName,
-    ChangeType: type,
-    EffectiveDate: document.getElementById('ipDate').value,
-    CurrentDesignation: e.Designation,
-    NewDesignation: newDesig,
-    PreviousSalary: prev,
-    IncrementAmount: newSal - prev,
-    NewSalary: newSal,
-    Notes: document.getElementById('ipNotes').value
-  };
-  DATA.career.push(careerPayload);
-  e.Designation = newDesig;
-  e.Salary = newSal;
-  if (window.MGHRM && typeof window.MGHRM.insert === 'function') {
-    try {
-      await window.MGHRM.insert('career', careerPayload);
-      await window.MGHRM.update('employees', e.id || e.EmployeeID, { Designation: newDesig, Salary: newSal });
-    } catch(err) {
-      console.warn('Career sync note:', err);
+  
+  const btn = event && event.target ? event.target : null;
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
+
+  try {
+    let e = assertActiveEmp(rid);
+    if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeById === 'function') {
+      e = await window.MGHRM.fetchEmployeeById(rid);
     }
+    if(!e) throw new Error('Employee not found or inactive');
+    if(!window.sb) throw new Error('Database connection not established.');
+
+    const newDesig=document.getElementById('ipNewDesig').value;
+    const newSal=+document.getElementById('ipNewSal').value;
+    const prev=+document.getElementById('ipPrevSal').value;
+    
+    if(type==='Increment' && newSal===prev){ throw new Error("For 'Increment', new salary must differ"); }
+    if(type==='Promotion' && newDesig===e.Designation){ throw new Error("For 'Promotion', new designation must differ"); }
+    if(type==='Increment & Promotion' && (newDesig===e.Designation || newSal===prev)){ throw new Error('Both must change'); }
+    
+    const newChangeId = String(Date.now());
+    const careerPayload = {
+      change_id: newChangeId,
+      record_id: String(e.id || ''),
+      employee_id: String(e.EmployeeID || e.id || ''),
+      full_name: e.FullName || '',
+      project_name: e.ProjectName || '',
+      change_type: type,
+      effective_date: document.getElementById('ipDate').value || '',
+      current_designation: e.Designation || '',
+      new_designation: newDesig || '',
+      previous_salary: prev,
+      increment_amount: newSal - prev,
+      new_salary: newSal,
+      notes: document.getElementById('ipNotes').value || ''
+    };
+    
+    const { error: carErr } = await window.sb.from('career').insert([careerPayload]);
+    if (carErr) throw carErr;
+    
+    const { error: empErr } = await window.sb.from('employees').update({
+      designation: newDesig,
+      salary: newSal
+    }).eq('id', e.id);
+    if (empErr) throw empErr;
+
+    if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
+      const freshData = await window.MGHRM.loadAll();
+      Object.assign(window.DATA, freshData);
+    }
+    
+    logActivity('create','career',newChangeId,`${type} for ${e.FullName} to ${newDesig} (${newSal})`);
+    toast('Saved and profile updated','success');
+    closeModal();
+    if (typeof refreshAll === 'function') refreshAll();
+  } catch (err) {
+    console.error(err);
+    toast('Career change failed: ' + err.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Submit'; }
   }
-  logActivity('create','career',newChangeId,`${type} for ${e.FullName} to ${newDesig} (${newSal})`);
-  toast('Saved and profile updated','success');
-  persist(); renderIncrement();
 }
 
 function openCareerPopup(cid){
@@ -8204,7 +8431,7 @@ function mtSaveMeetingNote(iso, val){
   if(d.submitted) return;
   d.meetingNote = val; persist();
 }
-function mtSubmitDay(iso){
+function mtSubmitDay(iso, event){
   if(!guardEdit()) return;
   const d = mtEnsure(iso);
   if(d.submitted){ toast('Already submitted','info'); return; }
@@ -8213,27 +8440,87 @@ function mtSubmitDay(iso){
     if(!confirm('No projects marked and meeting-note empty. Submit anyway?')) return;
   }
   
-  const notesArr = Object.entries(d.notes||{}).filter(([_,v])=>String(v||'').trim());
-  let added = 0;
-  DATA.todos = DATA.todos || [];
-  notesArr.forEach(([proj, note])=>{
-    DATA.todos.unshift({
-      id: Date.now()+Math.floor(Math.random()*10000),
-      project: proj,
-      who: ('Meeting attendance — ')+iso,
-      note: String(note).trim(),
-      date: iso,
-      status: 'pending',
-      source: 'meeting',
-      sourceDate: iso
-    });
-    added++;
-  });
-  d.submitted = true;
-  d.submittedAt = new Date().toISOString();
-  logActivity('submit','meetings', iso, `${presentProjs.length} present · ${added} follow-ups added to To-Do`);
-  toast(("Today's meeting submitted — ")+num(added)+(' follow-ups added to To-Do'),'success');
-  persist(); renderMeeting(); if(typeof updateTodoBadge==='function') updateTodoBadge();
+  const btn = event && event.target ? event.target : null;
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
+
+  (async function() {
+    try {
+      if (!window.sb) throw new Error('Database connection not established.');
+      
+      const meetingId = 'MTG-' + Date.now();
+      const meetingPayload = {
+        meeting_id: meetingId,
+        meeting_date: iso,
+        title: 'Morning Coordination Meeting',
+        venue: 'HQ',
+        agenda: d.meetingNote || 'Daily routine check',
+        created_by: window.localStorage.getItem('mghrm_user') || 'Admin'
+      };
+
+      const { data: mData, error: mErr } = await window.sb.from('meetings').insert([meetingPayload]).select();
+      if (mErr) throw mErr;
+
+      const meetingDbId = mData && mData[0] ? mData[0].meeting_id : meetingId;
+
+      const attendanceArray = presentProjs.map(proj => {
+        const activeEmps = (window.DATA.employees || []).filter(e => e.Status === 'Active' && e.ProjectName === proj);
+        const rep = activeEmps.find(e => (e.Designation||'').toLowerCase().includes('supervisor') || (e.Designation||'').toLowerCase().includes('incharge')) || activeEmps[0] || {};
+        
+        return {
+          meeting_id: meetingDbId,
+          employee_id: String(rep.EmployeeID || rep.id || ''),
+          full_name: rep.FullName || '',
+          designation: rep.Designation || '',
+          project_name: proj,
+          status: 'Present',
+          remarks: d.notes ? String(d.notes[proj] || '').trim() : ''
+        };
+      });
+
+      if (attendanceArray.length > 0) {
+        const { error: attErr } = await window.sb.from('meeting_attendance').insert(attendanceArray);
+        if (attErr) throw attErr;
+      }
+
+      // Add to Todos as before
+      const notesArr = Object.entries(d.notes||{}).filter(([_,v])=>String(v||'').trim());
+      let added = 0;
+      DATA.todos = DATA.todos || [];
+      notesArr.forEach(([proj, note])=>{
+        DATA.todos.unshift({
+          id: Date.now()+Math.floor(Math.random()*10000),
+          project: proj,
+          who: ('Meeting attendance — ')+iso,
+          note: String(note).trim(),
+          date: iso,
+          status: 'pending',
+          source: 'meeting',
+          sourceDate: iso
+        });
+        added++;
+      });
+      
+      d.submitted = true;
+      d.submittedAt = new Date().toISOString();
+
+      if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
+        const freshData = await window.MGHRM.loadAll();
+        Object.assign(window.DATA, freshData);
+      }
+
+      logActivity('submit','meetings', iso, `${presentProjs.length} present · ${added} follow-ups added to To-Do`);
+      toast(("Today's meeting submitted — ")+num(added)+(' follow-ups added to To-Do'),'success');
+      
+      persist(); renderMeeting(); 
+      if(typeof updateTodoBadge==='function') updateTodoBadge();
+
+    } catch (err) {
+      console.error(err);
+      toast('Error submitting meeting: ' + err.message, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = ico('check') + " Submit Today's Meeting"; }
+    }
+  })();
 }
 function mtUnsubmit(iso){
   if(!guardEdit()) return;
@@ -8369,7 +8656,7 @@ function renderMeeting(){
               <textarea rows="2" placeholder="${'e.g. new policy communicated to all…'}" oninput="mtSaveMeetingNote('${today}',this.value)">${((rec&&rec.meetingNote)||'').replace(/</g,'&lt;')}</textarea>
             </div>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-              <button class="btn primary" style="font-weight:700" onclick="mtSubmitDay('${today}')">${ico('check')} ${"Submit Today's Meeting"}</button>
+              <button class="btn primary" style="font-weight:700" onclick="mtSubmitDay('${today}', event)">${ico('check')} ${"Submit Today's Meeting"}</button>
               <div style="flex:1"></div>
               <input type="text" id="mtOffNote" placeholder="${'Reason for no meeting…'}" style="flex:1;min-width:200px;padding:8px 12px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit;font-size:13px">
               <button class="btn danger sm" onclick="mtMarkOff('${today}')">${ico('x')} ${'No meeting today'}</button>
@@ -8611,129 +8898,128 @@ function unifNextId(){
 }
 function renderUniform(){
   const page = document.getElementById('page-uniform'); if(!page) return;
-  const orders = DATA.uniformOrders;
-  const active = orders.filter(o=>!o.completedAt).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
-  const done   = orders.filter(o=> o.completedAt).sort((a,b)=>(b.completedAt||'').localeCompare(a.completedAt||''));
-  const thisMonth = todayISO().slice(0,7);
-  const doneMonth = done.filter(o=>String(o.completedAt).startsWith(thisMonth));
-  const stepCount = s => active.filter(o=>unifStep(o)===s).length;
-
-  const stepper = o=>{
-    const st = unifStep(o);
-    const dates = [o.demandDate, o.reqApproveDate, o.workOrderDate, o.deliveryDate];
-    return `<div class="unif-steps">${UNIF_STAGES.map((s,i)=>{
-      const d = i+1, on = st>=d;
-      return `<div class="unif-step ${on?'done':''}">
-        <div class="us-dot">✓</div>
-        <div class="us-label">${s.key}</div>
-        <div class="us-date">${dates[i]?fmtDate(dates[i]):'—'}</div>
-      </div>`;
-    }).join('')}</div>`;
-  };
-  const fld = (o, field, label, type='text', ph='')=>`
-    <div class="field"><label>${label}</label>
-      <input type="${type}" value="${o[field]||''}" placeholder="${ph}"
-        class="${o[field]?'filled':''}" onchange="unifSet('${o.id}','${field}',this.value)">
-    </div>`;
+  const list = window.DATA.uniform || [];
+  
+  const empOpts = (window.DATA.employees || [])
+    .filter(e => e.Status === 'Active')
+    .sort((a,b) => (a.FullName||'').localeCompare(b.FullName||''))
+    .map(e => `<option value="${e.id||e.EmployeeID}">${e.EmployeeID} - ${e.FullName} (${e.ProjectName})</option>`)
+    .join('');
 
   page.innerHTML = `
-    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
-      ${kpi('Active Orders', num(active.length),'b',ico('refresh'), 'being tracked','','')}
-      ${kpi('Awaiting Requisition', num(stepCount(1)),'y',ico('file'), 'demand raised only','','')}
-      ${kpi('With Tailor / In Making', num(stepCount(2)+stepCount(3)),'p',ico('settings'), 'approved or in production','','')}
-      ${kpi('Completed (this month)', num(doneMonth.length),'g',ico('check'), 'total completed '+num(done.length),'','')}
+    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
+      ${kpi('Total Issued', num(list.length),'b',ico('check'), 'all time records','','')}
+      ${kpi('Active Items', num(list.filter(x=>x.status==='Issued').length),'g',ico('refresh'), 'currently held by staff','','')}
+      ${kpi('Returned/Damaged', num(list.filter(x=>x.status!=='Issued').length),'y',ico('x'), 'past records','','')}
     </div>
 
     <div class="card">
-      <div class="card-header"><h3>${'New Uniform Demand'}</h3>
-        <span class="sub">${'Enter as soon as a project raises a uniform demand'}</span>
+      <div class="card-header"><h3>Issue Uniform to Employee</h3>
+        <span class="sub">Record items given to security personnel</span>
       </div>
       <div class="card-body">
         <div class="form-grid">
-          <div class="field"><label>${'Project'} *</label><select id="unProj"></select></div>
-          <div class="field"><label>${'No. of Sets'} *</label><input id="unSets" type="number" min="1" placeholder="0"></div>
-          <div class="field"><label>${'Demand Date'} *</label><input id="unDemandDate" type="date" value="${todayISO()}"></div>
-          <div class="field"><label>${'Note (optional)'}</label><input id="unNote" type="text" placeholder="${'e.g. winter uniforms'}"></div>
+          <div class="field"><label>Employee *</label><select id="unEmp">${empOpts}</select></div>
+          <div class="field"><label>Item Name *</label><select id="unItem"><option value="Shirt">Shirt</option><option value="Pant">Pant</option><option value="Cap">Cap</option><option value="Belt">Belt</option><option value="Shoes">Shoes</option><option value="Sweater">Sweater</option><option value="ID Card">ID Card</option></select></div>
+          <div class="field"><label>Size</label><input id="unSize" type="text" placeholder="e.g. L, 40, etc"></div>
+          <div class="field"><label>Quantity *</label><input id="unQty" type="number" min="1" value="1"></div>
+          <div class="field"><label>Condition</label><select id="unCond"><option value="New">New</option><option value="Good">Good</option><option value="Damaged">Damaged</option></select></div>
+          <div class="field"><label>Issue Date *</label><input id="unDate" type="date" value="${todayISO()}"></div>
+          <div class="field"><label>Remarks</label><input id="unNote" type="text" placeholder="Optional notes"></div>
         </div>
         <div style="margin-top:14px" class="btn-row">
-          <button class="btn primary" onclick="unifSubmit()">${ico('plus')} ${'Start Tracking'}</button>
+          <button class="btn primary" onclick="unifSubmit(event)">${ico('plus')} Issue Item</button>
         </div>
       </div>
     </div>
-
+    
     <div class="card">
       <div class="card-header">
-        <div><h3>${'Current Order Tracking'} <span class="chip">${num(active.length)}</span></h3>
-        <span class="sub">${'Fill a date field and the status bar advances automatically'}</span></div>
-        <button class="btn sm" onclick="printUniform('active')">${ico('print')} ${'Print / PDF'}</button>
-      </div>
-      <div class="card-body">
-        ${active.length ? active.map(o=>{
-          const st = unifStep(o);
-          return `<div class="unif-card st-${Math.min(st,4)}">
-            <div class="unif-top">
-              <span class="uo-id">${o.id}</span>
-              <h4>${projName(o.project)}</h4>
-              <span class="uo-sets">${num(o.sets)} ${'sets'}</span>
-              <span class="unif-status st-${Math.min(st,4)}">${UNIF_STAGES[Math.min(st,4)-1].key}</span>
-              <button class="btn sm ghost" title="${'Delete'}" onclick="unifRemoveAsk('${o.id}')">${ico('x')}</button>
-            </div>
-            ${stepper(o)}
-            <div class="unif-edit">
-              ${fld(o,'reqNo', 'Requisition No','text','REQ/…')}
-              ${fld(o,'reqApproveDate', 'Requisition Approved','date')}
-              ${fld(o,'workOrderDate', 'Work Order to Tailor','date')}
-              ${fld(o,'tailorName', 'Tailor / Supplier','text', 'name')}
-              ${fld(o,'deliveryDate', 'Delivery Date','date')}
-              ${fld(o,'challanNo', 'Challan / Bill No','text','CH/…')}
-              ${fld(o,'amount', 'Bill Amount (৳)','number','0')}
-              ${fld(o,'note', 'Note','text','')}
-            </div>
-            ${o.note?`<div class="unif-note">📝 ${o.note}</div>`:''}
-            ${unifReady(o)?`<button class="unif-complete-btn" onclick="unifComplete('${o.id}')">${ico('check')} ${'Mark as Complete'}</button>`:''}
-          </div>`;
-        }).join('') : `<div class="notif-empty"><div class="ne-ring">${ico('check')}</div>
-          <p>${'No active uniform orders — add a demand with the form above'}</p></div>`}
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header">
-        <div><h3>${'Completed Orders'} <span class="chip">${num(done.length)}</span></h3>
-        <span class="sub">${'most recently completed on top'}</span></div>
-        <button class="btn sm" onclick="printUniform('completed')">${ico('print')} ${'Print / PDF'}</button>
+        <div><h3>Issued Uniform Records <span class="chip">${num(list.length)}</span></h3></div>
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>#</th><th>${'Order'}</th><th>${'Project'}</th><th>${'Sets'}</th><th>${'Delivered'}</th><th>${'Challan No'}</th><th>${'Bill (৳)'}</th><th>${'Completed On'}</th><th></th></tr></thead>
-          <tbody>${done.length ? done.map((o,i)=>`<tr>
+          <thead><tr><th>#</th><th>Date</th><th>Employee</th><th>Project</th><th>Item</th><th>Size</th><th>Qty</th><th>Condition</th><th>Status</th></tr></thead>
+          <tbody>${list.length ? list.map((o,i)=>`<tr>
             <td class="num">${num(i+1)}</td>
-            <td><span class="uo-id">${o.id}</span></td>
-            <td style="font-size:12px"><strong>${projName(o.project)}</strong></td>
-            <td class="num">${num(o.sets)}</td>
-            <td>${fmtDate(o.deliveryDate)}</td>
-            <td>${o.challanNo||''}</td>
-            <td class="num">${o.amount?money(o.amount):''}</td>
-            <td>${fmtDate(o.completedAt)}</td>
-            <td><button class="btn sm ghost" title="${'Reopen'}" onclick="unifReopen('${o.id}')">${ico('refresh')}</button></td>
-          </tr>`).join('') : `<tr><td colspan="9" style="text-align:center;padding:18px" class="small-mute">${'No completed orders yet'}</td></tr>`}</tbody>
+            <td>${fmtDate(o.issue_date)}</td>
+            <td><strong>${o.full_name||''}</strong><br><small class="mute">${o.employee_id||''}</small></td>
+            <td>${o.project_name||''}</td>
+            <td>${o.item_name||''}</td>
+            <td>${o.size_text||'—'}</td>
+            <td class="num">${o.quantity||1}</td>
+            <td>${o.condition_text||''}</td>
+            <td><span class="pillbox ${o.status==='Issued'?'ok':o.status==='Returned'?'info':'over'}">${o.status||''}</span></td>
+          </tr>`).join('') : `<tr><td colspan="9" style="text-align:center;padding:18px" class="small-mute">No records found</td></tr>`}</tbody>
         </table>
       </div>
-    </div>`;
-  fillProjectSelect('unProj');
+    </div>
+  `;
 }
-function unifSubmit(){
+function unifSubmit(event){
   if(!guardEdit()) return;
-  const proj = document.getElementById('unProj').value;
-  const sets = +document.getElementById('unSets').value;
-  const dd   = document.getElementById('unDemandDate').value;
-  if(!proj || !sets || sets<1 || !dd){ toast('Project, sets and demand date are required','error'); return; }
-  const o = { id:unifNextId(), project:proj, sets, demandDate:dd, note:document.getElementById('unNote').value.trim(),
-    reqNo:'', reqApproveDate:'', workOrderDate:'', tailorName:'', deliveryDate:'', challanNo:'', amount:'',
-    completedAt:'', createdAt:new Date().toISOString() };
-  DATA.uniformOrders.push(o);
-  persist(); renderUniform();
-  toast(`${o.id} — ${'tracking started'}`,'success');
+  const rid = document.getElementById('unEmp').value;
+  const itm = document.getElementById('unItem').value;
+  const qty = document.getElementById('unQty').value;
+  const dt = document.getElementById('unDate').value;
+  
+  if(!rid || !itm || !qty || !dt){ toast('Fill Employee, Item, Qty, Date','error'); return; }
+
+  const btn = event && event.target ? event.target : null;
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
+
+  (async function() {
+    try {
+      let e = assertActiveEmp(rid);
+      if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeById === 'function') {
+        e = await window.MGHRM.fetchEmployeeById(rid);
+      }
+      if(!e) throw new Error('Employee not found or inactive');
+      if(!window.sb) throw new Error('Database connection not established.');
+
+      const newId = String(Date.now());
+      
+      const payload = {
+        issue_id: newId,
+        record_id: String(e.id || ''),
+        employee_id: String(e.EmployeeID || e.id || ''),
+        full_name: e.FullName || '',
+        designation: e.Designation || '',
+        project_name: e.ProjectName || '',
+        item_name: itm,
+        size_text: document.getElementById('unSize').value || '',
+        quantity: parseInt(qty, 10) || 1,
+        issue_date: dt,
+        condition_text: document.getElementById('unCond').value || 'New',
+        status: 'Issued',
+        remarks: document.getElementById('unNote').value || ''
+      };
+
+      const { error } = await window.sb.from('uniform').insert([payload]);
+      if (error) throw error;
+
+      if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
+        const freshData = await window.MGHRM.loadAll();
+        Object.assign(window.DATA, freshData);
+      }
+      
+      toast(`Uniform issue recorded for ${e.FullName}`, 'success');
+      
+      // Clear specific form inputs
+      document.getElementById('unSize').value = '';
+      document.getElementById('unQty').value = '1';
+      document.getElementById('unNote').value = '';
+      
+      renderUniform();
+      if (typeof refreshAll === 'function') refreshAll();
+
+    } catch (err) {
+      console.error(err);
+      toast('Uniform issue failed: ' + err.message, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = ico('plus') + ' Issue Item'; }
+    }
+  })();
 }
 function unifSet(id, field, value){
   if(!guardEdit()) return;

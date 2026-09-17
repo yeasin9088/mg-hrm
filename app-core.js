@@ -948,7 +948,7 @@
       var foundLocal = global.DATA.employees.find(function (e) {
         return (
           String(e.id || '').trim() === idStr ||
-          String(e.EmployeeID || '').trim() === idStr ||
+          String(e.EmployeeID || '').trim() === idStr
         );
       });
       if (foundLocal) return Promise.resolve(foundLocal);

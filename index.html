@@ -1348,311 +1348,9 @@ input:focus, select:focus, textarea:focus {
 <link rel="apple-touch-icon" href="./icon-192.png">
 <link rel="icon" type="image/png" href="./icon-192.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="./config.js"></script><script>
-/* =====================================================================
-   MG SECURITY HRM — Supabase Data Layer  (v1.0)
-   এই ফাইলটি অ্যাপের ডেটা পড়া/লেখার পুরো কাজ করে।
-   ===================================================================== */
-(function (global) {
-  'use strict';
-
-  /* ---------- ১. টেবিল ও কলাম ম্যাপিং -------------------------------- */
-  var TABLE_MAP = {
-    employees: { table: 'employees', pk: 'record_id', allowed: ['id', 'record_id', 'employee_id', 'full_name', 'full_name_bn', 'father_name', 'mother_name', 'dob', 'phone', 'nid', 'education', 'religion', 'height', 'weight', 'marital_status', 'spouse_name', 'spouse_phone', 'ec_name', 'ec_relation', 'ec_phone', 'division', 'district', 'thana', 'address', 'address_bn', 'division_id', 'district_id', 'upazila_id', 'union_id', 'village', 'street', 'designation', 'project_name', 'join_date', 'duty_hour', 'salary', 'status', 'exit_date', 'exit_reason', 'remarks', 'photo_url', 'created_at', 'updated_at', 'system_id'], map: {
-      'SystemID':'system_id','RecordID':'record_id','EmployeeID':'employee_id','FullName':'full_name',
-      'FullNameBangla':'full_name_bn','DOB':'dob','PhoneNumber':'phone','Education':'education',
-      'Religion':'religion','Height':'height','Weight':'weight','Division':'division',
-      'District':'district','Thana':'thana','Designation':'designation','ProjectName':'project_name',
-      'JoinDate':'join_date','DutyHour':'duty_hour','Salary':'salary','Status':'status',
-      'ExitDate':'exit_date','PhotoURL':'photo_url' } },
-
-    projects: { table: 'projects', pk: 'id', allowed: ['id', 'project_name', 'project_name_bn', 'address', 'address_bn', 'main_gate_phone', 'admin_name', 'admin_phone', 'admin_whatsapp', 'division', 'district', 'thana', 'division_id', 'district_id', 'upazila_id', 'union_id', 'village', 'street', 'start_date', 'status', 'created_at'], map: {
-      'Project ID':'id','ProjectName':'project_name','ProjectNameBangla':'project_name_bn',
-      'Main Gate Phone Num':'main_gate_phone','Admin Phone Num':'admin_phone',
-      'Admin WhatsApp Num':'admin_whatsapp' } },
-
-    demand: { table: 'demand', pk: 'id', allowed: ['id', 'project_name', 'demand_incharge', 'demand_supervisor', 'demand_assst_sup', 'demand_guard', 'demand_lady_guard', 'demand_total', 'created_at'], map: {
-      'ID':'id','ProjectName':'project_name',
-      'DemandSecurityIncharge':'demand_incharge','DemandSecuritySupervisor':'demand_supervisor',
-      'DemandAsstSecuritySupervisor':'demand_assst_sup','DemandSecurityGuard':'demand_guard',
-      'DemandLadyGuard':'demand_lady_guard','DemandTotal':'demand_total' } },
-
-    disciplinary: { table: 'disciplinary', pk: 'action_id', allowed: ['id', 'action_id', 'ref_no', 'ref_no_bn', 'record_id', 'employee_id', 'full_name', 'full_name_bn', 'designation', 'designation_bn', 'project_name', 'project_name_bn', 'action_type', 'issue_date', 'incident_date', 'description', 'created_at', 'system_id', 'employee_id_bn', 'issue_date_bn', 'description_bn'], map: {
-      'SystemID':'system_id','ActionID':'action_id','RefNo':'ref_no','RefNoBangla':'ref_no_bn','RecordID':'record_id',
-      'EmployeeID':'employee_id','EmployeeIDBangla':'employee_id_bn','FullName':'full_name',
-      'FullNameBangla':'full_name_bn','Designation':'designation','DesignationBangla':'designation_bn',
-      'ProjectName':'project_name','ProjectNameBangla':'project_name_bn','ActionType':'action_type',
-      'IssueDate':'issue_date','IssueDateBangla':'issue_date_bn','IncidentDate':'incident_date',
-      'Description':'description','DescriptionBangla':'description_bn' } },
-
-    exits: { table: 'exits', pk: 'exit_id', allowed: ['id', 'exit_id', 'record_id', 'full_name', 'designation', 'current_project', 'join_date', 'exit_reason', 'exit_date', 'issue_date', 'created_at', 'system_id'], map: {
-      'SystemID':'system_id','ExitID':'exit_id','RecordID':'record_id','FullName':'full_name','Designation':'designation',
-      'CurrentProject':'current_project','JoinDate':'join_date','ExitReason':'exit_reason',
-      'ExitDate':'exit_date','IssueDate':'issue_date' } },
-
-    transfers: { table: 'transfers', pk: 'transfer_id', allowed: ['id', 'transfer_id', 'record_id', 'employee_id', 'full_name', 'full_name_bn', 'designation', 'designation_bn', 'current_project', 'current_project_bn', 'new_project', 'new_project_bn', 'transfer_date', 'issues_date', 'is_proceed', 'created_at', 'system_id', 'employee_id_bn', 'transfer_date_bn', 'issues_date_bn'], map: {
-      'SystemID':'system_id','TransferID':'transfer_id','RecordID':'record_id','EmployeeID':'employee_id',
-      'EmployeeIDBangla':'employee_id_bn','FullName':'full_name','FullNameBangla':'full_name_bn',
-      'Designation':'designation','DesignationBangla':'designation_bn',
-      'CurrentProject':'current_project','CurrentProjectBangla':'current_project_bn',
-      'NewProject':'new_project','NewProjectBangla':'new_project_bn',
-      'TransferDate':'transfer_date','TransferDateBangla':'transfer_date_bn',
-      'Issues Date':'issues_date','Issues DateBangla':'issues_date_bn','IsProceed':'is_proceed' } },
-
-    career: { table: 'career', pk: 'change_id', allowed: ['id', 'change_id', 'record_id', 'employee_id', 'full_name', 'project_name', 'change_type', 'effective_date', 'current_designation', 'new_designation', 'previous_salary', 'increment_amount', 'new_salary', 'created_at', 'system_id'], map: {
-      'SystemID':'system_id','ChangeID':'change_id','RecordID':'record_id','EmployeeID':'employee_id','FullName':'full_name',
-      'ProjectName':'project_name','ChangeType':'change_type','EffectiveDate':'effective_date',
-      'CurrentDesignation':'current_designation','NewDesignation':'new_designation',
-      'PreviousSalary':'previous_salary','IncrementAmount':'increment_amount','NewSalary':'new_salary' } },
-
-    divisions: { table: 'divisions', pk: 'division_id', map: {
-      'Division ID':'division_id','Division Name':'division_name' } },
-
-    districts: { table: 'districts', pk: 'district_id', map: {
-      'Districts ID':'district_id','Division ID':'division_id','Districts Name':'district_name' } },
-
-    thana: { table: 'thanas', pk: 'thana_id', map: {
-      'Thana ID':'thana_id','Districts ID':'district_id','Thana Name':'thana_name' } },
-
-    desigBangla: { table: 'designations', pk: 'desig_id', map: {
-      'ID':'desig_id','Designation':'designation','DesignationBangla':'designation_bn' } },
-
-    uniform: { table: 'uniform', pk: 'issue_id', map: {} },
-    leaves:  { table: 'leaves',  pk: 'leave_id', allowed: ['id', 'leave_id', 'record_id', 'employee_id', 'name', 'type', 'start', 'end', 'days', 'reason', 'status', 'created_at'], map: {} },
-    meetings:{ table: 'meetings',pk: 'meeting_id', allowed: ['id', 'meeting_id', 'date_iso', 'title', 'location', 'start_time', 'end_time', 'notes', 'status', 'created_at'], map: {} },
-
-    /* v3.4: অ্যাক্টিভিটি লগ ও রিক্রুটমেন্ট আর্কাইভ — এখন সার্ভারে সিঙ্ক হবে
-       (কলাম নাম supabase_setup.sql-এর সাথে align করা) */
-    activityLog:        { table: 'activity_log',        pk: 'id', allowed: ['id', 'user_id', 'user_email', 'action', 'table_name', 'record_ref', 'detail', 'created_at'], map: {
-      'LogID':'id','UserID':'user_id','UserEmail':'user_email',
-      'Action':'action','TableName':'table_name','RecordRef':'record_ref','Detail':'detail',
-      'CreatedAt':'created_at' } },
-    recruitmentArchive: { table: 'recruitment_archive', pk: 'archive_id', allowed: ['archive_id', 'candidate_name', 'designation', 'project_name', 'result', 'employee_id', 'decided_at', 'notes', 'created_at', 'updated_at'], map: {
-      'ArchiveID':'archive_id','CandidateName':'candidate_name','Designation':'designation',
-      'ProjectName':'project_name','Result':'result','EmployeeID':'employee_id',
-      'DecidedAt':'decided_at','Notes':'notes' } }
-  };
-
-  /* ---------- ২. নাম রূপান্তর -------------------------------------- */
-  function camelToSnake(s) {
-    return String(s)
-      .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
-      .replace(/[\s\-]+/g, '_')
-      .replace(/_+/g, '_')
-      .toLowerCase().replace(/^_|_$/g, '');
-  }
-    function toDb(key, rec) {
-    var m = TABLE_MAP[key], out = {}, k, col, v;
-    var allowed = m.allowed || [];
-    for (k in rec) {
-      if (!Object.prototype.hasOwnProperty.call(rec, k)) continue;
-      if (k.charAt(0) === '_') continue;
-      col = (m.map && m.map[k]) || camelToSnake(k);
-      if (allowed.length && allowed.indexOf(col) === -1) continue;
-            v = rec[k];
-      if (typeof v === 'string' && v.trim() === '') v = null;
-      if (v && typeof v === 'string' && (col === 'salary' || col === 'new_salary' || col === 'previous_salary' || col === 'increment_amount')) {
-        v = v.replace(/,/g, '');
-        if (isNaN(Number(v))) v = 0;
-      }
-      out[col] = v;
-
-    }
-    delete out.created_at; delete out.updated_at;
-    if (out.id === undefined || out.id === null) delete out.id;  // identity কলাম
-    return out;
-  }
-  function fromDb(key, row) {
-    var m = TABLE_MAP[key], rev = {}, c, out = {};
-    for (c in (m.map || {})) rev[m.map[c]] = c;
-    for (c in row) {
-      if (c === 'created_at' || c === 'updated_at') continue;
-      if (row[c] === null) continue;                            // খালি ফিল্ড বাদ
-      out[rev[c] || c] = row[c];
-    }
-    return out;
-  }
-
-  /* ---------- ৩. অবস্থা ------------------------------------------- */
-  var sb = null, cfg = {}, user = null, ready = false;
-  var QUEUE_KEY = 'mghrm_offline_queue';
-  var HASH_KEY  = 'mghrm_table_hashes';
-  var memory = {};                                            // offline fallback
-
-  function loadJSON(k, d) { try { return JSON.parse(localStorage.getItem(k)) || d; } catch (e) { return d; } }
-  function saveJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
-
-  /* ---------- ৪. সংযোগ ------------------------------------------- */
-  function connect(config) {
-    cfg = config || {};
-    if (!cfg.url || !cfg.anonKey) {
-      return Promise.reject(new Error('Supabase URL অথবা anon key দেওয়া হয়নি'));
-    }
-    if (!global.supabase || !global.supabase.createClient) {
-      return Promise.reject(new Error('supabase-js লোড হয়নি — ইন্টারনেট সংযোগ দেখুন'));
-    }
-    sb = global.supabase.createClient(cfg.url, cfg.anonKey, {
-      auth: { persistSession: true, autoRefreshToken: true, storageKey: 'mghrm_auth' }
-    });
-    ready = true;
-    return Promise.resolve(true);
-  }
-  function isReady() { return ready; }
-
-  /* ---------- ৫. লগইন / লগআউট ------------------------------------ */
-  function signIn(email, password) {
-    return sb.auth.signInWithPassword({ email: email, password: password })
-      .then(function (r) { if (r.error) throw r.error; user = r.data.user; return user; });
-  }
-  function signUp(email, password, fullName) {
-    return sb.auth.signUp({ email: email, password: password,
-      options: { data: { full_name: fullName || email } } })
-      .then(function (r) { if (r.error) throw r.error; return r.data; });
-  }
-  function signOut() {
-    return sb.auth.signOut().then(function () { user = null; });
-  }
-  function getSession() {
-    return sb.auth.getSession().then(function (r) {
-      user = r.data && r.data.session ? r.data.session.user : null;
-      return r.data ? r.data.session : null;
-    });
-  }
-  function onChange(cb) { sb.auth.onAuthStateChange(function (ev, s) { cb(ev, s); }); }
-  function currentUser() { return user; }
-  function myProfile() {
-    if (!user) return Promise.resolve(null);
-    return sb.from('profiles').select('*').eq('id', user.id).maybeSingle()
-      .then(function (r) { return r.data; });
-  }
-
-  /* ---------- ৬. সব ডেটা পড়া -------------------------------------- */
-  function loadAll() {
-    var keys = Object.keys(TABLE_MAP);
-    return Promise.all(keys.map(function (k) {
-      return sb.from(TABLE_MAP[k].table).select('*')
-        .then(function (r) {
-          if (r.error) { console.warn('[Supabase] load ' + k, r.error.message); return [k, null]; }
-          return [k, (r.data || []).map(function (row) { return fromDb(k, row); })];
-        });
-    })).then(function (pairs) {
-      var out = {}, nulls = [];
-      pairs.forEach(function (p) { if (p[1] === null) nulls.push(p[0]); else out[p[0]] = p[1]; });
-      if (nulls.length) console.warn('[Supabase] এই টেবিলগুলো পড়া যায়নি:', nulls.join(', '));
-      return out;
-    });
-  }
-
-  /* ---------- ৭. লেখা (upsert) -------------------------------------- */
-  function upsert(key, rows) {
-    if (!rows || !rows.length) return Promise.resolve(0);
-    var m = TABLE_MAP[key];
-    var clean = rows.map(function (r) { return toDb(key, r); });
-    var chunk = 500, parts = [];
-    for (var i = 0; i < clean.length; i += chunk) parts.push(clean.slice(i, i + chunk));
-    return parts.reduce(function (chain, part) {
-      return chain.then(function (n) {
-        return sb.from(m.table).upsert(part, { onConflict: m.pk }).then(function (r) {
-          if (r.error) throw r.error;
-          return n + part.length;
-        });
-      });
-    }, Promise.resolve(0));
-  }
-
-  function remove(key, pkValue) {
-    var m = TABLE_MAP[key];
-    return sb.from(m.table).delete().eq(m.pk, pkValue).then(function (r) {
-      if (r.error) throw r.error; return true;
-    });
-  }
-
-  function hashOf(obj) {
-    var s = typeof obj === 'string' ? obj : JSON.stringify(obj);
-    var h = 5381, i = s.length;
-    while (i) h = ((h * 33) ^ s.charCodeAt(--i)) >>> 0;
-    return h;
-  }
-
-  /* ---------- ৮. সব ডেটা লেখা (শুধু যেগুলো বদলেছে) ------------------ */
-  var pushTimer = null, pushing = false;
-  function pushAll(silentSource) {
-    if (pushTimer) clearTimeout(pushTimer);
-    pushTimer = setTimeout(function () { doPush(silentSource); }, 50);
-  }
-
-  function doPush(silentSource) {
-    if (!ready || pushing) return Promise.resolve();
-    var src = silentSource || global.DATA || {};
-    var hashes = loadJSON(HASH_KEY, {});
-    var jobs = [], names = [];
-    Object.keys(TABLE_MAP).forEach(function (k) {
-      var arr = src[k];
-      if (!Array.isArray(arr) || !arr.length) return;
-      var h = hashOf(arr);
-      if (hashes[k] === h) return;                    // অপরিবর্তিত
-      hashes[k] = h;
-      names.push(k);
-      jobs.push(upsert(k, arr));
-    });
-    if (!jobs.length) return Promise.resolve();
-    pushing = true;
-    return Promise.all(jobs).then(function () {
-      saveJSON(HASH_KEY, hashes);
-      console.log('[Supabase] সংরক্ষিত:', names.join(', '));
-    }).catch(function (e) {
-      // ব্যর্থ হলে হ্যাশ ফেরত দিই, যাতে পরে আবার চেষ্টা হয়
-      var cur = loadJSON(HASH_KEY, {});
-      names.forEach(function (n) { delete cur[n]; });
-      saveJSON(HASH_KEY, cur);
-      console.error('[Supabase] সংরক্ষণ ব্যর্থ:', e.message || e);
-      if (global.toast) global.toast('ডেটা সার্ভারে যায়নি: ' + (e.message || e), 'error');
-    }).then(function () { pushing = false; });
-  }
-
-  /* ---------- ৯. রেফারেন্স টেবিল সিড -------------------------------- */
-  function seedReferenceTables(src) {
-    var jobs = [];
-    ['divisions', 'districts', 'thana', 'desigBangla'].forEach(function (k) {
-      if (Array.isArray(src[k]) && src[k].length) jobs.push(upsert(k, src[k]));
-    });
-    return Promise.all(jobs);
-  }
-
-  /* ---------- ১০. বিদ্যমান ডেটা একবার আপলোড ------------------------ */
-  function bulkUpload(src, onProgress) {
-    var keys = Object.keys(TABLE_MAP).filter(function (k) {
-      return Array.isArray(src[k]) && src[k].length;
-    });
-    var done = 0;
-    return keys.reduce(function (chain, k) {
-      return chain.then(function () {
-        return upsert(k, src[k]).then(function (n) {
-          done++;
-          if (onProgress) onProgress(done, keys.length, k, n);
-        });
-      });
-    }, Promise.resolve()).then(function () { return done; });
-  }
-
-  /* ---------- ১১. অ্যাডমিন হেল্পার ---------------------------------- */
-  function raw() { return sb; }
-  function sqlView(table) {
-    return sb.from(table).select('*');
-  }
-
-  global.MGHRM = {
-    connect: connect, isReady: isReady,
-    signIn: signIn, signUp: signUp, signOut: signOut,
-    getSession: getSession, onChange: onChange, currentUser: currentUser, myProfile: myProfile,
-    loadAll: loadAll, upsert: upsert, remove: remove,
-    pushAll: pushAll, doPush: doPush,
-    bulkUpload: bulkUpload, seedReferenceTables: seedReferenceTables,
-    TABLE_MAP: TABLE_MAP, toDb: toDb, fromDb: fromDb,
-    _client: raw, _view: sqlView,
-    version: '1.0.0'
-  };
-})(window);
+<script src="./config.js"></script>
+<script src="./app-core.js"></script><script>
+/* MGHRM Data Layer now loaded from app-core.js */
 
 </script>
 </head>
@@ -7675,7 +7373,7 @@ function restoreState(){
 }
 function persist(){
   if(READONLY) return;                                   /* another device holds the lock */
-  try{ localStorage.setItem(LS_KEY, snapshotState()); }catch(e){}
+  /* LocalStorage purged for Direct Server Architecture */
   if(odDir){                                             /* debounced write into the OneDrive folder */
     clearTimeout(odWriteTimer);
     odWriteTimer = setTimeout(writeOneDriveNow, 1500);
@@ -7709,13 +7407,13 @@ async function connectOneDriveFolder(){
         if(s.COMPANY) Object.assign(COMPANY, s.COMPANY);
         if(Array.isArray(s.RECRUITMENT)){ RECRUITMENT.length=0; s.RECRUITMENT.forEach(r=>RECRUITMENT.push(r)); }
         if(s.TRANSLATIONS) Object.assign(TRANSLATIONS, s.TRANSLATIONS);
-        localStorage.setItem(LS_KEY, snapshotState());
+        /* localStorage disabled */
         renderAll();
         toast(LANG==='bn'?'OneDrive থেকে সর্বশেষ ডেটা এসে গেছে':'Latest data pulled from OneDrive','success');
       }
     }catch(e){ /* no shared file yet — we'll create it */ }
     odLinked = true;
-    try{ localStorage.setItem(OD_FLAG,'1'); }catch(e){}
+    try{ /* localStorage disabled */ }catch(e){}
     await checkDeviceLock(true);
     startLockHeartbeat();
     await writeOneDriveNow();
@@ -7763,7 +7461,7 @@ function startLockHeartbeat(){
 let _closing = false;
 function finalBackupOnClose(){
   if(_closing) return; _closing = true;
-  try{ localStorage.setItem(LS_KEY, snapshotState()); }catch(e){}
+  /* LocalStorage purged for Direct Server Architecture */
   if(odDir && !READONLY){
     writeOneDriveNow();                                   /* fire-and-forget — ব্রাউজার বন্ধ হওয়ার আগে শেষ হওয়ার চেষ্টা করে */
     writeLockFile({ device:DEVICE_ID, ts:Date.now(), released:true });
@@ -8030,7 +7728,7 @@ restoreSidebar();
 /* ---- BD address cascade — load once, cached by SW ---- */
 window.BDGEO = null;
 window.__villagesMem = (function(){ try{return JSON.parse(localStorage.getItem('mghrm_villages')||'{}');}catch(e){return {};} })();
-function saveVillages(){ try{ localStorage.setItem('mghrm_villages', JSON.stringify(window.__villagesMem||{})); }catch(e){} }
+function saveVillages(){ /* villages setItem disabled */ }
 function rememberVillage(unionId, village){
   if(!unionId || !village) return;
   village = String(village).trim();
@@ -8187,7 +7885,7 @@ window.doBackupRestore = function(){
         if(!payload || !payload.data || !payload.data.employees){ throw new Error('Not a valid MG HRM backup'); }
         if(!confirm('This will REPLACE current data with '+(payload.data.employees.length||0)+' employees and '+(payload.data.projects||[]).length+' projects from the backup. Continue?')) return;
         Object.keys(payload.data).forEach(function(k){ if(window.DATA && Object.prototype.hasOwnProperty.call(window.DATA,k)) window.DATA[k] = payload.data[k]; });
-        if(payload.villages) { window.__villagesMem = payload.villages; try{localStorage.setItem('mghrm_villages', JSON.stringify(payload.villages));}catch(e){} }
+        if(payload.villages) { window.__villagesMem = payload.villages; /* villages setItem disabled */ }
         if(typeof persist==='function') persist();
         if(typeof renderAll==='function') renderAll();
         if(typeof toast==='function') toast('Backup restored — '+(payload.data.employees.length)+' employees', 'success');
@@ -8205,7 +7903,7 @@ window.doRestoreAuto = function(key){
     if(!payload || !payload.data || !payload.data.employees){ alert('Not a valid MG HRM backup'); return; }
     if(!confirm('This will REPLACE current data with the backup from '+key.replace('mghrm_autobackup_','')+' ('+payload.data.employees.length+' employees). Continue?')) return;
     Object.keys(payload.data).forEach(function(k){ if(window.DATA && Object.prototype.hasOwnProperty.call(window.DATA,k)) window.DATA[k] = payload.data[k]; });
-    if(payload.villages) { window.__villagesMem = payload.villages; try{localStorage.setItem('mghrm_villages', JSON.stringify(payload.villages));}catch(e){} }
+    if(payload.villages) { window.__villagesMem = payload.villages; /* villages setItem disabled */ }
     if(typeof persist==='function') persist();
     if(typeof renderAll==='function') renderAll();
     if(typeof toast==='function') toast('Restored auto-backup — '+payload.data.employees.length+' employees','success');
@@ -8415,7 +8113,7 @@ try {
     var stamp = now.toISOString().replace(/[:T]/g,'-').slice(0,16);
     var key = 'mghrm_autobackup_' + stamp;
     var payload = { at: now.toISOString(), schemaVersion: 3.4, data: window.DATA, villages: window.__villagesMem || {} };
-    localStorage.setItem(key, JSON.stringify(payload));
+    /* Autobackup disabled in favor of Real-Time Supabase */
     /* সর্বশেষ ৫টি রাখি */
     var keys = Object.keys(localStorage).filter(function(k){ return k.indexOf('mghrm_autobackup_')===0; }).sort();
     while(keys.length>5){ localStorage.removeItem(keys.shift()); }
@@ -8621,7 +8319,80 @@ setInterval(()=>checkPendingToast(true), 180000); /* প্রতি ৩ মি�
     window.persist = wrapped;
   }
 
+  
+  /* ---------- REAL-TIME SUPABASE ARCHITECTURE ---------- */
+  function subscribeRealtime() {
+    console.log('[Supabase] Initializing Real-Time WebSockets...');
+    
+    // Listen to all public tables
+    const channel = sb.channel('custom-all-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public' },
+        (payload) => {
+          console.log('[Real-Time] Change received:', payload);
+          handleRealtimeEvent(payload);
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ [Real-Time] Connected to Supabase WebSockets');
+        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+          console.error('❌ [Real-Time] Disconnected or Error:', status);
+        }
+      });
+  }
+
+  function handleRealtimeEvent(payload) {
+    const table = payload.table;
+    const eventType = payload.eventType; // INSERT, UPDATE, DELETE
+    const newRow = payload.new;
+    const oldRow = payload.old;
+
+    // Find the corresponding local table bucket
+    let bucket = null;
+    let pk = null;
+    for (let k in TABLE_MAP) {
+      if (TABLE_MAP[k].table === table) {
+        bucket = k;
+        pk = TABLE_MAP[k].pk;
+        break;
+      }
+    }
+    
+    if (!bucket || !window.DATA[bucket]) return;
+
+    const dataArr = window.DATA[bucket];
+    const jsRecord = eventType === 'DELETE' ? {} : fromDb(bucket, newRow);
+
+    if (eventType === 'INSERT') {
+      // Avoid duplicate if we inserted it locally first
+      if (!dataArr.find(x => String(x[pk]) === String(jsRecord[pk]))) {
+        dataArr.unshift(jsRecord);
+      }
+    } else if (eventType === 'UPDATE') {
+      const idx = dataArr.findIndex(x => String(x[pk]) === String(jsRecord[pk]));
+      if (idx !== -1) {
+        dataArr[idx] = Object.assign(dataArr[idx], jsRecord);
+      } else {
+        dataArr.unshift(jsRecord);
+      }
+    } else if (eventType === 'DELETE') {
+      // Supabase DELETE payload usually only contains the identity/PK
+      const deletedPkValue = oldRow.id; // Or resolve the exact mapped PK
+      // For precision, we refresh all on delete or do a hard map, 
+      // but for now we remove by assuming the local 'id' maps to Supabase 'id'
+      const mappedOld = fromDb(bucket, oldRow);
+      const idx = dataArr.findIndex(x => String(x[pk]) === String(mappedOld[pk]) || String(x.id) === String(oldRow.id));
+      if (idx !== -1) dataArr.splice(idx, 1);
+    }
+
+    // Instantly reflect changes in UI
+    if (typeof refreshAll === 'function') refreshAll();
+  }
+
   function startApp(){
+    subscribeRealtime();
     return G.loadAll().then(function (d) {
       var n = fillData(d);
       hookPersist(); refreshAll();

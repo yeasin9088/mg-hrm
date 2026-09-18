@@ -11,11 +11,8 @@
 
 function findEmpByAction(t) {
   if (!t) return null;
-  const sysId = t.employee_sys_id || t.id; // t.id might be the action id, so be careful. Actually t.employee_sys_id is safer.
   return DATA.employees.find(x => 
-    (t.employee_sys_id && String(x.id) === String(t.employee_sys_id)) ||
-    (t.EmployeeID && String(x.EmployeeID) === String(t.EmployeeID)) ||
-    (t.RecordID && String(x.id) === String(t.RecordID)) // Legacy fallback if UI still has RecordID cached
+    t.employee_sys_id && String(x.id) === String(t.employee_sys_id)
   );
 }
 function findEmp(rid) {
@@ -2370,6 +2367,7 @@ function computeAlerts(){
       detail: shortProj.slice(0,3).map(p=>projName(p.project)).join(', ') + (shortProj.length>3?'…':'')});
   }
   // Repeated disciplinary
+  const empTransfers = DATA.transfers.filter(t=>ematch(t)).sort((a,b)=>parseDate(b.TransferDate)-parseDate(a.TransferDate));
   const empDisc = {};
   DATA.disciplinary.forEach(d=>empDisc[d.EmployeeID]=(empDisc[d.EmployeeID]||0)+1);
   const repeat = Object.entries(empDisc).filter(([,n])=>n>=2);
@@ -2801,20 +2799,15 @@ function openEmpDetail(recordId){
   const e = findEmp(recordId);
   if(!e) return;
   
-  const ematch = (rec, keyE) => {
-     const rEid = String(rec[keyE||'EmployeeID']||rec.employee_id||'');
-     const eEid = String(e.EmployeeID||'');
-     if(rEid && eEid && rEid===eEid) return true;
-     const rId = String(rec.id||rec.empId||'');
-     const eId = String(e.id||'');
-     if(rId && eId && rId===eId) return true;
-     return false;
+  
+  const ematch = (rec) => {
+     return rec.employee_sys_id && e.id && String(rec.employee_sys_id) === String(e.id);
   };
   const empTransfers = DATA.transfers.filter(t=>ematch(t)).sort((a,b)=>parseDate(b.TransferDate)-parseDate(a.TransferDate));
   const empDisc = DATA.disciplinary.filter(d=>ematch(d)).sort((a,b)=>parseDate(b.IssueDate)-parseDate(a.IssueDate));
   const empCareer = DATA.career.filter(c=>ematch(c));
   const empExits = (DATA.exits||[]).filter(x=>ematch(x)).sort((a,b)=>parseDate(b.ExitDate)-parseDate(a.ExitDate));
-  const empLeaves = (DATA.leaves||[]).filter(l=>ematch(l, 'EmployeeID')).sort((a,b)=>parseDate(b.start||b.startDate)-parseDate(a.start||a.startDate));
+  const empLeaves = (DATA.leaves||[]).filter(l=>ematch(l)).sort((a,b)=>parseDate(b.start||b.startDate)-parseDate(a.start||a.startDate));
 
   const empKey = e.id || e.EmployeeID;
   const html = `
@@ -4736,6 +4729,7 @@ function doCloseProject(pid, deactivate){
           if(empErr) throw empErr;
           
           const exitRecords = activeStaff.map(e => ({
+            employee_sys_id: e.id,
             employee_id: String(e.EmployeeID || e.id || ''),
             full_name: e.FullName || '',
             designation: e.Designation || '',
@@ -5271,16 +5265,26 @@ async function submitTransfer(){
     const isFuture = new Date(td) > new Date();
     const newId = String(Date.now()); // Unique ID instead of Math.max over local array
 
+    const targetProj = DATA.projects.find(p => p.ProjectName === np) || {};
+    const npBn = targetProj.ProjectNameBangla || targetProj.project_name_bn || '';
+
     const payload = {
       transfer_id: newId,
       employee_sys_id: e.id,
       employee_id: String(e.EmployeeID || e.id || ''),
+      employee_id_bn: String(e.EmployeeIDBangla || ''),
       full_name: e.FullName || '',
+      full_name_bn: e.FullNameBn || e.FullNameBangla || '',
       designation: e.Designation || '',
+      designation_bn: e.DesignationBangla || e.DesignationBn || '',
       current_project: e.ProjectName || '',
+      current_project_bn: e.ProjectNameBangla || e.ProjectNameBn || '',
       new_project: np,
+      new_project_bn: npBn,
       transfer_date: td,
+      transfer_date_bn: td ? toBnDigits(td) : '',
       issues_date: iss || '',
+      issues_date_bn: iss ? toBnDigits(iss) : '',
       notes: notes || '',
       is_proceed: isFuture ? '0' : '1',
       status: isFuture ? 'Scheduled' : 'Recorded'
@@ -7209,9 +7213,16 @@ const CSV_SCHEMAS = {
     { key: 'employee_id', label: 'EmployeeID' },
     { key: 'full_name', label: 'FullName' },
     { key: 'designation', label: 'Designation' },
+    { key: 'employee_id_bn', label: 'EmployeeIDBangla' },
+    { key: 'full_name_bn', label: 'FullNameBangla' },
+    { key: 'designation_bn', label: 'DesignationBangla' },
     { key: 'current_project', label: 'CurrentProject (Previous Site)' },
+    { key: 'current_project_bn', label: 'CurrentProjectBangla' },
     { key: 'new_project', label: 'NewProject (Destination Site)' },
+    { key: 'new_project_bn', label: 'NewProjectBangla' },
     { key: 'transfer_date', label: 'TransferDate (Effective Date)' },
+    { key: 'transfer_date_bn', label: 'TransferDateBangla' },
+    { key: 'issues_date_bn', label: 'Issues DateBangla' },
     { key: 'issue_date', label: 'IssueDate' },
     { key: 'status', label: 'Status' },
     { key: 'notes', label: 'Notes' }
@@ -7329,6 +7340,12 @@ const CSV_SYNONYMS = {
   transfer_id: ['transferid', 'transfer_id', 'transfer id', 'tid'],
   current_project: ['currentproject', 'current_project', 'current project', 'from project', 'from', 'old project', 'previous project', 'source project'],
   new_project: ['newproject', 'new_project', 'new project', 'to project', 'to', 'transfer project', 'target project', 'destination project', 'destination'],
+  current_project_bn: ['currentprojectbangla', 'current_project_bn', 'current project bangla', 'currentproject bn', 'current project bn'],
+  new_project_bn: ['newprojectbangla', 'new_project_bn', 'new project bangla', 'newproject bn', 'new project bn'],
+  employee_id_bn: ['employeeidbangla', 'employee_id_bn', 'employee id bangla', 'employeeid bn', 'employee id bn'],
+  designation_bn: ['designationbangla', 'designation_bn', 'designation bangla', 'designation bn'],
+  transfer_date_bn: ['transferdatebangla', 'transfer_date_bn', 'transfer date bn', 'transfer date bangla'],
+  issues_date_bn: ['issuesdatebangla', 'issues_date_bn', 'issues date bn', 'issues date bangla'],
   transfer_date: ['transferdate', 'transfer_date', 'transfer date', 'effective date', 'date of transfer'],
   action_id: ['actionid', 'action_id', 'action id', 'aid'],
   ref_no: ['refno', 'ref_no', 'ref no', 'reference', 'memo', 'memo no', 'memo number'],

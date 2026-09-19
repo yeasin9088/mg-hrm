@@ -109,7 +109,7 @@
 
     disciplinary: {
       table: 'disciplinary',
-      pk: 'action_id',
+      pk: 'id',
       allowed: ['employee_sys_id',  
         'id', 'action_id', 'ref_no', 'ref_no_bn',
         'employee_id', 'employee_id_bn', 'full_name', 'full_name_bn',
@@ -118,7 +118,8 @@
         'description', 'description_bn', 'created_at'
        ],
       map: { 'employee_sys_id': 'employee_sys_id', 
-        'ActionID': 'action_id',
+        'id': 'id',
+        'ActionID': 'id',
         'RefNo': 'ref_no',
         'RefNoBangla': 'ref_no_bn',
         'EmployeeID': 'employee_id',
@@ -140,14 +141,15 @@
 
     exits: {
       table: 'exits',
-      pk: 'exit_id',
+      pk: 'id',
       allowed: ['employee_sys_id',  
         'id', 'exit_id', 'employee_id',
         'full_name', 'designation', 'current_project', 'join_date',
         'exit_reason', 'exit_date', 'issue_date', 'created_at'
        ],
       map: { 'employee_sys_id': 'employee_sys_id', 
-        'ExitID': 'exit_id',
+        'id': 'id',
+        'ExitID': 'id',
         'EmployeeID': 'employee_id',
         'FullName': 'full_name',
         'Designation': 'designation',
@@ -193,7 +195,7 @@
 
     career: {
       table: 'career',
-      pk: 'change_id',
+      pk: 'id',
       allowed: ['employee_sys_id',  
         'id', 'change_id', 'employee_id',
         'full_name', 'project_name', 'change_type', 'effective_date',
@@ -201,7 +203,8 @@
         'increment_amount', 'new_salary', 'notes', 'created_at'
        ],
       map: { 'employee_sys_id': 'employee_sys_id', 
-        'ChangeID': 'change_id',
+        'id': 'id',
+        'ChangeID': 'id',
         'EmployeeID': 'employee_id',
         'FullName': 'full_name',
         'ProjectName': 'project_name',
@@ -218,7 +221,7 @@
 
     leaves: {
       table: 'leaves',
-      pk: 'leave_id',
+      pk: 'id',
       allowed: ['employee_sys_id',  
         'id', 'leave_id', 'employee_id',
         'full_name', 'designation', 'project_name', 'leave_type',
@@ -226,8 +229,8 @@
         'applied_on', 'approved_by', 'created_at'
        ],
       map: { 'employee_sys_id': 'employee_sys_id', 
-        'LeaveID': 'leave_id',
-        'id': 'leave_id',
+        'LeaveID': 'id',
+        'id': 'id',
         'EmployeeID': 'employee_id',
         'empId': 'employee_id',
         'FullName': 'full_name',
@@ -251,7 +254,7 @@
 
     uniform: {
       table: 'uniform',
-      pk: 'issue_id',
+      pk: 'id',
       allowed: ['employee_sys_id',  
         'id', 'issue_id', 'employee_id',
         'full_name', 'designation', 'project_name', 'item_name',
@@ -259,7 +262,8 @@
         'condition_text', 'status', 'remarks', 'created_at'
        ],
       map: { 'employee_sys_id': 'employee_sys_id', 
-        'IssueID': 'issue_id',
+        'id': 'id',
+        'IssueID': 'id',
         'EmployeeID': 'employee_id',
         'FullName': 'full_name',
         'Designation': 'designation',
@@ -277,13 +281,14 @@
 
     meetings: {
       table: 'meetings',
-      pk: 'meeting_id',
+      pk: 'id',
       allowed: [ 
         'id', 'meeting_id', 'meeting_date', 'title', 'venue', 'agenda',
         'created_by', 'created_at'
        ],
       map: { 
-        'MeetingID': 'meeting_id',
+        'id': 'id',
+        'MeetingID': 'id',
         'MeetingDate': 'meeting_date',
         'Title': 'title',
         'Venue': 'venue',
@@ -984,6 +989,20 @@
   }
   var fetchEmployeeByRecordId = fetchEmployeeById;
 
+  function deduplicate(arr, pk) {
+    var seen = {};
+    var out = [];
+    arr.forEach(function(item) {
+      if (!item) return;
+      var key = item[pk] !== undefined && item[pk] !== null && item[pk] !== '' ? item[pk] : ('rand_' + Math.random());
+      if (!seen[key]) {
+        seen[key] = true;
+        out.push(item);
+      }
+    });
+    return out;
+  }
+
   /* ---------- Direct Batch Uploader (For Smart CSV Importer) ---------- */
   function batchUpsert(tableName, rows, onProgress, batchSize) {
     if (!ready || !sb) {
@@ -1020,6 +1039,7 @@
       var currentBatch = batches[idx].filter(function(item) { return item != null; }).map(function (item) {
         return bucket ? toDb(bucket, item) : item;
       });
+      currentBatch = deduplicate(currentBatch, pkCol);
 
       return sb
         .from(tableName)
@@ -1104,6 +1124,7 @@
       var clean = arr.map(function (r) {
         return toDb(k, r);
       });
+      clean = deduplicate(clean, m.pk);
       var p = sb
         .from(m.table)
         .upsert(clean, { onConflict: m.pk })

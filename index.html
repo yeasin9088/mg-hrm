@@ -5553,63 +5553,94 @@ function renderDisciplinaryTable() {
   const idq = (document.getElementById('dcIdSearch')?.value || '').toLowerCase();
   const rows = DATA.disciplinary.filter(d => {
     const e = findEmpByAction(d);
-    const empId = e ? (e.id || e.EmployeeID || '') : (d.EmployeeID || '');
+    const empId = e ? (e.id || e.EmployeeID || '') : (d.EmployeeID || d.employee_id || '');
     
     if (idq) {
-      if (String(d.EmployeeID||'').toLowerCase() !== idq && String(empId).toLowerCase() !== idq) return false;
+      if (String(d.EmployeeID||d.employee_id||'').toLowerCase() !== idq && String(empId).toLowerCase() !== idq) return false;
     }
     
     if (q) {
-      const hay = `${d.ActionID||''} ${d.RefNo||''} ${d.FullName||''} ${d.ActionType||''} ${d.EmployeeID||''} ${empId}`.toLowerCase();
+      const aid = d.ActionID || d.action_id || d.id || '';
+      const ref = d.RefNo || d.ref_no || '';
+      const name = d.FullName || d.full_name || '';
+      const act = d.ActionType || d.action_type || '';
+      const hay = `${aid} ${ref} ${name} ${act} ${d.EmployeeID||d.employee_id||''} ${empId}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
-  }).sort((a,b)=>+b.ActionID-+a.ActionID);
+  }).sort((a,b)=>(new Date(b.IssueDate||b.issue_date||0)-new Date(a.IssueDate||b.issue_date||0)) || (+(b.ActionID||b.action_id||b.id||0) - +(a.ActionID||a.action_id||a.id||0)));
 
   const countSpan = document.getElementById('dcCount');
   if (countSpan) countSpan.textContent = `${num(rows.length)} ${'records'}`;
   
   document.getElementById('dcTableBody').innerHTML = rows.map((d,i)=>{
     const e = findEmpByAction(d);
-    const empId = e ? (e.id || e.EmployeeID || '') : (d.EmployeeID || '—');
-    return `<tr class="row-click" onclick="openDisciplinaryPopup(${jsQ(d.ActionID)})" style="cursor:pointer">
-      <td>${num(d.ActionID)}</td>
+    const empId = e ? (e.id || e.EmployeeID || '') : (d.EmployeeID || d.employee_id || '—');
+    const aid = d.ActionID || d.action_id || d.id;
+    return `<tr class="row-click clickable" onclick="openDisciplinaryPopup(${jsQ(aid)})" style="cursor:pointer">
+      <td>${rows.length - i}</td>
       <td><span class="chip" style="font-size:11px;font-weight:600">${num(empId)}</span></td>
-      <td><strong>${num(d.RefNo||'')}</strong></td>
-      <td>${d.FullName||''}</td>
-      <td>${d.ActionType||''}</td>
-      <td>${fmtDate(d.IssueDate)}</td>
-      <td onclick="event.stopPropagation()"><button class="btn ghost sm" onclick="reprintDisc(${jsQ(d.ActionID)})">${ico('print')}</button></td>
+      <td><strong>${num(d.RefNo||d.ref_no||'')}</strong></td>
+      <td>${d.FullName||d.full_name||''}</td>
+      <td>${d.ActionType||d.action_type||''}</td>
+      <td>${fmtDate(d.IssueDate||d.issue_date)}</td>
+      <td onclick="event.stopPropagation()"><button class="btn ghost sm" onclick="reprintDisc(${jsQ(aid)})">${ico('print')}</button></td>
     </tr>`}).join('') || `<tr><td colspan="7" class="small-mute" style="text-align:center;padding:20px">${'No disciplinary records'}</td></tr>`;
 }
 
-function openDisciplinaryPopup(aid){
-  const d = DATA.disciplinary.find(x=>String(x.ActionID)===String(aid)); if(!d) return;
+window.openDisciplinaryPopup = openDisciplinaryPopup;
+window.renderDisciplinaryTable = renderDisciplinaryTable;
+
+function openDisciplinaryPopup(aid, isEditing = false){
+  const d = DATA.disciplinary.find(x=>String(x.ActionID||x.action_id||x.id)===String(aid)); if(!d) return;
+  const actualAid = d.ActionID || d.action_id || d.id;
   const bn = LANG==='bn';
-  openModal(bn?`শৃঙ্খলা অ্যাকশন — ${d.RefNo||''}`:`Disciplinary — ${d.RefNo||''}`,
+
+  const descContent = isEditing
+    ? `<div class="field wide" style="margin-top:12px"><label>${bn?'চিঠির বডি (সম্পাদনযোগ্য)':'Letter body (editable)'}</label><textarea id="_dcDescEdit" rows="10" style="width:100%">${(d.Description||d.description||'').replace(/</g,'&lt;')}</textarea></div>
+       <p class="small-mute" style="margin-top:6px">${bn?'শুধু লেখা সম্পাদনযোগ্য; স্মারক নং ও ইস্যু তারিখ অপরিবর্তিত থাকবে।':'Only the letter body is editable; ref no. and dates stay unchanged.'}</p>`
+    : `<div class="field wide" style="margin-top:12px"><label>${bn?'চিঠির বডি':'Letter body'}</label><div style="background:var(--bg,#f8fafc);border:1px solid var(--border);border-radius:6px;padding:12px;max-height:220px;overflow-y:auto;white-space:pre-wrap;font-family:inherit;font-size:13px">${(d.Description||d.description||'—').replace(/</g,'&lt;')}</div></div>`;
+
+  const actionsHtml = isEditing
+    ? `<button class="btn" onclick="openDisciplinaryPopup(${jsQ(actualAid)}, false)">${bn?'বাতিল':'Cancel'}</button>
+       <button class="btn success" style="background:var(--success);color:#fff;font-weight:700" onclick="saveDisciplinaryEdit(${jsQ(actualAid)})">💾 ${bn?'সেভ করুন':'Save Changes'}</button>`
+    : `<button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>
+       <button class="btn" onclick="reprintDisc(${jsQ(actualAid)})">${ico('print')} ${bn?'প্রিন্ট':'Print'}</button>
+       <button class="btn" onclick="openDisciplinaryPopup(${jsQ(actualAid)}, true)">✏️ ${bn?'এডিট টেক্সট':'Edit Text'}</button>
+       <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteDisciplinary(${jsQ(actualAid)})">${bn?'ডিলিট':'Delete'}</button>`;
+
+  openModal(bn?`শৃঙ্খলা অ্যাকশন — ${d.RefNo||d.ref_no||''}`:`Disciplinary — ${d.RefNo||d.ref_no||''}`,
     `<div class="pop-detail">
-      <div class="pop-row"><span>${bn?'স্মারক নং':'Ref No.'}</span><b>${d.RefNo||''}</b></div>
-      <div class="pop-row"><span>${bn?'কর্মচারী':'Employee'}</span><b>${d.FullName} <span class="small-mute">(#${num(d.EmployeeID||'')})</span></b></div>
-      <div class="pop-row"><span>${bn?'পদবি':'Designation'}</span><b>${d.Designation||''}</b></div>
-      <div class="pop-row"><span>${bn?'প্রজেক্ট':'Project'}</span><b>${projName(d.ProjectName)}</b></div>
-      <div class="pop-row"><span>${bn?'অ্যাকশন':'Action'}</span><b>${d.ActionType||''}</b></div>
-      <div class="pop-row"><span>${bn?'ঘটনার তারিখ':'Incident Date'}</span><b>${fmtDate(d.IncidentDate)}</b></div>
-      <div class="pop-row"><span>${bn?'ইস্যু তারিখ':'Issue Date'}</span><b>${fmtDate(d.IssueDate)}</b></div>
+      <div class="pop-row"><span>${bn?'স্মারক নং':'Ref No.'}</span><b>${d.RefNo||d.ref_no||''}</b></div>
+      <div class="pop-row"><span>${bn?'কর্মচারী':'Employee'}</span><b>${d.FullName||d.full_name||''} <span class="small-mute">(#${num(d.EmployeeID||d.employee_id||'')})</span></b></div>
+      <div class="pop-row"><span>${bn?'পদবি':'Designation'}</span><b>${d.Designation||d.designation||''}</b></div>
+      <div class="pop-row"><span>${bn?'প্রজেক্ট':'Project'}</span><b>${projName(d.ProjectName||d.project_name)}</b></div>
+      <div class="pop-row"><span>${bn?'অ্যাকশন':'Action'}</span><b>${d.ActionType||d.action_type||''}</b></div>
+      <div class="pop-row"><span>${bn?'ঘটনার তারিখ':'Incident Date'}</span><b>${fmtDate(d.IncidentDate||d.incident_date)}</b></div>
+      <div class="pop-row"><span>${bn?'ইস্যু তারিখ':'Issue Date'}</span><b>${fmtDate(d.IssueDate||d.issue_date)}</b></div>
     </div>
-    <div class="field wide" style="margin-top:12px"><label>${bn?'চিঠির বডি (সম্পাদনযোগ্য)':'Letter body (editable)'}</label><textarea id="_dcDescEdit" rows="10" style="width:100%">${(d.Description||'').replace(/</g,'&lt;')}</textarea></div>
-    <p class="small-mute" style="margin-top:6px">${bn?'শুধু লেখা সম্পাদনযোগ্য; স্মারক নং ও ইস্যু তারিখ অপরিবর্তিত থাকবে।':'Only the letter body is editable; ref no. and dates stay unchanged.'}</p>`,
-    `<button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>
-     <button class="btn" onclick="reprintDisc(${jsQ(d.ActionID)})">${ico('print')} ${bn?'প্রিন্ট':'Print'}</button>
-     <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteDisciplinary(${jsQ(d.ActionID)})">${bn?'🗑 ডিলিট':'🗑 Delete'}</button>
-     <button class="btn success" style="background:var(--success);color:#fff;font-weight:700" onclick="saveDisciplinaryEdit(${jsQ(d.ActionID)})">💾 ${bn?'সেভ করুন':'Save Changes'}</button>`);
+    ${descContent}`,
+    actionsHtml);
 }
-function saveDisciplinaryEdit(aid){
+async function saveDisciplinaryEdit(aid){
   if(!guardEdit()) return;
-  const d = DATA.disciplinary.find(x=>String(x.ActionID)===String(aid)); if(!d) return;
-  d.Description = document.getElementById('_dcDescEdit').value;
-  logActivity('update','disciplinary',aid,'letter body edited');
+  const d = DATA.disciplinary.find(x=>String(x.ActionID||x.action_id||x.id)===String(aid)); if(!d) return;
+  const newDesc = document.getElementById('_dcDescEdit').value;
+  d.Description = newDesc;
+  d.description = newDesc;
+
+  const actualAid = d.ActionID || d.action_id || d.id;
+  if (window.MGHRM && typeof window.MGHRM.update === 'function') {
+    window.MGHRM.update('disciplinary', actualAid, { Description: newDesc, description: newDesc }).catch(console.error);
+  } else if (window.sb) {
+    await window.sb.from('disciplinary').update({ description: newDesc }).eq('action_id', String(actualAid));
+  }
+
+  logActivity('update','disciplinary',actualAid,'letter body edited');
   toast('Letter body saved','success');
-  persist(); closeModal(); renderDisciplinary();
+  persist();
+  openDisciplinaryPopup(actualAid, false);
+  renderDisciplinaryTable();
 }
 function deleteDisciplinary(aid){
   if(!guardEdit()) return;

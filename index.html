@@ -2890,7 +2890,7 @@ function openEmpDetail(recordId){
         <button class="btn sm" onclick="empActionQuick('transfer','${empKey}')">${'Transfer'}</button>
         <button class="btn sm" onclick="empActionQuick('disciplinary','${empKey}')">${'Notice'}</button>
         <button class="btn sm" onclick="empActionQuick('leave','${empKey}')">${'Leave'}</button>
-        ${e.Status==='Active'?`<button class="btn sm danger" onclick="empActionQuick('exit','${empKey}')">${'Exit'}</button>`:''}
+        ${e.Status==='Active'?`<button class="btn sm danger" onclick="empActionQuick('exit','${empKey}')">${'Exit'}</button>`:`<button class="btn sm primary" onclick="promptReactivate('${empKey}')">${'Reactivate'}</button>`}
         <button class="btn sm" onclick="closeModal();openNewEmp('${empKey}')">${ico('edit')} ${'Edit'}</button>
         <button class="btn sm danger" onclick="deleteEmployeeDirectly('${empKey}')">${ico('trash')} ${'Delete'}</button>
         <button class="btn sm primary" onclick="printEmpProfile('${empKey}')">${ico('print')} ${'Print Profile'}</button>
@@ -5967,6 +5967,12 @@ function deleteLeave(id){
 
 /* ============ EXIT ============ */
 function renderExit(){
+  const rows = DATA.exits.slice().sort((a,b)=>{
+    const da = a.ExitDate || a.exit_date || '';
+    const db = b.ExitDate || b.exit_date || '';
+    if (da && db) return db.localeCompare(da);
+    return (+b.ExitID || +b.id || 0) - (+a.ExitID || +a.id || 0);
+  });
   document.getElementById('page-exit').innerHTML = `
     <div class="card">
       <div class="card-header"><h3>${'Employee Exit Process'}</h3></div>
@@ -5999,21 +6005,23 @@ function renderExit(){
     </div>
 
     <div class="card">
-      <div class="card-header"><h3>${'Recent Exits'}</h3><span class="sub">${num(DATA.exits.length)} ${'records'}</span></div>
+      <div class="card-header"><h3>${'Recent Exits'}</h3><span class="sub">${num(rows.length)} ${'records'}</span></div>
       <div class="table-wrap">
         <table>
           <thead><tr><th style="width:50px">${'#'}</th><th>ID</th><th>${'Name'}</th><th>${'Designation'}</th><th>${'Project'}</th><th>${'Exit Date'}</th><th>${'Reason'}</th></tr></thead>
-          <tbody>${DATA.exits.slice().sort((a,b)=>+b.ExitID-+a.ExitID).map((x,i)=>{
+          <tbody>${rows.map((x,i)=>{
             const e = findEmpByAction(x);
+            const empKey = e ? (e.id || e.EmployeeID || '') : (x.employee_sys_id || x.EmployeeID || '');
             const empId = e ? (e.id || e.EmployeeID || '') : (x.EmployeeID || '—');
-            return `<tr class="row-click" onclick="openExitPopup(${jsQ(x.ExitID)})" style="cursor:pointer">
-            <td>${num(x.ExitID)}</td>
+            return `<tr class="row-click clickable" onclick="openEmpDetail('${empKey}')" style="cursor:pointer">
+            <td>${rows.length - i}</td>
             <td><span class="chip" style="font-size:11px;font-weight:600">${num(empId)}</span></td>
             <td><strong>${x.FullName||''}</strong></td>
             <td>${desig(x.Designation||'')}</td>
             <td>${projName(x.CurrentProject||x.ProjectName||'')}</td>
             <td>${fmtDate(x.ExitDate)}</td>
-            <td class="small-mute" style="max-width:280px">${x.ExitReason||x.ExitType||''}</td></tr>`}).join('') || `<tr><td colspan="7" class="small-mute" style="text-align:center;padding:20px">${'No exit records'}</td></tr>`}</tbody>
+            <td class="small-mute" style="max-width:280px">${x.ExitReason||x.ExitType||''}</td>
+            </tr>`}).join('') || `<tr><td colspan="7" class="small-mute" style="text-align:center;padding:20px">${'No exit records'}</td></tr>`}</tbody>
         </table>
       </div>
     </div>
@@ -6048,23 +6056,87 @@ function openExitPopup(eid){
       <div class="pop-row"><span>${bn?'কারণ':'Reason'}</span><b>${x.ExitReason||x.ExitType||'—'}</b></div>
       <div class="pop-row"><span>${bn?'বর্তমান স্ট্যাটাস':'Current Status'}</span><b>${emp?emp.Status:'—'}</b></div>
     </div>
-    <div class="pop-hint">${bn?'⚠ কর্মচারীর বর্তমান অবস্থা Employeetbl-এর Status থেকে আসে; এই পপআপ থেকে সংশোধন করতে চাইলে "স্ট্যাটাস পুনর্বহাল" চাপুন।':'⚠ Employee current status comes from Employeetbl.Status; use "Reactivate" to restore.'}</div>`,
-    `<button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>
-     ${emp?`<button class="btn" onclick="reactivateEmployee(${jsQ(empKey)})">${bn?'পুনর্বহাল করুন':'Reactivate'}</button>`:''}
-     <button class="btn" onclick="closeModal();openPrint(banglaClearance(${emp?jsQ(empKey):'null'}, ${jsQ(x.ExitDate)}))">${ico('print')} ${bn?'ছাড়পত্র':'Clearance'}</button>
-     <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteExit(${jsQ(x.ExitID)})">${bn?'রেকর্ড ডিলিট':'Delete'}</button>`);
+    <div class="pop-hint">${bn?'⚠ কর্মচারীর বর্তমান অবস্থা Employeetbl-এর Status থেকে আসে; এই পপআপ থেকে সংশোধন করতে চাইলে "পুনর্বহাল" চাপুন।':'⚠ Employee current status comes from Employeetbl.Status; use "Reactivate" to restore.'}</div>`,
+    `${emp?`<button class="btn primary" onclick="promptReactivate(${jsQ(empKey)}, ${jsQ(x.ExitID)})">${bn?'পুনর্বহাল':'Reactivate'}</button>`:''}
+     ${emp?`<button class="btn" onclick="closeModal();openEmpDetail(${jsQ(empKey)})">${bn?'এডিট':'Edit'}</button>`:''}
+     <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteExit(${jsQ(x.ExitID)})">${bn?'ডিলিট':'Delete'}</button>
+     <button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>`);
 }
-function reactivateEmployee(rid){
+function promptReactivate(empKey, exitId){
   if(!guardEdit()) return;
-  const e = findEmp(rid); if(!e) return;
-  if(!confirm('Reactivate this employee to Active?')) return;
-  e.Status='Active'; delete e.ExitDate; delete e.ExitReason;
-  if(window.MGHRM && typeof window.MGHRM.update === 'function') {
-    window.MGHRM.update('employees', e.id || e.EmployeeID, { Status: 'Active', ExitDate: null, ExitReason: null }).catch(console.error);
+  const emp = findEmp(empKey);
+  if(!emp) return;
+  const bn = LANG==='bn';
+  const activeProjs = activeProjects().sort((a,b)=>a.ProjectName.localeCompare(b.ProjectName));
+  openModal(bn ? 'প্রজেক্ট নির্বাচন করুন (পুনর্বহাল)' : 'Select Project for Reactivation', `
+    <div class="form-grid">
+      <div class="field wide">
+        <label>${bn?'পুনর্বহালের জন্য নতুন প্রজেক্ট':'Select Project for Reactivated Employee'} *</label>
+        <select id="reactivateProj" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border)">
+          <option value="">— ${bn?'প্রজেক্ট নির্বাচন করুন':'Select project'} —</option>
+          ${activeProjs.map(p=>`<option value="${p.ProjectName}"${p.ProjectName===emp.ProjectName?' selected':''}>${p.ProjectName}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+      <button class="btn" onclick="openExitPopup(${jsQ(exitId)})">${bn?'বাতিল':'Cancel'}</button>
+      <button class="btn primary" onclick="confirmReactivate(${jsQ(empKey)}, ${jsQ(exitId)})">${bn?'নিশ্চিত করুন':'Confirm Reactivation'}</button>
+    </div>
+  `);
+}
+
+async function confirmReactivate(empKey, exitId){
+  if(!guardEdit()) return;
+  const sel = document.getElementById('reactivateProj');
+  const newProj = sel ? sel.value : '';
+  if(!newProj){ toast('Please select a project', 'error'); return; }
+
+  const emp = findEmp(empKey);
+  if(!emp) { toast('Employee not found', 'error'); return; }
+
+  try {
+    emp.Status = 'Active';
+    emp.ProjectName = newProj;
+    emp.CurrentProject = newProj;
+    delete emp.ExitDate;
+    delete emp.ExitReason;
+
+    if (window.sb) {
+      const { error: empErr } = await window.sb.from('employees').update({
+        status: 'Active',
+        project_name: newProj,
+        current_project: newProj,
+        exit_date: null,
+        exit_reason: null
+      }).eq('id', emp.id || emp.EmployeeID);
+
+      if (empErr) throw empErr;
+
+      if (exitId) {
+        DATA.exits = DATA.exits.filter(x => String(x.ExitID) !== String(exitId));
+        await window.sb.from('exits').delete().eq('exit_id', String(exitId));
+      }
+    }
+
+    if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
+      const freshData = await window.MGHRM.loadAll();
+      if (freshData) {
+        Object.keys(freshData).forEach(k => {
+          if (Array.isArray(freshData[k])) {
+            window.DATA[k] = freshData[k];
+          }
+        });
+      }
+    }
+
+    logActivity('update','employees',emp.id || emp.EmployeeID,`Reactivated and assigned to ${newProj}`);
+    toast(`${emp.FullName} reactivated successfully`,'success');
+    closeModal();
+    if (typeof refreshAll === 'function') refreshAll();
+  } catch (err) {
+    console.error(err);
+    toast('Reactivation failed: ' + (err.message || err), 'error');
   }
-  logActivity('update','employees',e.id || e.EmployeeID,'reactivated from Inactive');
-  toast('Reactivated','success');
-  persist(); closeModal(); if(typeof renderExit==='function') renderExit(); if(typeof renderEmployees==='function') renderEmployees();
 }
 function deleteExit(eid){
   if(!guardEdit()) return;
@@ -6075,6 +6147,13 @@ function deleteExit(eid){
   toast('Deleted','success');
   persist(); closeModal(); renderExit();
 }
+
+window.openEmpDetail = openEmpDetail;
+window.openExitPopup = openExitPopup;
+window.openEmployeePopup = openExitPopup;
+window.promptReactivate = promptReactivate;
+window.confirmReactivate = confirmReactivate;
+window.deleteExit = deleteExit;
 async function submitExit(){
   if(!guardEdit()) return;
   const rid = document.getElementById('exEmp').value;

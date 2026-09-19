@@ -5605,7 +5605,7 @@ function openDisciplinaryPopup(aid, isEditing = false){
     ? `<button class="btn" onclick="openDisciplinaryPopup(${jsQ(actualAid)}, false)">${bn?'বাতিল':'Cancel'}</button>
        <button class="btn success" style="background:var(--success);color:#fff;font-weight:700" onclick="saveDisciplinaryEdit(${jsQ(actualAid)})">💾 ${bn?'সেভ করুন':'Save Changes'}</button>`
     : `<button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>
-       <button class="btn" onclick="reprintDisc(${jsQ(actualAid)})">${ico('print')} ${bn?'প্রিন্ট':'Print'}</button>
+       <button class="btn primary" onclick="previewDisciplinaryPrint(${jsQ(actualAid)})">${ico('print')} ${bn?'প্রিন্ট':'Print'}</button>
        <button class="btn" onclick="openDisciplinaryPopup(${jsQ(actualAid)}, true)">✏️ ${bn?'এডিট টেক্সট':'Edit Text'}</button>
        <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteDisciplinary(${jsQ(actualAid)})">${bn?'ডিলিট':'Delete'}</button>`;
 
@@ -5717,13 +5717,29 @@ async function submitDisciplinary(){
   }
 }
 function reprintDisc(id){
-  const d = DATA.disciplinary.find(x=>x.ActionID===id); if(!d) return;
-  const templateKey = Object.keys(DC_TEMPLATES).find(k=>DC_TEMPLATES[k].label.bn===d.ActionType || DC_TEMPLATES[k].label.en===d.ActionType) || 'ShowCause';
+  const d = DATA.disciplinary.find(x=>String(x.ActionID||x.action_id||x.id)===String(id)); if(!d) return;
+  const actType = d.ActionType || d.action_type || 'ShowCause';
+  const templateKey = Object.keys(DC_TEMPLATES).find(k=>DC_TEMPLATES[k].label.bn===actType || DC_TEMPLATES[k].label.en===actType || k===actType) || 'ShowCause';
+  const emp = findEmpByAction(d) || {
+    FullName: d.FullName || d.full_name || '',
+    EmployeeID: d.EmployeeID || d.employee_id || '',
+    Designation: d.Designation || d.designation || '',
+    ProjectName: d.ProjectName || d.project_name || ''
+  };
   openPrint(banglaDisciplinaryLetter({
-    emp: findEmpByAction(d) || {FullName:d.FullName,EmployeeID:d.EmployeeID,Designation:d.Designation,ProjectName:d.ProjectName},
-    templateKey, ref:d.RefNo, incident:d.IncidentDate, issue:d.IssueDate, desc:d.Description
+    emp: emp,
+    templateKey: templateKey,
+    ref: d.RefNo || d.ref_no || '',
+    incident: d.IncidentDate || d.incident_date || '',
+    issue: d.IssueDate || d.issue_date || '',
+    desc: d.Description || d.description || ''
   }));
 }
+function previewDisciplinaryPrint(id){
+  reprintDisc(id);
+}
+window.reprintDisc = reprintDisc;
+window.previewDisciplinaryPrint = previewDisciplinaryPrint;
 function previewDisciplinary(){
   const rid = document.getElementById('dcEmp').value;
   const type = document.getElementById('dcType').value;

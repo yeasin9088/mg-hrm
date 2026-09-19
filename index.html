@@ -7622,12 +7622,23 @@ document.addEventListener('click', e=>{
 function renderSchedPanelHTML(){
   const todayObj = new Date();
   todayObj.setHours(0,0,0,0);
-  const todayStr = todayISO();
-  const fut = DATA.transfers.filter(t=>t.Status!=='Cancelled' && t.TransferDate && t.TransferDate>todayStr).sort((a,b)=>(a.TransferDate||'').localeCompare(b.TransferDate||''));
+  const fut = (DATA.transfers || []).filter(t => {
+    const st = String(t.status || t.Status || '').trim();
+    if (st === 'Completed' || st === 'Cancelled' || st === 'Canceled') return false;
+    const isPending = (st === 'Scheduled' || st === 'Awaiting Confirmation' || st === 'Join Pending' || st === '');
+    if (!isPending) return false;
+    const tDateVal = t.TransferDate || t.transfer_date;
+    if (!tDateVal) return false;
+    const d = parseDate(tDateVal);
+    if (!d) return false;
+    d.setHours(0,0,0,0);
+    return d.getTime() >= todayObj.getTime();
+  }).sort((a,b)=>(a.TransferDate || a.transfer_date || '').localeCompare(b.TransferDate || b.transfer_date || ''));
+
   if(!fut.length) return `<p class="small-mute" style="text-align:center;padding:12px">${'No scheduled transfers'}</p>`;
   return fut.slice(0,6).map(t=>{
-    const d = parseDate(t.TransferDate);
-    let dateStr = t.TransferDate;
+    const d = parseDate(t.TransferDate || t.transfer_date);
+    let dateStr = t.TransferDate || t.transfer_date;
     let label = '';
     if(d){
       d.setHours(0,0,0,0);
@@ -7644,8 +7655,8 @@ function renderSchedPanelHTML(){
     }
     return `<div class="alert-item info">
       ${ico('calendar')}
-      <div><h5>${t.FullName} → ${projName(t.NewProject)}</h5>
-      <p>${projName(t.CurrentProject)} → ${projName(t.NewProject)} · ${dateStr}${label}</p></div>
+      <div><h5>${t.FullName || t.full_name} → ${projName(t.NewProject || t.new_project)}</h5>
+      <p>${projName(t.CurrentProject || t.current_project)} → ${projName(t.NewProject || t.new_project)} · ${dateStr}${label}</p></div>
     </div>`;
   }).join('');
 }

@@ -161,16 +161,16 @@
 
     transfers: {
       table: 'transfers',
-      pk: 'transfer_id',
+      pk: 'id',
       allowed: ['employee_sys_id',  
-        'id', 'transfer_id', 'employee_id',
+        'id', 'employee_id',
         'employee_id_bn', 'full_name', 'full_name_bn', 'designation',
         'designation_bn', 'current_project', 'current_project_bn',
         'new_project', 'new_project_bn', 'transfer_date', 'transfer_date_bn',
-        'issues_date', 'issues_date_bn', 'is_proceed', 'status', 'notes', 'created_at'
+        'issues_date', 'issues_date_bn', 'status', 'notes', 'created_at'
        ],
-      map: { 'employee_sys_id': 'employee_sys_id', 
-        'TransferID': 'transfer_id',
+      map: { 'id': 'id',
+        'employee_sys_id': 'employee_sys_id', 
         'EmployeeID': 'employee_id',
         'EmployeeIDBangla': 'employee_id_bn',
         'FullName': 'full_name',
@@ -185,8 +185,8 @@
         'TransferDateBangla': 'transfer_date_bn',
         'Issues Date': 'issues_date',
         'Issues DateBangla': 'issues_date_bn',
-        'IsProceed': 'is_proceed',
         'Status': 'status',
+        'status': 'status',
         'Notes': 'notes'
        }
     },

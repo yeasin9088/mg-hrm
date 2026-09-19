@@ -4854,10 +4854,11 @@ function renderTransfer(){
   /* Auto-heal transfers that are essentially complete but stuck in pending status */
   let changed = false;
   DATA.transfers.forEach(t => {
-    if (t.Status === 'Join Pending' || t.Status === 'Awaiting Confirmation' || t.Status === 'Scheduled' || t.IsProceed === '0') {
+    const st = t.status || t.Status;
+    if (st === 'Join Pending' || st === 'Awaiting Confirmation' || st === 'Scheduled') {
       const e = findEmpByAction(t);
       if (e && e.ProjectName && t.NewProject && String(e.ProjectName).trim() === String(t.NewProject).trim()) {
-        t.Status = 'Completed'; t.IsProceed = '1'; t._applied = true; changed = true;
+        t.Status = 'Completed'; t.status = 'Completed'; t._applied = true; changed = true;
       }
     }
   });
@@ -4878,36 +4879,38 @@ function renderTransferTable() {
     }
     
     if (q) {
-      const hay = `${t.TransferID||''} ${t.FullName||''} ${t.EmployeeID||''} ${empId} ${t.CurrentProject||''} ${t.NewProject||''}`.toLowerCase();
+      const hay = `${t.id||''} ${t.FullName||''} ${t.EmployeeID||''} ${empId} ${t.CurrentProject||''} ${t.NewProject||''}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
-  }).sort((a,b)=>+b.TransferID-+a.TransferID);
+  }).sort((a,b)=>+b.id-+a.id || String(b.id||'').localeCompare(String(a.id||'')));
 
   document.getElementById('trTableBody').innerHTML = rows.slice(0, 100).map(t=>{
     const e = findEmpByAction(t);
     const empId = e ? (e.id || e.EmployeeID || '') : (t.EmployeeID || '—');
-    return `<tr class="row-click" onclick="openTransferPopup(${jsQ(t.TransferID)})" style="cursor:pointer">
-      <td>${num(t.TransferID)}</td>
+    const trStatus = t.status || t.Status || 'Scheduled';
+    const pillClass = trStatus === 'Cancelled' ? 'inactive' : trStatus === 'Completed' ? 'completed' : (trStatus === 'Awaiting Confirmation' || trStatus === 'Join Pending' ? 'warning' : 'scheduled');
+    return `<tr class="row-click" onclick="openTransferPopup(${jsQ(t.id)})" style="cursor:pointer">
+      <td>${num(t.id)}</td>
       <td><span class="chip" style="font-size:11px;font-weight:600">${num(empId)}</span></td>
       <td><strong>${t.FullName}</strong></td>
       <td>${projName(t.CurrentProject)}</td>
       <td>${projName(t.NewProject)}</td>
       <td>${fmtDate(t.TransferDate)}</td>
-      <td><span class="pill ${t.Status==='Cancelled'?'inactive':t.IsProceed==='1'?'completed':'scheduled'}">${t.Status||(t.IsProceed==='1'?'Completed':'Scheduled')}</span></td>
-      <td onclick="event.stopPropagation()"><button class="btn ghost sm" onclick="reprintTransfer(${jsQ(t.TransferID)})">${ico('print')}</button></td>
+      <td><span class="pill ${pillClass}">${trStatus}</span></td>
+      <td onclick="event.stopPropagation()"><button class="btn ghost sm" onclick="reprintTransfer(${jsQ(t.id)})">${ico('print')}</button></td>
     </tr>`}).join('') || `<tr><td colspan="8" class="small-mute" style="text-align:center;padding:20px">${'No data found'}</td></tr>`;
 }
 
 
 function openTransferPopup(tid){
-  const t = DATA.transfers.find(x=>String(x.TransferID)===String(tid)); if(!t) return;
+  const t = DATA.transfers.find(x=>String(x.id)===String(tid)); if(!t) return;
   const bn = LANG==='bn';
-  const memo = 'MG/SEC/TR/'+String(t.TransferID).padStart(4,'0');
+  const memo = 'MG/SEC/TR/'+String(t.id).padStart(4,'0');
   
-  const status = t.Status || (t.IsProceed==='1'?'Completed':'Scheduled');
+  const status = t.status || t.Status || 'Scheduled';
   const isCancelled = status==='Cancelled';
-  const isCompleted = status==='Completed' || t.IsProceed==='1';
+  const isCompleted = status==='Completed';
   const pillCls = isCancelled ? 'inactive' : isCompleted ? 'completed' : (status==='Awaiting Confirmation' || status==='Join Pending' ? 'warning' : 'scheduled');
   const pillTxt = bn ? ({
     'Cancelled':'বাতিল', 'Completed':'সম্পন্ন (জয়েন করেছেন)',
@@ -4916,7 +4919,7 @@ function openTransferPopup(tid){
   const statusPill = `<span class="pill ${pillCls}">${pillTxt}</span>`;
   const emp = findEmpByAction(t);
   const empActive = emp && emp.Status==='Active';
-  openModal(bn?`ট্রান্সফার #${num(t.TransferID)}`:`Transfer #${t.TransferID}`,
+  openModal(bn?`ট্রান্সফার #${num(t.id)}`:`Transfer #${t.id}`,
     `<div class="pop-detail">
       <div class="pop-row"><span>${bn?'স্মারক নং':'Memo No.'}</span><b>${memo}</b></div>
       <div class="pop-row"><span>${bn?'কর্মচারী':'Employee'}</span><b>${t.FullName} <span class="small-mute">(#${num(t.EmployeeID||'')})</span></b></div>
@@ -4931,26 +4934,27 @@ function openTransferPopup(tid){
     </div>
     <div class="pop-hint">${bn?'💡 "যোগদান নিশ্চিত" চাপলে Employeetbl.ProjectName আপডেট হবে ও status "সম্পন্ন" হবে। "বাতিল" চাপলে শুধু হিস্ট্রি রেকর্ড "Cancelled" হবে; Employeetbl অপরিবর্তিত।':'💡 "Confirm Joined" updates Employeetbl.ProjectName and marks Completed. "Cancel" only marks the history record — Employeetbl is not touched.'}</div>`,
     `<button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>
-     <button class="btn" onclick="reprintTransfer(${jsQ(t.TransferID)})">${ico('print')} ${bn?'পুনঃপ্রিন্ট':'Reprint'}</button>
-     ${!isCancelled && !isCompleted && empActive ? `<button class="btn success" onclick="markTransferJoined(${jsQ(t.TransferID)})">${bn?'✓ যোগদান নিশ্চিত (Complete)':'✓ Confirm Joined (Complete)'}</button>` : ''}
-     ${isCompleted && !isCancelled ? `<button class="btn" onclick="revertTransferComplete(${jsQ(t.TransferID)})" title="${bn?'ভুল করে Complete হয়ে গেলে ফেরত আনুন':'Revert if marked complete by mistake'}">↺ ${bn?'Complete পূর্বাবস্থায়':'Undo Complete'}</button>` : ''}
-     ${!isCancelled?`<button class="btn" style="background:var(--warning);color:#fff" onclick="cancelTransferOrder(${jsQ(t.TransferID)})">${bn?'✗ বাতিল করুন':'✗ Cancel Order'}</button>`:''}
-     ${isCancelled?`<button class="btn" onclick="restoreTransferOrder(${jsQ(t.TransferID)})">${bn?'↺ পুনরুদ্ধার':'↺ Restore'}</button>`:''}
-     <button class="btn" onclick="editTransferNewProject(${jsQ(t.TransferID)})">${bn?'গন্তব্য বদলান':'Change Destination'}</button>
-     <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteTransferRecord(${jsQ(t.TransferID)})">${bn?'🗑 রেকর্ড ডিলিট':'🗑 Delete Record'}</button>`);
+     <button class="btn" onclick="reprintTransfer(${jsQ(t.id)})">${ico('print')} ${bn?'পুনঃপ্রিন্ট':'Reprint'}</button>
+     ${!isCancelled && !isCompleted && empActive ? `<button class="btn success" onclick="markTransferJoined(${jsQ(t.id)})">${bn?'✓ যোগদান নিশ্চিত (Complete)':'✓ Confirm Joined (Complete)'}</button>` : ''}
+     ${isCompleted && !isCancelled ? `<button class="btn" onclick="revertTransferComplete(${jsQ(t.id)})" title="${bn?'ভুল করে Complete হয়ে গেলে ফেরত আনুন':'Revert if marked complete by mistake'}">↺ ${bn?'Complete পূর্বাবস্থায়':'Undo Complete'}</button>` : ''}
+     ${!isCancelled?`<button class="btn" style="background:var(--warning);color:#fff" onclick="cancelTransferOrder(${jsQ(t.id)})">${bn?'✗ বাতিল করুন':'✗ Cancel Order'}</button>`:''}
+     ${isCancelled?`<button class="btn" onclick="restoreTransferOrder(${jsQ(t.id)})">${bn?'↺ পুনরুদ্ধার':'↺ Restore'}</button>`:''}
+     <button class="btn" onclick="editTransferNewProject(${jsQ(t.id)})">${bn?'গন্তব্য বদলান':'Change Destination'}</button>
+     <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteTransferRecord(${jsQ(t.id)})">${bn?'🗑 রেকর্ড ডিলিট':'🗑 Delete Record'}</button>`);
 }
 function markTransferJoined(tid){
   if(!guardEdit()) return;
-  const t = DATA.transfers.find(x=>String(x.TransferID)===String(tid)); if(!t) return;
+  const t = DATA.transfers.find(x=>String(x.id)===String(tid)); if(!t) return;
   const bn = LANG==='bn';
   const emp = findEmpByAction(t);
   if(!emp){ toast(bn?'কর্মচারী পাওয়া যায়নি':'Employee not found','error'); return; }
   if(emp.Status!=='Active'){ toast(bn?'নিষ্ক্রিয় কর্মচারীর ট্রান্সফার সম্পন্ন করা যাবে না — আগে পুনর্বহাল করুন':'Cannot complete transfer of inactive employee — reactivate first','error'); return; }
   if(!confirm(bn?`"${t.FullName}" নতুন প্রজেক্ট "${t.NewProject}" এ যোগদান করেছেন — নিশ্চিত?\n\nএতে Employeetbl.ProjectName বদলে যাবে এবং ট্রান্সফার Complete হিসেবে চিহ্নিত হবে।`:`Confirm "${t.FullName}" joined "${t.NewProject}"?\n\nThis updates Employeetbl.ProjectName and marks the transfer Complete.`)) return;
   emp.ProjectName = t.NewProject;   
-  t.Status='Completed'; t.IsProceed='1'; t._applied=true;
+  t.Status='Completed'; t.status='Completed'; t._applied=true;
   if(window.MGHRM && typeof window.MGHRM.update === 'function') {
     window.MGHRM.update('employees', emp.id || emp.EmployeeID, { ProjectName: t.NewProject }).catch(console.error);
+    window.MGHRM.update('transfers', t.id, { Status: 'Completed', status: 'Completed' }).catch(console.error);
   }
   
   if(typeof NOTIFICATIONS!=='undefined'){
@@ -4963,19 +4967,25 @@ function markTransferJoined(tid){
 }
 function revertTransferComplete(tid){
   if(!guardEdit()) return;
-  const t = DATA.transfers.find(x=>String(x.TransferID)===String(tid)); if(!t) return;
+  const t = DATA.transfers.find(x=>String(x.id)===String(tid)); if(!t) return;
   const bn = LANG==='bn';
   if(!confirm(bn?'এই ট্রান্সফার "Scheduled" এ ফেরাবেন? Employeetbl.ProjectName এই ফাংশনে আর অটো বদলাবে না — প্রয়োজন হলে Employees ট্যাবে ম্যানুয়ালি ঠিক করুন।':'Revert this transfer to "Scheduled"? Employeetbl.ProjectName is NOT auto-reverted — edit manually in Employees tab if needed.')) return;
-  t.Status='Scheduled'; t.IsProceed='0'; delete t._applied;
+  t.Status='Scheduled'; t.status='Scheduled'; delete t._applied;
+  if(window.MGHRM && typeof window.MGHRM.update === 'function') {
+    window.MGHRM.update('transfers', t.id, { Status: 'Scheduled', status: 'Scheduled' }).catch(console.error);
+  }
   logActivity('update','transfers', tid, 'Complete → Scheduled (undo)');
   toast(bn?'পূর্বাবস্থায় ফেরানো হয়েছে — Employeetbl অপরিবর্তিত':'Reverted — Employeetbl unchanged','warning');
   persist(); closeModal(); renderTransfer();
 }
 function restoreTransferOrder(tid){
   if(!guardEdit()) return;
-  const t = DATA.transfers.find(x=>String(x.TransferID)===String(tid)); if(!t) return;
+  const t = DATA.transfers.find(x=>String(x.id)===String(tid)); if(!t) return;
   if(!confirm('Restore cancelled transfer to Scheduled?')) return;
-  t.Status='Scheduled'; t.IsProceed='0'; delete t._applied;
+  t.Status='Scheduled'; t.status='Scheduled'; delete t._applied;
+  if(window.MGHRM && typeof window.MGHRM.update === 'function') {
+    window.MGHRM.update('transfers', t.id, { Status: 'Scheduled', status: 'Scheduled' }).catch(console.error);
+  }
   logActivity('restore','transfers', tid, 'Cancelled → Scheduled');
   toast('Restored','success');
   persist(); closeModal(); renderTransfer();
@@ -4983,7 +4993,7 @@ function restoreTransferOrder(tid){
 function deleteTransferRecord(tid){
   if(!guardEdit()) return;
   if(!confirm('WARNING: this transfer record will be permanently deleted. Cannot be undone.')) return;
-  const idx = DATA.transfers.findIndex(x=>String(x.TransferID)===String(tid)); if(idx<0) return;
+  const idx = DATA.transfers.findIndex(x=>String(x.id)===String(tid)); if(idx<0) return;
   const t = DATA.transfers[idx];
   DATA.transfers.splice(idx,1);
   if(window.MGHRM && typeof MGHRM.remove==='function') MGHRM.remove('transfers', tid);
@@ -4994,22 +5004,25 @@ function deleteTransferRecord(tid){
 function cancelTransferOrder(tid){
   if(!guardEdit()) return;
   if(!confirm('Cancel this transfer? The record stays in history as "Cancelled".')) return;
-  const t = DATA.transfers.find(x=>String(x.TransferID)===String(tid)); if(!t) return;
-  t.Status='Cancelled'; t.IsProceed='0';
+  const t = DATA.transfers.find(x=>String(x.id)===String(tid)); if(!t) return;
+  t.Status='Cancelled'; t.status='Cancelled';
+  if(window.MGHRM && typeof window.MGHRM.update === 'function') {
+    window.MGHRM.update('transfers', t.id, { Status: 'Cancelled', status: 'Cancelled' }).catch(console.error);
+  }
   logActivity('cancel','transfers', tid, `Transfer #${tid} cancelled`);
   toast('Transfer cancelled — Employee.ProjectName unchanged','success');
   persist(); closeModal(); renderTransfer();
 }
 function editTransferNewProject(tid){
   if(!guardEdit()) return;
-  const t = DATA.transfers.find(x=>String(x.TransferID)===String(tid)); if(!t) return;
+  const t = DATA.transfers.find(x=>String(x.id)===String(tid)); if(!t) return;
   const bn = LANG==='bn';
   const opts = DATA.projects.map(p=>`<option value="${p.ProjectName}"${p.ProjectName===t.NewProject?' selected':''}>${p.ProjectName}</option>`).join('');
   openModal(bn?'গন্তব্য প্রজেক্ট বদলান':'Change Destination Project',
     `<div class="field"><label>${bn?'নতুন গন্তব্য':'New Destination'}</label><select id="_np">${opts}</select></div>
      <p class="small-mute" style="margin-top:8px">${bn?'শুধু হিস্টরি রেকর্ড আপডেট হবে; Employee.ProjectName-এ প্রভাব নেই।':'Only the history record updates; Employee.ProjectName is not touched.'}</p>`,
     `<button class="btn" onclick="closeModal()">${bn?'বাতিল':'Cancel'}</button>
-     <button class="btn primary" onclick="(function(){var v=document.getElementById('_np').value; var t=DATA.transfers.find(x=>String(x.TransferID)===String(${JSON.stringify(String(tid))})); if(t){t.NewProject=v; logActivity('update','transfers',${JSON.stringify(String(tid))}, 'destination changed to '+v); persist(); closeModal(); renderTransfer(); toast('${bn?'গন্তব্য বদলে গেছে':'Destination updated'}','success');}})()">${bn?'সেভ':'Save'}</button>`);
+     <button class="btn primary" onclick="(function(){var v=document.getElementById('_np').value; var t=DATA.transfers.find(x=>String(x.id)===String(${JSON.stringify(String(tid))})); if(t){t.NewProject=v; if(window.MGHRM&&typeof window.MGHRM.update==='function'){window.MGHRM.update('transfers',t.id,{NewProject:v}).catch(console.error);} logActivity('update','transfers',${JSON.stringify(String(tid))}, 'destination changed to '+v); persist(); closeModal(); renderTransfer(); toast('${bn?'গন্তব্য বদলে গেছে':'Destination updated'}','success');}})()">${bn?'সেভ':'Save'}</button>`);
 }
 
 const EMP_PICKER_CB = {
@@ -5263,13 +5276,11 @@ async function submitTransfer(){
     }
 
     const isFuture = new Date(td) > new Date();
-    const newId = String(Date.now()); // Unique ID instead of Math.max over local array
 
     const targetProj = DATA.projects.find(p => p.ProjectName === np) || {};
     const npBn = targetProj.ProjectNameBangla || targetProj.project_name_bn || '';
 
     const payload = {
-      transfer_id: newId,
       employee_sys_id: e.id,
       employee_id: String(e.EmployeeID || e.id || ''),
       employee_id_bn: String(e.EmployeeIDBangla || ''),
@@ -5286,12 +5297,12 @@ async function submitTransfer(){
       issues_date: iss || '',
       issues_date_bn: iss ? toBnDigits(iss) : '',
       notes: notes || '',
-      is_proceed: isFuture ? '0' : '1',
-      status: isFuture ? 'Scheduled' : 'Recorded'
+      status: isFuture ? 'Scheduled' : 'Completed'
     };
     
-    const { error: trErr } = await window.sb.from('transfers').insert([payload]);
+    const { data: insertedTr, error: trErr } = await window.sb.from('transfers').insert([payload]).select();
     if (trErr) throw trErr;
+    const insertedId = (insertedTr && insertedTr[0] && insertedTr[0].id) ? insertedTr[0].id : '';
 
     if (!isFuture) {
       const { error: empErr } = await window.sb.from('employees').update({
@@ -5311,10 +5322,10 @@ async function submitTransfer(){
         }
     }
     
-    logActivity('create', 'transfers', newId, `Transfer for ${e.FullName} to ${np}`);
+    logActivity('create', 'transfers', insertedId, `Transfer for ${e.FullName} to ${np}`);
     toast(isFuture 
       ? 'Scheduled — employee project NOT changed (edit on Employees tab)'
-      : `Recorded — ${e.FullName} transferred to ${np}`, 'success');
+      : `Completed — ${e.FullName} transferred to ${np}`, 'success');
       
     closeModal();
     if (typeof refreshAll === 'function') refreshAll();
@@ -5326,9 +5337,9 @@ async function submitTransfer(){
   }
 }
 function reprintTransfer(id){
-  const tr = DATA.transfers.find(x=>x.TransferID===id); if(!tr) return;
-  const e = DATA.employees.find(x=>x.EmployeeID===tr.EmployeeID) || {FullName:tr.FullName,EmployeeID:tr.EmployeeID,Designation:tr.Designation,ProjectName:tr.CurrentProject};
-  openPrint(bangleTransferOrder({emp:e, np:tr.NewProject, td:tr.TransferDate, iss:tr['Issues Date'], notes:tr.Notes, refNo:'MG/SEC/TR/'+String(tr.TransferID).padStart(4,'0')}));
+  const tr = DATA.transfers.find(x=>String(x.id)===String(id)); if(!tr) return;
+  const e = DATA.employees.find(x=>x.EmployeeID===tr.EmployeeID || String(x.id)===String(tr.employee_sys_id)) || {FullName:tr.FullName,EmployeeID:tr.EmployeeID,Designation:tr.Designation,ProjectName:tr.CurrentProject};
+  openPrint(bangleTransferOrder({emp:e, np:tr.NewProject, td:tr.TransferDate, iss:tr['Issues Date'], notes:tr.Notes, refNo:'MG/SEC/TR/'+String(tr.id).padStart(4,'0')}));
 }
 function previewTransferOrder(){
   const rid = document.getElementById('trEmp').value;
@@ -7208,7 +7219,7 @@ const CSV_SCHEMAS = {
     { key: 'notes', label: 'Notes' }
   ],
   transfers: [
-    { key: 'transfer_id', label: 'TransferID (Primary Key)' },
+    { key: 'id', label: 'ID (Primary Key)' },
     { key: 'employee_sys_id', label: 'Employee Sys ID (Root Foreign Key → Employees) ⭐', isFk: true, required: true },
     { key: 'employee_id', label: 'EmployeeID' },
     { key: 'full_name', label: 'FullName' },
@@ -7337,7 +7348,7 @@ const CSV_SYNONYMS = {
   join_date: ['joindate', 'join_date', 'join date', 'date of join', 'joining date', 'appointment date'],
   salary: ['salary', 'gross salary', 'basic salary', 'gross', 'basic', 'pay', 'wage', 'current salary', 'net salary', 'total salary'],
   status: ['status', 'employment status', 'active', 'state', 'job status'],
-  transfer_id: ['transferid', 'transfer_id', 'transfer id', 'tid'],
+  id: ['id', 'transferid', 'transfer_id', 'transfer id', 'tid'],
   current_project: ['currentproject', 'current_project', 'current project', 'from project', 'from', 'old project', 'previous project', 'source project'],
   new_project: ['newproject', 'new_project', 'new project', 'to project', 'to', 'transfer project', 'target project', 'destination project', 'destination'],
   current_project_bn: ['currentprojectbangla', 'current_project_bn', 'current project bangla', 'currentproject bn', 'current project bn'],
@@ -8234,11 +8245,12 @@ function applyScheduledTransfers(){
   
   const today = todayISO();
   DATA.transfers.forEach(t=>{
-    if(t.Status==='Cancelled' || t._applied) return;
-    if(t.TransferDate && t.TransferDate<=today && t.Status!=='Completed'){
-      t._applied = true; t.Status = 'Awaiting Confirmation';
+    const st = t.status || t.Status;
+    if(st==='Cancelled' || t._applied) return;
+    if(t.TransferDate && t.TransferDate<=today && st!=='Completed'){
+      t._applied = true; t.Status = 'Awaiting Confirmation'; t.status = 'Awaiting Confirmation';
       NOTIFICATIONS.unshift({
-        id:'tj'+t.TransferID, type:'transfer_join', transferId:t.TransferID, severity:'warning',
+        id:'tj'+t.id, type:'transfer_join', transferId:t.id, severity:'warning',
         title:`${t.FullName} — Confirm Joining`,
         detail:`Scheduled transfer on ${fmtDate(t.TransferDate)} from ${projName(t.CurrentProject)} to ${projName(t.NewProject)}. Did they join the new project? Clicking "Joined" updates their project; clicking "Cancel order" cancels the transfer.`
       });
@@ -8249,11 +8261,15 @@ function confirmJoin(nid){
   
   if(!guardEdit()) return;
   const n = NOTIFICATIONS.find(x=>x.id===nid); if(!n) return;
-  const t = DATA.transfers.find(x=>String(x.TransferID)===String(n.transferId));
+  const t = DATA.transfers.find(x=>String(x.id)===String(n.transferId));
   if(t){
-    const e = DATA.employees.find(x=>x.EmployeeID===t.EmployeeID);
+    const e = DATA.employees.find(x=>x.EmployeeID===t.EmployeeID || String(x.id)===String(t.employee_sys_id));
     if(e && e.Status==='Active') e.ProjectName = t.NewProject;   
-    t.Status='Completed'; t.IsProceed='1';
+    t.Status='Completed'; t.status='Completed';
+    if(window.MGHRM && typeof window.MGHRM.update === 'function') {
+      window.MGHRM.update('transfers', t.id, { Status: 'Completed', status: 'Completed' }).catch(console.error);
+      if(e) window.MGHRM.update('employees', e.id || e.EmployeeID, { ProjectName: t.NewProject }).catch(console.error);
+    }
   }
   NOTIFICATIONS.splice(NOTIFICATIONS.indexOf(n),1);
   toast('Joining confirmed — employee project updated to new project','success');
@@ -8263,8 +8279,13 @@ function denyJoin(nid){
   
   if(!guardEdit()) return;
   const n = NOTIFICATIONS.find(x=>x.id===nid); if(!n) return;
-  const t = DATA.transfers.find(x=>String(x.TransferID)===String(n.transferId));
-  if(t) t.Status='Cancelled';
+  const t = DATA.transfers.find(x=>String(x.id)===String(n.transferId));
+  if(t) {
+    t.Status='Cancelled'; t.status='Cancelled';
+    if(window.MGHRM && typeof window.MGHRM.update === 'function') {
+      window.MGHRM.update('transfers', t.id, { Status: 'Cancelled', status: 'Cancelled' }).catch(console.error);
+    }
+  }
   NOTIFICATIONS.splice(NOTIFICATIONS.indexOf(n),1);
   toast('Transfer order cancelled — employee project unchanged','success');
   persist(); renderAll();

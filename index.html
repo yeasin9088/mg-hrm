@@ -1539,23 +1539,10 @@ input:focus, select:focus, textarea:focus {
         <p id="pageSub"></p>
       </div>
       <div class="topbar-right">
-        <button class="btn" id="syncBtn" onclick="doSyncNow()" title="Pull latest data from server" style="padding:6px 10px;font-size:12px">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
-          Sync
-        </button>
-        <button class="btn" onclick="openBackupMenu()" title="Backup / Restore" style="padding:6px 10px;font-size:12px">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Backup
-        </button>
         <div class="notif-bell" id="notifBell" onclick="toggleNotifDropdown(event)" title="Notifications">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           <span class="notif-badge" id="notifBadge" style="display:none">0</span>
           <div class="notif-dropdown" id="notifDropdown"></div>
-        </div>
-        <div class="global-search">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input type="text" id="globalSearch" placeholder="Search everything…" oninput="globalSearch()">
-          <kbd>Ctrl K</kbd>
         </div>
       </div>
     </div>
@@ -2066,15 +2053,19 @@ function navigate(p){
   }
 }
 
-/* Ctrl+K search */
+/* Keyboard shortcuts */
 window.addEventListener('keydown', e=>{
-  if((e.ctrlKey||e.metaKey) && e.key==='k'){ e.preventDefault(); document.getElementById('globalSearch').focus(); }
+  if((e.ctrlKey||e.metaKey) && e.key==='k'){
+    const gs = document.getElementById('globalSearch') || document.getElementById('empSearch');
+    if (gs) { e.preventDefault(); gs.focus(); }
+  }
   if(e.key==='Escape'){ closeModal(); closeModal('printModal'); }
 });
 function globalSearch(){
-  const q=document.getElementById('globalSearch').value.toLowerCase().trim();
+  const gs = document.getElementById('globalSearch');
+  if(!gs) return;
+  const q = gs.value.toLowerCase().trim();
   if(!q) return;
-  // Simple: jump to employees page with the search preset
   if(currentPage!=='employees') navigate('employees');
   const el=document.getElementById('empSearch'); if(el){ el.value=q; renderEmployees(); }
 }

@@ -943,6 +943,122 @@
       });
   }
 
+  /* ---------- Progressive Recruitment (Phase 2) ---------- */
+  function saveRecruitBasicInfo(basicData, currentRecruitId) {
+    if (!ready || !sb) {
+      return Promise.reject(new Error('Supabase client is not connected.'));
+    }
+    var clean = toDb('employees', basicData);
+    // Strict requirement: status must be Candidate
+    clean.status = 'Candidate';
+
+    if (!currentRecruitId) {
+      return sb
+        .from('employees')
+        .insert([clean])
+        .select()
+        .then(function (r) {
+          if (r.error) {
+            console.error('[Recruitment Insert Error]:', r.error.message || r.error);
+            if (global.toast) global.toast('Server Error: ' + (r.error.message || r.error), 'error');
+            throw r.error;
+          }
+          return r.data;
+        });
+    } else {
+      var query = sb.from('employees').update(clean);
+      if (/^\d+$/.test(String(currentRecruitId))) {
+        query = query.eq('id', Number(currentRecruitId));
+      } else {
+        query = query.eq('employee_id', currentRecruitId);
+      }
+      return query
+        .select()
+        .then(function (r) {
+          if (r.error) {
+            console.error('[Recruitment Update Error]:', r.error.message || r.error);
+            if (global.toast) global.toast('Server Error: ' + (r.error.message || r.error), 'error');
+            throw r.error;
+          }
+          return r.data;
+        });
+    }
+  }
+
+  /* ---------- Progressive Recruitment (Phase 3) ---------- */
+  function updateRecruitSection(sectionData, currentRecruitId) {
+    if (!currentRecruitId) {
+      return Promise.reject(new Error('Profile ID missing. Please complete basic info first.'));
+    }
+    if (!ready || !sb) {
+      return Promise.reject(new Error('Supabase client is not connected.'));
+    }
+    var clean = toDb('employees', sectionData);
+    delete clean.id; // Do not alter primary key
+
+    var query = sb.from('employees').update(clean);
+    if (/^\d+$/.test(String(currentRecruitId))) {
+      query = query.eq('id', Number(currentRecruitId));
+    } else {
+      query = query.eq('employee_id', currentRecruitId);
+    }
+    return query
+      .select()
+      .then(function (r) {
+        if (r.error) {
+          console.error('[Recruitment Section Update Error]:', r.error.message || r.error);
+          if (global.toast) global.toast('Server Error: ' + (r.error.message || r.error), 'error');
+          throw r.error;
+        }
+        return r.data;
+      });
+  }
+
+  /* ---------- Candidate Finalization (Phase 4) ---------- */
+  function approveCandidate(id) {
+    if (!id) return Promise.reject(new Error('Candidate ID is required.'));
+    if (!ready || !sb) return Promise.reject(new Error('Supabase client is not connected.'));
+
+    var query = sb.from('employees').update({ status: 'Active' });
+    if (/^\d+$/.test(String(id))) {
+      query = query.eq('id', Number(id));
+    } else {
+      query = query.eq('employee_id', id);
+    }
+    return query
+      .select()
+      .then(function (r) {
+        if (r.error) {
+          console.error('[Candidate Approval Error]:', r.error.message || r.error);
+          if (global.toast) global.toast('Server Error: ' + (r.error.message || r.error), 'error');
+          throw r.error;
+        }
+        return r.data;
+      });
+  }
+
+  function rejectCandidate(id) {
+    if (!id) return Promise.reject(new Error('Candidate ID is required.'));
+    if (!ready || !sb) return Promise.reject(new Error('Supabase client is not connected.'));
+
+    var query = sb.from('employees').update({ status: 'Application Rejected' });
+    if (/^\d+$/.test(String(id))) {
+      query = query.eq('id', Number(id));
+    } else {
+      query = query.eq('employee_id', id);
+    }
+    return query
+      .select()
+      .then(function (r) {
+        if (r.error) {
+          console.error('[Candidate Rejection Error]:', r.error.message || r.error);
+          if (global.toast) global.toast('Server Error: ' + (r.error.message || r.error), 'error');
+          throw r.error;
+        }
+        return r.data;
+      });
+  }
+
   /* ---------- Real-Time Auto-Fetch by Primary Key ID or EmployeeID ---------- */
   function fetchEmployeeById(id) {
     if (!id) return Promise.resolve(null);
@@ -1167,6 +1283,10 @@
     remove: remove,
     fetchEmployeeById: fetchEmployeeById,
     fetchEmployeeByRecordId: fetchEmployeeByRecordId,
+    saveRecruitBasicInfo: saveRecruitBasicInfo,
+    updateRecruitSection: updateRecruitSection,
+    approveCandidate: approveCandidate,
+    rejectCandidate: rejectCandidate,
     batchUpsert: batchUpsert,
     pushAll: pushAll,
     TABLE_MAP: TABLE_MAP,

@@ -1850,7 +1850,14 @@ function openModal(title, body, actions = '') {
   bodyEl.innerHTML = body + (actions ? `<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);flex-wrap:wrap">${actions}</div>` : '');
   document.getElementById('modal').classList.add('open');
 }
-function closeModal(id='modal'){ document.getElementById(id).classList.remove('open'); }
+function closeModal(id='modal'){
+  document.getElementById(id).classList.remove('open');
+  if(id === 'modal'){
+    window.currentRecruitId = null;
+    currentRecruitId = null;
+    window.currentEditEmployeeId = null;
+  }
+}
 function openPrint(html){
   const body=document.getElementById('printBody');
   body.innerHTML=html;
@@ -3083,14 +3090,151 @@ function renderPendingRecruitment(){
             <div>Mobile: <strong>${escapeHtml(num(phoneNum))}</strong></div>
           </div>
         </div>
-        <div style="border-top: 1px solid var(--border, #f1f5f9); padding-top: 12px; display: flex; justify-content: flex-end; gap: 8px;">
-          <button class="btn sm ghost" onclick="openCandidateProfile(${jsQ(empKey)})">View</button>
-          <button class="btn sm primary" onclick="openApplicantForm(${jsQ(empKey)})">Continue / Edit</button>
+        <div style="border-top: 1px solid var(--border, #f1f5f9); padding-top: 12px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px;">
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button class="btn sm ghost" onclick="openCandidateProfile(${jsQ(empKey)})">View</button>
+            <button class="btn sm" onclick="openApplicantForm(${jsQ(empKey)})">Continue / Edit</button>
+          </div>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button class="btn sm success" onclick="approveCandidate(${jsQ(empKey)})" title="Approve & Hire">${ico('check')} Approve &amp; Hire</button>
+            <button class="btn sm danger" onclick="rejectCandidate(${jsQ(empKey)})" title="Reject">${ico('x')} Reject</button>
+          </div>
         </div>
       </div>
     `;
   }).join('');
 }
+
+/* ---------- Phase 4: Candidate Finalization (Onboarding & Rejection) ---------- */
+async function approveCandidate(id){
+  if(typeof guardEdit === 'function' && !guardEdit()) return;
+  if(!id) return;
+
+  if(!confirm('Are you sure you want to officially onboard this candidate?')) return;
+
+  const btn = window.event && window.event.currentTarget ? window.event.currentTarget : null;
+  const origText = btn ? btn.innerHTML : '';
+  if(btn){ btn.disabled = true; btn.innerHTML = 'Onboarding...'; }
+
+  try {
+    const emp = (window.DATA && Array.isArray(window.DATA.employees)) ? window.DATA.employees.find(e =>
+      String(e.id) === String(id) ||
+      String(e.EmployeeID) === String(id) ||
+      String(e.employee_id) === String(id)
+    ) : null;
+    const targetId = (emp && emp.id) ? emp.id : id;
+
+    if(window.MGHRM && typeof window.MGHRM.approveCandidate === 'function'){
+      await window.MGHRM.approveCandidate(targetId);
+    } else {
+      const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
+                    || (window.MGHRM && window.MGHRM.sb)
+                    || window.sb
+                    || (typeof sb !== 'undefined' ? sb : null);
+      if(!sbClient) throw new Error('Database connection not established.');
+      let query = sbClient.from('employees').update({ status: 'Active' });
+      if(/^\d+$/.test(String(targetId))){
+        query = query.eq('id', Number(targetId));
+      } else {
+        query = query.eq('employee_id', targetId);
+      }
+      const { error } = await query;
+      if(error) throw error;
+    }
+
+    if(emp){
+      emp.Status = 'Active';
+      emp.status = 'Active';
+    }
+
+    toast('Candidate successfully onboarded!', 'success');
+
+    if(typeof syncRecruitmentFromEmployees === 'function') syncRecruitmentFromEmployees();
+    if(typeof renderPendingRecruitment === 'function') renderPendingRecruitment();
+    if(typeof renderRecruitment === 'function') renderRecruitment();
+    if(typeof renderEmpTable === 'function') renderEmpTable();
+    if(typeof renderEmployees === 'function') renderEmployees();
+    if(typeof renderDashboard === 'function') renderDashboard();
+
+    if(typeof fetchEmployeesDirectly === 'function'){
+      fetchEmployeesDirectly().then(() => {
+        if(typeof syncRecruitmentFromEmployees === 'function') syncRecruitmentFromEmployees();
+        if(typeof renderPendingRecruitment === 'function') renderPendingRecruitment();
+        if(typeof renderEmpTable === 'function') renderEmpTable();
+      }).catch(() => {});
+    }
+  } catch(err){
+    console.error('[Approve Candidate Error]:', err);
+    toast('Error onboarding candidate: ' + (err.message || err), 'error');
+    if(btn){ btn.disabled = false; btn.innerHTML = origText; }
+  }
+}
+window.approveCandidate = approveCandidate;
+
+async function rejectCandidate(id){
+  if(typeof guardEdit === 'function' && !guardEdit()) return;
+  if(!id) return;
+
+  if(!confirm('Are you sure you want to reject this application?')) return;
+
+  const btn = window.event && window.event.currentTarget ? window.event.currentTarget : null;
+  const origText = btn ? btn.innerHTML : '';
+  if(btn){ btn.disabled = true; btn.innerHTML = 'Rejecting...'; }
+
+  try {
+    const emp = (window.DATA && Array.isArray(window.DATA.employees)) ? window.DATA.employees.find(e =>
+      String(e.id) === String(id) ||
+      String(e.EmployeeID) === String(id) ||
+      String(e.employee_id) === String(id)
+    ) : null;
+    const targetId = (emp && emp.id) ? emp.id : id;
+
+    if(window.MGHRM && typeof window.MGHRM.rejectCandidate === 'function'){
+      await window.MGHRM.rejectCandidate(targetId);
+    } else {
+      const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
+                    || (window.MGHRM && window.MGHRM.sb)
+                    || window.sb
+                    || (typeof sb !== 'undefined' ? sb : null);
+      if(!sbClient) throw new Error('Database connection not established.');
+      let query = sbClient.from('employees').update({ status: 'Application Rejected' });
+      if(/^\d+$/.test(String(targetId))){
+        query = query.eq('id', Number(targetId));
+      } else {
+        query = query.eq('employee_id', targetId);
+      }
+      const { error } = await query;
+      if(error) throw error;
+    }
+
+    if(emp){
+      emp.Status = 'Application Rejected';
+      emp.status = 'Application Rejected';
+    }
+
+    toast('Candidate application rejected.', 'success');
+
+    if(typeof syncRecruitmentFromEmployees === 'function') syncRecruitmentFromEmployees();
+    if(typeof renderPendingRecruitment === 'function') renderPendingRecruitment();
+    if(typeof renderRecruitment === 'function') renderRecruitment();
+    if(typeof renderEmpTable === 'function') renderEmpTable();
+    if(typeof renderDashboard === 'function') renderDashboard();
+
+    if(typeof fetchEmployeesDirectly === 'function'){
+      fetchEmployeesDirectly().then(() => {
+        if(typeof syncRecruitmentFromEmployees === 'function') syncRecruitmentFromEmployees();
+        if(typeof renderPendingRecruitment === 'function') renderPendingRecruitment();
+        if(typeof renderEmpTable === 'function') renderEmpTable();
+      }).catch(() => {});
+    }
+  } catch(err){
+    console.error('[Reject Candidate Error]:', err);
+    toast('Error rejecting candidate: ' + (err.message || err), 'error');
+    if(btn){ btn.disabled = false; btn.innerHTML = origText; }
+  }
+}
+window.rejectCandidate = rejectCandidate;
+
 function openCandidateProfile(id){
   const r = RECRUITMENT.find(x=>x.id===id); if(!r) return;
   const html = `
@@ -3287,8 +3431,14 @@ function openApplicantForm(empKey){
   const bn = LANG === 'bn';
   const isEdit = !!empKey;
   window.currentEditEmployeeId = empKey || null;
+  window.currentRecruitId = empKey || null;
+  currentRecruitId = empKey || null;
   const existing = isEdit ? findEmp(empKey) : null;
   const cand = !existing && isEdit ? RECRUITMENT.find(x => String(x.id) === String(empKey)) : null;
+  if (existing && existing.id) {
+    window.currentRecruitId = existing.id;
+    currentRecruitId = existing.id;
+  }
 
   const tab = (id,label,active=false)=>`<div class="tab ${active?'active':''}" id="natab-${id}" onclick="switchTab('naTabs','${id}');naRefreshPrimary()">${label}</div>`;
   const fld = (id,label,type='text',placeholder='',val='',opts='')=>`<div class="field"><label>${label}</label>${opts?`<select id="na_${id}">${opts}</select>`:type==='textarea'?`<textarea id="na_${id}" rows="2" placeholder="${placeholder}">${escapeHtml(val)}</textarea>`:`<input id="na_${id}" type="${type}" placeholder="${placeholder}" value="${escapeHtml(String(val))}">`}</div>`;
@@ -3324,6 +3474,8 @@ function openApplicantForm(empKey){
       <div class="form-grid">
         <div class="field"><label>Name (English) *</label><input id="na_nameEn" type="text" placeholder="Md ..." value="${escapeHtml(existing ? (existing.FullName||existing.full_name||'') : (cand ? (cand.nameEn||cand.name||'') : ''))}" onchange="dupHintLive()">${translateBtnHTML('na_nameEn','na_name')}</div>
         <div class="field"><label>Name (Bangla) *</label><input id="na_name" type="text" placeholder="Md ... (translate button or manual)" value="${escapeHtml(existing ? (existing.FullNameBn||existing.full_name_bn||existing.name||'') : (cand ? (cand.name||'') : ''))}"></div>
+        <div class="field"><label>Applied Post *</label><select id="na_desig" onchange="naDesigSalary()">${desigOpts}</select></div>
+        <div class="field"><label>Project *</label><select id="na_project" onchange="naSyncProjSummary()">${projOpts}</select></div>
         <div class="field"><label>Father's Name</label><input id="na_father" type="text" value="${escapeHtml(existing ? (existing.FatherName||existing.father_name||existing.father||'') : (cand ? (cand.father||'') : ''))}"></div>
         <div class="field"><label>Mother's Name</label><input id="na_mother" type="text" value="${escapeHtml(existing ? (existing.MotherName||existing.mother_name||existing.mother||'') : (cand ? (cand.mother||'') : ''))}"></div>
         <div class="field"><label>Date of Birth</label><input id="na_dob" type="date" value="${escapeHtml(existing ? (existing.DOB||existing.dob||'') : (cand ? (cand.dob||'') : ''))}"></div>
@@ -3337,6 +3489,9 @@ function openApplicantForm(empKey){
         <div class="field"><label>Marital Status</label><select id="na_maritalStatus" onchange="naMaritalToggle()">${marOpts}</select></div>
         <div class="field" id="naSpouseNameWrap" style="display:${marStat==='Married'?'':'none'}"><label>Spouse Name</label><input id="na_spouse" type="text" value="${escapeHtml(existing ? (existing.SpouseName||existing.spouse_name||existing.spouse||'') : (cand ? (cand.spouse||'') : ''))}"></div>
         <div class="field" id="naSpouseMobileWrap" style="display:${marStat==='Married'?'':'none'}"><label>Spouse Mobile</label><input id="na_spouseMobile" type="text" placeholder="01XXXXXXXXX" value="${escapeHtml(existing ? (existing.SpousePhoneNum||existing.spouse_phone||existing.spousePhone||'') : (cand ? (cand.spousePhone||'') : ''))}"></div>
+      </div>
+      <div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--border,#e2e8f0);display:flex;justify-content:flex-end;align-items:center;gap:10px">
+        <button type="button" class="btn primary" id="btnSaveBasicInfo" onclick="saveBasicInfoAndContinue()">${isEdit ? 'Update &amp; Continue →' : 'Save &amp; Continue →'}</button>
       </div>
     </div>
     <div id="tab-naAddr" class="tab-panel">
@@ -3355,6 +3510,9 @@ function openApplicantForm(empKey){
         <div class="field"><label>Village / Area</label><input id="na_permV" type="text" list="na_permVList" placeholder="Type village name" value="${escapeHtml(existing ? (existing.Village||existing.village||(existing.permanentAddress&&existing.permanentAddress.village)||'') : (cand ? (cand.permanentAddress&&cand.permanentAddress.village||'') : ''))}"><datalist id="na_permVList"></datalist></div>
         <div class="field"><label>Street / House / Road</label><input id="na_permstreet" type="text" placeholder="House 12, Road 5" value="${escapeHtml(existing ? (existing.Street||existing.street||(existing.permanentAddress&&existing.permanentAddress.street)||'') : (cand ? (cand.permanentAddress&&cand.permanentAddress.street||'') : ''))}"></div>
       </div>
+      <div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--border,#e2e8f0);display:flex;justify-content:flex-end;align-items:center;gap:10px">
+        <button type="button" class="btn primary" id="btnSaveAddress" onclick="saveAddressAndContinue()">${isEdit ? 'Update &amp; Continue →' : 'Save &amp; Continue →'}</button>
+      </div>
     </div>
     <div id="tab-naEc" class="tab-panel">
       <h4 style="font-size:13px;margin-bottom:8px">Emergency Contact 1</h4>
@@ -3370,6 +3528,9 @@ function openApplicantForm(empKey){
         ${fld('ec2r','Relation','text','','',existing && existing.ec2 ? existing.ec2.relation : (cand && cand.ec2 ? cand.ec2.relation : ''))}
         ${fld('ec2m','Mobile','text','01XXXXXXXXX',existing && existing.ec2 ? existing.ec2.mobile : (cand && cand.ec2 ? cand.ec2.mobile : ''))}
       </div>
+      <div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--border,#e2e8f0);display:flex;justify-content:flex-end;align-items:center;gap:10px">
+        <button type="button" class="btn primary" id="btnSaveEmergency" onclick="saveEmergencyAndContinue()">${isEdit ? 'Update &amp; Continue →' : 'Save &amp; Continue →'}</button>
+      </div>
     </div>
     <div id="tab-naRef" class="tab-panel">
       <div class="form-grid">
@@ -3378,11 +3539,14 @@ function openApplicantForm(empKey){
         ${fld('rfo','Organization','text','','',existing ? (existing.ReferenceOrg||(existing.reference&&existing.reference.org)||'') : (cand && cand.reference ? cand.reference.org : ''))}
         ${fld('rfm','Mobile','text','01XXXXXXXXX',existing ? (existing.ReferenceMobile||(existing.reference&&existing.reference.mobile)||'') : (cand && cand.reference ? cand.reference.mobile : ''))}
       </div>
+      <div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--border,#e2e8f0);display:flex;justify-content:flex-end;align-items:center;gap:10px">
+        <button type="button" class="btn primary" id="btnSaveReferences" onclick="saveReferencesAndContinue()">${isEdit ? 'Update &amp; Continue →' : 'Save &amp; Continue →'}</button>
+      </div>
     </div>
     <div id="tab-naJob" class="tab-panel">
       <div class="form-grid">
-        <div class="field"><label>Applied Post *</label><select id="na_desig" onchange="naDesigSalary()">${desigOpts}</select></div>
-        <div class="field"><label>Project *</label><select id="na_project">${projOpts}</select></div>
+        <div class="field"><label>Applied Post (from Basic Info)</label><input id="na_desig_summary" type="text" readonly style="background:var(--bg-dim)" value="${escapeHtml(getDesig || 'Security Guard')}"></div>
+        <div class="field"><label>Project (from Basic Info)</label><input id="na_project_summary" type="text" readonly style="background:var(--bg-dim)" value="${escapeHtml(getProj || (activeProjects()[0] ? activeProjects()[0].ProjectName : ''))}"></div>
         <div class="field"><label>Duty Hours</label><input id="na_dutyHours" type="number" placeholder="12" value="${existing ? (existing.DutyHour||existing.dutyHours||12) : (cand ? (cand.dutyHours||12) : 12)}"></div>
       </div>
       <div class="divider"></div>
@@ -3397,13 +3561,16 @@ function openApplicantForm(empKey){
         <div style="background:var(--bg-dim);border-radius:8px;padding:8px 10px"><div class="small-mute" style="font-size:10.5px">Others (10%)</div><div id="na_bOth" style="font-weight:700">—</div></div>
       </div>
       <p class="small-mute" style="margin-top:8px">${'Selecting a post auto-fills the gross salary; it is broken down 60/20/10/10.'}</p>
+      <div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--border,#e2e8f0);display:flex;justify-content:flex-end;align-items:center;gap:10px">
+        <button type="button" class="btn primary" id="btnSaveJobComplete" onclick="saveJobAndComplete()">${isEdit ? 'Update &amp; Complete Profile ✓' : 'Complete Profile ✓'}</button>
+      </div>
     </div>
     <div id="dupHint" class="small-mute" style="margin-top:8px"></div>
     <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:12px">
       <p class="small-mute">${isEdit ? 'Updating employee record directly (status preserved).' : 'Once submitted, 3 forms become printable. Prior employment is auto-checked.'}</p>
       <div style="display:flex;gap:8px">
-        <button class="btn" onclick="window.currentEditEmployeeId=null; closeModal()">${'Cancel'}</button>
-        <button class="btn primary" id="naPrimaryBtn" onclick="naPrimaryAction()">${isEdit ? 'Update Employee' : 'Save & Continue'}</button>
+        <button class="btn" onclick="window.currentEditEmployeeId=null; window.currentRecruitId=null; currentRecruitId=null; closeModal()">${'Cancel'}</button>
+        <button class="btn primary" id="naPrimaryBtn" onclick="naPrimaryAction()">${isEdit ? 'Update &amp; Continue' : 'Save &amp; Continue'}</button>
       </div>
     </div>
   `);
@@ -3449,8 +3616,18 @@ function naSameAsPresent(chk){
     naRefreshVillageList('permV', window.__na_permAddr.union_id);
   }
 }
+function naSyncProjSummary(){
+  const p = (document.getElementById('na_project')||{}).value;
+  const pSum = document.getElementById('na_project_summary');
+  if(pSum && p) pSum.value = p;
+}
 function naDesigSalary(){
   const d = (document.getElementById('na_desig')||{}).value;
+  const sSum = document.getElementById('na_desig_summary');
+  if(sSum && d) sSum.value = d;
+  const p = (document.getElementById('na_project')||{}).value;
+  const pSum = document.getElementById('na_project_summary');
+  if(pSum && p) pSum.value = p;
   const g = document.getElementById('na_gross');
   const s = salaryFor(d);
   if(g && s!=='') g.value = s;
@@ -3462,6 +3639,718 @@ function naSalaryBreak(){
   set('na_bBasic', g*.60); set('na_bHouse', g*.20); set('na_bMed', g*.10); set('na_bOth', g*.10);
 }
 
+var currentRecruitId = null;
+window.currentRecruitId = null;
+
+async function saveBasicInfoAndContinue(){
+  if(typeof guardEdit === 'function' && !guardEdit()) return;
+
+  const g = id => {
+    const el = document.getElementById('na_' + id);
+    return el ? el.value.trim() : '';
+  };
+
+  const nameEn = g('nameEn');
+  const name = g('name') || nameEn;
+  const phone = g('phone');
+  const nid = g('nid');
+  const dob = g('dob');
+  const father = g('father');
+  const mother = g('mother');
+  const education = g('education') || 'SSC';
+  const religion = g('religion') || 'Islam';
+  const bloodGroup = g('bloodGroup') || 'O+';
+  const height = g('height') || '5\' 6"';
+  const weight = g('weight') || '60';
+  const maritalStatus = g('maritalStatus') || 'Unmarried';
+  const spouse = maritalStatus === 'Married' ? g('spouse') : '';
+  const spouseMobile = maritalStatus === 'Married' ? g('spouseMobile') : '';
+  const desig = g('desig') || 'Security Guard';
+  const project = g('project') || (typeof activeProjects === 'function' && activeProjects()[0] ? activeProjects()[0].ProjectName : 'Unassigned');
+
+  // Basic Validation
+  if(!nameEn && !name){
+    toast('Please enter candidate name (English or Bangla).', 'error');
+    const el = document.getElementById('na_nameEn') || document.getElementById('na_name');
+    if(el) el.focus();
+    return;
+  }
+  if(!phone){
+    toast('Mobile number is required.', 'error');
+    const el = document.getElementById('na_phone');
+    if(el) el.focus();
+    return;
+  }
+
+  // Visual state on buttons
+  const saveBtn = document.getElementById('btnSaveBasicInfo');
+  const primaryBtn = document.getElementById('naPrimaryBtn');
+  const origSaveText = saveBtn ? saveBtn.innerHTML : '';
+  const origPrimaryText = primaryBtn ? primaryBtn.innerHTML : '';
+  if(saveBtn){ saveBtn.disabled = true; saveBtn.innerHTML = 'Saving...'; }
+  if(primaryBtn){ primaryBtn.disabled = true; primaryBtn.innerHTML = 'Saving...'; }
+
+  try {
+    const editKeyInput = document.getElementById('na_editKey');
+    const targetRecruitId = window.currentRecruitId || (editKeyInput && editKeyInput.value) || window.currentEditEmployeeId || null;
+
+    const grossSalary = +(g('gross')) || (typeof salaryFor === 'function' && salaryFor(desig) ? +salaryFor(desig) : 0);
+    const existingEmp = targetRecruitId ? (typeof findEmp === 'function' ? findEmp(targetRecruitId) : null) : null;
+    const empCode = (existingEmp && (existingEmp.EmployeeID || existingEmp.employee_id)) || 'MGS' + String(Date.now()).slice(-4);
+
+    let existingExtra = {};
+    if(existingEmp && existingEmp.Remarks && existingEmp.Remarks.startsWith('{')){
+      try { existingExtra = JSON.parse(existingEmp.Remarks); } catch(e){}
+    }
+
+    const mergedRemarks = Object.assign({}, existingExtra, {
+      stage: existingExtra.stage || 'DataEntry',
+      bloodGroup: bloodGroup,
+      nameEn: nameEn,
+      name: name,
+      father: father,
+      mother: mother,
+      dob: dob,
+      nid: nid,
+      phone: phone,
+      desig: desig,
+      project: project,
+      education: education,
+      religion: religion,
+      height: height,
+      weight: weight,
+      maritalStatus: maritalStatus,
+      spouse: spouse,
+      spousePhone: spouseMobile
+    });
+
+    const dbPayload = {
+      employee_id: empCode,
+      full_name: nameEn || name,
+      full_name_bn: name || nameEn,
+      father_name: father,
+      mother_name: mother,
+      dob: dob,
+      phone: phone,
+      nid: nid,
+      education: education,
+      religion: religion,
+      height: String(height || ''),
+      weight: String(weight || '60'),
+      marital_status: maritalStatus,
+      spouse_name: spouse,
+      spouse_phone: spouseMobile,
+      designation: desig,
+      project_name: project,
+      status: 'Candidate', // STRICT RULE: status must be 'Candidate'
+      join_date: (existingEmp && (existingEmp.JoinDate || existingEmp.join_date)) || (typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0,10)),
+      duty_hour: String(g('dutyHours') || (existingEmp && (existingEmp.DutyHour || existingEmp.duty_hour)) || 12),
+      salary: grossSalary,
+      remarks: JSON.stringify(mergedRemarks)
+    };
+
+    let resultRecord = null;
+
+    if(window.MGHRM && typeof window.MGHRM.saveRecruitBasicInfo === 'function'){
+      const res = await window.MGHRM.saveRecruitBasicInfo(dbPayload, targetRecruitId);
+      if(Array.isArray(res) && res.length > 0){
+        resultRecord = res[0];
+      }
+    } else {
+      const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
+                    || (window.MGHRM && window.MGHRM.sb)
+                    || window.sb
+                    || (typeof sb !== 'undefined' ? sb : null);
+
+      if(sbClient){
+        if(!targetRecruitId){
+          const { data, error } = await sbClient.from('employees').insert([dbPayload]).select();
+          if(error) throw error;
+          if(data && data.length > 0) resultRecord = data[0];
+        } else {
+          let query = sbClient.from('employees').update(dbPayload);
+          if(existingEmp && existingEmp.id){
+            query = query.eq('id', existingEmp.id);
+          } else if(/^\d+$/.test(String(targetRecruitId))){
+            query = query.eq('id', Number(targetRecruitId));
+          } else {
+            query = query.eq('employee_id', targetRecruitId);
+          }
+          const { data, error } = await query.select();
+          if(error) throw error;
+          if(data && data.length > 0) resultRecord = data[0];
+        }
+      }
+    }
+
+    if(!resultRecord){
+      resultRecord = Object.assign({}, dbPayload, { id: targetRecruitId || Date.now() });
+    }
+
+    // 3. State Management (CRITICAL FOR PHASE 3):
+    // Extract generated id and store in global state variable
+    const targetId = resultRecord.id || (resultRecord[0] && resultRecord[0].id) || targetRecruitId;
+    currentRecruitId = targetId;
+    window.currentRecruitId = targetId;
+    window.currentEditEmployeeId = targetId;
+    if(editKeyInput) editKeyInput.value = targetId;
+
+    // Update local cache so Pending grid is instantly in sync
+    if(window.DATA && Array.isArray(window.DATA.employees)){
+      const normRec = typeof normEmployee === 'function' ? normEmployee(resultRecord) : resultRecord;
+      if(!normRec.Status) normRec.Status = 'Candidate';
+      if(!normRec.status) normRec.status = 'Candidate';
+      const existingIdx = window.DATA.employees.findIndex(e =>
+        String(e.id) === String(targetId) ||
+        (e.EmployeeID && e.EmployeeID === resultRecord.employee_id) ||
+        (e.employee_id && e.employee_id === resultRecord.employee_id)
+      );
+      if(existingIdx >= 0){
+        window.DATA.employees[existingIdx] = Object.assign(window.DATA.employees[existingIdx], normRec);
+      } else {
+        window.DATA.employees.unshift(normRec);
+      }
+    }
+
+    if(typeof syncRecruitmentFromEmployees === 'function'){
+      syncRecruitmentFromEmployees();
+    }
+
+    // 4. UI Progression & Refresh:
+    // Call renderPendingRecruitment() so the new candidate immediately appears as a card in the Pending grid
+    if(typeof renderPendingRecruitment === 'function'){
+      renderPendingRecruitment();
+    }
+
+    // Trigger background fetch to ensure full DB sync
+    if(typeof fetchEmployeesDirectly === 'function'){
+      fetchEmployeesDirectly().then(() => {
+        if(typeof renderPendingRecruitment === 'function'){
+          renderPendingRecruitment();
+        }
+      }).catch(() => {});
+    }
+
+    // Visually advance form UI to the next section ("Address")
+    const addrTab = document.getElementById('natab-naAddr');
+    if(addrTab){
+      addrTab.click();
+    } else if(typeof switchTab === 'function'){
+      switchTab('naTabs', 'naAddr');
+    }
+    if(typeof naRefreshPrimary === 'function'){
+      naRefreshPrimary();
+    }
+
+    // Show small success toast
+    toast('Basic info saved. Profile created.', 'success');
+
+  } catch(err){
+    console.error('[Progressive Save] Error in saveBasicInfoAndContinue:', err);
+    toast('Error saving basic info: ' + (err.message || err), 'error');
+  } finally {
+    if(saveBtn){ saveBtn.disabled = false; saveBtn.innerHTML = origSaveText || 'Save & Continue →'; }
+    if(primaryBtn){ primaryBtn.disabled = false; primaryBtn.innerHTML = origPrimaryText || 'Save & Continue'; }
+  }
+}
+window.saveBasicInfoAndContinue = saveBasicInfoAndContinue;
+
+function getActiveRecruitId(){
+  const editKeyInput = document.getElementById('na_editKey');
+  return window.currentRecruitId || currentRecruitId || (editKeyInput && editKeyInput.value) || window.currentEditEmployeeId || null;
+}
+
+function getExistingRemarks(recruitId){
+  let extra = {};
+  if(recruitId && window.DATA && Array.isArray(window.DATA.employees)){
+    const emp = window.DATA.employees.find(e =>
+      String(e.id) === String(recruitId) ||
+      String(e.EmployeeID) === String(recruitId) ||
+      String(e.employee_id) === String(recruitId)
+    );
+    if(emp && emp.Remarks && typeof emp.Remarks === 'string' && emp.Remarks.startsWith('{')){
+      try { extra = JSON.parse(emp.Remarks); } catch(e){}
+    }
+  }
+  if((!extra || !Object.keys(extra).length) && window.RECRUITMENT && Array.isArray(window.RECRUITMENT)){
+    const r = window.RECRUITMENT.find(x => String(x.id) === String(recruitId) || String(x.empId) === String(recruitId));
+    if(r){
+      extra = Object.assign({}, r);
+    }
+  }
+  return extra;
+}
+
+async function executeRecruitUpdate(dbPayload, recruitId){
+  if(window.MGHRM && typeof window.MGHRM.updateRecruitSection === 'function'){
+    const res = await window.MGHRM.updateRecruitSection(dbPayload, recruitId);
+    return (Array.isArray(res) && res[0]) ? res[0] : res;
+  }
+  const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
+                || (window.MGHRM && window.MGHRM.sb)
+                || window.sb
+                || (typeof sb !== 'undefined' ? sb : null);
+  if(sbClient){
+    let query = sbClient.from('employees').update(dbPayload);
+    if(/^\d+$/.test(String(recruitId))){
+      query = query.eq('id', Number(recruitId));
+    } else {
+      query = query.eq('employee_id', recruitId);
+    }
+    const { data, error } = await query.select();
+    if(error) throw error;
+    return (data && data[0]) ? data[0] : null;
+  }
+  return null;
+}
+
+function resetApplicantForm(){
+  const formIds = [
+    'nameEn','name','father','mother','dob','nid','phone',
+    'education','religion','bloodGroup','height','weight',
+    'maritalStatus','spouse','spouseMobile','pv','pstreet',
+    'permV','permstreet','ec1n','ec1r','ec1m','ec2n','ec2r','ec2m',
+    'rfn','rfd','rfo','rfm','dutyHours','gross','desig_summary','project_summary'
+  ];
+  formIds.forEach(f => {
+    const el = document.getElementById('na_' + f);
+    if(el){
+      if(el.tagName === 'SELECT') el.selectedIndex = 0;
+      else el.value = '';
+    }
+  });
+  const sameAddrChk = document.getElementById('na_sameAddr');
+  if(sameAddrChk) sameAddrChk.checked = false;
+  const editKey = document.getElementById('na_editKey');
+  if(editKey) editKey.value = '';
+  window.__na_presAddr = {};
+  window.__na_permAddr = {};
+  currentRecruitId = null;
+  window.currentRecruitId = null;
+  window.currentEditEmployeeId = null;
+}
+window.resetApplicantForm = resetApplicantForm;
+
+/* ---------- Phase 3: Tab-by-Tab Progressive Saving ---------- */
+
+async function saveAddressAndContinue(){
+  if(typeof guardEdit === 'function' && !guardEdit()) return;
+
+  const targetRecruitId = getActiveRecruitId();
+  if(!targetRecruitId){
+    toast('Profile ID missing. Please complete basic info first.', 'error');
+    const basicTab = document.getElementById('natab-naBasic');
+    if(basicTab) basicTab.click();
+    return;
+  }
+
+  const g = id => (document.getElementById('na_' + id) || {}).value || '';
+  const presVillage = g('pv');
+  const presStreet = g('pstreet');
+  const permVillage = g('permV');
+  const permStreet = g('permstreet');
+
+  const pres = window.__na_presAddr || {};
+  const perm = window.__na_permAddr || {};
+
+  if(window.rememberVillage){
+    if(pres.union_id && presVillage) rememberVillage(pres.union_id, presVillage);
+    if(perm.union_id && permVillage) rememberVillage(perm.union_id, permVillage);
+  }
+
+  const bdD = window.bdDistName || function(){ return ''; };
+  const bdU = window.bdUpzName || function(){ return ''; };
+
+  const presentAddress = {
+    village: presVillage,
+    street: presStreet,
+    thana: bdU(pres.upazila_id),
+    district: bdD(pres.district_id),
+    division_id: pres.division_id || '',
+    district_id: pres.district_id || '',
+    upazila_id: pres.upazila_id || '',
+    union_id: pres.union_id || ''
+  };
+
+  const permanentAddress = {
+    village: permVillage,
+    street: permStreet,
+    thana: bdU(perm.upazila_id),
+    district: bdD(perm.district_id),
+    division_id: perm.division_id || '',
+    district_id: perm.district_id || '',
+    upazila_id: perm.upazila_id || '',
+    union_id: perm.union_id || ''
+  };
+
+  const existingRemarks = getExistingRemarks(targetRecruitId);
+  const updatedRemarks = Object.assign({}, existingRemarks, {
+    presentAddress: presentAddress,
+    permanentAddress: permanentAddress
+  });
+
+  // Strict Rule: Gather ONLY fields relevant to Address. Preserve status column!
+  const dbPayload = {
+    division_id: perm.division_id || pres.division_id || '',
+    district_id: perm.district_id || pres.district_id || '',
+    upazila_id: perm.upazila_id || pres.upazila_id || '',
+    union_id: perm.union_id || pres.union_id || '',
+    village: permVillage || presVillage || '',
+    street: permStreet || presStreet || '',
+    remarks: JSON.stringify(updatedRemarks)
+  };
+
+  const btn = document.getElementById('btnSaveAddress');
+  const primaryBtn = document.getElementById('naPrimaryBtn');
+  const origBtnText = btn ? btn.innerHTML : '';
+  const origPriText = primaryBtn ? primaryBtn.innerHTML : '';
+  if(btn){ btn.disabled = true; btn.innerHTML = 'Saving...'; }
+  if(primaryBtn){ primaryBtn.disabled = true; primaryBtn.innerHTML = 'Saving...'; }
+
+  try {
+    await executeRecruitUpdate(dbPayload, targetRecruitId);
+
+    // Update local cache
+    if(window.DATA && Array.isArray(window.DATA.employees)){
+      const emp = window.DATA.employees.find(e =>
+        String(e.id) === String(targetRecruitId) ||
+        String(e.EmployeeID) === String(targetRecruitId) ||
+        String(e.employee_id) === String(targetRecruitId)
+      );
+      if(emp){
+        emp.DivisionID = dbPayload.division_id;
+        emp.DistrictID = dbPayload.district_id;
+        emp.UpazilaID = dbPayload.upazila_id;
+        emp.UnionID = dbPayload.union_id;
+        emp.Village = dbPayload.village;
+        emp.village = dbPayload.village;
+        emp.Street = dbPayload.street;
+        emp.street = dbPayload.street;
+        emp.Remarks = dbPayload.remarks;
+        emp.remarks = dbPayload.remarks;
+      }
+    }
+
+    if(typeof syncRecruitmentFromEmployees === 'function'){
+      syncRecruitmentFromEmployees();
+    }
+    if(typeof renderPendingRecruitment === 'function'){
+      renderPendingRecruitment();
+    }
+
+    // UI progression: Advance to Emergency tab
+    const ecTab = document.getElementById('natab-naEc');
+    if(ecTab){
+      ecTab.click();
+    } else if(typeof switchTab === 'function'){
+      switchTab('naTabs', 'naEc');
+    }
+    if(typeof naRefreshPrimary === 'function'){
+      naRefreshPrimary();
+    }
+
+    toast('Address saved.', 'success');
+  } catch(err){
+    console.error('[Progressive Save] Error in saveAddressAndContinue:', err);
+    toast('Error saving address: ' + (err.message || err), 'error');
+  } finally {
+    if(btn){ btn.disabled = false; btn.innerHTML = origBtnText || 'Save & Continue →'; }
+    if(primaryBtn){ primaryBtn.disabled = false; primaryBtn.innerHTML = origPriText || 'Save & Continue'; }
+  }
+}
+window.saveAddressAndContinue = saveAddressAndContinue;
+
+async function saveEmergencyAndContinue(){
+  if(typeof guardEdit === 'function' && !guardEdit()) return;
+
+  const targetRecruitId = getActiveRecruitId();
+  if(!targetRecruitId){
+    toast('Profile ID missing. Please complete basic info first.', 'error');
+    const basicTab = document.getElementById('natab-naBasic');
+    if(basicTab) basicTab.click();
+    return;
+  }
+
+  const g = id => (document.getElementById('na_' + id) || {}).value || '';
+  const ec1 = {
+    name: g('ec1n'),
+    relation: g('ec1r'),
+    mobile: g('ec1m')
+  };
+  const ec2 = {
+    name: g('ec2n'),
+    relation: g('ec2r'),
+    mobile: g('ec2m')
+  };
+
+  const existingRemarks = getExistingRemarks(targetRecruitId);
+  const updatedRemarks = Object.assign({}, existingRemarks, {
+    ec1: ec1,
+    ec2: ec2
+  });
+
+  // Gather ONLY Emergency fields. Status is preserved!
+  const dbPayload = {
+    ec_name: ec1.name,
+    ec_relation: ec1.relation,
+    ec_phone: ec1.mobile,
+    remarks: JSON.stringify(updatedRemarks)
+  };
+
+  const btn = document.getElementById('btnSaveEmergency');
+  const primaryBtn = document.getElementById('naPrimaryBtn');
+  const origBtnText = btn ? btn.innerHTML : '';
+  const origPriText = primaryBtn ? primaryBtn.innerHTML : '';
+  if(btn){ btn.disabled = true; btn.innerHTML = 'Saving...'; }
+  if(primaryBtn){ primaryBtn.disabled = true; primaryBtn.innerHTML = 'Saving...'; }
+
+  try {
+    await executeRecruitUpdate(dbPayload, targetRecruitId);
+
+    // Update local cache
+    if(window.DATA && Array.isArray(window.DATA.employees)){
+      const emp = window.DATA.employees.find(e =>
+        String(e.id) === String(targetRecruitId) ||
+        String(e.EmployeeID) === String(targetRecruitId) ||
+        String(e.employee_id) === String(targetRecruitId)
+      );
+      if(emp){
+        emp.ECName = dbPayload.ec_name;
+        emp.ec_name = dbPayload.ec_name;
+        emp.ECRelation = dbPayload.ec_relation;
+        emp.ec_relation = dbPayload.ec_relation;
+        emp.ECPhoneNumber = dbPayload.ec_phone;
+        emp.ec_phone = dbPayload.ec_phone;
+        emp.Remarks = dbPayload.remarks;
+        emp.remarks = dbPayload.remarks;
+      }
+    }
+
+    if(typeof syncRecruitmentFromEmployees === 'function'){
+      syncRecruitmentFromEmployees();
+    }
+    if(typeof renderPendingRecruitment === 'function'){
+      renderPendingRecruitment();
+    }
+
+    // UI progression: Advance to References tab
+    const refTab = document.getElementById('natab-naRef');
+    if(refTab){
+      refTab.click();
+    } else if(typeof switchTab === 'function'){
+      switchTab('naTabs', 'naRef');
+    }
+    if(typeof naRefreshPrimary === 'function'){
+      naRefreshPrimary();
+    }
+
+    toast('Emergency contact details saved.', 'success');
+  } catch(err){
+    console.error('[Progressive Save] Error in saveEmergencyAndContinue:', err);
+    toast('Error saving emergency contact: ' + (err.message || err), 'error');
+  } finally {
+    if(btn){ btn.disabled = false; btn.innerHTML = origBtnText || 'Save & Continue →'; }
+    if(primaryBtn){ primaryBtn.disabled = false; primaryBtn.innerHTML = origPriText || 'Save & Continue'; }
+  }
+}
+window.saveEmergencyAndContinue = saveEmergencyAndContinue;
+
+async function saveReferencesAndContinue(){
+  if(typeof guardEdit === 'function' && !guardEdit()) return;
+
+  const targetRecruitId = getActiveRecruitId();
+  if(!targetRecruitId){
+    toast('Profile ID missing. Please complete basic info first.', 'error');
+    const basicTab = document.getElementById('natab-naBasic');
+    if(basicTab) basicTab.click();
+    return;
+  }
+
+  const g = id => (document.getElementById('na_' + id) || {}).value || '';
+  const reference = {
+    name: g('rfn'),
+    desig: g('rfd'),
+    org: g('rfo'),
+    mobile: g('rfm')
+  };
+
+  const existingRemarks = getExistingRemarks(targetRecruitId);
+  const updatedRemarks = Object.assign({}, existingRemarks, {
+    reference: reference
+  });
+
+  // Gather ONLY References fields. Status is preserved!
+  const dbPayload = {
+    remarks: JSON.stringify(updatedRemarks)
+  };
+
+  const btn = document.getElementById('btnSaveReferences');
+  const primaryBtn = document.getElementById('naPrimaryBtn');
+  const origBtnText = btn ? btn.innerHTML : '';
+  const origPriText = primaryBtn ? primaryBtn.innerHTML : '';
+  if(btn){ btn.disabled = true; btn.innerHTML = 'Saving...'; }
+  if(primaryBtn){ primaryBtn.disabled = true; primaryBtn.innerHTML = 'Saving...'; }
+
+  try {
+    await executeRecruitUpdate(dbPayload, targetRecruitId);
+
+    // Update local cache
+    if(window.DATA && Array.isArray(window.DATA.employees)){
+      const emp = window.DATA.employees.find(e =>
+        String(e.id) === String(targetRecruitId) ||
+        String(e.EmployeeID) === String(targetRecruitId) ||
+        String(e.employee_id) === String(targetRecruitId)
+      );
+      if(emp){
+        emp.Remarks = dbPayload.remarks;
+        emp.remarks = dbPayload.remarks;
+      }
+    }
+
+    if(typeof syncRecruitmentFromEmployees === 'function'){
+      syncRecruitmentFromEmployees();
+    }
+    if(typeof renderPendingRecruitment === 'function'){
+      renderPendingRecruitment();
+    }
+
+    // UI progression: Advance to Job Details tab
+    const jobTab = document.getElementById('natab-naJob');
+    if(jobTab){
+      jobTab.click();
+    } else if(typeof switchTab === 'function'){
+      switchTab('naTabs', 'naJob');
+    }
+    if(typeof naRefreshPrimary === 'function'){
+      naRefreshPrimary();
+    }
+
+    toast('References saved.', 'success');
+  } catch(err){
+    console.error('[Progressive Save] Error in saveReferencesAndContinue:', err);
+    toast('Error saving references: ' + (err.message || err), 'error');
+  } finally {
+    if(btn){ btn.disabled = false; btn.innerHTML = origBtnText || 'Save & Continue →'; }
+    if(primaryBtn){ primaryBtn.disabled = false; primaryBtn.innerHTML = origPriText || 'Save & Continue'; }
+  }
+}
+window.saveReferencesAndContinue = saveReferencesAndContinue;
+
+async function saveJobAndComplete(){
+  if(typeof guardEdit === 'function' && !guardEdit()) return;
+
+  const targetRecruitId = getActiveRecruitId();
+  if(!targetRecruitId){
+    toast('Profile ID missing. Please complete basic info first.', 'error');
+    const basicTab = document.getElementById('natab-naBasic');
+    if(basicTab) basicTab.click();
+    return;
+  }
+
+  const g = id => (document.getElementById('na_' + id) || {}).value || '';
+  const desig = g('desig') || g('desig_summary') || 'Security Guard';
+  const project = g('project') || g('project_summary') || (typeof activeProjects === 'function' && activeProjects()[0] ? activeProjects()[0].ProjectName : 'Unassigned');
+  const dutyHours = +(g('dutyHours')) || 12;
+  const gross = +(g('gross')) || (typeof salaryFor === 'function' && salaryFor(desig) ? +salaryFor(desig) : 0);
+
+  const salary = {
+    basic: Math.round(gross * 0.6),
+    houseRent: Math.round(gross * 0.2),
+    medical: Math.round(gross * 0.1),
+    other: Math.round(gross * 0.1),
+    total: gross
+  };
+
+  const existingRemarks = getExistingRemarks(targetRecruitId);
+  const updatedRemarks = Object.assign({}, existingRemarks, {
+    desig: desig,
+    project: project,
+    dutyHours: dutyHours,
+    salary: salary
+  });
+
+  // Strict Rule: status column is not overwritten; keep it as is!
+  const dbPayload = {
+    designation: desig,
+    project_name: project,
+    duty_hour: String(dutyHours),
+    salary: gross,
+    remarks: JSON.stringify(updatedRemarks)
+  };
+
+  const btn = document.getElementById('btnSaveJobComplete');
+  const primaryBtn = document.getElementById('naPrimaryBtn');
+  const origBtnText = btn ? btn.innerHTML : '';
+  const origPriText = primaryBtn ? primaryBtn.innerHTML : '';
+  if(btn){ btn.disabled = true; btn.innerHTML = 'Completing...'; }
+  if(primaryBtn){ primaryBtn.disabled = true; primaryBtn.innerHTML = 'Completing...'; }
+
+  try {
+    await executeRecruitUpdate(dbPayload, targetRecruitId);
+
+    // Update local cache
+    if(window.DATA && Array.isArray(window.DATA.employees)){
+      const emp = window.DATA.employees.find(e =>
+        String(e.id) === String(targetRecruitId) ||
+        String(e.EmployeeID) === String(targetRecruitId) ||
+        String(e.employee_id) === String(targetRecruitId)
+      );
+      if(emp){
+        emp.Designation = dbPayload.designation;
+        emp.designation = dbPayload.designation;
+        emp.ProjectName = dbPayload.project_name;
+        emp.project_name = dbPayload.project_name;
+        emp.DutyHour = dbPayload.duty_hour;
+        emp.duty_hour = dbPayload.duty_hour;
+        emp.Salary = dbPayload.salary;
+        emp.salary = dbPayload.salary;
+        emp.Remarks = dbPayload.remarks;
+        emp.remarks = dbPayload.remarks;
+      }
+    }
+
+    // 4. Final Submission / Completion:
+    // a) Show a final success toast: "Candidate profile completely saved!"
+    toast('Candidate profile completely saved!', 'success');
+
+    // b) Close the modal
+    closeModal();
+
+    // c) Reset the form fields entirely
+    resetApplicantForm();
+
+    // d) VERY IMPORTANT: Reset currentRecruitId = null so the next time "New Candidate Entry" is clicked, it starts a fresh INSERT
+    currentRecruitId = null;
+    window.currentRecruitId = null;
+    window.currentEditEmployeeId = null;
+
+    // e) Re-render the pending recruitment grid to reflect any newly added details
+    if(typeof syncRecruitmentFromEmployees === 'function'){
+      syncRecruitmentFromEmployees();
+    }
+    if(typeof renderPendingRecruitment === 'function'){
+      renderPendingRecruitment();
+    }
+    if(typeof renderRecruitment === 'function'){
+      renderRecruitment();
+    }
+    if(typeof fetchEmployeesDirectly === 'function'){
+      fetchEmployeesDirectly().then(() => {
+        if(typeof syncRecruitmentFromEmployees === 'function') syncRecruitmentFromEmployees();
+        if(typeof renderPendingRecruitment === 'function') renderPendingRecruitment();
+        if(typeof renderRecruitment === 'function') renderRecruitment();
+      }).catch(() => {});
+    }
+
+  } catch(err){
+    console.error('[Progressive Save] Error in saveJobAndComplete:', err);
+    toast('Error completing profile: ' + (err.message || err), 'error');
+  } finally {
+    if(btn){ btn.disabled = false; btn.innerHTML = origBtnText || 'Complete Profile ✓'; }
+    if(primaryBtn){ primaryBtn.disabled = false; primaryBtn.innerHTML = origPriText || 'Complete Profile'; }
+  }
+}
+window.saveJobAndComplete = saveJobAndComplete;
 
 const NA_TAB_ORDER = ['naBasic','naAddr','naEc','naRef','naJob'];
 function naActiveTab(){
@@ -3472,16 +4361,20 @@ function naRefreshPrimary(){
   const b = document.getElementById('naPrimaryBtn'); if(!b) return;
   const last = naActiveTab()===NA_TAB_ORDER[NA_TAB_ORDER.length-1];
   const isEdit = !!((document.getElementById('na_editKey')||{}).value || window.currentEditEmployeeId);
-  b.textContent = last ? (isEdit ? 'Update Employee' : 'Submit') : ('Save & Continue');
+  b.textContent = last ? (isEdit ? 'Update & Complete Profile' : 'Complete Profile') : (isEdit ? 'Update & Continue' : 'Save & Continue');
 }
 function naPrimaryAction(){
   const cur = naActiveTab();
-  const idx = NA_TAB_ORDER.indexOf(cur);
-  if(idx>=0 && idx<NA_TAB_ORDER.length-1){
-    const next = NA_TAB_ORDER[idx+1];
-    const tabEl = document.getElementById('natab-'+next);
-    if(tabEl) tabEl.click();
-    toast('Saved — continue to next step','success');
+  if(cur === 'naBasic'){
+    saveBasicInfoAndContinue();
+  } else if(cur === 'naAddr'){
+    saveAddressAndContinue();
+  } else if(cur === 'naEc'){
+    saveEmergencyAndContinue();
+  } else if(cur === 'naRef'){
+    saveReferencesAndContinue();
+  } else if(cur === 'naJob'){
+    saveJobAndComplete();
   } else {
     saveNewApplicant();
   }
@@ -3492,7 +4385,7 @@ function saveNewApplicant(force){
   const name = g('name'); const nameEn = g('nameEn'); const nid = g('nid'); const phone = g('phone');
   if(!name||!nameEn||!nid||!phone){ toast('Name, NID and Mobile required','error'); return; }
 
-  const editKey = (document.getElementById('na_editKey')||{}).value || window.currentEditEmployeeId;
+  const editKey = (document.getElementById('na_editKey')||{}).value || window.currentEditEmployeeId || window.currentRecruitId;
   const applicant = collectApplicantData(g);
 
   if (editKey) {

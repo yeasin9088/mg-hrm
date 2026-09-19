@@ -3020,119 +3020,76 @@ function exportEmployees(){
   toast(`${rows.length} ${'employees exported to CSV'}`, 'success');
 }
 
-/* ============ RECRUITMENT (Kanban + full candidate data + 3 printable forms) ============ */
+/* ============ RECRUITMENT (Card-based Dashboard) ============ */
 function renderRecruitment(){
-  
-  const stages = [
-    {key:'DataEntry',    label:'1. Data Entry',   color:'#94a3b8'},
-    {key:'DocsPrinted',  label:'2. Forms Printed', color:'#f59e0b'},
-    {key:'Signed',       label:'3. Signed',           color:'#8b5cf6'},
-  ];
-  /* Legacy migration: any 'Confirmed' left in RECRUITMENT list → move to archive */
-  RECRUITMENT.forEach(r=>{
-    const map = {'Applied':'DataEntry','Interview':'DocsPrinted','Selected':'Signed','Documents':'Signed'};
-    if(map[r.stage]) r.stage = map[r.stage];
-  });
-  DATA.recruitmentArchive = DATA.recruitmentArchive || [];
-  const arch = DATA.recruitmentArchive;
   document.getElementById('page-recruitment').innerHTML = `
-    <div class="tabs" id="recTabs" style="margin-bottom:12px">
-      <div class="tab active" onclick="switchTab('recTabs','pipeline')">${'Pipeline'} <span class="chip" style="margin-left:6px">${num(RECRUITMENT.length)}</span></div>
-      <div class="tab" onclick="switchTab('recTabs','archive')">${'Archive'} <span class="chip" style="margin-left:6px">${num(arch.length)}</span></div>
+    <div style="margin-bottom: 24px;">
+      <h2 style="font-size: 22px; font-weight: 700; color: var(--text, #1e293b); margin-bottom: 4px;">Recruitment</h2>
+      <p class="small-mute">Manage recruitment candidates, new entries, and candidate onboarding.</p>
     </div>
 
-    <div id="tab-pipeline" class="tab-panel active">
-    <div class="card">
-      <div class="card-header">
-        <div><h3>${'Recruitment Pipeline'}</h3><span class="sub">${'Data Entry → Print Forms → Signed → (Confirmed goes to archive)'}</span></div>
-        <button class="btn primary sm" onclick="openApplicantForm()">${ico('plus')} ${'New Candidate Entry'}</button>
-      </div>
-      <div class="card-body">
-        <div class="pipeline" style="grid-template-columns:repeat(3,1fr)">
-          ${stages.map(s=>{
-            const items = RECRUITMENT.filter(r=>r.stage===s.key);
-            return `
-              <div class="pipe-col">
-                <h5><span>${s.label}</span><span>${num(items.length)}</span></h5>
-                ${items.map(r=>`
-                  <div class="pipe-card" onclick="openCandidateProfile(${r.id})">
-                    <h6>${r.name}${r.nameEn?`<br><span class="small-mute" style="font-weight:400">${r.nameEn}</span>`:''}</h6>
-                    <p>${desig(r.desig)}</p>
-                    <p class="small-mute" style="margin-top:4px">${r.project}</p>
-                    <div style="margin-top:8px;display:flex;justify-content:space-between;font-size:11px">
-                      <span>📞 ${num(r.phone)}</span>
-                      <span class="small-mute">${fmtDate(r.date)}</span>
-                    </div>
-                    <div style="margin-top:6px;text-align:right">
-                      <button class="btn ghost sm" onclick="event.stopPropagation();cancelCandidate(${r.id})" title="${'Cancel/Reject'}" style="color:#dc2626">✕ ${'Reject'}</button>
-                    </div>
-                  </div>
-                `).join('') || `<p class="small-mute" style="text-align:center;padding:20px;font-size:11px">${'Empty'}</p>`}
-              </div>`;
-          }).join('')}
-        </div>
-      </div>
-    </div>
+    <!-- New Candidate Entry Action Card -->
+    <div class="action-card new-candidate-card" onclick="openApplicantForm()" style="background: linear-gradient(135deg, #eef2ff, #f8fafc); border: 2px dashed var(--primary, #4f46e5); border-radius: 14px; padding: 28px; text-align: center; cursor: pointer; transition: all 0.2s ease; margin-bottom: 28px;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 10px 25px -5px rgba(79, 70, 229, 0.15)'" onmouseout="this.style.transform='none';this.style.boxShadow='none'">
+      <div style="width: 56px; height: 56px; background: var(--primary, #4f46e5); color: #fff; border-radius: 50%; display: inline-grid; place-items: center; font-size: 24px; margin-bottom: 12px;">+</div>
+      <h3 style="font-size: 16px; font-weight: 700; color: var(--text, #1e293b); margin-bottom: 4px;">New Candidate Entry</h3>
+      <p class="small-mute">Click to open the comprehensive recruitment and candidate entry form.</p>
     </div>
 
-    <div id="tab-archive" class="tab-panel">
-      <div class="card">
-        <div class="card-header">
-          <h3>${'Recruitment Archive'}</h3>
-          <span class="sub">${'History of cancelled & confirmed candidates'}</span>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr>
-              <th>${'Candidate'}</th>
-              <th>${'Designation · Project'}</th>
-              <th>${'Result'}</th>
-              <th>${'Emp ID'}</th>
-              <th>${'Date'}</th>
-              <th></th>
-            </tr></thead>
-            <tbody>
-              ${arch.length ? arch.map(a=>`
-                <tr class="row-click" onclick="openArchivePopup(${jsQ(a.ArchiveID)})" style="cursor:pointer">
-                  <td><strong>${a.CandidateName||''}</strong>${a.CandidateNameEn?`<br><span class="small-mute">${a.CandidateNameEn}</span>`:''}</td>
-                  <td>${a.Designation||''}<br><span class="small-mute">${a.ProjectName||''}</span></td>
-                  <td><span class="pill ${a.Result==='Confirmed'?'success':(a.Result==='Rejected'?'danger':'info')}">${a.Result||''}</span></td>
-                  <td>${a.EmployeeID||'—'}</td>
-                  <td>${fmtDate(a.ActionDate)}</td>
-                  <td onclick="event.stopPropagation()">
-                    ${a.Result==='Rejected'?`<button class="btn ghost sm" onclick="restoreArchivedCandidate(${jsQ(a.ArchiveID)})" title="${'Restore to pipeline'}">↺</button>`:''}
-                    <button class="btn ghost sm" onclick="deleteArchivedCandidate(${jsQ(a.ArchiveID)})" title="${'Delete permanently'}" style="color:#dc2626">🗑</button>
-                  </td>
-                </tr>
-              `).join('') : `<tr><td colspan="6" class="small-mute" style="text-align:center;padding:24px">${'Archive is empty'}</td></tr>`}
-            </tbody>
-          </table>
-        </div>
-      </div>
+    <!-- Pending Recruitment Section -->
+    <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+      <h3 class="section-title" style="font-size: 16px; font-weight: 700; color: var(--text, #1e293b); margin: 0;">Pending Recruitment</h3>
     </div>
-
-    <div class="card">
-      <div class="card-header"><h3>${'Recruitment Workflow'}</h3></div>
-      <div class="card-body">
-        <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;font-size:12px">
-          ${[
-            {n:'১', t:'Candidate arrives', s:'Interview & verify'},
-            {n:'২', t:'Full data entry', s:'Name, NID, address, experience, salary'},
-            {n:'৩', t:'Document check', s:'Education, NID, photo'},
-            {n:'৪', t:'Print 3 forms', s:'Application, Biodata, Appointment'},
-            {n:'৫', t:'Collect signatures', s:'Candidate + 3 officers'},
-            {n:'৬', t:'Confirm appointment', s:'Onboard as employee'},
-          ].map(x=>`
-            <div style="text-align:center;padding:10px;background:var(--bg-dim);border-radius:8px">
-              <div style="width:28px;height:28px;background:var(--primary);color:white;border-radius:50%;display:inline-grid;place-items:center;font-weight:700;margin-bottom:6px">${x.n}</div>
-              <div style="font-weight:600">${x.t}</div>
-              <div class="small-mute" style="margin-top:2px">${x.s}</div>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    </div>
+    <div id="pendingRecruitmentGrid" class="cards-grid"></div>
   `;
+  renderPendingRecruitment();
+}
+
+function renderPendingRecruitment(){
+  const grid = document.getElementById('pendingRecruitmentGrid');
+  if(!grid) return;
+  const candidates = (DATA.employees || []).filter(e => e.Status === 'Candidate' || e.status === 'Candidate');
+
+  if(!candidates.length){
+    grid.innerHTML = `
+      <div style="grid-column: 1 / -1; padding: 48px; text-align: center; background: var(--bg-dim, #f8fafc); border-radius: 12px; border: 1px dashed var(--border, #cbd5e1);">
+        <p class="small-mute" style="font-size: 14px; color: var(--text-muted, #64748b);">No pending recruitments found.</p>
+      </div>
+    `;
+    return;
+  }
+
+  grid.innerHTML = candidates.map(e => {
+    const empKey = e.id || e.EmployeeID || e.employee_id;
+    const name = e.FullName || e.full_name || 'Candidate';
+    const desigName = e.Designation || e.designation || 'Security Guard';
+    const phoneNum = e.PhoneNumber || e.phone || '';
+    const proj = e.ProjectName || e.project_name || 'Unassigned';
+
+    return `
+      <div class="card" style="margin: 0; padding: 18px; border-radius: 12px; border: 1px solid var(--border, #e2e8f0); background: #fff; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+            <div style="display: flex; gap: 12px; align-items: center;">
+              <div class="emp-avatar" style="width: 40px; height: 40px; font-size: 14px; background: var(--bg-dim, #f1f5f9); color: var(--primary, #4f46e5); font-weight: 700; border-radius: 50%; display: grid; place-items: center;">${initials(name)}</div>
+              <div>
+                <h4 style="font-size: 15px; font-weight: 600; margin: 0; color: var(--text, #1e293b);">${escapeHtml(name)}</h4>
+                <span class="small-mute" style="font-size: 12px; color: var(--text-muted, #64748b);">${escapeHtml(desig(desigName))}</span>
+              </div>
+            </div>
+            <span class="pill info" style="font-size: 10px; font-weight: 600;">Candidate</span>
+          </div>
+          <div style="font-size: 12.5px; color: var(--text-muted, #64748b); margin: 8px 0 14px 0; display: flex; flex-direction: column; gap: 4px;">
+            <div>Project: <strong>${escapeHtml(projName(proj))}</strong></div>
+            <div>Mobile: <strong>${escapeHtml(num(phoneNum))}</strong></div>
+          </div>
+        </div>
+        <div style="border-top: 1px solid var(--border, #f1f5f9); padding-top: 12px; display: flex; justify-content: flex-end; gap: 8px;">
+          <button class="btn sm ghost" onclick="openCandidateProfile(${jsQ(empKey)})">View</button>
+          <button class="btn sm primary" onclick="openApplicantForm(${jsQ(empKey)})">Continue / Edit</button>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 function openCandidateProfile(id){
   const r = RECRUITMENT.find(x=>x.id===id); if(!r) return;

@@ -2751,7 +2751,7 @@ function renderEmpTable(){
     ? `${num(rows.length)} / ${num(DATA.employees.length)} ${'employees'} — <strong style="color:var(--success)">✓ ${'ticked'}: ${num(VERIFY_TICKS.size)}</strong> <span class="small-mute">(${'tick only — no other action'})</span>`
     : `${num(rows.length)} / ${num(DATA.employees.length)} ${'employees'}`;
   document.querySelectorAll('#empTable .tickcol').forEach(el=>el.style.display = VERIFY_MODE?'':'none');
-  const html = rows.slice(0, 100).map((e,i)=>{
+  const html = rows.map((e,i)=>{
     const empKey = e.id || e.EmployeeID;
     return `
     <tr class="clickable" onclick="${VERIFY_MODE?`toggleVerifyTick('${empKey}')`:`openEmpDetail('${empKey}')`}">
@@ -3117,7 +3117,7 @@ async function saveNewEmployee(force){
 function exportEmployees(){
   const rows = DATA.employees;
   const keys = ['EmployeeID','FullName','Designation','ProjectName','JoinDate','PhoneNumber','Salary','Status'];
-  const csv = [keys.join(',')].concat(rows.slice(0, 100).map(r=>keys.map(k=>JSON.stringify(r[k]||'')).join(','))).join('\n');
+  const csv = [keys.join(',')].concat(rows.map(r=>keys.map(k=>JSON.stringify(r[k]||'')).join(','))).join('\n');
   const url = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
   const a = document.createElement('a'); a.href=url; a.download='employees.csv'; a.click();
   toast(`${rows.length} ${'employees exported to CSV'}`, 'success');
@@ -4100,22 +4100,22 @@ function renderParade(){
             </tr>
           </thead>
           <tbody>
-            ${rows.slice(0, 100).map(r=>{
-              const gap = r.demandTotal - r.actualTotal;
-              const status = gap>0?`<span class="pill inactive">-${num(gap)}</span>`:gap<0?`<span class="pill active">+${num(-gap)}</span>`:`<span class="pill completed">${'Full'}</span>`;
-              return `<tr class="row-click" onclick="editDemand('${r.project.replace(/'/g,"\\'")}')" style="cursor:pointer" title="Click to edit demand">
-                <td>${num(r.idx)}</td>
-                <td style="font-size:12px"><strong>${projName(r.project)}</strong></td>
-                ${cell(r.demand.Incharge,r.actual.Incharge)}
-                ${cell(r.demand.Supervisor,r.actual.Supervisor)}
-                ${cell(r.demand.AsstSup,r.actual.AsstSup)}
-                ${cell(r.demand.Guard,r.actual.Guard)}
-                ${cell(r.demand.Lady,r.actual.Lady)}
-                <td class="parade-cell"><strong>${num(r.demandTotal)}</strong></td>
-                <td class="parade-cell ${r.actualTotal<r.demandTotal?'short':'full'}"><strong>${num(r.actualTotal)}</strong></td>
-                <td>${status}</td>
-              </tr>`;
-            }).join('')}
+            ${rows.map(r=>{
+  const gap = r.demandTotal - r.actualTotal;
+  const status = gap>0?`<span class="pill inactive">-${num(gap)}</span>`:gap<0?`<span class="pill active">+${num(-gap)}</span>`:`<span class="pill completed">${'Full'}</span>`;
+  return `<tr class="row-click" onclick="editDemand('${r.project.replace(/'/g,"\\'")}')" style="cursor:pointer" title="Click to edit demand">
+    <td>${num(r.idx)}</td>
+    <td style="font-size:12px"><strong>${projName(r.project)}</strong></td>
+    ${cell(r.demand.Incharge,r.actual.Incharge)}
+    ${cell(r.demand.Supervisor,r.actual.Supervisor)}
+    ${cell(r.demand.AsstSup,r.actual.AsstSup)}
+    ${cell(r.demand.Guard,r.actual.Guard)}
+    ${cell(r.demand.Lady,r.actual.Lady)}
+    <td class="parade-cell"><strong>${num(r.demandTotal)}</strong></td>
+    <td class="parade-cell ${r.actualTotal<r.demandTotal?'short':'full'}"><strong>${num(r.actualTotal)}</strong></td>
+    <td>${status}</td>
+  </tr>`;
+}).join('')}
           </tbody>
         </table>
       </div>
@@ -4125,7 +4125,7 @@ function renderParade(){
 function exportParadeExcel(){
   const rows = computeParade();
   const keys = ['#','Project','Incharge D','Incharge A','Sup D','Sup A','AsstSup D','AsstSup A','Guard D','Guard A','Lady D','Lady A','Total D','Total A'];
-  const data = rows.slice(0, 100).map(r=>[r.idx,r.project,r.demand.Incharge,r.actual.Incharge,r.demand.Supervisor,r.actual.Supervisor,r.demand.AsstSup,r.actual.AsstSup,r.demand.Guard,r.actual.Guard,r.demand.Lady,r.actual.Lady,r.demandTotal,r.actualTotal]);
+  const data = rows.map(r=>[r.idx,r.project,r.demand.Incharge,r.actual.Incharge,r.demand.Supervisor,r.actual.Supervisor,r.demand.AsstSup,r.actual.AsstSup,r.demand.Guard,r.actual.Guard,r.demand.Lady,r.actual.Lady,r.demandTotal,r.actualTotal]);
   const csv = [keys.join(',')].concat(data.map(row=>row.map(c=>JSON.stringify(c)).join(','))).join('\n');
   const url = URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
   const a = document.createElement('a'); a.href=url; a.download='parade_state.csv'; a.click();
@@ -5510,7 +5510,7 @@ function renderDisciplinaryTable() {
   const countSpan = document.getElementById('dcCount');
   if (countSpan) countSpan.textContent = `${num(rows.length)} ${'records'}`;
   
-  document.getElementById('dcTableBody').innerHTML = rows.slice(0, 100).map((d,i)=>{
+  document.getElementById('dcTableBody').innerHTML = rows.map((d,i)=>{
     const e = findEmpByAction(d);
     const empId = e ? (e.id || e.EmployeeID || '') : (d.EmployeeID || '—');
     return `<tr class="row-click" onclick="openDisciplinaryPopup(${jsQ(d.ActionID)})" style="cursor:pointer">
@@ -5944,7 +5944,7 @@ function renderExit(){
       <div class="table-wrap">
         <table>
           <thead><tr><th style="width:50px">${'#'}</th><th>ID</th><th>${'Name'}</th><th>${'Designation'}</th><th>${'Project'}</th><th>${'Exit Date'}</th><th>${'Reason'}</th></tr></thead>
-          <tbody>${DATA.exits.slice().sort((a,b)=>+b.ExitID-+a.ExitID).slice(0, 100).map((x,i)=>{
+          <tbody>${DATA.exits.slice().sort((a,b)=>+b.ExitID-+a.ExitID).map((x,i)=>{
             const e = findEmpByAction(x);
             const empId = e ? (e.id || e.EmployeeID || '') : (x.EmployeeID || '—');
             return `<tr class="row-click" onclick="openExitPopup(${jsQ(x.ExitID)})" style="cursor:pointer">
@@ -6479,8 +6479,8 @@ function showReport(kind){
       <div class="btn-row"><button class="btn success sm" onclick="exportParadeExcel()">${ico('excel')} Excel</button></div></div>
       <div class="card-body" id="reportPrintable">
         <div class="table-wrap"><table><thead><tr><th>#</th><th>${'Project'}</th><th>${'Demand'}</th><th>${'Actual'}</th><th>${'Shortage'}</th></tr></thead><tbody>
-          ${rows.slice(0, 100).map(r=>{const s=r.demandTotal-r.actualTotal;return `<tr><td>${num(r.idx)}</td><td>${projName(r.project)}</td><td>${num(r.demandTotal)}</td><td>${num(r.actualTotal)}</td><td class="${s>0?'parade-cell short':'parade-cell full'}">${num(Math.max(0,s))}</td></tr>`}).join('')}
-        </tbody></table></div></div></div>`;
+          ${rows.map(r=>{const s=r.demandTotal-r.actualTotal;return `<tr><td>${num(r.idx)}</td><td>${projName(r.project)}</td><td>${num(r.demandTotal)}</td><td>${num(r.actualTotal)}</td><td class="${s>0?'parade-cell short':'parade-cell full'}">${num(Math.max(0,s))}</td></tr>`}).join('')}
+         </tbody></table></div></div></div>`;
   } else if(kind==='staffList'){
     // Group by project
     const grouped = {};
@@ -6503,7 +6503,7 @@ function showReport(kind){
       <div class="card-body" id="reportPrintable">
         <p class="small-mute" style="margin-bottom:14px">${'Which project loses the most staff — high turnover usually signals workplace issues'}</p>
         <div class="table-wrap"><table><thead><tr><th>${'Project'}</th><th>${'Total Exits'}</th><th>${'Current Staff'}</th><th>${'Rate'}</th></tr></thead><tbody>
-          ${rows.slice(0, 100).map(([p,c])=>{const a=activeByProj[p]||0;const rate=a?(c*100/(a+c)).toFixed(1):'—';return `<tr><td>${projName(p)}</td><td><strong>${num(c)}</strong></td><td>${num(a)}</td><td>${rate}%</td></tr>`}).join('')}
+          ${rows.map(([p,c])=>{const a=activeByProj[p]||0;const rate=a?(c*100/(a+c)).toFixed(1):'—';return `<tr><td>${projName(p)}</td><td><strong>${num(c)}</strong></td><td>${num(a)}</td><td>${rate}%</td></tr>`}).join('')}
         </tbody></table></div></div></div>`;
   } else if(kind==='birthdays'){
     
@@ -6759,7 +6759,7 @@ function exportActivityLogCSV(){
   const log = DATA.activityLog||[];
   const rows = [['Time','User','Action','Table','RefID','Detail']];
   log.forEach(e=>rows.push([e.at||'', e.user||'', e.action||'', e.table||'', e.refId||'', (e.detail||'').replace(/"/g,'""')]));
-  const csv = rows.slice(0, 100).map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const csv = rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -8525,7 +8525,7 @@ function printParade(){
           </tr>
         </thead>
         <tbody>
-          ${rows.slice(0, 100).map(r=>{
+          ${rows.map(r=>{
             const gap = r.actualTotal-r.demandTotal;
             const gapChip = gap<0?`<span class="pillbox short">${gap}</span>`:gap>0?`<span class="pillbox over">+${gap}</span>`:`<span class="pillbox ok">Full</span>`;
             
@@ -9035,7 +9035,7 @@ function openProjMeetingHistory(proj, monthShift){
        <table>
          <thead><tr><th style="width:60px">#</th><th>${bn?'তারিখ':'Date'}</th><th>${bn?'দিন':'Day'}</th><th>${bn?'অবস্থা':'Status'}</th><th>${bn?'নোট':'Note'}</th></tr></thead>
          <tbody>
-           ${rows.slice(0, 100).map(r=>{
+           ${rows.map(r=>{
              const dt = new Date(r.iso);
              const dayName = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()];
              const dayNameBn = ['রবি','সোম','মঙ্গল','বুধ','বৃহস্পতি','শুক্র','শনি'][dt.getDay()];
@@ -9954,7 +9954,7 @@ window.doSyncNow = function(){
       '<th style="padding:4px;border-bottom:1px solid #ccc;color:#c80">'+(bn?'বদল':'Change')+'</th>'+
       '<th style="padding:4px;border-bottom:1px solid #ccc;color:#c00">'+(bn?'মুছবে':'Delete')+'</th>'+
       '</tr></thead><tbody>' +
-      rows.slice(0, 100).map(function(r){
+      rows.map(function(r){
         var delCol = r.delPct>=20 ? 'background:#fee;color:#c00;font-weight:700' : (r.del>0?'color:#c00':'');
         return '<tr>'+
           '<td style="padding:4px;border-bottom:1px solid #eee">'+r.table+'</td>'+

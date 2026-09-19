@@ -1059,6 +1059,147 @@
       });
   }
 
+  /* ---------- Candidate Profile & Print Data Resolution ---------- */
+  function getCandidateRecord(id) {
+    if (!id) return null;
+    var idStr = String(id).trim();
+
+    // 1. Look in RECRUITMENT first
+    var r = null;
+    if (global.RECRUITMENT && Array.isArray(global.RECRUITMENT)) {
+      r = global.RECRUITMENT.find(function (x) {
+        return (
+          String(x.id || '').trim() === idStr ||
+          String(x.empId || '').trim() === idStr
+        );
+      });
+    }
+
+    // 2. Look in DATA.employees
+    var emp = null;
+    if (global.DATA && Array.isArray(global.DATA.employees)) {
+      emp = global.DATA.employees.find(function (e) {
+        return (
+          String(e.id || '').trim() === idStr ||
+          String(e.EmployeeID || '').trim() === idStr ||
+          String(e.employee_id || '').trim() === idStr
+        );
+      });
+    }
+
+    if (!emp && !r) return null;
+
+    var extra = {};
+    if (emp) {
+      try {
+        var rem = emp.Remarks || emp.remarks;
+        if (typeof rem === 'object' && rem !== null) extra = rem;
+        else if (typeof rem === 'string' && rem.startsWith('{')) extra = JSON.parse(rem);
+      } catch (err) {}
+    }
+
+    var gross = Number((emp && (emp.Salary || emp.salary)) || (r && r.salary && r.salary.total) || 12000);
+
+    var presAddr = (extra && extra.presentAddress) || (r && r.presentAddress) || {};
+    var permAddr = (extra && extra.permanentAddress) || (r && r.permanentAddress) || {};
+
+    var presentAddress = {
+      village: presAddr.village || (emp && (emp.Village || emp.village)) || '',
+      street: presAddr.street || (emp && (emp.Street || emp.street)) || '',
+      thana: presAddr.thana || (emp && (emp.Thana || emp.thana)) || '',
+      district: presAddr.district || (emp && (emp.District || emp.district)) || '',
+      division: presAddr.division || (emp && (emp.Division || emp.division)) || ''
+    };
+
+    var permanentAddress = {
+      village: permAddr.village || (emp && (emp.Village || emp.village)) || '',
+      street: permAddr.street || (emp && (emp.Street || emp.street)) || '',
+      thana: permAddr.thana || (emp && (emp.Thana || emp.thana)) || '',
+      district: permAddr.district || (emp && (emp.District || emp.district)) || '',
+      division: permAddr.division || (emp && (emp.Division || emp.division)) || ''
+    };
+
+    var ec1 = (extra && extra.ec1) || (r && r.ec1) || {
+      name: (emp && (emp.ECName || emp.ec_name)) || '',
+      relation: (emp && (emp.ECRelation || emp.ec_relation)) || '',
+      mobile: (emp && (emp.ECPhoneNumber || emp.ec_phone)) || ''
+    };
+
+    var ec2 = (extra && extra.ec2) || (r && r.ec2) || {
+      name: '',
+      relation: '',
+      mobile: ''
+    };
+
+    var reference = (extra && extra.reference) || (r && r.reference) || {
+      name: '',
+      desig: '',
+      org: '',
+      mobile: ''
+    };
+
+    var exp1 = (extra && extra.exp1) || (r && r.exp1) || { company: '', desig: '', start: '', end: '' };
+    var exp2 = (extra && extra.exp2) || (r && r.exp2) || { company: '', desig: '', start: '', end: '' };
+
+    var salary = (extra && extra.salary) || (r && r.salary) || {
+      basic: Math.round(gross * 0.6),
+      houseRent: Math.round(gross * 0.2),
+      medical: Math.round(gross * 0.1),
+      other: Math.round(gross * 0.1),
+      total: gross
+    };
+
+    var resolved = {
+      id: (emp && emp.id != null) ? emp.id : (r ? r.id : id),
+      empId: (emp && (emp.EmployeeID || emp.employee_id)) ? (emp.EmployeeID || emp.employee_id) : (r ? r.empId : ''),
+      stage: (r && r.stage) ? r.stage : (extra.stage || 'DataEntry'),
+      date: (emp && (emp.JoinDate || emp.join_date)) ? (emp.JoinDate || emp.join_date) : (r ? r.date : (typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0, 10))),
+      name: (emp && (emp.FullNameBn || emp.full_name_bn || emp.FullNameBangla)) || (emp && (emp.FullName || emp.full_name)) || (r ? r.name : 'Candidate'),
+      nameEn: (emp && (emp.FullName || emp.full_name)) || (r ? r.nameEn : ''),
+      father: (emp && (emp.FatherName || emp.father_name)) || extra.father || (r ? r.father : ''),
+      fatherMobile: extra.fatherMobile || (r ? r.fatherMobile : ''),
+      mother: (emp && (emp.MotherName || emp.mother_name)) || extra.mother || (r ? r.mother : ''),
+      motherMobile: extra.motherMobile || (r ? r.motherMobile : ''),
+      dob: (emp && (emp.DOB || emp.dob)) || extra.dob || (r ? r.dob : ''),
+      nid: (emp && (emp.NID || emp.nid)) || extra.nid || (r ? r.nid : ''),
+      phone: (emp && (emp.PhoneNumber || emp.phone)) || extra.phone || (r ? r.phone : ''),
+      education: (emp && (emp.Education || emp.education)) || extra.education || (r ? r.education : 'SSC'),
+      religion: (emp && (emp.Religion || emp.religion)) || extra.religion || (r ? r.religion : 'Islam'),
+      bloodGroup: (emp && (emp.BloodGroup || emp.blood_group)) || extra.bloodGroup || (r ? r.bloodGroup : 'O+'),
+      height: (emp && (emp.Height || emp.height)) || extra.height || (r ? r.height : '5\' 6"'),
+      weight: (emp && (emp.Weight || emp.weight)) || extra.weight || (r ? r.weight : 60),
+      nationality: extra.nationality || (r ? r.nationality : 'বাংলাদেশী'),
+      maritalStatus: (emp && (emp.MaritalStatus || emp.marital_status)) || extra.maritalStatus || (r ? r.maritalStatus : 'Unmarried'),
+      spouse: (emp && (emp.SpouseName || emp.spouse_name)) || extra.spouse || (r ? r.spouse : ''),
+      spousePhone: (emp && (emp.SpousePhoneNum || emp.spouse_phone)) || extra.spousePhone || (r ? r.spousePhone : ''),
+      presentAddress: presentAddress,
+      permanentAddress: permanentAddress,
+      ec1: ec1,
+      ec2: ec2,
+      reference: reference,
+      exp1: exp1,
+      exp2: exp2,
+      desig: (emp && (emp.Designation || emp.designation)) || (r ? r.desig : 'Security Guard'),
+      project: (emp && (emp.ProjectName || emp.project_name)) || (r ? r.project : 'Unassigned'),
+      dutyHours: (emp && +(emp.DutyHour || emp.duty_hour)) || (r ? r.dutyHours : 12),
+      salary: salary
+    };
+
+    if (global.RECRUITMENT && Array.isArray(global.RECRUITMENT)) {
+      var exIdx = global.RECRUITMENT.findIndex(function (x) {
+        return String(x.id) === String(resolved.id);
+      });
+      if (exIdx !== -1) {
+        global.RECRUITMENT[exIdx] = Object.assign({}, global.RECRUITMENT[exIdx], resolved);
+      } else {
+        global.RECRUITMENT.push(resolved);
+      }
+    }
+
+    return resolved;
+  }
+  global.getCandidateRecord = getCandidateRecord;
+
   /* ---------- Real-Time Auto-Fetch by Primary Key ID or EmployeeID ---------- */
   function fetchEmployeeById(id) {
     if (!id) return Promise.resolve(null);
@@ -1287,6 +1428,7 @@
     updateRecruitSection: updateRecruitSection,
     approveCandidate: approveCandidate,
     rejectCandidate: rejectCandidate,
+    getCandidateRecord: getCandidateRecord,
     batchUpsert: batchUpsert,
     pushAll: pushAll,
     TABLE_MAP: TABLE_MAP,

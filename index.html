@@ -1594,6 +1594,16 @@ input:focus, select:focus, textarea:focus {
   </div>
 </div>
 
+<div class="modal-back" id="candidateProfileModal" onclick="if(event.target===this)closeModal('candidateProfileModal')">
+  <div class="modal wide" style="max-width:840px;max-height:92vh;display:flex;flex-direction:column">
+    <div class="modal-head" style="display:flex;justify-content:space-between;align-items:center">
+      <h3 id="candidateProfileTitle">Candidate Profile</h3>
+      <button class="modal-close" onclick="closeModal('candidateProfileModal')">×</button>
+    </div>
+    <div class="modal-body" id="candidateProfileBody" style="overflow-y:auto;padding:18px"></div>
+  </div>
+</div>
+
 <div class="modal-back" id="printModal" onclick="if(event.target===this)closeModal('printModal')">
   <div class="modal wide">
     <div class="modal-head">
@@ -1851,7 +1861,8 @@ function openModal(title, body, actions = '') {
   document.getElementById('modal').classList.add('open');
 }
 function closeModal(id='modal'){
-  document.getElementById(id).classList.remove('open');
+  const el = document.getElementById(id);
+  if(el) el.classList.remove('open');
   if(id === 'modal'){
     window.currentRecruitId = null;
     currentRecruitId = null;
@@ -3092,7 +3103,7 @@ function renderPendingRecruitment(){
         </div>
         <div style="border-top: 1px solid var(--border, #f1f5f9); padding-top: 12px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px;">
           <div style="display: flex; gap: 6px; align-items: center;">
-            <button class="btn sm ghost" onclick="openCandidateProfile(${jsQ(empKey)})">View</button>
+            <button class="btn sm ghost" onclick="viewCandidateProfile(${jsQ(empKey)})">${ico('eye') || ''} View</button>
             <button class="btn sm" onclick="openApplicantForm(${jsQ(empKey)})">Continue / Edit</button>
           </div>
           <div style="display: flex; gap: 6px; align-items: center;">
@@ -3235,136 +3246,365 @@ async function rejectCandidate(id){
 }
 window.rejectCandidate = rejectCandidate;
 
-function openCandidateProfile(id){
-  const r = RECRUITMENT.find(x=>x.id===id); if(!r) return;
+function getCandidateRecord(id) {
+  if (!id) return null;
+  if (window.MGHRM && typeof window.MGHRM.getCandidateRecord === 'function') {
+    return window.MGHRM.getCandidateRecord(id);
+  }
+  const idStr = String(id).trim();
+  let r = null;
+  if (window.RECRUITMENT && Array.isArray(window.RECRUITMENT)) {
+    r = window.RECRUITMENT.find(x => String(x.id || '').trim() === idStr || String(x.empId || '').trim() === idStr);
+  }
+  let emp = null;
+  if (window.DATA && Array.isArray(window.DATA.employees)) {
+    emp = window.DATA.employees.find(e =>
+      String(e.id || '').trim() === idStr ||
+      String(e.EmployeeID || '').trim() === idStr ||
+      String(e.employee_id || '').trim() === idStr
+    );
+  }
+  if (!emp && !r) return null;
+
+  let extra = {};
+  if (emp) {
+    try {
+      const rem = emp.Remarks || emp.remarks;
+      if (typeof rem === 'object' && rem !== null) extra = rem;
+      else if (typeof rem === 'string' && rem.startsWith('{')) extra = JSON.parse(rem);
+    } catch(err) {}
+  }
+
+  const gross = Number((emp && (emp.Salary || emp.salary)) || (r && r.salary && r.salary.total) || 12000);
+  const presAddr = (extra && extra.presentAddress) || (r && r.presentAddress) || {};
+  const permAddr = (extra && extra.permanentAddress) || (r && r.permanentAddress) || {};
+
+  const presentAddress = {
+    village: presAddr.village || (emp && (emp.Village || emp.village)) || '',
+    street: presAddr.street || (emp && (emp.Street || emp.street)) || '',
+    thana: presAddr.thana || (emp && (emp.Thana || emp.thana)) || '',
+    district: presAddr.district || (emp && (emp.District || emp.district)) || '',
+    division: presAddr.division || (emp && (emp.Division || emp.division)) || ''
+  };
+  const permanentAddress = {
+    village: permAddr.village || (emp && (emp.Village || emp.village)) || '',
+    street: permAddr.street || (emp && (emp.Street || emp.street)) || '',
+    thana: permAddr.thana || (emp && (emp.Thana || emp.thana)) || '',
+    district: permAddr.district || (emp && (emp.District || emp.district)) || '',
+    division: permAddr.division || (emp && (emp.Division || emp.division)) || ''
+  };
+
+  const ec1 = (extra && extra.ec1) || (r && r.ec1) || {
+    name: (emp && (emp.ECName || emp.ec_name)) || '',
+    relation: (emp && (emp.ECRelation || emp.ec_relation)) || '',
+    mobile: (emp && (emp.ECPhoneNumber || emp.ec_phone)) || ''
+  };
+  const ec2 = (extra && extra.ec2) || (r && r.ec2) || { name: '', relation: '', mobile: '' };
+  const reference = (extra && extra.reference) || (r && r.reference) || { name: '', desig: '', org: '', mobile: '' };
+  const exp1 = (extra && extra.exp1) || (r && r.exp1) || { company: '', desig: '', start: '', end: '' };
+  const exp2 = (extra && extra.exp2) || (r && r.exp2) || { company: '', desig: '', start: '', end: '' };
+
+  const salary = (extra && extra.salary) || (r && r.salary) || {
+    basic: Math.round(gross * 0.6),
+    houseRent: Math.round(gross * 0.2),
+    medical: Math.round(gross * 0.1),
+    other: Math.round(gross * 0.1),
+    total: gross
+  };
+
+  const resolved = {
+    id: (emp && emp.id != null) ? emp.id : (r ? r.id : id),
+    empId: (emp && (emp.EmployeeID || emp.employee_id)) ? (emp.EmployeeID || emp.employee_id) : (r ? r.empId : ''),
+    stage: (r && r.stage) ? r.stage : (extra.stage || 'DataEntry'),
+    date: (emp && (emp.JoinDate || emp.join_date)) ? (emp.JoinDate || emp.join_date) : (r ? r.date : (typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0, 10))),
+    name: (emp && (emp.FullNameBn || emp.full_name_bn || emp.FullNameBangla)) || (emp && (emp.FullName || emp.full_name)) || (r ? r.name : 'Candidate'),
+    nameEn: (emp && (emp.FullName || emp.full_name)) || (r ? r.nameEn : ''),
+    father: (emp && (emp.FatherName || emp.father_name)) || extra.father || (r ? r.father : ''),
+    fatherMobile: extra.fatherMobile || (r ? r.fatherMobile : ''),
+    mother: (emp && (emp.MotherName || emp.mother_name)) || extra.mother || (r ? r.mother : ''),
+    motherMobile: extra.motherMobile || (r ? r.motherMobile : ''),
+    dob: (emp && (emp.DOB || emp.dob)) || extra.dob || (r ? r.dob : ''),
+    nid: (emp && (emp.NID || emp.nid)) || extra.nid || (r ? r.nid : ''),
+    phone: (emp && (emp.PhoneNumber || emp.phone)) || extra.phone || (r ? r.phone : ''),
+    education: (emp && (emp.Education || emp.education)) || extra.education || (r ? r.education : 'SSC'),
+    religion: (emp && (emp.Religion || emp.religion)) || extra.religion || (r ? r.religion : 'Islam'),
+    bloodGroup: (emp && (emp.BloodGroup || emp.blood_group)) || extra.bloodGroup || (r ? r.bloodGroup : 'O+'),
+    height: (emp && (emp.Height || emp.height)) || extra.height || (r ? r.height : '5\' 6"'),
+    weight: (emp && (emp.Weight || emp.weight)) || extra.weight || (r ? r.weight : 60),
+    nationality: extra.nationality || (r ? r.nationality : 'বাংলাদেশী'),
+    maritalStatus: (emp && (emp.MaritalStatus || emp.marital_status)) || extra.maritalStatus || (r ? r.maritalStatus : 'Unmarried'),
+    spouse: (emp && (emp.SpouseName || emp.spouse_name)) || extra.spouse || (r ? r.spouse : ''),
+    spousePhone: (emp && (emp.SpousePhoneNum || emp.spouse_phone)) || extra.spousePhone || (r ? r.spousePhone : ''),
+    presentAddress,
+    permanentAddress,
+    ec1,
+    ec2,
+    reference,
+    exp1,
+    exp2,
+    desig: (emp && (emp.Designation || emp.designation)) || (r ? r.desig : 'Security Guard'),
+    project: (emp && (emp.ProjectName || emp.project_name)) || (r ? r.project : 'Unassigned'),
+    dutyHours: (emp && +(emp.DutyHour || emp.duty_hour)) || (r ? r.dutyHours : 12),
+    salary
+  };
+
+  if (window.RECRUITMENT && Array.isArray(window.RECRUITMENT)) {
+    const exIdx = window.RECRUITMENT.findIndex(x => String(x.id) === String(resolved.id));
+    if (exIdx !== -1) window.RECRUITMENT[exIdx] = Object.assign({}, window.RECRUITMENT[exIdx], resolved);
+    else window.RECRUITMENT.push(resolved);
+  }
+  return resolved;
+}
+window.getCandidateRecord = getCandidateRecord;
+
+function switchCandTab(key, btnEl) {
+  const modal = document.getElementById('candidateProfileModal');
+  if (!modal) return;
+  modal.querySelectorAll('#candProfileTabs .tab').forEach(el => el.classList.remove('active'));
+  if (btnEl) btnEl.classList.add('active');
+  modal.querySelectorAll('.cand-tab-panel').forEach(el => {
+    el.classList.remove('active');
+    el.style.display = 'none';
+  });
+  const target = document.getElementById('cand-panel-' + key);
+  if (target) {
+    target.classList.add('active');
+    target.style.display = 'block';
+  }
+}
+window.switchCandTab = switchCandTab;
+
+function editCandidateProfile(id) {
+  closeModal('candidateProfileModal');
+  setTimeout(() => {
+    if (typeof openApplicantForm === 'function') {
+      openApplicantForm(id);
+    }
+  }, 50);
+}
+window.editCandidateProfile = editCandidateProfile;
+window.editCandidate = editCandidateProfile;
+
+function printCandidateDoc(type, id) {
+  const r = (typeof getCandidateRecord === 'function' ? getCandidateRecord(id) : null) || (window.RECRUITMENT || []).find(x => String(x.id) === String(id) || String(x.empId) === String(id));
+  if (!r) {
+    if (typeof toast === 'function') toast('Candidate record not found.', 'error');
+    return;
+  }
+  let html = '';
+  if (type === 'application' || type === '1') {
+    html = typeof printApplication === 'function' ? printApplication(r.id) : '';
+  } else if (type === 'biodata' || type === 'cv' || type === '2') {
+    html = typeof printBiodata === 'function' ? printBiodata(r.id) : '';
+  } else if (type === 'appointment' || type === '3') {
+    html = typeof printAppointment === 'function' ? printAppointment(r.id) : '';
+  }
+  if (!html) {
+    if (typeof toast === 'function') toast('Could not generate document template.', 'error');
+    return;
+  }
+  if (typeof closeModal === 'function') {
+    closeModal('candidateProfileModal');
+  }
+  if (typeof openPrint === 'function') {
+    openPrint(html);
+    setTimeout(() => {
+      try {
+        if (typeof doPrint === 'function') doPrint();
+        else window.print();
+      } catch (e) {
+        console.warn('Auto print trigger error:', e);
+      }
+    }, 350);
+  }
+}
+window.printCandidateDoc = printCandidateDoc;
+
+async function viewCandidateProfile(id){
+  if (!id) return;
+  let r = (typeof getCandidateRecord === 'function' ? getCandidateRecord(id) : null) || (window.RECRUITMENT || []).find(x => String(x.id) === String(id) || String(x.empId) === String(id));
+  if (!r && window.MGHRM && typeof window.MGHRM.fetchEmployeeById === 'function') {
+    const emp = await window.MGHRM.fetchEmployeeById(id);
+    if (emp) r = getCandidateRecord(id);
+  }
+  if (!r) {
+    if (typeof toast === 'function') toast('Candidate profile not found.', 'error');
+    return;
+  }
+
+  const safeId = jsQ(r.id);
+  const titleEl = document.getElementById('candidateProfileTitle');
+  const bodyEl = document.getElementById('candidateProfileBody');
+  const modalEl = document.getElementById('candidateProfileModal');
+
+  if (titleEl) {
+    titleEl.textContent = `${r.name || 'Candidate Profile'} — Candidate Details`;
+  }
+
   const html = `
-    <div style="display:flex;gap:16px;align-items:center;padding:16px;background:linear-gradient(135deg,#eef2ff,#f0f9ff);border-radius:10px;margin-bottom:16px">
-      <div class="emp-avatar" style="width:70px;height:70px;font-size:22px">${initials(r.nameEn||r.name)}</div>
-      <div style="flex:1">
-        <h3>${r.name} ${r.nameEn?`<span class="small-mute" style="font-weight:400">(${r.nameEn})</span>`:''}</h3>
-        <div class="sub">${desig(r.desig)} · ${r.project}</div>
-        <div class="meta">
-          <span>📞 ${num(r.phone)}</span>
-          <span>🆔 NID: ${num(r.nid||'—')}</span>
-          <span class="pill info" style="text-transform:none">${r.stage}</span>
+    <div style="display:flex;gap:16px;align-items:center;padding:18px;background:linear-gradient(135deg,#eef2ff,#f0f9ff);border-radius:12px;border:1px solid #e0e7ff;margin-bottom:16px;flex-wrap:wrap">
+      <div class="emp-avatar" style="width:64px;height:64px;font-size:20px;border-radius:50%;background:#4f46e5;color:#fff;display:grid;place-items:center;font-weight:700;box-shadow:0 2px 8px rgba(79,70,229,0.25)">
+        ${initials(r.nameEn || r.name)}
+      </div>
+      <div style="flex:1;min-width:240px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+          <h3 style="margin:0;font-size:18px;font-weight:700;color:#1e293b">${escapeHtml(r.name)}</h3>
+          ${r.nameEn ? `<span class="small-mute" style="font-weight:500;font-size:14px;color:#64748b">(${escapeHtml(r.nameEn)})</span>` : ''}
+          <span class="pill info" style="font-size:11px;font-weight:600;padding:2px 8px">Candidate</span>
+        </div>
+        <div style="font-size:13px;color:#475569;font-weight:600;margin-bottom:6px">
+          ${escapeHtml(desig(r.desig))} · <span style="color:#64748b;font-weight:500">${escapeHtml(projName(r.project))}</span>
+        </div>
+        <div style="display:flex;gap:14px;font-size:12px;color:#64748b;flex-wrap:wrap">
+          <span>📞 <strong>${escapeHtml(num(r.phone || '—'))}</strong></span>
+          <span>🆔 NID: <strong>${escapeHtml(num(r.nid || '—'))}</strong></span>
+          <span>📅 Date: <strong>${escapeHtml(fmtDate(r.date))}</strong></span>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button type="button" class="btn primary" onclick="editCandidateProfile(${safeId})" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;font-weight:600">
+          ${ico('edit')} Edit Profile
+        </button>
+      </div>
+    </div>
+
+    <!-- Prominent Print Documents Section -->
+    <div class="card" style="margin:0 0 16px 0;background:#ffffff;border:1px solid var(--border,#e2e8f0);border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+      <div class="card-header" style="padding:12px 16px;border-bottom:1px solid var(--border,#e2e8f0);display:flex;justify-content:space-between;align-items:center;background:#f8fafc;border-top-left-radius:10px;border-top-right-radius:10px">
+        <h4 style="margin:0;font-size:13.5px;font-weight:700;color:var(--text,#1e293b);display:flex;align-items:center;gap:8px">
+          ${ico('print')} Print Official Documents
+        </h4>
+        <span class="small-mute" style="font-size:12px;color:var(--text-muted,#64748b)">A4 Ready · Pre-filled with Candidate Data</span>
+      </div>
+      <div class="card-body" style="padding:14px 16px">
+        <p class="small-mute" style="margin:0 0 12px 0;font-size:12.5px;color:var(--text-muted,#64748b)">
+          Generate and print official recruitment forms populated directly with candidate's information:
+        </p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button type="button" class="btn" onclick="printCandidateDoc('application', ${safeId})" style="display:inline-flex;align-items:center;gap:6px;font-weight:600">
+            ${ico('print')} 1. Print Job Application
+          </button>
+          <button type="button" class="btn" onclick="printCandidateDoc('biodata', ${safeId})" style="display:inline-flex;align-items:center;gap:6px;font-weight:600">
+            ${ico('print')} 2. Print CV (Biodata)
+          </button>
+          <button type="button" class="btn primary" onclick="printCandidateDoc('appointment', ${safeId})" style="display:inline-flex;align-items:center;gap:6px;font-weight:600">
+            ${ico('print')} 3. Print Appointment Letter
+          </button>
         </div>
       </div>
     </div>
 
-    <div class="btn-row" style="margin-bottom:14px;flex-wrap:wrap">
-      <button class="btn" onclick="editCandidate(${r.id})">${'Edit Info'}</button>
-      ${r.stage==='DataEntry'?`<button class="btn primary" onclick="markStage(${r.id},'DocsPrinted')">${'✓ Documents Verified — Proceed to Print →'}</button>`:''}
-      ${r.stage==='DocsPrinted'?`<button class="btn primary" onclick="markStage(${r.id},'Signed')">${'✓ Signatures Collected →'}</button>`:''}
-      ${r.stage==='Signed'?`<button class="btn success" onclick="onboardCandidate(${r.id})">${'🎉 Confirm Appointment (Onboard)'}</button>`:''}
-      ${r.stage==='Confirmed'?`<span class="pill success">✓ Onboarded — ID: ${r.empId}</span>`:''}
+    <!-- Candidate Summary Tabs -->
+    <div class="tabs" id="candProfileTabs" style="margin-top:8px">
+      <div class="tab active" onclick="switchCandTab('personal', this)">Personal Info</div>
+      <div class="tab" onclick="switchCandTab('address', this)">Address</div>
+      <div class="tab" onclick="switchCandTab('emergency', this)">Emergency Contacts</div>
+      <div class="tab" onclick="switchCandTab('experience', this)">Experience &amp; References</div>
+      <div class="tab" onclick="switchCandTab('job', this)">Job &amp; Salary</div>
     </div>
 
-    <div class="card" style="margin:0"><div class="card-header"><h3>${'Print 3 Forms'} ${r.stage==='DataEntry'?`<span class="pill warn sm">${'Complete document check first'}</span>`:''}</h3></div>
-      <div class="card-body">
-        <p class="small-mute" style="margin-bottom:12px">${'Print on A4 — all 3 forms fit on one page each with Kalpurush font.'}</p>
-        <div class="btn-row">
-          <button class="btn" onclick="closeModal();openPrint(printApplication(${r.id}))">${ico('print')} 1. ${'Job Application'}</button>
-          <button class="btn" onclick="closeModal();openPrint(printBiodata(${r.id}))">${ico('print')} 2. ${'Biodata (CV)'}</button>
-          <button class="btn primary" onclick="closeModal();openPrint(printAppointment(${r.id}))">${ico('print')} 3. ${'Appointment Letter'}</button>
-        </div>
+    <div id="cand-panel-personal" class="cand-tab-panel active" style="padding-top:14px">
+      <div class="info-grid">
+        ${row('Name (Bangla)', r.name || '—')}
+        ${row('Name (English)', r.nameEn || '—')}
+        ${row("Father's Name", r.father || '—')}
+        ${row("Mother's Name", r.mother || '—')}
+        ${row('Date of Birth', fmtDate(r.dob))}
+        ${row('NID / Birth Reg', num(r.nid || '—'))}
+        ${row('Education', r.education || '—')}
+        ${row('Religion', r.religion || '—')}
+        ${row('Blood Group', r.bloodGroup || '—')}
+        ${row('Height', r.height || '—')}
+        ${row('Weight', (r.weight ? r.weight + ' kg' : '—'))}
+        ${row('Nationality', r.nationality || '—')}
+        ${row('Marital Status', r.maritalStatus || '—')}
+        ${r.spouse ? row('Spouse Name', r.spouse) : ''}
+        ${r.spousePhone ? row('Spouse Phone', num(r.spousePhone)) : ''}
+        ${row('Mobile Number', num(r.phone || '—'))}
       </div>
     </div>
 
-    <div class="tabs" id="candTabs" style="margin-top:16px">
-      <div class="tab active" onclick="switchTab('candTabs','personal')">${'Personal'}</div>
-      <div class="tab" onclick="switchTab('candTabs','address')">${'Address'}</div>
-      <div class="tab" onclick="switchTab('candTabs','emergency')">${'Emergency'}</div>
-      <div class="tab" onclick="switchTab('candTabs','experience')">${'Experience'}</div>
-      <div class="tab" onclick="switchTab('candTabs','job')">${'Job Details'}</div>
-    </div>
-    <div id="tab-personal" class="tab-panel active">
+    <div id="cand-panel-address" class="cand-tab-panel" style="display:none;padding-top:14px">
+      <h4 style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text,#1e293b)">Present Address</h4>
       <div class="info-grid">
-        ${row('Name (Bangla)',r.name)}
-        ${row('Name (English)',r.nameEn)}
-        ${row("Father's Name",r.father)}
-        ${row("Mother's Name",r.mother)}
-        ${row('DOB',fmtDate(r.dob))}
-        ${row('NID',num(r.nid))}
-        ${row('Education',r.education)}
-        ${row('Religion',r.religion)}
-        ${row('Blood Group',r.bloodGroup)}
-        ${row('Height',r.height)}
-        ${row('Weight',r.weight+' kg')}
-        ${row('Nationality',r.nationality)}
-        ${row('Marital',r.maritalStatus)}
-        ${r.spouse?row('Spouse',r.spouse):''}
-        ${r.spousePhone?row('Spouse Phone',num(r.spousePhone)):''}
-        ${row('Mobile',num(r.phone))}
+        ${row('Village / Street', (r.presentAddress.village || '') + (r.presentAddress.street ? ', ' + r.presentAddress.street : '') || '—')}
+        ${row('Thana / Upazila', r.presentAddress.thana || '—')}
+        ${row('District', r.presentAddress.district || '—')}
+      </div>
+      <div class="divider" style="margin:14px 0"></div>
+      <h4 style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text,#1e293b)">Permanent Address</h4>
+      <div class="info-grid">
+        ${row('Village / Street', (r.permanentAddress.village || '') + (r.permanentAddress.street ? ', ' + r.permanentAddress.street : '') || '—')}
+        ${row('Thana / Upazila', r.permanentAddress.thana || '—')}
+        ${row('District', r.permanentAddress.district || '—')}
       </div>
     </div>
-    <div id="tab-address" class="tab-panel">
-      <h4 style="font-size:13px;margin-bottom:10px">${'Present Address'}</h4>
+
+    <div id="cand-panel-emergency" class="cand-tab-panel" style="display:none;padding-top:14px">
+      <h4 style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text,#1e293b)">Primary Emergency Contact</h4>
       <div class="info-grid">
-        ${row('Village',r.presentAddress.village)}
-        ${row('Thana',r.presentAddress.thana)}
-        ${row('District',r.presentAddress.district)}
+        ${row('Contact Name', r.ec1.name || '—')}
+        ${row('Relationship', r.ec1.relation || '—')}
+        ${row('Mobile Number', num(r.ec1.mobile || '—'))}
       </div>
-      <div class="divider"></div>
-      <h4 style="font-size:13px;margin-bottom:10px">${'Permanent Address'}</h4>
+      <div class="divider" style="margin:14px 0"></div>
+      <h4 style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text,#1e293b)">Secondary Emergency Contact</h4>
       <div class="info-grid">
-        ${row('Village',r.permanentAddress.village)}
-        ${row('Thana',r.permanentAddress.thana)}
-        ${row('District',r.permanentAddress.district)}
+        ${row('Contact Name', r.ec2.name || '—')}
+        ${row('Relationship', r.ec2.relation || '—')}
+        ${row('Mobile Number', num(r.ec2.mobile || '—'))}
       </div>
     </div>
-    <div id="tab-emergency" class="tab-panel">
-      <h4 style="font-size:13px;margin-bottom:10px">${'Emergency Contact 1'}</h4>
-      <div class="info-grid">${row('Name',r.ec1.name)}${row('Relation',r.ec1.relation)}${row('Mobile',num(r.ec1.mobile))}</div>
-      <div class="divider"></div>
-      <h4 style="font-size:13px;margin-bottom:10px">${'Emergency Contact 2'}</h4>
-      <div class="info-grid">${row('Name',r.ec2.name)}${row('Relation',r.ec2.relation)}${row('Mobile',num(r.ec2.mobile))}</div>
-    </div>
-    <div id="tab-experience" class="tab-panel">
-      ${[r.exp1,r.exp2].filter(e=>e.company).map((e,i)=>`
-        <h4 style="font-size:13px;margin-bottom:10px">${'Experience'} ${num(i+1)}</h4>
-        <div class="info-grid">
-          ${row('Company',e.company)}
-          ${row('Designation',e.desig)}
-          ${row('Start',fmtDate(e.start))}
-          ${row('End',fmtDate(e.end))}
+
+    <div id="cand-panel-experience" class="cand-tab-panel" style="display:none;padding-top:14px">
+      ${[r.exp1, r.exp2].filter(e => e && e.company).map((e, i) => `
+        <h4 style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text,#1e293b)">Experience Record ${num(i + 1)}</h4>
+        <div class="info-grid" style="margin-bottom:12px">
+          ${row('Company Name', e.company || '—')}
+          ${row('Designation', e.desig || '—')}
+          ${row('Start Date', fmtDate(e.start))}
+          ${row('End Date', fmtDate(e.end))}
         </div>
-        <div class="divider"></div>
-      `).join('') || `<p class="small-mute">${'No previous experience'}</p>`}
-      ${r.reference.name?`
-        <h4 style="font-size:13px;margin-bottom:10px">${'Reference'}</h4>
-        <div class="info-grid">
-          ${row('Name',r.reference.name)}
-          ${row('Designation',r.reference.desig)}
-          ${row('Organization',r.reference.org)}
-          ${row('Mobile',num(r.reference.mobile))}
-        </div>
-      `:''}
-    </div>
-    <div id="tab-job" class="tab-panel">
+      `).join('') || `<p class="small-mute" style="margin-bottom:14px">No previous experience recorded.</p>`}
+      <div class="divider" style="margin:14px 0"></div>
+      <h4 style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text,#1e293b)">Professional Reference</h4>
       <div class="info-grid">
-        ${row('Applied Designation',desig(r.desig))}
-        ${row('Project',r.project)}
-        ${row('Duty Hours',r.dutyHours)}
+        ${row('Reference Name', r.reference.name || '—')}
+        ${row('Designation', r.reference.desig || '—')}
+        ${row('Organization', r.reference.org || '—')}
+        ${row('Mobile Number', num(r.reference.mobile || '—'))}
       </div>
-      <div class="divider"></div>
-      <h4 style="font-size:13px;margin-bottom:10px">${'Salary Structure'}</h4>
+    </div>
+
+    <div id="cand-panel-job" class="cand-tab-panel" style="display:none;padding-top:14px">
       <div class="info-grid">
-        ${row('Basic',money(r.salary.basic))}
-        ${row('House Rent',money(r.salary.houseRent))}
-        ${row('Medical',money(r.salary.medical))}
-        ${row('Others',money(r.salary.other))}
-        ${row('Total Monthly',money(r.salary.total))}
+        ${row('Applied Designation', desig(r.desig))}
+        ${row('Assigned Project', projName(r.project))}
+        ${row('Duty Hours', (r.dutyHours || 12) + ' Hours/Day')}
+      </div>
+      <div class="divider" style="margin:14px 0"></div>
+      <h4 style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text,#1e293b)">Salary Structure</h4>
+      <div class="info-grid">
+        ${row('Basic Salary', money(r.salary.basic))}
+        ${row('House Rent Allowance', money(r.salary.houseRent))}
+        ${row('Medical Allowance', money(r.salary.medical))}
+        ${row('Other Allowances', money(r.salary.other))}
+        ${row('Total Monthly Gross', money(r.salary.total))}
       </div>
     </div>
   `;
-  openModal(r.name, html);
+
+  if (bodyEl) {
+    bodyEl.innerHTML = html;
+  }
+  if (modalEl) {
+    modalEl.classList.add('open');
+  } else {
+    openModal(r.name, html);
+  }
 }
-function editCandidate(id){
-  const r = RECRUITMENT.find(x => String(x.id) === String(id));
-  if(!r) return;
-  closeModal();
-  openApplicantForm(r.id);
-}
+window.viewCandidateProfile = viewCandidateProfile;
+window.openCandidateProfile = viewCandidateProfile;
 const BD_CASC={"Comilla":["Debidwar","Barura","Brahmanpara","Chandina","Chauddagram","Daudkandi","Homna","Laksam","Muradnagar","Nangalkot","Comilla Sadar","Meghna","Monohargonj","Sadarsouth","Titas","Burichang","Lalmai"],"Feni":["Chhagalnaiya","Feni Sadar","Sonagazi","Fulgazi","Parshuram","Daganbhuiyan"],"Brahmanbaria":["Brahmanbaria Sadar","Kasba","Nasirnagar","Sarail","Ashuganj","Akhaura","Nabinagar","Bancharampur","Bijoynagar"],"Rangamati":["Rangamati Sadar","Kaptai","Kawkhali","Baghaichari","Barkal","Langadu","Rajasthali","Belaichari","Juraichari","Naniarchar"],"Noakhali":["Noakhali Sadar","Companiganj","Begumganj","Hatia","Subarnachar","Kabirhat","Senbug","Chatkhil","Sonaimori"],"Chandpur":["Haimchar","Kachua","Shahrasti","Chandpur Sadar","Matlab South","Hajiganj","Matlab North","Faridgonj"],"Lakshmipur":["Lakshmipur Sadar","Kamalnagar","Raipur","Ramgati","Ramganj"],"Chattogram":["Rangunia","Sitakunda","Mirsharai","Patiya","Sandwip","Banshkhali","Boalkhali","Anwara","Chandanaish","Satkania","Lohagara","Hathazari","Fatikchhari","Raozan","Karnafuli"],"Coxsbazar":["Coxsbazar Sadar","Chakaria","Kutubdia","Ukhiya","Moheshkhali","Pekua","Ramu","Teknaf","Eidgaon"],"Khagrachhari":["Khagrachhari Sadar","Dighinala","Panchari","Laxmichhari","Mohalchari","Manikchari","Ramgarh","Matiranga","Guimara"],"Bandarban":["Bandarban Sadar","Alikadam","Naikhongchhari","Rowangchhari","Lama","Ruma","Thanchi"],"Sirajganj":["Belkuchi","Chauhali","Kamarkhand","Kazipur","Raigonj","Shahjadpur","Sirajganj Sadar","Tarash","Ullapara"],"Pabna":["Sujanagar","Ishurdi","Bhangura","Pabna Sadar","Bera","Atghoria","Chatmohar","Santhia","Faridpur"],"Bogura":["Kahaloo","Bogra Sadar","Shariakandi","Shajahanpur","Dupchanchia","Adamdighi","Nondigram","Sonatala","Dhunot","Gabtali","Sherpur","Shibganj"],"Rajshahi":["Paba","Durgapur","Mohonpur","Charghat","Puthia","Bagha","Godagari","Tanore","Bagmara"],"Natore":["Natore Sadar","Singra","Baraigram","Bagatipara","Lalpur","Gurudaspur","Naldanga"],"Joypurhat":["Akkelpur","Kalai","Khetlal","Panchbibi","Joypurhat Sadar"],"Chapainawabganj":["Chapainawabganj Sadar","Gomostapur","Nachol","Bholahat","Shibganj"],"Naogaon":["Mohadevpur","Badalgachi","Patnitala","Dhamoirhat","Niamatpur","Manda","Atrai","Raninagar","Naogaon Sadar","Porsha","Sapahar"],"Jashore":["Manirampur","Abhaynagar","Bagherpara","Chougachha","Jhikargacha","Keshabpur","Jessore Sadar","Sharsha"],"Satkhira":["Assasuni","Debhata","Kalaroa","Satkhira Sadar","Shyamnagar","Tala","Kaliganj"],"Meherpur":["Mujibnagar","Meherpur Sadar","Gangni"],"Narail":["Narail Sadar","Lohagara","Kalia"],"Chuadanga":["Chuadanga Sadar","Alamdanga","Damurhuda","Jibannagar"],"Kushtia":["Kushtia Sadar","Kumarkhali","Khoksa","Mirpur","Daulatpur","Bheramara"],"Magura":["Shalikha","Sreepur","Magura Sadar","Mohammadpur"],"Khulna":["Paikgasa","Fultola","Digholia","Rupsha","Terokhada","Dumuria","Botiaghata","Dakop","Koyra"],"Bagerhat":["Fakirhat","Bagerhat Sadar","Mollahat","Sarankhola","Rampal","Morrelganj","Kachua","Mongla","Chitalmari"],"Jhenaidah":["Jhenaidah Sadar","Shailkupa","Harinakundu","Kaliganj","Kotchandpur","Moheshpur"],"Jhalakathi":["Jhalakathi Sadar","Kathalia","Nalchity","Rajapur"],"Patuakhali":["Bauphal","Patuakhali Sadar","Dumki","Dashmina","Kalapara","Mirzaganj","Galachipa","Rangabali"],"Pirojpur":["Pirojpur Sadar","Nazirpur","Kawkhali","Zianagar","Bhandaria","Mathbaria","Nesarabad"],"Barisal":["Barisal Sadar","Bakerganj","Babuganj","Wazirpur","Banaripara","Gournadi","Agailjhara","Mehendiganj","Muladi","Hizla"],"Bhola":["Bhola Sadar","Borhan Sddin","Charfesson","Doulatkhan","Monpura","Tazumuddin","Lalmohan"],"Barguna":["Amtali","Barguna Sadar","Betagi","Bamna","Pathorghata","Taltali"],"Sylhet":["Balaganj","Beanibazar","Bishwanath","Companiganj","Fenchuganj","Golapganj","Gowainghat","Jaintiapur","Kanaighat","Sylhet Sadar","Zakiganj","Dakshinsurma","Osmaninagar"],"Moulvibazar":["Barlekha","Kamolganj","Kulaura","Moulvibazar Sadar","Rajnagar","Sreemangal","Juri"],"Habiganj":["Nabiganj","Bahubal","Ajmiriganj","Baniachong","Lakhai","Chunarughat","Habiganj Sadar","Madhabpur"],"Sunamganj":["Sunamganj Sadar","South Sunamganj","Bishwambarpur","Chhatak","Jagannathpur","Dowarabazar","Tahirpur","Dharmapasha","Jamalganj","Shalla","Derai","Madhyanagar"],"Narsingdi":["Belabo","Monohardi","Narsingdi Sadar","Palash","Raipura","Shibpur"],"Gazipur":["Kaliganj","Kaliakair","Kapasia","Gazipur Sadar","Sreepur"],"Shariatpur":["Shariatpur Sadar","Naria","Zajira","Gosairhat","Bhedarganj","Damudya"],"Narayanganj":["Araihazar","Bandar","Narayanganj Sadar","Rupganj","Sonargaon"],"Tangail":["Basail","Bhuapur","Delduar","Ghatail","Gopalpur","Madhupur","Mirzapur","Nagarpur","Sakhipur","Tangail Sadar","Kalihati","Dhanbari"],"Kishoreganj":["Itna","Katiadi","Bhairab","Tarail","Hossainpur","Pakundia","Kuliarchar","Kishoreganj Sadar","Karimgonj","Bajitpur","Austagram","Mithamoin","Nikli"],"Manikganj":["Harirampur","Saturia","Manikganj Sadar","Gior","Shibaloy","Doulatpur","Singiar"],"Dhaka":["Savar","Dhamrai","Keraniganj","Nawabganj","Dohar"],"Munshiganj":["Munshiganj Sadar","Sreenagar","Sirajdikhan","Louhajanj","Gajaria","Tongibari"],"Rajbari":["Rajbari Sadar","Goalanda","Pangsa","Baliakandi","Kalukhali"],"Madaripur":["Madaripur Sadar","Shibchar","Kalkini","Rajoir","Dasar"],"Gopalganj":["Gopalganj Sadar","Kashiani","Tungipara","Kotalipara","Muksudpur"],"Faridpur":["Faridpur Sadar","Alfadanga","Boalmari","Sadarpur","Nagarkanda","Bhanga","Charbhadrasan","Madhukhali","Saltha"],"Panchagarh":["Panchagarh Sadar","Debiganj","Boda","Atwari","Tetulia"],"Dinajpur":["Nawabganj","Birganj","Ghoraghat","Birampur","Parbatipur","Bochaganj","Kaharol","Fulbari","Dinajpur Sadar","Hakimpur","Khansama","Birol","Chirirbandar"],"Lalmonirhat":["Lalmonirhat Sadar","Kaliganj","Hatibandha","Patgram","Aditmari"],"Nilphamari":["Syedpur","Domar","Dimla","Jaldhaka","Kishorganj","Nilphamari Sadar"],"Gaibandha":["Sadullapur","Gaibandha Sadar","Palashbari","Saghata","Gobindaganj","Sundarganj","Phulchari"],"Thakurgaon":["Thakurgaon Sadar","Pirganj","Ranisankail","Haripur","Baliadangi"],"Rangpur":["Rangpur Sadar","Gangachara","Taragonj","Badargonj","Mithapukur","Pirgonj","Kaunia","Pirgacha"],"Kurigram":["Kurigram Sadar","Nageshwari","Bhurungamari","Phulbari","Rajarhat","Ulipur","Chilmari","Rowmari","Charrajibpur"],"Sherpur":["Sherpur Sadar","Nalitabari","Sreebordi","Nokla","Jhenaigati"],"Mymensingh":["Fulbaria","Trishal","Bhaluka","Muktagacha","Mymensingh Sadar","Dhobaura","Phulpur","Haluaghat","Gouripur","Gafargaon","Iswarganj","Nandail","Tarakanda"],"Jamalpur":["Jamalpur Sadar","Melandah","Islampur","Dewangonj","Sarishabari","Madarganj","Bokshiganj"],"Netrokona":["Barhatta","Durgapur","Kendua","Atpara","Madan","Khaliajuri","Kalmakanda","Mohongonj","Purbadhala","Netrokona Sadar"]};
 
 
@@ -4843,7 +5083,8 @@ function deleteArchivedCandidate(archId){
 }
 /* ---- Print Form 1: Job Application (page 3 of Mahbub joining form — untouched structure) ---- */
 function printApplication(id){
-  const r = RECRUITMENT.find(x=>x.id===id); if(!r) return '';
+  const r = (typeof getCandidateRecord === 'function' ? getCandidateRecord(id) : null) || (window.RECRUITMENT || []).find(x => String(x.id) === String(id) || String(x.empId) === String(id));
+  if(!r) return '';
   return `<div class="print-doc compact">
     ${letterhead()}
     <div style="margin-top:12px;font-size:11pt"><strong>তারিখ:</strong> ${fmtDateBnFormal(todayISO())}</div>
@@ -4868,10 +5109,16 @@ function printApplication(id){
 }
 /* ---- Print Form 2: Biodata (page 1 of Mahbub joining form — untouched structure) ---- */
 function printBiodata(id){
-  const r = RECRUITMENT.find(x=>x.id===id); if(!r) return '';
+  const r = (typeof getCandidateRecord === 'function' ? getCandidateRecord(id) : null) || (window.RECRUITMENT || []).find(x => String(x.id) === String(id) || String(x.empId) === String(id));
+  if(!r) return '';
   const bnAge = (()=>{ const d = parseDate(r.dob); if(!d) return ''; const a=Math.floor((Date.now()-d)/(365.25*86400000)); return toBnDigits(a); })();
   const cell = (k,v)=>`<td><strong>${k}:</strong> ${v||'—'}</td>`;
   const sec = (title)=>`<div class="section-title">${title}</div>`;
+  const pres = r.presentAddress || {};
+  const perm = r.permanentAddress || {};
+  const ec1 = r.ec1 || { name: '', relation: '', mobile: '' };
+  const ec2 = r.ec2 || { name: '', relation: '', mobile: '' };
+  const ref = r.reference || { name: '', desig: '', org: '', mobile: '' };
   return `<div class="print-doc compact" style="font-size:10.5pt;line-height:1.4;padding:12mm 15mm">
     ${letterhead()}
     <div style="text-align:center;margin-top:6px">
@@ -4881,39 +5128,39 @@ function printBiodata(id){
     ${sec('১. ব্যক্তিগত তথ্য (Personal Information)')}
     <table class="form-table" style="font-size:9.5pt">
       <tr>${cell('নাম (বাংলা)',r.name)}${cell('নাম (ইংরেজি)',r.nameEn)}</tr>
-      <tr>${cell('পিতার নাম',r.father)}${cell('মোবাইল নং',num(r.fatherMobile))}</tr>
-      <tr>${cell('মাতার নাম',r.mother)}${cell('মোবাইল নং',num(r.motherMobile))}</tr>
-      <tr>${cell('জন্ম তারিখ',fmtDate(r.dob)+' (বয়স: '+bnAge+')')}${cell('জন্ম সনদ/এনআইডি',num(r.nid))}</tr>
+      <tr>${cell('পিতার নাম',r.father)}${cell('মোবাইল নং',num(r.fatherMobile || ''))}</tr>
+      <tr>${cell('মাতার নাম',r.mother)}${cell('মোবাইল নং',num(r.motherMobile || ''))}</tr>
+      <tr>${cell('জন্ম তারিখ',fmtDate(r.dob)+(bnAge ? ' (বয়স: '+bnAge+')' : ''))}${cell('জন্ম সনদ/এনআইডি',num(r.nid))}</tr>
       <tr>${cell('শিক্ষাগত যোগ্যতা',r.education)}${cell('মোবাইল নং',num(r.phone))}</tr>
       <tr>${cell('জাতীয়তা',r.nationality)}${cell('ধর্ম',r.religion)}</tr>
-      <tr>${cell('রক্তের গ্রুপ',r.bloodGroup)}${cell('উচ্চতা / ওজন',r.height+' · '+r.weight+' কেজি')}</tr>
+      <tr>${cell('রক্তের গ্রুপ',r.bloodGroup)}${cell('উচ্চতা / ওজন',r.height+' · '+(r.weight ? r.weight+' কেজি' : '—'))}</tr>
       <tr>${cell('বৈবাহিক অবস্থা',r.maritalStatus)}${cell('স্ত্রী/স্বামী',r.spouse?`${r.spouse} · ${num(r.spousePhone)}`:'—')}</tr>
-      <tr><td colspan="2"><strong>বর্তমান ঠিকানাঃ</strong> গ্রামঃ ${r.presentAddress.village||'—'}, থানাঃ ${r.presentAddress.thana||'—'}, জেলাঃ ${r.presentAddress.district||'—'}</td></tr>
-      <tr><td colspan="2"><strong>স্থায়ী ঠিকানাঃ</strong> গ্রামঃ ${r.permanentAddress.village||'—'}, থানাঃ ${r.permanentAddress.thana||'—'}, জেলাঃ ${r.permanentAddress.district||'—'}</td></tr>
+      <tr><td colspan="2"><strong>বর্তমান ঠিকানাঃ</strong> গ্রামঃ ${pres.village||'—'}, থানাঃ ${pres.thana||'—'}, জেলাঃ ${pres.district||'—'}</td></tr>
+      <tr><td colspan="2"><strong>স্থায়ী ঠিকানাঃ</strong> গ্রামঃ ${perm.village||'—'}, থানাঃ ${perm.thana||'—'}, জেলাঃ ${perm.district||'—'}</td></tr>
     </table>
 
     ${sec('২. জরুরী যোগাযোগের ব্যক্তিগণ (Emergency Contact)')}
     <table class="form-table" style="font-size:9.5pt">
       <tr><th style="width:20%">বিষয়</th><th style="width:40%">১ম ব্যক্তি</th><th style="width:40%">২য় ব্যক্তি</th></tr>
-      <tr><td><strong>নাম</strong></td><td>${r.ec1.name}</td><td>${r.ec2.name}</td></tr>
-      <tr><td><strong>সম্পর্ক</strong></td><td>${r.ec1.relation}</td><td>${r.ec2.relation}</td></tr>
-      <tr><td><strong>মোবাইল</strong></td><td>${num(r.ec1.mobile)}</td><td>${num(r.ec2.mobile)}</td></tr>
+      <tr><td><strong>নাম</strong></td><td>${ec1.name || '—'}</td><td>${ec2.name || '—'}</td></tr>
+      <tr><td><strong>সম্পর্ক</strong></td><td>${ec1.relation || '—'}</td><td>${ec2.relation || '—'}</td></tr>
+      <tr><td><strong>মোবাইল</strong></td><td>${num(ec1.mobile || '—')}</td><td>${num(ec2.mobile || '—')}</td></tr>
     </table>
 
     ${sec('৩. পেশাগত অভিজ্ঞতা (Professional Experience)')}
     <table class="form-table" style="font-size:9.5pt">
       <tr><th style="width:6%">ক্র:</th><th>প্রতিষ্ঠানের নাম</th><th>পদবি</th><th>শুরুর তারিখ</th><th>শেষ তারিখ</th></tr>
-      ${[r.exp1,r.exp2].map((e,i)=>`<tr>
+      ${[r.exp1,r.exp2].filter(Boolean).map((e,i)=>`<tr>
         <td>${toBnDigits(String(i+1).padStart(2,'0'))}</td>
-        <td>${e.company||''}</td><td>${e.desig||''}</td>
-        <td>${fmtDate(e.start)}</td><td>${fmtDate(e.end)}</td>
+        <td>${e && e.company ? e.company : ''}</td><td>${e && e.desig ? e.desig : ''}</td>
+        <td>${e && e.start ? fmtDate(e.start) : ''}</td><td>${e && e.end ? fmtDate(e.end) : ''}</td>
       </tr>`).join('')}
     </table>
 
     ${sec('৪. রেফারেন্স (Reference)')}
     <table class="form-table" style="font-size:9.5pt">
-      <tr>${cell('নাম',r.reference.name)}${cell('পদবি',r.reference.desig)}</tr>
-      <tr>${cell('প্রতিষ্ঠান',r.reference.org)}${cell('মোবাইল',num(r.reference.mobile))}</tr>
+      <tr>${cell('নাম',ref.name)}${cell('পদবি',ref.desig)}</tr>
+      <tr>${cell('প্রতিষ্ঠান',ref.org)}${cell('মোবাইল',num(ref.mobile))}</tr>
     </table>
 
     <div style="font-size:10pt;line-height:1.5;margin-top:10px;text-align:justify">উপরে প্রদত্ত সকল তথ্য সত্য ও নির্ভুল। কোনো তথ্য অসত্য প্রমাণিত হইলে প্রতিষ্ঠান আমার বিরুদ্ধে যেকোনো আইনানুগ ব্যবস্থা গ্রহণ করার এখতিয়ার সংরক্ষণ করে।</div>
@@ -4925,8 +5172,11 @@ function printBiodata(id){
 }
 /* ---- Print Form 3: Appointment Letter (page 2 of Mahbub joining form — UNTOUCHED format) ---- */
 function printAppointment(id){
-  const r = RECRUITMENT.find(x=>x.id===id); if(!r) return '';
-  const paddr = `${r.permanentAddress.village||''}, ${r.permanentAddress.thana||''}, ${r.permanentAddress.district||''}`;
+  const r = (typeof getCandidateRecord === 'function' ? getCandidateRecord(id) : null) || (window.RECRUITMENT || []).find(x => String(x.id) === String(id) || String(x.empId) === String(id));
+  if(!r) return '';
+  const perm = r.permanentAddress || {};
+  const paddr = `${perm.village||''}, ${perm.thana||''}, ${perm.district||''}`;
+  const sal = r.salary || { basic: 0, houseRent: 0, medical: 0, other: 0, total: 0 };
   const dot = (v,w=140)=>`<span style="display:inline-block;min-width:${w}px;border-bottom:1px dotted #333;padding:0 3px">${v||''}</span>`;
   return `<div class="print-doc compact" style="padding:12mm 15mm">
     ${letterhead()}
@@ -4939,7 +5189,7 @@ function printAppointment(id){
       <tr><td><strong>মোবাইলঃ</strong> ${num(r.phone)}</td><td><strong>বিভাগঃ</strong> নিরাপত্তা</td></tr>
       <tr><td colspan="2"><strong>স্থায়ী ঠিকানাঃ</strong> ${paddr}</td></tr>
       <tr><td><strong>যোগদানের তারিখঃ</strong> ${fmtDate(todayISO())}</td><td><strong>আইডি নংঃ</strong> ${r.empId||dot('',80)}</td></tr>
-      <tr><td><strong>পদবিঃ</strong> ${DESIG_BN[r.desig]||r.desig}</td><td><strong>কর্মস্থলঃ</strong> ${r.project}</td></tr>
+      <tr><td><strong>পদবিঃ</strong> ${DESIG_BN[r.desig]||r.desig}</td><td><strong>কর্মস্থলঃ</strong> ${projName(r.project)}</td></tr>
     </table>
 
     <div style="font-size:10.5pt;line-height:1.5;text-align:justify;margin:6px 0">
@@ -4949,8 +5199,8 @@ function printAppointment(id){
     <div style="font-weight:700;font-size:11pt;text-align:center;text-decoration:underline;margin:8px 0 6px">চাকরির শর্তাবলী</div>
     <ol style="font-size:10pt;line-height:1.45;padding-left:22px;margin:0">
       <li style="margin-bottom:4px"><strong>নিয়োগের কার্যকারিতাঃ</strong> নিয়োগ উপরে উল্লিখিত যোগদানের তারিখ থেকে কার্যকর হবে। প্রথম <strong>৬ (ছয়) মাস</strong> শিক্ষানবিশ কাল হিসেবে বিবেচিত হবে, যে সময়কালে আপনার কর্মদক্ষতা, শৃঙ্খলা ও উপস্থিতি মূল্যায়ন করা হবে।</li>
-      <li style="margin-bottom:4px"><strong>বেতনঃ</strong> মূল মজুরিঃ ${toBnDigits(r.salary.basic)} টাকা, বাড়ি ভাড়াঃ ${toBnDigits(r.salary.houseRent)} টাকা, চিকিৎসা ভাতাঃ ${toBnDigits(r.salary.medical)} টাকা, অন্যান্যঃ ${toBnDigits(r.salary.other)} টাকা। <strong>মাসিক মোটঃ ${toBnDigits(r.salary.total)} টাকা।</strong></li>
-      <li style="margin-bottom:4px"><strong>ডিউটির সময়সূচিঃ</strong> প্রতিদিন ${toBnDigits(r.dutyHours)} ঘন্টা ডিউটি পালন করতে হবে। প্রয়োজনে দিন/রাতের শিফট রোটেশনে দায়িত্ব পালন করতে হবে।</li>
+      <li style="margin-bottom:4px"><strong>বেতনঃ</strong> মূল মজুরিঃ ${toBnDigits(sal.basic)} টাকা, বাড়ি ভাড়াঃ ${toBnDigits(sal.houseRent)} টাকা, চিকিৎসা ভাতাঃ ${toBnDigits(sal.medical)} টাকা, অন্যান্যঃ ${toBnDigits(sal.other)} টাকা। <strong>মাসিক মোটঃ ${toBnDigits(sal.total)} টাকা।</strong></li>
+      <li style="margin-bottom:4px"><strong>ডিউটির সময়সূচিঃ</strong> প্রতিদিন ${toBnDigits(r.dutyHours || 12)} ঘন্টা ডিউটি পালন করতে হবে। প্রয়োজনে দিন/রাতের শিফট রোটেশনে দায়িত্ব পালন করতে হবে।</li>
       <li style="margin-bottom:4px"><strong>ছুটিঃ</strong> ছুটির জন্য পূর্বাহ্নে যথাযথ কর্তৃপক্ষের অনুমোদন গ্রহণ করতে হবে। সাধারণত প্রতি ৩ (তিন) মাসে ছুটি নেওয়া যাবে। বিনানুমতিতে টানা ১০ (দশ) দিন অনুপস্থিত থাকলে তা স্বেচ্ছায় চাকরি ত্যাগ হিসেবে বিবেচিত হবে।</li>
       <li style="margin-bottom:4px"><strong>চাকরি থেকে অব্যাহতিঃ</strong> চাকরি ত্যাগ করতে হলে ন্যূনতম <strong>৬০ (ষাট) দিন</strong> পূর্বে লিখিত নোটিশ প্রদান করতে হবে অথবা সমপরিমাণ বেতন প্রতিষ্ঠানে জমা দিতে হবে।</li>
       <li style="margin-bottom:4px"><strong>বদলিঃ</strong> কোম্পানির প্রয়োজন অনুযায়ী মালিকাধীন যেকোনো সিস্টার কনসার্ন/প্রজেক্টে আপনাকে বদলি করার এখতিয়ার কর্তৃপক্ষ সংরক্ষণ করে।</li>

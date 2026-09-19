@@ -1755,12 +1755,33 @@ function jsQ(v){
 window.jsQ = jsQ;
 function money(v){ if(v===''||v==null) return ''; const s=Number(v).toLocaleString('en-IN'); return '৳ '+s; }
 function parseDate(v){
-  if(!v) return null; if(v instanceof Date) return v;
+  if(!v) return null; if(v instanceof Date) return isNaN(v.getTime()) ? null : v;
   const s=String(v).trim();
-  let m=s.match(/^(\d{2})\/(\d{2})\/(\d{2,4})/);
-  if(m){ let mo=+m[1],dd=+m[2],yy=+m[3]; if(yy<100) yy=yy<50?2000+yy:1900+yy; return new Date(yy,mo-1,dd);}
-  m=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return new Date(+m[1],+m[2]-1,+m[3]);
-  const d=new Date(s); return isNaN(d)?null:d;
+  if(!s) return null;
+
+  // 1. ISO format: YYYY-MM-DD or YYYY/MM/DD or YYYY-MM-DDTHH:mm:ss
+  let m = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if(m){
+    const yy = +m[1], mo = +m[2], dd = +m[3];
+    const d = new Date(yy, mo - 1, dd);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // 2. DD/MM/YYYY or MM/DD/YYYY or DD-MM-YYYY
+  m = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/);
+  if(m){
+    let p1 = +m[1], p2 = +m[2], yy = +m[3];
+    if(yy < 100) yy = yy < 50 ? 2000 + yy : 1900 + yy;
+    let dd, mo;
+    if(p1 > 12){ dd = p1; mo = p2; }
+    else if(p2 > 12){ mo = p1; dd = p2; }
+    else { dd = p1; mo = p2; }
+    const d = new Date(yy, mo - 1, dd);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
 }
 function fmtDate(v){
   const d=parseDate(v); if(!d) return v||'';
@@ -2077,43 +2098,78 @@ async function renderDashboard(){
     }
   }
 
-  const emps = DATA.employees;
-  const active = emps.filter(e=>e.Status==='Active');
-  const inactive = emps.filter(e=>e.Status==='Inactive');
-  const projSet = new Set(active.map(e=>e.ProjectName));
+  const emps = DATA.employees || [];
+  const activeEmps = emps.filter(e => String(e.Status || e.status || 'Active').trim().toLowerCase() === 'active');
+  const inactiveEmps = emps.filter(e => {
+    const st = String(e.Status || e.status || '').trim().toLowerCase();
+    return st === 'inactive' || st === 'resigned' || st === 'terminated' || st === 'exit';
+  });
+
+  const activeCount = emps.length ? activeEmps.length : (_dashboardLastData?.activeCount || 0);
+  const inactiveCount = emps.length ? inactiveEmps.length : (_dashboardLastData?.inactiveCount || 0);
+  const totalEmps = activeCount + inactiveCount;
+  const projCount = (DATA.projects && DATA.projects.length) ? DATA.projects.length : (_dashboardLastData?.projCount || 0);
+
   const parade = computeParade();
   const totalDemand = parade.reduce((s,p)=>s+p.demandTotal,0);
   const totalActual = parade.reduce((s,p)=>s+p.actualTotal,0);
   const shortage = Math.max(0,totalDemand-totalActual);
   const shortagePct = totalDemand>0 ? (shortage*100/totalDemand).toFixed(1) : 0;
-  const recentJoins = active.filter(e=>daysAgo(e.JoinDate)<=30);
-  const recentTransfers = DATA.transfers.filter(t => {
-    const st = t.status || t.Status;
-    return st === 'Completed' && t.TransferDate && daysAgo(t.TransferDate) <= 30;
-  });
-  const recentDisc = DATA.disciplinary.filter(a=>daysAgo(a.IssueDate)<=30);
-  const recentExits = DATA.exits.filter(x=>daysAgo(x.ExitDate)<=30);
-  
-  const dData = _dashboardLastData || {
-      activeCount: active.length,
-      inactiveCount: inactive.length,
-      projCount: DATA.projects.length,
-      totalEmps: emps.length
+
+  // Solid 30-day date math baseline
+  const now = new Date();
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+  const isWithinLast30Days = (v) => {
+    const d = parseDate(v);
+    if (!d) return false;
+    const t = d.getTime();
+    return t >= thirtyDaysAgo.getTime() && t <= (now.getTime() + 86400000);
   };
 
+  // 1. New Joiners (Last 30 Days)
+  const recentJoins = emps.filter(e => {
+    const jDate = e.join_date || e.JoinDate;
+    return jDate && isWithinLast30Days(jDate);
+  });
+
+  // 2. Transfers (Last 30 Days) - status === 'Completed'
+  const recentTransfers = (DATA.transfers || []).filter(t => {
+    const st = String(t.status || t.Status || '').trim().toLowerCase();
+    const tDate = t.transfer_date || t.TransferDate;
+    return st === 'completed' && tDate && isWithinLast30Days(tDate);
+  });
+
+  // 3. Disciplinary (Last 30 Days)
+  const recentDisc = (DATA.disciplinary || []).filter(a => {
+    const iDate = a.issue_date || a.IssueDate;
+    return iDate && isWithinLast30Days(iDate);
+  });
+
+  // 4. Exits (Last 30 Days)
+  const recentExits = (DATA.exits || []).filter(x => {
+    const xDate = x.exit_date || x.ExitDate;
+    return xDate && isWithinLast30Days(xDate);
+  });
+
   const desigCount = {};
-  active.forEach(e=>desigCount[e.Designation]=(desigCount[e.Designation]||0)+1);
+  activeEmps.forEach(e => {
+    const d = e.Designation || e.designation || 'Security Guard';
+    desigCount[d] = (desigCount[d] || 0) + 1;
+  });
   const desigRows = Object.entries(desigCount).sort((a,b)=>b[1]-a[1]);
 
   const alerts = computeAlerts();
   const trend = monthlyTrend();
-  
+
   container.innerHTML = `
     <div class="kpi-grid">
-      ${kpi('Active Employees', num(dData.activeCount), 'g', ico('users'), `${num(dData.totalEmps)} total`,'','employees')}
-      ${kpi('Inactive Employees', num(dData.inactiveCount), 'r', ico('x'), `${num((dData.inactiveCount*100/(dData.totalEmps||1)).toFixed(1))}% of total`,'','employees')}
-      ${kpi('Total Projects', num(dData.projCount), 'p', ico('home'), `${num(dData.projCount)} total`,'','projects')}
-      ${kpi('New Joins (30d)', num(recentJoins.length), 'b', ico('trend'), `+${num((recentJoins.length*100/(dData.activeCount||1)).toFixed(1))}%`, 'up','recruitment')}
+      ${kpi('Active Employees', num(activeCount), 'g', ico('users'), `${num(totalEmps)} total`,'','employees')}
+      ${kpi('Inactive Employees', num(inactiveCount), 'r', ico('x'), `${num((inactiveCount*100/(totalEmps||1)).toFixed(1))}% of total`,'','employees')}
+      ${kpi('Total Projects', num(projCount), 'p', ico('home'), `${num(projCount)} total`,'','projects')}
+      ${kpi('New Joins (30d)', num(recentJoins.length), 'b', ico('trend'), `+${num((recentJoins.length*100/(activeCount||1)).toFixed(1))}%`, 'up','recruitment')}
       ${kpi('Exits (30d)', num(recentExits.length), 'r', ico('x'), 'Turnover rate','','exit')}
       ${kpi('Manpower Shortage', num(shortage), 'y', ico('warn'), `${num(shortagePct)}% shortage`, 'down','parade')}
       ${kpi('Transfers (30d)', num(recentTransfers.length), 'b', ico('refresh'), '','','transfer')}
@@ -2202,7 +2258,7 @@ async function renderDashboard(){
           <div class="card-header"><h3>${'Workforce by Designation'}</h3></div>
           <div class="card-body tight">
             ${desigRows.map(([d,c])=>{
-              const pct = (c*100/active.length).toFixed(1);
+              const pct = (c*100/(activeCount||1)).toFixed(1);
               return `
                 <div style="padding:6px 0;border-bottom:1px solid #f1f5f9">
                   <div style="display:flex;justify-content:space-between;font-size:12px">
@@ -2330,9 +2386,9 @@ function monthlyTrend(){
     const inRange = (v)=>{ const x = parseDate(v)?.getTime(); return x && x>=start && x<end; };
     buckets.push({
       label,
-      joins: DATA.employees.filter(e=>inRange(e.JoinDate)).length,
-      exits: DATA.exits.filter(x=>inRange(x.ExitDate)).length,
-      transfers: DATA.transfers.filter(t=>inRange(t.TransferDate)).length,
+      joins: DATA.employees.filter(e=>inRange(e.join_date || e.JoinDate)).length,
+      exits: (DATA.exits || []).filter(x=>inRange(x.exit_date || x.ExitDate)).length,
+      transfers: (DATA.transfers || []).filter(t=>inRange(t.transfer_date || t.TransferDate) && String(t.status || t.Status || '').trim().toLowerCase() === 'completed').length,
     });
   }
   return buckets;

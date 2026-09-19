@@ -7620,15 +7620,32 @@ document.addEventListener('click', e=>{
   if(dd && dd.classList.contains('open') && !dd.contains(e.target)) dd.classList.remove('open');
 });
 function renderSchedPanelHTML(){
-  const today = todayISO();
-  const fut = DATA.transfers.filter(t=>t.Status!=='Cancelled' && t.TransferDate && t.TransferDate>today).sort((a,b)=>(a.TransferDate||'').localeCompare(b.TransferDate||''));
+  const todayObj = new Date();
+  todayObj.setHours(0,0,0,0);
+  const todayStr = todayISO();
+  const fut = DATA.transfers.filter(t=>t.Status!=='Cancelled' && t.TransferDate && t.TransferDate>todayStr).sort((a,b)=>(a.TransferDate||'').localeCompare(b.TransferDate||''));
   if(!fut.length) return `<p class="small-mute" style="text-align:center;padding:12px">${'No scheduled transfers'}</p>`;
   return fut.slice(0,6).map(t=>{
-    const dl = Math.ceil((parseDate(t.TransferDate)-Date.now())/86400000);
+    const d = parseDate(t.TransferDate);
+    let dateStr = t.TransferDate;
+    let label = '';
+    if(d){
+      d.setHours(0,0,0,0);
+      const diffDays = Math.round((d.getTime() - todayObj.getTime())/86400000);
+      const monthsEn=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      dateStr = `${String(d.getDate()).padStart(2,'0')} ${monthsEn[d.getMonth()]}, ${d.getFullYear()}`;
+      if(diffDays === 0){
+        label = ' (Today)';
+      } else if(diffDays === 1){
+        label = ' (Tomorrow)';
+      } else if(diffDays > 1){
+        label = ` (${diffDays} days left)`;
+      }
+    }
     return `<div class="alert-item info">
       ${ico('calendar')}
       <div><h5>${t.FullName} → ${projName(t.NewProject)}</h5>
-      <p>${projName(t.CurrentProject)} → ${projName(t.NewProject)} · ${fmtDateBnFormal(t.TransferDate)} (${dl<=0?'আজ':'আরও '+toBnDigits(dl)+' দিন পরে'})</p></div>
+      <p>${projName(t.CurrentProject)} → ${projName(t.NewProject)} · ${dateStr}${label}</p></div>
     </div>`;
   }).join('');
 }

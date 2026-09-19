@@ -1810,6 +1810,15 @@ function refNo(prefix='MG/SEC'){
   const d=new Date(); const yy=d.getFullYear(); const mm=String(d.getMonth()+1).padStart(2,'0');
   const seq=String(Math.floor(Math.random()*899+100)); return `${prefix}/${yy}/${mm}/${seq}`;
 }
+function escapeHtml(str){
+  if(str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 /* ============ Toast + Modal ============ */
 function toast(msg,type='info',onClick,sticky=false){
@@ -2556,21 +2565,20 @@ async function fetchEmployeesDirectly() {
       .order('id', { ascending: true });
 
     if (error) {
-      console.error('[Employees] Direct Supabase fetch error:', error.message || error);
-      const tbody = document.getElementById('empTableBody');
-      if (tbody && (!DATA.employees || DATA.employees.length === 0)) {
-        tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:24px;color:#dc2626">Failed to load employees: ${escapeHtml(error.message || String(error))}</td></tr>`;
-      }
+      console.warn('[Employees] Supabase fetch warning:', error.message || error);
       return null;
     }
 
     if (Array.isArray(data)) {
       console.log('[Employees] Direct Supabase fetch retrieved ' + data.length + ' records');
       DATA.employees = data.map(normEmployee);
+      if (typeof syncRecruitmentFromEmployees === 'function') {
+        syncRecruitmentFromEmployees();
+      }
       return DATA.employees;
     }
   } catch (err) {
-    console.error('[Employees] Error fetching employees from Supabase:', err);
+    console.warn('[Employees] Network offline / Failed to fetch handled gracefully:', err.message || err);
   }
   return null;
 }
@@ -2694,7 +2702,7 @@ async function renderEmployees(){
             <button class="btn sm" id="verifyModeBtn" onclick="toggleVerifyMode()">${ico('check')} ${'Verify Mode'}</button>
             <button class="btn sm" onclick="printEmpList()">${ico('print')} ${'Print / PDF'}</button>
             <button class="btn success sm" onclick="exportEmployees()">${ico('excel')} ${'Excel'}</button>
-            <button class="btn primary sm" onclick="openNewEmp()">${ico('plus')} ${'New Employee'}</button>
+            <button class="btn primary sm" onclick="openApplicantForm()">${ico('plus')} ${'New Employee'}</button>
           </div>
         </div>
         <div class="card-body">
@@ -2703,9 +2711,11 @@ async function renderEmployees(){
             <select id="empProjectFilter" onchange="renderEmpTable()"></select>
             <select id="empDesigFilter" onchange="renderEmpTable()"><option value="">${'All Designations'}</option></select>
             <select id="empStatusFilter" onchange="renderEmpTable()">
-              <option value="">${'All Status'}</option>
-              <option value="Active" selected>${'Active'}</option>
-              <option value="Inactive">${'Inactive'}</option>
+              <option value="All">All Statuses</option>
+              <option value="Active" selected>Active</option>
+              <option value="Inactive">Inactive</option>
+              <option value="Candidate">Candidate</option>
+              <option value="Application Rejected">Application Rejected</option>
             </select>
             <button class="btn" onclick="resetEmpFilter()">${'Reset'}</button>
           </div>
@@ -2773,7 +2783,7 @@ function resetEmpFilter(){
   document.getElementById('empSearch').value='';
   document.getElementById('empProjectFilter').value='';
   document.getElementById('empDesigFilter').value='';
-  document.getElementById('empStatusFilter').value='Active';   
+  document.getElementById('empStatusFilter').value='All';   
   renderEmpTable();
 }
 function renderEmpTable(){
@@ -2784,7 +2794,7 @@ function renderEmpTable(){
   const rows = senioritySort(DATA.employees.filter(e=>{
     if(proj && e.ProjectName!==proj) return false;
     if(de && e.Designation!==de) return false;
-    if(st && e.Status!==st) return false;
+    if(st && st !== 'All' && e.Status!==st) return false;
     if(q){
       const hay = `${e.id||''} ${e.FullName||''} ${e.EmployeeID||''} ${e.PhoneNumber||''} ${e.Designation||''} ${e.ProjectName||''}`.toLowerCase();
       if(!hay.includes(q)) return false;
@@ -2828,7 +2838,7 @@ function renderEmpTable(){
       <td>${fmtDate(e.JoinDate)}</td>
       <td>${num(e.PhoneNumber||'')}</td>
       <td>${e.Salary?money(e.Salary):''}</td>
-      <td><span class="pill ${e.Status==='Active'?'active':'inactive'}">${e.Status==='Active'?('Active'):('Inactive')}</span></td>
+      <td><span class="pill ${e.Status==='Active'?'active':e.Status==='Candidate'?'info':e.Status==='Application Rejected'?'danger':'inactive'}">${e.Status||''}</span></td>
       <td><button class="btn sm ghost" onclick="event.stopPropagation();openEmpDetail('${empKey}')">${'View'}</button></td>
     </tr>
   `;}).join('');
@@ -2891,7 +2901,7 @@ function openEmpDetail(recordId){
         <button class="btn sm" onclick="empActionQuick('disciplinary','${empKey}')">${'Notice'}</button>
         <button class="btn sm" onclick="empActionQuick('leave','${empKey}')">${'Leave'}</button>
         ${e.Status==='Active'?`<button class="btn sm danger" onclick="empActionQuick('exit','${empKey}')">${'Exit'}</button>`:`<button class="btn sm primary" onclick="promptReactivate('${empKey}')">${'Reactivate'}</button>`}
-        <button class="btn sm" onclick="closeModal();openNewEmp('${empKey}')">${ico('edit')} ${'Edit'}</button>
+        <button class="btn sm" onclick="closeModal();openApplicantForm('${empKey}')">${ico('edit')} ${'Edit'}</button>
         <button class="btn sm danger" onclick="deleteEmployeeDirectly('${empKey}')">${ico('trash')} ${'Delete'}</button>
         <button class="btn sm primary" onclick="printEmpProfile('${empKey}')">${ico('print')} ${'Print Profile'}</button>
       </div>
@@ -3000,179 +3010,7 @@ function empActionQuick(action, rid){
   const pickId = { transfer:'trEmp', disciplinary:'dcEmp', leave:'lvEmp', exit:'exEmp' }[action];
   setTimeout(()=>{ if(pickId) setEmpPicker(pickId, rid); },100);
 }
-function openNewEmp(empKey){
-  const isEdit = !!empKey;
-  const existing = isEdit ? findEmp(empKey) : null;
 
-  openModal(isEdit ? 'Edit Employee' : 'Register New Employee', `
-    <p class="small-mute" style="margin-bottom:12px">${isEdit ? 'Update employee details and save to sync directly to Supabase.' : 'Whether this person worked here before is auto-checked by NID/mobile/name. A match raises a duplicate alert with a re-hire option.'}</p>
-    <input type="hidden" id="ne_editKey" value="${isEdit && existing ? (existing.id || existing.EmployeeID  || '') : ''}">
-    <div class="form-grid">
-      <div class="field"><label>${'Full Name (English)'} *</label><input id="ne_nameEn" type="text" placeholder="Md ..." value="${escapeHtml(existing ? (existing.FullName||'') : '')}" onchange="neDupHint()">${translateBtnHTML('ne_nameEn','ne_nameBn')}</div>
-      <div class="field"><label>${'Full Name (Bangla)'}</label><input id="ne_nameBn" type="text" placeholder="Md ... (Click translate button or type)" value="${escapeHtml(existing ? (existing.FullNameBn||existing.FullNameBangla||'') : '')}"></div>
-      <div class="field"><label>${'Official ID (if any)'}</label><input id="ne_officialId" type="text" placeholder="${'Company-issued ID'}" value="${escapeHtml(existing ? (existing.EmployeeID||'') : '')}"></div>
-      <div class="field"><label>${"Father's Name"}</label><input id="ne_father" type="text" value="${escapeHtml(existing ? (existing.FatherName||'') : '')}"></div>
-      <div class="field"><label>${'Date of Birth'}</label><input id="ne_dob" type="date" value="${existing ? (existing.DOB||'') : ''}"></div>
-      <div class="field"><label>NID / Birth Certificate</label><input id="ne_nid" type="text" placeholder="10/13/17 digits" value="${escapeHtml(existing ? (existing.NID || existing['NID/BirthCertificate'] || '') : '')}" onchange="neDupHint()"></div>
-      <div class="field"><label>${'Phone'}</label><input id="ne_phone" type="text" placeholder="01XXXXXXXXX" value="${escapeHtml(existing ? (existing.PhoneNumber||'') : '')}" onchange="neDupHint()"></div>
-      <div class="field"><label>${'Designation'}</label><select id="ne_desig">${DESIGNATIONS.map(d=>`<option ${existing && existing.Designation === d ? 'selected' : ''}>${d}</option>`).join('')}</select></div>
-      <div class="field"><label>${'Project'}</label><select id="ne_proj"><option>—</option>${activeProjects().map(p=>`<option ${existing && existing.ProjectName === p.ProjectName ? 'selected' : ''}>${p.ProjectName}</option>`).join('')}</select></div>
-      <div class="field"><label>${'Join Date'}</label><input id="ne_join" type="date" value="${existing ? (existing.JoinDate||todayISO()) : todayISO()}"></div>
-      <div class="field"><label>${'Salary'}</label><input id="ne_salary" type="number" placeholder="0" value="${existing ? (existing.Salary||0) : ''}"></div>
-      <div class="field"><label>${'Status'}</label><select id="ne_status">
-        <option value="Active" ${!existing || existing.Status === 'Active' ? 'selected' : ''}>Active</option>
-        <option value="Inactive" ${existing && existing.Status === 'Inactive' ? 'selected' : ''}>Inactive</option>
-      </select></div>
-      <div class="field wide" style="grid-column:1/-1">
-        <label style="color:var(--purple);font-weight:600">${'📍 Permanent Address (Cascade)'}</label>
-        <div id="ne_addrCascade" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-top:4px"></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px">
-          <div><label style="font-size:11px">${'Village'}</label>
-            <input id="ne_village" list="ne_villageList" type="text" placeholder="${'Type village name'}" value="${escapeHtml(existing ? (existing.Village||'') : '')}">
-            <datalist id="ne_villageList"></datalist>
-            <span class="small-mute" style="font-size:10px">${'💡 Once typed, it suggests next time'}</span></div>
-          <div><label style="font-size:11px">${'House / Holding / Street'}</label>
-            <input id="ne_street" type="text" value="${escapeHtml(existing ? (existing.Street||'') : '')}"></div>
-        </div>
-      </div>
-      <div class="field wide"><label>${'Additional Address Notes'}</label><textarea id="ne_addr" rows="2">${escapeHtml(existing ? (existing.Address||'') : '')}</textarea></div>
-    </div>
-    <div id="neDupHint" class="small-mute" style="margin-top:8px"></div>
-    <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px">
-      <button class="btn" onclick="closeModal()">${'Cancel'}</button>
-      <button class="btn primary" onclick="saveNewEmployee()">${isEdit ? 'Update Employee' : 'Save Employee'}</button>
-    </div>
-  `);
-  setTimeout(function(){
-    if(typeof buildAddressCascade==='function') buildAddressCascade('ne_addrCascade', {
-      divId: existing ? existing.DivisionID : '',
-      distId: existing ? existing.DistrictID : '',
-      upzId: existing ? existing.UpazilaID : '',
-      uniId: existing ? existing.UnionID : ''
-    }, function(state){
-      var vl = document.getElementById('ne_villageList'); if(vl) vl.innerHTML = getVillages(state.unionId).map(function(v){return '<option value="'+v.replace(/"/g,'&quot;')+'">';}).join('');
-    });
-  }, 40);
-}
-function neDupHint(){
-  const g = id => (document.getElementById(id)||{}).value||'';
-  const box = document.getElementById('neDupHint'); if(!box) return;
-  const d = findDuplicates({ nid:g('ne_nid'), phone:g('ne_phone'), nameEn:g('ne_nameEn') });
-  box.innerHTML = d.length
-    ? `<span style="color:var(--warning);font-weight:600">⚠ ${'This data matches'} ${num(d.length)} ${'existing record(s) — saving will raise the duplicate alert with a re-hire option'}</span>`
-    : '';
-}
-async function saveNewEmployee(force){
-  if(!guardEdit()) return;
-  const g = id => (document.getElementById(id)||{}).value||'';
-  const nameEn = g('ne_nameEn').trim();
-  if(!nameEn){ toast('English name is required','error'); return; }
-
-  const editKey = g('ne_editKey').trim();
-  const isEdit = !!editKey;
-
-  const applicant = {
-    name: g('ne_nameBn').trim(),
-    nameEn,
-    nid: g('ne_nid').trim(),
-    phone: g('ne_phone').trim(),
-    desig: g('ne_desig'),
-    project: g('ne_proj')==='—'?'':g('ne_proj'),
-    salary: { total: +g('ne_salary')||0 }
-  };
-
-  if(!isEdit && !force){
-    const dups = findDuplicates({ nid:applicant.nid, phone:applicant.phone, nameEn });
-    if(dups.length){ showDuplicateModal(dups, applicant, ()=>saveNewEmployee(true)); return; }
-  }
-
-  const divId = (document.getElementById('ne_addrCascade_div')||{}).value||'';
-  const distId = (document.getElementById('ne_addrCascade_dist')||{}).value||'';
-  const upzId = (document.getElementById('ne_addrCascade_upz')||{}).value||'';
-  const uniId = (document.getElementById('ne_addrCascade_uni')||{}).value||'';
-  const village = ((document.getElementById('ne_village')||{}).value||'').trim();
-  const street = ((document.getElementById('ne_street')||{}).value||'').trim();
-  if(uniId && village) rememberVillage(uniId, village);
-
-  const officialId = g('ne_officialId').trim();
-  const status = g('ne_status') || 'Active';
-
-  const dbPayload = {
-    employee_id: officialId || null,
-    full_name: nameEn,
-    full_name_bn: applicant.name || null,
-    father_name: g('ne_father').trim() || null,
-    dob: g('ne_dob') || null,
-    phone: applicant.phone || null,
-    nid: applicant.nid || null,
-    designation: applicant.desig || null,
-    project_name: applicant.project || null,
-    join_date: g('ne_join') || todayISO(),
-    duty_hour: '8',
-    salary: +g('ne_salary') || 0,
-    status: status,
-    address: g('ne_addr') || null,
-    division_id: divId || null,
-    district_id: distId || null,
-    upazila_id: upzId || null,
-    union_id: uniId || null,
-    village: village || null,
-    street: street || null,
-    division: bdDivName(divId) || null,
-    district: bdDistName(distId) || null,
-    thana: bdUpzName(upzId) || null
-  };
-
-  const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
-                || (window.MGHRM && window.MGHRM.sb)
-                || window.sb
-                || (typeof sb !== 'undefined' ? sb : null);
-
-  if (sbClient) {
-    try {
-      if (isEdit) {
-        let query = sbClient.from('employees').update(dbPayload);
-        const existingEmp = findEmp(editKey);
-        if (existingEmp && existingEmp.id) {
-          query = query.eq('id', existingEmp.id);
-        } else if (existingEmp && existingEmp.EmployeeID) {
-          query = query.eq('employee_id', existingEmp.EmployeeID);
-        } else if (/^\d+$/.test(editKey)) {
-          query = query.eq('id', editKey);
-        } else {
-          query = query.eq('employee_id', editKey);
-        }
-        const { error } = await query;
-        if (error) {
-          console.error('[Employees] Update error:', error);
-          toast('Failed to update employee: ' + (error.message || error), 'error');
-          return;
-        }
-        toast(`${nameEn} — updated successfully`, 'success');
-      } else {
-        const { error } = await sbClient.from('employees').insert([dbPayload]);
-        if (error) {
-          console.error('[Employees] Insert error:', error);
-          toast('Failed to save employee: ' + (error.message || error), 'error');
-          return;
-        }
-        toast(`${nameEn} — registered successfully`, 'success');
-      }
-    } catch(err) {
-      console.error('[Employees] Supabase mutation exception:', err);
-      toast('Error saving to server: ' + (err.message || err), 'error');
-      return;
-    }
-  } else {
-    toast('Error: Supabase client not connected', 'error');
-    return;
-  }
-
-  closeModal();
-  await fetchEmployeesDirectly();
-  renderEmpTable();
-  if (typeof updateNotifBadge === 'function') updateNotifBadge();
-}
 function exportEmployees(){
   const rows = DATA.employees;
   const keys = ['EmployeeID','FullName','Designation','ProjectName','JoinDate','PhoneNumber','Salary','Status'];
@@ -3420,7 +3258,12 @@ function openCandidateProfile(id){
   `;
   openModal(r.name, html);
 }
-function editCandidate(id){ toast('Edit form coming soon','info'); }
+function editCandidate(id){
+  const r = RECRUITMENT.find(x => String(x.id) === String(id));
+  if(!r) return;
+  closeModal();
+  openApplicantForm(r.id);
+}
 const BD_CASC={"Comilla":["Debidwar","Barura","Brahmanpara","Chandina","Chauddagram","Daudkandi","Homna","Laksam","Muradnagar","Nangalkot","Comilla Sadar","Meghna","Monohargonj","Sadarsouth","Titas","Burichang","Lalmai"],"Feni":["Chhagalnaiya","Feni Sadar","Sonagazi","Fulgazi","Parshuram","Daganbhuiyan"],"Brahmanbaria":["Brahmanbaria Sadar","Kasba","Nasirnagar","Sarail","Ashuganj","Akhaura","Nabinagar","Bancharampur","Bijoynagar"],"Rangamati":["Rangamati Sadar","Kaptai","Kawkhali","Baghaichari","Barkal","Langadu","Rajasthali","Belaichari","Juraichari","Naniarchar"],"Noakhali":["Noakhali Sadar","Companiganj","Begumganj","Hatia","Subarnachar","Kabirhat","Senbug","Chatkhil","Sonaimori"],"Chandpur":["Haimchar","Kachua","Shahrasti","Chandpur Sadar","Matlab South","Hajiganj","Matlab North","Faridgonj"],"Lakshmipur":["Lakshmipur Sadar","Kamalnagar","Raipur","Ramgati","Ramganj"],"Chattogram":["Rangunia","Sitakunda","Mirsharai","Patiya","Sandwip","Banshkhali","Boalkhali","Anwara","Chandanaish","Satkania","Lohagara","Hathazari","Fatikchhari","Raozan","Karnafuli"],"Coxsbazar":["Coxsbazar Sadar","Chakaria","Kutubdia","Ukhiya","Moheshkhali","Pekua","Ramu","Teknaf","Eidgaon"],"Khagrachhari":["Khagrachhari Sadar","Dighinala","Panchari","Laxmichhari","Mohalchari","Manikchari","Ramgarh","Matiranga","Guimara"],"Bandarban":["Bandarban Sadar","Alikadam","Naikhongchhari","Rowangchhari","Lama","Ruma","Thanchi"],"Sirajganj":["Belkuchi","Chauhali","Kamarkhand","Kazipur","Raigonj","Shahjadpur","Sirajganj Sadar","Tarash","Ullapara"],"Pabna":["Sujanagar","Ishurdi","Bhangura","Pabna Sadar","Bera","Atghoria","Chatmohar","Santhia","Faridpur"],"Bogura":["Kahaloo","Bogra Sadar","Shariakandi","Shajahanpur","Dupchanchia","Adamdighi","Nondigram","Sonatala","Dhunot","Gabtali","Sherpur","Shibganj"],"Rajshahi":["Paba","Durgapur","Mohonpur","Charghat","Puthia","Bagha","Godagari","Tanore","Bagmara"],"Natore":["Natore Sadar","Singra","Baraigram","Bagatipara","Lalpur","Gurudaspur","Naldanga"],"Joypurhat":["Akkelpur","Kalai","Khetlal","Panchbibi","Joypurhat Sadar"],"Chapainawabganj":["Chapainawabganj Sadar","Gomostapur","Nachol","Bholahat","Shibganj"],"Naogaon":["Mohadevpur","Badalgachi","Patnitala","Dhamoirhat","Niamatpur","Manda","Atrai","Raninagar","Naogaon Sadar","Porsha","Sapahar"],"Jashore":["Manirampur","Abhaynagar","Bagherpara","Chougachha","Jhikargacha","Keshabpur","Jessore Sadar","Sharsha"],"Satkhira":["Assasuni","Debhata","Kalaroa","Satkhira Sadar","Shyamnagar","Tala","Kaliganj"],"Meherpur":["Mujibnagar","Meherpur Sadar","Gangni"],"Narail":["Narail Sadar","Lohagara","Kalia"],"Chuadanga":["Chuadanga Sadar","Alamdanga","Damurhuda","Jibannagar"],"Kushtia":["Kushtia Sadar","Kumarkhali","Khoksa","Mirpur","Daulatpur","Bheramara"],"Magura":["Shalikha","Sreepur","Magura Sadar","Mohammadpur"],"Khulna":["Paikgasa","Fultola","Digholia","Rupsha","Terokhada","Dumuria","Botiaghata","Dakop","Koyra"],"Bagerhat":["Fakirhat","Bagerhat Sadar","Mollahat","Sarankhola","Rampal","Morrelganj","Kachua","Mongla","Chitalmari"],"Jhenaidah":["Jhenaidah Sadar","Shailkupa","Harinakundu","Kaliganj","Kotchandpur","Moheshpur"],"Jhalakathi":["Jhalakathi Sadar","Kathalia","Nalchity","Rajapur"],"Patuakhali":["Bauphal","Patuakhali Sadar","Dumki","Dashmina","Kalapara","Mirzaganj","Galachipa","Rangabali"],"Pirojpur":["Pirojpur Sadar","Nazirpur","Kawkhali","Zianagar","Bhandaria","Mathbaria","Nesarabad"],"Barisal":["Barisal Sadar","Bakerganj","Babuganj","Wazirpur","Banaripara","Gournadi","Agailjhara","Mehendiganj","Muladi","Hizla"],"Bhola":["Bhola Sadar","Borhan Sddin","Charfesson","Doulatkhan","Monpura","Tazumuddin","Lalmohan"],"Barguna":["Amtali","Barguna Sadar","Betagi","Bamna","Pathorghata","Taltali"],"Sylhet":["Balaganj","Beanibazar","Bishwanath","Companiganj","Fenchuganj","Golapganj","Gowainghat","Jaintiapur","Kanaighat","Sylhet Sadar","Zakiganj","Dakshinsurma","Osmaninagar"],"Moulvibazar":["Barlekha","Kamolganj","Kulaura","Moulvibazar Sadar","Rajnagar","Sreemangal","Juri"],"Habiganj":["Nabiganj","Bahubal","Ajmiriganj","Baniachong","Lakhai","Chunarughat","Habiganj Sadar","Madhabpur"],"Sunamganj":["Sunamganj Sadar","South Sunamganj","Bishwambarpur","Chhatak","Jagannathpur","Dowarabazar","Tahirpur","Dharmapasha","Jamalganj","Shalla","Derai","Madhyanagar"],"Narsingdi":["Belabo","Monohardi","Narsingdi Sadar","Palash","Raipura","Shibpur"],"Gazipur":["Kaliganj","Kaliakair","Kapasia","Gazipur Sadar","Sreepur"],"Shariatpur":["Shariatpur Sadar","Naria","Zajira","Gosairhat","Bhedarganj","Damudya"],"Narayanganj":["Araihazar","Bandar","Narayanganj Sadar","Rupganj","Sonargaon"],"Tangail":["Basail","Bhuapur","Delduar","Ghatail","Gopalpur","Madhupur","Mirzapur","Nagarpur","Sakhipur","Tangail Sadar","Kalihati","Dhanbari"],"Kishoreganj":["Itna","Katiadi","Bhairab","Tarail","Hossainpur","Pakundia","Kuliarchar","Kishoreganj Sadar","Karimgonj","Bajitpur","Austagram","Mithamoin","Nikli"],"Manikganj":["Harirampur","Saturia","Manikganj Sadar","Gior","Shibaloy","Doulatpur","Singiar"],"Dhaka":["Savar","Dhamrai","Keraniganj","Nawabganj","Dohar"],"Munshiganj":["Munshiganj Sadar","Sreenagar","Sirajdikhan","Louhajanj","Gajaria","Tongibari"],"Rajbari":["Rajbari Sadar","Goalanda","Pangsa","Baliakandi","Kalukhali"],"Madaripur":["Madaripur Sadar","Shibchar","Kalkini","Rajoir","Dasar"],"Gopalganj":["Gopalganj Sadar","Kashiani","Tungipara","Kotalipara","Muksudpur"],"Faridpur":["Faridpur Sadar","Alfadanga","Boalmari","Sadarpur","Nagarkanda","Bhanga","Charbhadrasan","Madhukhali","Saltha"],"Panchagarh":["Panchagarh Sadar","Debiganj","Boda","Atwari","Tetulia"],"Dinajpur":["Nawabganj","Birganj","Ghoraghat","Birampur","Parbatipur","Bochaganj","Kaharol","Fulbari","Dinajpur Sadar","Hakimpur","Khansama","Birol","Chirirbandar"],"Lalmonirhat":["Lalmonirhat Sadar","Kaliganj","Hatibandha","Patgram","Aditmari"],"Nilphamari":["Syedpur","Domar","Dimla","Jaldhaka","Kishorganj","Nilphamari Sadar"],"Gaibandha":["Sadullapur","Gaibandha Sadar","Palashbari","Saghata","Gobindaganj","Sundarganj","Phulchari"],"Thakurgaon":["Thakurgaon Sadar","Pirganj","Ranisankail","Haripur","Baliadangi"],"Rangpur":["Rangpur Sadar","Gangachara","Taragonj","Badargonj","Mithapukur","Pirgonj","Kaunia","Pirgacha"],"Kurigram":["Kurigram Sadar","Nageshwari","Bhurungamari","Phulbari","Rajarhat","Ulipur","Chilmari","Rowmari","Charrajibpur"],"Sherpur":["Sherpur Sadar","Nalitabari","Sreebordi","Nokla","Jhenaigati"],"Mymensingh":["Fulbaria","Trishal","Bhaluka","Muktagacha","Mymensingh Sadar","Dhobaura","Phulpur","Haluaghat","Gouripur","Gafargaon","Iswarganj","Nandail","Tarakanda"],"Jamalpur":["Jamalpur Sadar","Melandah","Islampur","Dewangonj","Sarishabari","Madarganj","Bokshiganj"],"Netrokona":["Barhatta","Durgapur","Kendua","Atpara","Madan","Khaliajuri","Kalmakanda","Mohongonj","Purbadhala","Netrokona Sadar"]};
 
 
@@ -3483,22 +3326,36 @@ const SALARY_DEFAULTS = {
 };
 function salaryFor(d){ return (COMPANY.salaryMap && COMPANY.salaryMap[d]) || SALARY_DEFAULTS[d] || ''; }
 
-function openApplicantForm(){
-  const tab = (id,label,active=false)=>`<div class="tab ${active?'active':''}" id="natab-${id}" onclick="switchTab('naTabs','${id}');naRefreshPrimary()">${label}</div>`;
-  const fld = (id,label,type='text',placeholder='',opts='')=>`<div class="field"><label>${label}</label>${opts?`<select id="na_${id}">${opts}</select>`:type==='textarea'?`<textarea id="na_${id}" rows="2" placeholder="${placeholder}"></textarea>`:`<input id="na_${id}" type="${type}" placeholder="${placeholder}">`}</div>`;
+function openApplicantForm(empKey){
+  const bn = LANG === 'bn';
+  const isEdit = !!empKey;
+  window.currentEditEmployeeId = empKey || null;
+  const existing = isEdit ? findEmp(empKey) : null;
+  const cand = !existing && isEdit ? RECRUITMENT.find(x => String(x.id) === String(empKey)) : null;
 
-  /* Height dropdown: 5'5" – 6'4" */
+  const tab = (id,label,active=false)=>`<div class="tab ${active?'active':''}" id="natab-${id}" onclick="switchTab('naTabs','${id}');naRefreshPrimary()">${label}</div>`;
+  const fld = (id,label,type='text',placeholder='',val='',opts='')=>`<div class="field"><label>${label}</label>${opts?`<select id="na_${id}">${opts}</select>`:type==='textarea'?`<textarea id="na_${id}" rows="2" placeholder="${placeholder}">${escapeHtml(val)}</textarea>`:`<input id="na_${id}" type="${type}" placeholder="${placeholder}" value="${escapeHtml(String(val))}">`}</div>`;
+
   let hOpts='';
-  for(let ft=5;ft<=6;ft++){ for(let inch=(ft===5?5:0);inch<=(ft===6?4:11);inch++){ hOpts+=`<option>${ft}' ${inch}"</option>`; } }
+  for(let ft=5;ft<=6;ft++){ for(let inch=(ft===5?5:0);inch<=(ft===6?4:11);inch++){ const optVal=`${ft}' ${inch}"`; hOpts+=`<option ${(existing && (existing.Height === optVal || existing.height === optVal)) || (cand && cand.height === optVal) ? 'selected' : ''}>${optVal}</option>`; } }
 
   const projCounts = projectUsageCounts(), desigCounts = desigUsageCounts(), relCounts = religionUsageCounts();
-  const projOpts = usageSortedOptions(activeProjects().map(p=>p.ProjectName), projCounts).map(p=>`<option>${p}</option>`).join('');
-  const desigOpts = usageSortedOptions(DESIGNATIONS, desigCounts).map(d=>`<option>${d}</option>`).join('');
-  const relOpts = usageSortedOptions(['Islam','Hindu','Buddhist','Christian'], relCounts).map(r=>`<option>${r}</option>`).join('');
-  const distOpts = `<option value="">— Select District —</option>` + Object.keys(BD_CASC).sort().map(d=>`<option>${d}</option>`).join('');
+  const getProj = existing ? (existing.ProjectName || existing.project_name || '') : (cand ? (cand.project || '') : '');
+  const getDesig = existing ? (existing.Designation || existing.designation || '') : (cand ? (cand.desig || '') : '');
+  const getRel = existing ? (existing.Religion || existing.religion || '') : (cand ? (cand.religion || '') : '');
 
-  openModal('New Candidate Entry — Full Data Entry', `
-    <p class="small-mute" style="margin-bottom:12px">${'Fill the form in English — only the candidate name is also kept in Bangla (needed for official letters). On submit the candidate moves to "Data Entry" and 3 forms become printable.'}</p>
+  const projOpts = usageSortedOptions(activeProjects().map(p=>p.ProjectName), projCounts).map(p=>`<option ${getProj === p ? 'selected' : ''}>${p}</option>`).join('');
+  const desigOpts = usageSortedOptions(DESIGNATIONS, desigCounts).map(d=>`<option ${getDesig === d ? 'selected' : ''}>${d}</option>`).join('');
+  const relOpts = usageSortedOptions(['Islam','Hindu','Buddhist','Christian'], relCounts).map(r=>`<option ${getRel === r ? 'selected' : ''}>${r}</option>`).join('');
+  const eduOpts = ['SSC','HSC','JSC','Diploma','Degree','Honours','Masters'].map(ed=>`<option ${existing && (existing.Education === ed || existing.education === ed) || (cand && cand.education === ed) ? 'selected' : ''}>${ed}</option>`).join('');
+  const bgOpts = ['O+','B+','A+','AB+','O-','B-','A-','AB-'].map(bg=>`<option ${existing && (existing.BloodGroup === bg || existing.bloodGroup === bg) || (cand && cand.bloodGroup === bg) ? 'selected' : ''}>${bg}</option>`).join('');
+  
+  const marStat = existing ? (existing.MaritalStatus || existing.marital_status || '') : (cand ? cand.maritalStatus : '');
+  const marOpts = `<option ${marStat==='Unmarried'?'selected':''}>Unmarried</option><option ${marStat==='Married'?'selected':''}>Married</option>`;
+
+  openModal(isEdit ? (bn?'কর্মী সম্পাদনা — রিক্রুটমেন্ট ফর্ম':'Edit Employee — Full Recruitment Form') : 'New Candidate Entry — Full Data Entry', `
+    <p class="small-mute" style="margin-bottom:12px">${isEdit ? 'Update employee details across all sections using the comprehensive recruitment form. Changes sync directly to Supabase while preserving status.' : 'Fill the form in English — only the candidate name is also kept in Bangla (needed for official letters). On submit the candidate moves to "Data Entry" and 3 forms become printable.'}</p>
+    <input type="hidden" id="na_editKey" value="${escapeHtml(empKey || '')}">
     <div class="tabs" id="naTabs">
       ${tab('naBasic','1. Basic',true)}
       ${tab('naAddr','2. Address')}
@@ -3508,29 +3365,29 @@ function openApplicantForm(){
     </div>
     <div id="tab-naBasic" class="tab-panel active">
       <div class="form-grid">
-        <div class="field"><label>Name (English) *</label><input id="na_nameEn" type="text" placeholder="Md ..." onchange="dupHintLive()">${translateBtnHTML('na_nameEn','na_name')}</div>
-        ${fld('name','Name (Bangla) *','text','Md ... (translate button or manual)')}
-        ${fld('father',"Father's Name")}
-        ${fld('mother',"Mother's Name")}
-        ${fld('dob','Date of Birth','date')}
-        <div class="field"><label>NID *</label><input id="na_nid" type="text" placeholder="10/13/17 digits" onchange="dupHintLive()"></div>
-        <div class="field"><label>Mobile *</label><input id="na_phone" type="text" placeholder="01XXXXXXXXX" onchange="dupHintLive()"></div>
-        ${fld('education','Education','','','<option>SSC</option><option>HSC</option><option>JSC</option><option>Diploma</option><option>Degree</option><option>Honours</option><option>Masters</option>')}
-        ${fld('religion','Religion','','',relOpts)}
-        ${fld('bloodGroup','Blood Group','','','<option>O+</option><option>B+</option><option>A+</option><option>AB+</option><option>O-</option><option>B-</option><option>A-</option><option>AB-</option>')}
-        ${fld('height','Height','','',hOpts)}
-        ${fld('weight','Weight (kg)','number')}
-        <div class="field"><label>Marital Status</label><select id="na_maritalStatus" onchange="naMaritalToggle()"><option>Unmarried</option><option>Married</option></select></div>
-        <div class="field" id="naSpouseNameWrap" style="display:none"><label>Spouse Name</label><input id="na_spouse" type="text"></div>
-        <div class="field" id="naSpouseMobileWrap" style="display:none"><label>Spouse Mobile</label><input id="na_spouseMobile" type="text" placeholder="01XXXXXXXXX"></div>
+        <div class="field"><label>Name (English) *</label><input id="na_nameEn" type="text" placeholder="Md ..." value="${escapeHtml(existing ? (existing.FullName||existing.full_name||'') : (cand ? (cand.nameEn||cand.name||'') : ''))}" onchange="dupHintLive()">${translateBtnHTML('na_nameEn','na_name')}</div>
+        <div class="field"><label>Name (Bangla) *</label><input id="na_name" type="text" placeholder="Md ... (translate button or manual)" value="${escapeHtml(existing ? (existing.FullNameBn||existing.full_name_bn||existing.name||'') : (cand ? (cand.name||'') : ''))}"></div>
+        <div class="field"><label>Father's Name</label><input id="na_father" type="text" value="${escapeHtml(existing ? (existing.FatherName||existing.father_name||existing.father||'') : (cand ? (cand.father||'') : ''))}"></div>
+        <div class="field"><label>Mother's Name</label><input id="na_mother" type="text" value="${escapeHtml(existing ? (existing.MotherName||existing.mother_name||existing.mother||'') : (cand ? (cand.mother||'') : ''))}"></div>
+        <div class="field"><label>Date of Birth</label><input id="na_dob" type="date" value="${escapeHtml(existing ? (existing.DOB||existing.dob||'') : (cand ? (cand.dob||'') : ''))}"></div>
+        <div class="field"><label>NID *</label><input id="na_nid" type="text" placeholder="10/13/17 digits" value="${escapeHtml(existing ? (existing.NID||existing.nid||'') : (cand ? (cand.nid||'') : ''))}" onchange="dupHintLive()"></div>
+        <div class="field"><label>Mobile *</label><input id="na_phone" type="text" placeholder="01XXXXXXXXX" value="${escapeHtml(existing ? (existing.PhoneNumber||existing.phone||'') : (cand ? (cand.phone||'') : ''))}" onchange="dupHintLive()"></div>
+        <div class="field"><label>Education</label><select id="na_education">${eduOpts}</select></div>
+        <div class="field"><label>Religion</label><select id="na_religion">${relOpts}</select></div>
+        <div class="field"><label>Blood Group</label><select id="na_bloodGroup">${bgOpts}</select></div>
+        <div class="field"><label>Height</label><select id="na_height">${hOpts}</select></div>
+        <div class="field"><label>Weight (kg)</label><input id="na_weight" type="number" value="${existing ? (existing.Weight||existing.weight||60) : (cand ? (cand.weight||60) : 60)}"></div>
+        <div class="field"><label>Marital Status</label><select id="na_maritalStatus" onchange="naMaritalToggle()">${marOpts}</select></div>
+        <div class="field" id="naSpouseNameWrap" style="display:${marStat==='Married'?'':'none'}"><label>Spouse Name</label><input id="na_spouse" type="text" value="${escapeHtml(existing ? (existing.SpouseName||existing.spouse_name||existing.spouse||'') : (cand ? (cand.spouse||'') : ''))}"></div>
+        <div class="field" id="naSpouseMobileWrap" style="display:${marStat==='Married'?'':'none'}"><label>Spouse Mobile</label><input id="na_spouseMobile" type="text" placeholder="01XXXXXXXXX" value="${escapeHtml(existing ? (existing.SpousePhoneNum||existing.spouse_phone||existing.spousePhone||'') : (cand ? (cand.spousePhone||'') : ''))}"></div>
       </div>
     </div>
     <div id="tab-naAddr" class="tab-panel">
       <h4 style="font-size:13px;margin-bottom:8px">Present Address</h4>
       <div id="na_presCascade"></div>
       <div class="form-grid" style="margin-top:8px">
-        <div class="field"><label>Village / Area</label><input id="na_pv" type="text" list="na_pvList" placeholder="Type village name" oninput="naSyncPresText()"><datalist id="na_pvList"></datalist></div>
-        <div class="field"><label>Street / House / Road</label><input id="na_pstreet" type="text" placeholder="House 12, Road 5"></div>
+        <div class="field"><label>Village / Area</label><input id="na_pv" type="text" list="na_pvList" placeholder="Type village name" value="${escapeHtml(existing ? (existing.Village||existing.village||(existing.presentAddress&&existing.presentAddress.village)||'') : (cand ? (cand.presentAddress&&cand.presentAddress.village||'') : ''))}" oninput="naSyncPresText()"><datalist id="na_pvList"></datalist></div>
+        <div class="field"><label>Street / House / Road</label><input id="na_pstreet" type="text" placeholder="House 12, Road 5" value="${escapeHtml(existing ? (existing.Street||existing.street||(existing.presentAddress&&existing.presentAddress.street)||'') : (cand ? (cand.presentAddress&&cand.presentAddress.street||'') : ''))}"></div>
       </div>
       <div class="divider"></div>
       <h4 style="font-size:13px;margin-bottom:8px">Permanent Address
@@ -3538,43 +3395,43 @@ function openApplicantForm(){
       </h4>
       <div id="na_permCascade"></div>
       <div class="form-grid" style="margin-top:8px">
-        <div class="field"><label>Village / Area</label><input id="na_permV" type="text" list="na_permVList" placeholder="Type village name"><datalist id="na_permVList"></datalist></div>
-        <div class="field"><label>Street / House / Road</label><input id="na_permstreet" type="text" placeholder="House 12, Road 5"></div>
+        <div class="field"><label>Village / Area</label><input id="na_permV" type="text" list="na_permVList" placeholder="Type village name" value="${escapeHtml(existing ? (existing.Village||existing.village||(existing.permanentAddress&&existing.permanentAddress.village)||'') : (cand ? (cand.permanentAddress&&cand.permanentAddress.village||'') : ''))}"><datalist id="na_permVList"></datalist></div>
+        <div class="field"><label>Street / House / Road</label><input id="na_permstreet" type="text" placeholder="House 12, Road 5" value="${escapeHtml(existing ? (existing.Street||existing.street||(existing.permanentAddress&&existing.permanentAddress.street)||'') : (cand ? (cand.permanentAddress&&cand.permanentAddress.street||'') : ''))}"></div>
       </div>
     </div>
     <div id="tab-naEc" class="tab-panel">
       <h4 style="font-size:13px;margin-bottom:8px">Emergency Contact 1</h4>
       <div class="form-grid">
-        ${fld('ec1n','Name')}
-        ${fld('ec1r','Relation')}
-        ${fld('ec1m','Mobile','text','01XXXXXXXXX')}
+        ${fld('ec1n','Name','text','','',existing ? (existing.ECName||existing.ec_name||(existing.ec1&&existing.ec1.name)||'') : (cand && cand.ec1 ? cand.ec1.name : ''))}
+        ${fld('ec1r','Relation','text','','',existing ? (existing.ECRelation||existing.ec_relation||(existing.ec1&&existing.ec1.relation)||'') : (cand && cand.ec1 ? cand.ec1.relation : ''))}
+        ${fld('ec1m','Mobile','text','01XXXXXXXXX',existing ? (existing.ECPhoneNumber||existing.ec_phone||(existing.ec1&&existing.ec1.mobile)||'') : (cand && cand.ec1 ? cand.ec1.mobile : ''))}
       </div>
       <div class="divider"></div>
       <h4 style="font-size:13px;margin-bottom:8px">Emergency Contact 2</h4>
       <div class="form-grid">
-        ${fld('ec2n','Name')}
-        ${fld('ec2r','Relation')}
-        ${fld('ec2m','Mobile','text','01XXXXXXXXX')}
+        ${fld('ec2n','Name','text','','',existing && existing.ec2 ? existing.ec2.name : (cand && cand.ec2 ? cand.ec2.name : ''))}
+        ${fld('ec2r','Relation','text','','',existing && existing.ec2 ? existing.ec2.relation : (cand && cand.ec2 ? cand.ec2.relation : ''))}
+        ${fld('ec2m','Mobile','text','01XXXXXXXXX',existing && existing.ec2 ? existing.ec2.mobile : (cand && cand.ec2 ? cand.ec2.mobile : ''))}
       </div>
     </div>
     <div id="tab-naRef" class="tab-panel">
       <div class="form-grid">
-        ${fld('rfn','Reference Name')}
-        ${fld('rfd','Designation')}
-        ${fld('rfo','Organization')}
-        ${fld('rfm','Mobile','text','01XXXXXXXXX')}
+        ${fld('rfn','Reference Name','text','','',existing ? (existing.ReferenceName||(existing.reference&&existing.reference.name)||'') : (cand && cand.reference ? cand.reference.name : ''))}
+        ${fld('rfd','Designation','text','','',existing ? (existing.ReferenceDesig||(existing.reference&&existing.reference.desig)||'') : (cand && cand.reference ? cand.reference.desig : ''))}
+        ${fld('rfo','Organization','text','','',existing ? (existing.ReferenceOrg||(existing.reference&&existing.reference.org)||'') : (cand && cand.reference ? cand.reference.org : ''))}
+        ${fld('rfm','Mobile','text','01XXXXXXXXX',existing ? (existing.ReferenceMobile||(existing.reference&&existing.reference.mobile)||'') : (cand && cand.reference ? cand.reference.mobile : ''))}
       </div>
     </div>
     <div id="tab-naJob" class="tab-panel">
       <div class="form-grid">
         <div class="field"><label>Applied Post *</label><select id="na_desig" onchange="naDesigSalary()">${desigOpts}</select></div>
         <div class="field"><label>Project *</label><select id="na_project">${projOpts}</select></div>
-        ${fld('dutyHours','Duty Hours','number','12')}
+        <div class="field"><label>Duty Hours</label><input id="na_dutyHours" type="number" placeholder="12" value="${existing ? (existing.DutyHour||existing.dutyHours||12) : (cand ? (cand.dutyHours||12) : 12)}"></div>
       </div>
       <div class="divider"></div>
       <h4 style="font-size:13px;margin-bottom:8px">Salary Structure (BDT)</h4>
       <div class="form-grid">
-        <div class="field"><label>Gross Salary *</label><input id="na_gross" type="number" placeholder="12800" oninput="naSalaryBreak()"></div>
+        <div class="field"><label>Gross Salary *</label><input id="na_gross" type="number" placeholder="12800" value="${existing ? (existing.Salary||(existing.salary&&existing.salary.total)||'') : (cand && cand.salary ? cand.salary.total : '')}" oninput="naSalaryBreak()"></div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px">
         <div style="background:var(--bg-dim);border-radius:8px;padding:8px 10px"><div class="small-mute" style="font-size:10.5px">Basic (60%)</div><div id="na_bBasic" style="font-weight:700">—</div></div>
@@ -3582,24 +3439,27 @@ function openApplicantForm(){
         <div style="background:var(--bg-dim);border-radius:8px;padding:8px 10px"><div class="small-mute" style="font-size:10.5px">Medical (10%)</div><div id="na_bMed" style="font-weight:700">—</div></div>
         <div style="background:var(--bg-dim);border-radius:8px;padding:8px 10px"><div class="small-mute" style="font-size:10.5px">Others (10%)</div><div id="na_bOth" style="font-weight:700">—</div></div>
       </div>
-      <p class="small-mute" style="margin-top:8px">${'Selecting a post auto-fills the gross salary (editable in Settings); it is broken down 60/20/10/10.'}</p>
+      <p class="small-mute" style="margin-top:8px">${'Selecting a post auto-fills the gross salary; it is broken down 60/20/10/10.'}</p>
     </div>
     <div id="dupHint" class="small-mute" style="margin-top:8px"></div>
     <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:12px">
-      <p class="small-mute">${'Once submitted, 3 forms become printable. Prior employment is auto-checked.'}</p>
+      <p class="small-mute">${isEdit ? 'Updating employee record directly (status preserved).' : 'Once submitted, 3 forms become printable. Prior employment is auto-checked.'}</p>
       <div style="display:flex;gap:8px">
-        <button class="btn" onclick="closeModal()">${'Cancel'}</button>
-        <button class="btn primary" id="naPrimaryBtn" onclick="naPrimaryAction()">${'Save & Continue'}</button>
+        <button class="btn" onclick="window.currentEditEmployeeId=null; closeModal()">${'Cancel'}</button>
+        <button class="btn primary" id="naPrimaryBtn" onclick="naPrimaryAction()">${isEdit ? 'Update Employee' : 'Save & Continue'}</button>
       </div>
     </div>
   `);
   naDesigSalary();
-  // Init address cascades (v3.2)
   if(window.buildAddressCascade){
     window.__na_presAddr = {};
     window.__na_permAddr = {};
-    buildAddressCascade('na_presCascade', {}, (a)=>{ window.__na_presAddr = a; naRefreshVillageList('pv', a.union_id); });
-    buildAddressCascade('na_permCascade', {}, (a)=>{ window.__na_permAddr = a; naRefreshVillageList('permV', a.union_id); });
+    const divId = existing ? existing.DivisionID : (cand ? cand.division_id : '');
+    const distId = existing ? existing.DistrictID : (cand ? cand.district_id : '');
+    const upzId = existing ? existing.UpazilaID : (cand ? cand.upazila_id : '');
+    const uniId = existing ? existing.UnionID : (cand ? cand.union_id : '');
+    buildAddressCascade('na_presCascade', {divId, distId, upzId, uniId}, (a)=>{ window.__na_presAddr = a; naRefreshVillageList('pv', a.union_id); });
+    buildAddressCascade('na_permCascade', {divId, distId, upzId, uniId}, (a)=>{ window.__na_permAddr = a; naRefreshVillageList('permV', a.union_id); });
   }
 }
 function naRefreshVillageList(field, unionId){
@@ -3622,12 +3482,10 @@ function naFillThanas(distId, thanaId){
 }
 function naSameAsPresent(chk){
   if(!chk.checked) return;
-  // Copy village + street
   ['pv','pstreet'].forEach(f=>{
     const x=document.getElementById('na_'+f), y=document.getElementById('na_'+(f==='pv'?'permV':'permstreet'));
     if(x&&y) y.value=x.value;
   });
-  // Copy cascade
   if(window.__na_presAddr && window.buildAddressCascade){
     window.__na_permAddr = Object.assign({}, window.__na_presAddr);
     buildAddressCascade('na_permCascade', window.__na_permAddr, (a)=>{ window.__na_permAddr = a; naRefreshVillageList('permV', a.union_id); });
@@ -3656,7 +3514,8 @@ function naActiveTab(){
 function naRefreshPrimary(){
   const b = document.getElementById('naPrimaryBtn'); if(!b) return;
   const last = naActiveTab()===NA_TAB_ORDER[NA_TAB_ORDER.length-1];
-  b.textContent = last ? ('Submit') : ('Save & Continue');
+  const isEdit = !!((document.getElementById('na_editKey')||{}).value || window.currentEditEmployeeId);
+  b.textContent = last ? (isEdit ? 'Update Employee' : 'Submit') : ('Save & Continue');
 }
 function naPrimaryAction(){
   const cur = naActiveTab();
@@ -3675,15 +3534,126 @@ function saveNewApplicant(force){
   const g = id => (document.getElementById('na_'+id)||{}).value||'';
   const name = g('name'); const nameEn = g('nameEn'); const nid = g('nid'); const phone = g('phone');
   if(!name||!nameEn||!nid||!phone){ toast('Name, NID and Mobile required','error'); return; }
-  if(!force){
-    const dups = findDuplicates({ nid, phone, nameEn });
-    if(dups.length){
-      const applicant = collectApplicantData(g);
-      showDuplicateModal(dups, applicant, ()=>commitApplicant(applicant));
+
+  const editKey = (document.getElementById('na_editKey')||{}).value || window.currentEditEmployeeId;
+  const applicant = collectApplicantData(g);
+
+  if (editKey) {
+    commitApplicantUpdate(editKey, applicant);
+  } else {
+    if(!force){
+      const dups = findDuplicates({ nid, phone, nameEn });
+      if(dups.length){
+        showDuplicateModal(dups, applicant, ()=>commitApplicant(applicant));
+        return;
+      }
+    }
+    commitApplicant(applicant);
+  }
+}
+
+async function commitApplicantUpdate(editKey, a){
+  if(!guardEdit()) return;
+  const pa = a.permanentAddress || {};
+  const pr = a.presentAddress || {};
+
+  const dbPayload = {
+    full_name: a.nameEn,
+    full_name_bn: a.name,
+    father_name: a.father,
+    mother_name: a.mother,
+    dob: a.dob,
+    phone: a.phone,
+    nid: a.nid,
+    education: a.education,
+    religion: a.religion,
+    height: String(a.height||''),
+    weight: String(a.weight||'0'),
+    division_id: pa.division_id || pr.division_id || '',
+    district_id: pa.district_id || pr.district_id || '',
+    upazila_id: pa.upazila_id || pr.upazila_id || '',
+    union_id: pa.union_id || pr.union_id || '',
+    village: pa.village || pr.village || '',
+    street: pa.street || pr.street || '',
+    marital_status: a.maritalStatus,
+    spouse_name: a.spouse,
+    spouse_phone: a.spousePhone,
+    ec_name: a.ec1 ? a.ec1.name : '',
+    ec_relation: a.ec1 ? a.ec1.relation : '',
+    ec_phone: a.ec1 ? a.ec1.mobile : '',
+    designation: a.desig,
+    project_name: a.project,
+    duty_hour: String(a.dutyHours || 12),
+    salary: a.salary ? a.salary.total : 0,
+    remarks: JSON.stringify(a)
+    // CRITICAL CONSTRAINT: status is NOT updated here to preserve pipeline/active/inactive status!
+  };
+
+  // Check if it's a candidate from RECRUITMENT array
+  const cand = RECRUITMENT.find(x => String(x.id) === String(editKey));
+  if (cand) {
+    Object.assign(cand, {
+      nameEn: a.nameEn,
+      name: a.name,
+      father: a.father,
+      mother: a.mother,
+      dob: a.dob,
+      nid: a.nid,
+      phone: a.phone,
+      desig: a.desig,
+      project: a.project,
+      salary: a.salary,
+      presentAddress: a.presentAddress,
+      permanentAddress: a.permanentAddress,
+      ec1: a.ec1,
+      ec2: a.ec2,
+      reference: a.reference
+    });
+    window.currentEditEmployeeId = null;
+    closeModal();
+    toast(`${a.nameEn} — candidate updated successfully`, 'success');
+    if (typeof renderRecruitment === 'function') renderRecruitment();
+    return;
+  }
+
+  const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
+                || (window.MGHRM && window.MGHRM.sb)
+                || window.sb
+                || (typeof sb !== 'undefined' ? sb : null);
+
+  if (sbClient) {
+    try {
+      const existingEmp = findEmp(editKey);
+      let query = sbClient.from('employees').update(dbPayload);
+      if (existingEmp && existingEmp.id) {
+        query = query.eq('id', existingEmp.id);
+      } else if (existingEmp && existingEmp.EmployeeID) {
+        query = query.eq('employee_id', existingEmp.EmployeeID);
+      } else if (/^\d+$/.test(editKey)) {
+        query = query.eq('id', editKey);
+      } else {
+        query = query.eq('employee_id', editKey);
+      }
+
+      const { error } = await query;
+      if (error) {
+        console.error('[Employees] Update error:', error);
+        toast('Failed to update employee: ' + (error.message || error), 'error');
+        return;
+      }
+    } catch(err) {
+      console.error('[Employees] Exception:', err);
+      toast('Error updating employee: ' + (err.message || err), 'error');
       return;
     }
   }
-  commitApplicant(collectApplicantData(g));
+
+  window.currentEditEmployeeId = null;
+  closeModal();
+  toast(`${a.nameEn} — updated successfully.`, 'success');
+  await fetchEmployeesDirectly();
+  if (typeof renderEmpTable === 'function') renderEmpTable();
+  if (typeof renderRecruitment === 'function') renderRecruitment();
 }
 function collectApplicantData(g){
   const gross=+g('gross')||0;
@@ -3720,31 +3690,125 @@ function collectApplicantData(g){
     salary:{basic:Math.round(gross*.6),houseRent:Math.round(gross*.2),medical:Math.round(gross*.1),other:Math.round(gross*.1),total:gross},
   };
 }
-function commitApplicant(a){
-  const newId = Math.max(0,...RECRUITMENT.map(x=>x.id))+1;
-  RECRUITMENT.push({ id:newId, stage:'DataEntry', date:todayISO(),
-    name:a.name, nameEn:a.nameEn, father:a.father, mother:a.mother, dob:a.dob, nid:a.nid, phone:a.phone,
-    fatherMobile:'', motherMobile:'',
-    education:a.education, religion:a.religion, bloodGroup:a.bloodGroup,
-    height:a.height, weight:a.weight, nationality:'বাংলাদেশী',
-    maritalStatus:a.maritalStatus, spouse:a.spouse, spousePhone:a.spousePhone||'',
-    presentAddress:a.presentAddress, permanentAddress:a.permanentAddress,
-    ec1:a.ec1, ec2:a.ec2,
-    exp1:{company:'',desig:'',start:'',end:''},
-    exp2:{company:'',desig:'',start:'',end:''},
-    reference:a.reference,
-    desig:a.desig, project:a.project, dutyHours:a.dutyHours,
-    salary:a.salary, empId:'' });
+function syncRecruitmentFromEmployees() {
+  if (!Array.isArray(DATA.employees)) return;
+  const candidates = DATA.employees.filter(e => e.Status === 'Candidate');
+  RECRUITMENT.length = 0;
+  candidates.forEach(e => {
+    let extra = {};
+    try {
+      if (e.Remarks && e.Remarks.startsWith('{')) extra = JSON.parse(e.Remarks);
+    } catch(err) {}
+
+    RECRUITMENT.push({
+      id: e.id || e.EmployeeID,
+      stage: extra.stage || 'DataEntry',
+      date: e.JoinDate || todayISO(),
+      name: e.FullNameBn || e.FullName || '',
+      nameEn: e.FullName || '',
+      father: e.FatherName || extra.father || '',
+      mother: e.MotherName || extra.mother || '',
+      dob: e.DOB || extra.dob || '',
+      nid: e.NID || extra.nid || '',
+      phone: e.PhoneNumber || extra.phone || '',
+      education: e.Education || extra.education || 'SSC',
+      religion: e.Religion || extra.religion || 'Islam',
+      bloodGroup: extra.bloodGroup || 'O+',
+      height: e.Height || extra.height || '5\' 6"',
+      weight: e.Weight || extra.weight || 60,
+      nationality: extra.nationality || 'বাংলাদেশী',
+      maritalStatus: e.MaritalStatus || extra.maritalStatus || 'Unmarried',
+      spouse: e.SpouseName || extra.spouse || '',
+      spousePhone: e.SpousePhoneNum || extra.spousePhone || '',
+      presentAddress: extra.presentAddress || { village: e.Village || '', thana: e.Thana || '', district: e.District || '' },
+      permanentAddress: extra.permanentAddress || { village: e.Village || '', thana: e.Thana || '', district: e.District || '' },
+      ec1: extra.ec1 || { name: e.ECName || '', relation: e.ECRelation || '', mobile: e.ECPhoneNumber || '' },
+      ec2: extra.ec2 || { name: '', relation: '', mobile: '' },
+      reference: extra.reference || { name: '', desig: '', org: '', mobile: '' },
+      exp1: extra.exp1 || { company: '', desig: '', start: '', end: '' },
+      exp2: extra.exp2 || { company: '', desig: '', start: '', end: '' },
+      desig: e.Designation || '',
+      project: e.ProjectName || '',
+      dutyHours: +(e.DutyHour) || 12,
+      salary: extra.salary || { basic: Math.round((e.Salary||0)*.6), houseRent: Math.round((e.Salary||0)*.2), medical: Math.round((e.Salary||0)*.1), other: Math.round((e.Salary||0)*.1), total: e.Salary || 0 },
+      empId: e.EmployeeID || ''
+    });
+  });
+}
+window.syncRecruitmentFromEmployees = syncRecruitmentFromEmployees;
+
+async function commitApplicant(a){
+  if(!guardEdit()) return;
+  const newEmpId = 'MGS' + String(Date.now()).slice(-4);
+  const pa = a.permanentAddress || {};
+  const pr = a.presentAddress || {};
+
+  const dbPayload = {
+    employee_id: newEmpId,
+    full_name: a.nameEn || a.name,
+    full_name_bn: a.name,
+    father_name: a.father,
+    mother_name: a.mother,
+    dob: a.dob,
+    phone: a.phone,
+    nid: a.nid,
+    education: a.education,
+    religion: a.religion,
+    height: String(a.height||''),
+    weight: String(a.weight||'0'),
+    division_id: pa.division_id || pr.division_id || '',
+    district_id: pa.district_id || pr.district_id || '',
+    upazila_id: pa.upazila_id || pr.upazila_id || '',
+    union_id: pa.union_id || pr.union_id || '',
+    village: pa.village || pr.village || '',
+    street: pa.street || pr.street || '',
+    marital_status: a.maritalStatus,
+    spouse_name: a.spouse,
+    spouse_phone: a.spousePhone,
+    ec_name: a.ec1 ? a.ec1.name : '',
+    ec_relation: a.ec1 ? a.ec1.relation : '',
+    ec_phone: a.ec1 ? a.ec1.mobile : '',
+    designation: a.desig,
+    project_name: a.project,
+    join_date: todayISO(),
+    duty_hour: String(a.dutyHours || 12),
+    salary: a.salary ? a.salary.total : 0,
+    status: 'Candidate',
+    remarks: JSON.stringify(a)
+  };
+
+  const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
+                || (window.MGHRM && window.MGHRM.sb)
+                || window.sb
+                || (typeof sb !== 'undefined' ? sb : null);
+
+  if (sbClient) {
+    try {
+      const { error } = await sbClient.from('employees').insert([dbPayload]);
+      if (error) {
+        console.error('[Recruitment] Insert error:', error);
+        toast('Failed to save candidate: ' + (error.message || error), 'error');
+        return;
+      }
+    } catch(err) {
+      console.error('[Recruitment] Exception:', err);
+      toast('Error saving candidate: ' + (err.message || err), 'error');
+      return;
+    }
+  }
+
   closeModal();
-  toast(`${a.name} → ${'Data saved. Now print 3 forms.'}`, 'success');
-  persist(); renderRecruitment();
+  toast(`${a.name} → Saved as Candidate in database.`, 'success');
+  await fetchEmployeesDirectly();
+  syncRecruitmentFromEmployees();
+  renderRecruitment();
 }
 
 function advanceApplicant(id){ return markStage(id,'next'); }
 function markStage(id, target){
   const stages=['DataEntry','DocsPrinted','Signed','Confirmed'];
   const labels = {DataEntry:'ডেটা এন্ট্রি',DocsPrinted:'ফর্ম প্রিন্ট',Signed:'স্বাক্ষরিত',Confirmed:'নিশ্চিত'};
-  const r = RECRUITMENT.find(x=>x.id===id); if(!r) return;
+  const r = RECRUITMENT.find(x=>String(x.id)===String(id)); if(!r) return;
   if(target==='next'){
     const i = stages.indexOf(r.stage);
     if(i<0||i>=stages.length-1){ toast('Already at final stage','info'); return; }
@@ -3754,162 +3818,122 @@ function markStage(id, target){
   }
   toast(`${r.name} → ${labels[r.stage]||r.stage}`, 'success');
   closeModal();
-  persist(); renderRecruitment();
+  renderRecruitment();
 }
 async function onboardCandidate(id){
   if(!guardEdit()) return;
-  const r = RECRUITMENT.find(x=>x.id===id); if(!r) return;
+  const r = RECRUITMENT.find(x=>String(x.id)===String(id)); 
+  if(!r) return;
   
-  if(!confirm('Confirm appointment for ' + r.name + '?')) return;
+  if(!confirm('Confirm appointment for ' + (r.nameEn || r.name) + '?')) return;
 
   const btn = event && event.target ? event.target : null;
   if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
 
-  (async function() {
+  const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
+                || (window.MGHRM && window.MGHRM.sb)
+                || window.sb
+                || (typeof sb !== 'undefined' ? sb : null);
+
+  if (!sbClient) {
+    toast('Error: Database connection not established.', 'error');
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Onboard to Employees'; }
+    return;
+  }
+
+  try {
+    const emp = DATA.employees.find(e => String(e.id) === String(id) || String(e.EmployeeID) === String(id));
+    let query = sbClient.from('employees').update({ status: 'Active', join_date: todayISO() });
+    if (emp && emp.id) {
+      query = query.eq('id', emp.id);
+    } else {
+      query = query.eq('id', id);
+    }
+
+    const { error } = await query;
+    if (error) throw error;
+
     try {
-      if (!window.sb) throw new Error('Database connection not established.');
-      
-      const newEmpId = 'MGS' + String(Date.now()).slice(-4);
-      const pa = r.permanentAddress||{};
-      
-      const newEmp = {
-        employee_id: newEmpId,
-        full_name_bn: r.name||'', 
-        full_name_en: r.nameEn||r.name||'',
-        father_name_bn: r.father||'', 
-        mother_name_bn: r.mother||'',
-        date_of_birth: r.dob||'', 
-        national_id: r.nid||'', 
-        phone: r.phone||'',
-        education_bn: r.education||'', 
-        religion: r.religion||'', 
-        height: String(r.height||''), 
-        weight: String(r.weight||'0'),
-        division_id: pa.division_id||'', 
-        district_id: pa.district_id||'', 
-        upazila_id: pa.upazila_id||'', 
-        union_id: pa.union_id||'',
-        village_bn: pa.village||'', 
-        street_bn: pa.street||'',
-        marital_status: r.maritalStatus||'', 
-        spouse_name_bn: r.spouse||'', 
-        spouse_phone: r.spousePhone||'',
-        ec_name_bn: (r.ec1&&r.ec1.name)||'', 
-        ec_relation_bn: (r.ec1&&r.ec1.relation)||'', 
-        ec_phone: (r.ec1&&r.ec1.mobile)||'',
-        designation: r.desig||'', 
-        project_name: r.project||'',
-        join_date: todayISO(), 
-        duty_hour: r.dutyHours||'',
-        salary: (r.salary&&r.salary.total)||0, 
-        status: 'Active'
-      };
-
-      const { data: empData, error: empErr } = await window.sb.from('employees').insert([newEmp]).select();
-      if (empErr) throw empErr;
-
-      const empDbId = empData && empData[0] ? empData[0].id : '';
-
-      const archPayload = {
-        candidate_name: r.name,
+      await sbClient.from('recruitment_archive').insert([{
+        candidate_name: r.name || r.nameEn,
         designation: r.desig || '',
         project_name: r.project || '',
         result: 'Confirmed',
-        employee_id: String(empDbId || newEmpId),
-        notes: 'Onboarded as employee'
-      };
+        employee_id: String(emp ? (emp.id || emp.EmployeeID) : id),
+        notes: 'Onboarded as Active employee'
+      }]);
+    } catch(e) { console.warn('Archive insert warning:', e); }
 
-      const { data: archData, error: archErr } = await window.sb.from('recruitment_archive').insert([archPayload]).select();
-      if (archErr) throw archErr;
-      
-      const archId = archData && archData[0] ? archData[0].archive_id : '';
-
-      const idx = RECRUITMENT.findIndex(x=>x.id===id);
-      if(idx>-1) RECRUITMENT.splice(idx,1);
-
-      if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
-        const freshData = await window.MGHRM.loadAll();
-        if (freshData) {
-          Object.keys(freshData).forEach(k => {
-            if (Array.isArray(freshData[k])) {
-              window.DATA[k] = freshData[k];
-            }
-          });
-        }
-      }
-
-      logActivity('create','employees', newEmpId, 'onboarded from recruitment: '+r.name);
-      logActivity('create','recruitment_archive', archId, 'Confirmed: '+r.name);
-      toast(`${r.name} → appointment confirmed (ID: ${newEmpId}) — moved to archive`, 'success');
-      
-      closeModal();
-      persist(); renderRecruitment(); 
-      if (typeof refreshAll === 'function') refreshAll();
-
-    } catch (err) {
-      console.error(err);
-      toast('Error confirming candidate: ' + err.message, 'error');
-    } finally {
-      if (btn) { btn.disabled = false; btn.innerHTML = 'Onboard to Employees'; }
-    }
-  })();
+    toast(`${r.nameEn || r.name} → Onboarded successfully (Status: Active)`, 'success');
+    closeModal();
+    await fetchEmployeesDirectly();
+    syncRecruitmentFromEmployees();
+    renderRecruitment();
+    if (typeof refreshAll === 'function') refreshAll();
+  } catch(err) {
+    console.error('[Onboard] Error:', err);
+    toast('Error confirming candidate: ' + (err.message || err), 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Onboard to Employees'; }
+  }
 }
 
 async function cancelCandidate(id){
   if(!guardEdit()) return;
-  const r = RECRUITMENT.find(x=>x.id===id); if(!r) return;
-  const reason = prompt('Cancellation reason (optional):','');
-  if(reason===null) return; 
+  const r = RECRUITMENT.find(x=>String(x.id)===String(id)); 
+  if(!r) return;
+  const reason = prompt('Rejection reason (optional):','');
+  if(reason===null) return;
 
   const btn = event && event.target ? event.target : null;
-  if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Rejecting...'; }
 
-  (async function() {
+  const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
+                || (window.MGHRM && window.MGHRM.sb)
+                || window.sb
+                || (typeof sb !== 'undefined' ? sb : null);
+
+  if (!sbClient) {
+    toast('Error: Database connection not established.', 'error');
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Reject'; }
+    return;
+  }
+
+  try {
+    const emp = DATA.employees.find(e => String(e.id) === String(id) || String(e.EmployeeID) === String(id));
+    let query = sbClient.from('employees').update({ status: 'Application Rejected' });
+    if (emp && emp.id) {
+      query = query.eq('id', emp.id);
+    } else {
+      query = query.eq('id', id);
+    }
+
+    const { error } = await query;
+    if (error) throw error;
+
     try {
-      if (!window.sb) throw new Error('Database connection not established.');
-      
-      const archPayload = {
-        candidate_name: r.name,
+      await sbClient.from('recruitment_archive').insert([{
+        candidate_name: r.name || r.nameEn,
         designation: r.desig || '',
         project_name: r.project || '',
         result: 'Rejected',
         employee_id: '',
-        notes: ('Cancelled from pipeline' + (reason ? ' - ' + reason : ''))
-      };
+        notes: ('Application Rejected' + (reason ? ' - ' + reason : ''))
+      }]);
+    } catch(e) { console.warn('Archive insert warning:', e); }
 
-      const { data: archData, error: archErr } = await window.sb.from('recruitment_archive').insert([archPayload]).select();
-      if (archErr) throw archErr;
-      
-      const archId = archData && archData[0] ? archData[0].archive_id : '';
-
-      const idx = RECRUITMENT.findIndex(x=>x.id===id);
-      if(idx>-1) RECRUITMENT.splice(idx,1);
-
-      if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
-        const freshData = await window.MGHRM.loadAll();
-        if (freshData) {
-          Object.keys(freshData).forEach(k => {
-            if (Array.isArray(freshData[k])) {
-              window.DATA[k] = freshData[k];
-            }
-          });
-        }
-      }
-
-      logActivity('cancel','recruitment_archive', archId, 'Rejected: '+r.name+(reason?' — '+reason:''));
-      toast(`${r.name} → Cancelled & archived`, 'success');
-      
-      closeModal(); 
-      persist(); renderRecruitment();
-      if (typeof refreshAll === 'function') refreshAll();
-
-    } catch (err) {
-      console.error(err);
-      toast('Error archiving candidate: ' + err.message, 'error');
-    } finally {
-      if (btn) { btn.disabled = false; btn.innerHTML = 'Reject'; }
-    }
-  })();
+    toast(`${r.nameEn || r.name} → Application Rejected`, 'success');
+    closeModal();
+    await fetchEmployeesDirectly();
+    syncRecruitmentFromEmployees();
+    renderRecruitment();
+    if (typeof refreshAll === 'function') refreshAll();
+  } catch(err) {
+    console.error('[Reject] Error:', err);
+    toast('Error rejecting candidate: ' + (err.message || err), 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Reject'; }
+  }
 }
 
 function openArchivePopup(archId){

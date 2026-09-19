@@ -6444,8 +6444,7 @@ function renderReports(){
     {key:'salarySlip',  icon:'file',     color:'g', title_en:'Salary Slip',            title_bn:'বেতন স্লিপ',                desc_en:'Print individual A4 salary slip',         desc_bn:'কর্মচারীর A4 বেতন স্লিপ প্রিন্ট'},
     {key:'analytics',   icon:'trend',    color:'b', title_en:'Analytics Dashboard',    title_bn:'অ্যানালিটিক্স ড্যাশবোর্ড',   desc_en:'Project·designation·6-month trends',     desc_bn:'প্রজেক্ট · পদবি · ৬-মাসের ট্রেন্ড'},
     {key:'activityLog', icon:'file',     color:'b', title_en:'Activity Log',           title_bn:'অ্যাক্টিভিটি লগ',           desc_en:'Last 500 audit trail events',            desc_bn:'সর্বশেষ ৫০০টি অডিট ট্রেইল ইভেন্ট'},
-    {key:'csvImport',   icon:'excel',    color:'g', title_en:'CSV Bulk Import',        title_bn:'CSV বাল্ক ইমপোর্ট',        desc_en:'Paste or drop CSV/TSV for employees',    desc_bn:'কর্মচারী CSV/TSV পেস্ট বা ড্র্যাগ'},
-  ];
+];
   document.getElementById('page-reports').innerHTML = `
     <div class="card">
       <div class="card-header">
@@ -6735,26 +6734,6 @@ function showReport(kind){
         </tr></thead>
         <tbody>${log.length ? log.map((e,i)=>{const t=e.at?new Date(e.at):null;const tStr=t?t.toLocaleString('en-GB'):'';const actColor={create:'#10b981',update:'#3b82f6',delete:'#dc2626',approve:'#10b981',reject:'#f59e0b',cancel:'#f59e0b',restore:'#8b5cf6',login:'#6366f1',print:'#64748b'}[e.action]||'#64748b';return `<tr><td>${num(i+1)}</td><td class="small-mute">${tStr}</td><td>${e.user||'—'}</td><td><span class="pill" style="background:${actColor}22;color:${actColor}">${e.action||''}</span></td><td>${e.table||''}</td><td>${e.refId||''}</td><td>${e.detail||''}</td></tr>`;}).join('') : `<tr><td colspan="7" class="small-mute" style="text-align:center;padding:24px">${'No log entries — actions will appear here'}</td></tr>`}
         </tbody></table></div>
-      </div></div>`;
-  } else if(kind==='csvImport'){
-    
-    out = `<div class="card"><div class="card-header"><h3>${'CSV Bulk Import (Employees)'}</h3></div>
-      <div class="card-body">
-        <p class="small-mute" style="margin-bottom:14px">${'First row is header (column names). Bangla or English — both recognized. Duplicate check on NID/mobile.'}</p>
-        <div class="field"><label>${'Supported columns (any order)'}</label>
-          <div style="background:var(--bg-dim);padding:10px;border-radius:6px;font-family:monospace;font-size:11px;line-height:1.6">
-            EmployeeID, FullName, FullNameBn, FatherName, MotherName, DOB, NID, PhoneNumber, Designation, ProjectName, JoinDate, Salary, Address, MaritalStatus, Education, Religion<br>
-            <span style="color:var(--primary)">${'or Bangla'}:</span> আইডি, নাম, পিতা, মাতা, জন্ম, এনআইডি, মোবাইল, পদবি, প্রজেক্ট, যোগদান, বেতন, ঠিকানা
-          </div>
-        </div>
-        <div class="field"><label>${'Paste CSV/TSV'} *</label>
-          <textarea id="csvInput" rows="10" style="width:100%;font-family:monospace;font-size:12px" placeholder="${'EmployeeID,FullName,PhoneNumber,...'}"></textarea>
-        </div>
-        <div class="btn-row" style="margin-top:14px">
-          <button class="btn primary" onclick="csvImportPreview()">${'Preview'}</button>
-          <button class="btn ghost" onclick="document.getElementById('csvInput').value=''">${'Clear'}</button>
-        </div>
-        <div id="csvPreview" style="margin-top:14px"></div>
       </div></div>`;
   }
   document.getElementById('reportOutput').innerHTML = out;
@@ -7118,58 +7097,8 @@ function renderSettings(){
         </div>
       </div>
 
-      <!-- Column 2: Smart CSV & MS Access Importer -->
-      <div class="card">
-        <div class="card-header">
-          <div style="display:flex;align-items:center;gap:10px">
-            <div style="width:34px;height:34px;border-radius:8px;background:var(--purple-soft, #ede9fe);color:var(--purple, #6366f1);display:flex;align-items:center;justify-content:center;font-size:18px">
-              📁
-            </div>
-            <div>
-              <h3 style="margin:0;font-size:16px">Smart CSV & MS Access Importer</h3>
-              <span class="sub">Intelligent fuzzy column catching & direct server push</span>
-            </div>
-          </div>
-        </div>
-        <div class="card-body">
-          <div class="form-grid" style="margin-bottom:14px">
-            <div class="field">
-              <label>Target Supabase Table *</label>
-              <select id="csvTargetTable" onchange="handleCsvTargetChange()">
-                <option value="employees">Employees (Master Root · RecordID ⭐)</option>
-                <option value="transfers">Transfers & Postings (FK: RecordID ⭐)</option>
-                <option value="disciplinary">Disciplinary Actions (FK: RecordID ⭐)</option>
-                <option value="exits">Exits & Resignations (FK: RecordID ⭐)</option>
-                <option value="career">Increments & Promotions (FK: RecordID ⭐)</option>
-                <option value="leaves">Leave Applications (FK: RecordID ⭐)</option>
-                <option value="uniform">Uniform Issues (FK: RecordID ⭐)</option>
-                <option value="projects">Projects & Sites</option>
-                <option value="demand">Security Demands</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Batch Size (Server Push)</label>
-              <select id="csvBatchSize">
-                <option value="50" selected>50 records / batch (Optimal & Stable)</option>
-                <option value="100">100 records / batch (High Speed)</option>
-                <option value="25">25 records / batch (Small batches)</option>
-              </select>
-            </div>
-          </div>
+      
 
-          <div id="csvDropZone" class="csv-drop-zone" onclick="document.getElementById('csvFileInput').click()">
-            <input type="file" id="csvFileInput" accept=".csv,.tsv,.txt" style="display:none" onchange="handleCsvFileSelected(event)">
-            <div class="csv-drop-icon">📤</div>
-            <div style="font-weight:600;font-size:13.5px;color:var(--text-1);margin-bottom:4px">Click to choose CSV/TSV or drag and drop here</div>
-            <div class="small-mute">Auto-detects delimiter (comma, tab, semicolon) & character encodings</div>
-          </div>
-
-          <div id="csvSchemaHint" style="margin-top:12px"></div>
-
-          <!-- Live workspace rendered upon file load -->
-          <div id="csvWorkspace" style="margin-top:16px;display:none"></div>
-        </div>
-      </div>
     </div>`;
 
   setTimeout(() => {

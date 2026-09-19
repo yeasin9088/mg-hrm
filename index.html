@@ -8,6 +8,9 @@
 <meta property="og:title" content="MG Security HRM Suite">
 <meta property="og:description" content="Human resource management suite for MG Security - employee records, parade state, uniforms, transfers, and leaves.">
 <script>
+var NOTIFICATIONS = [];
+var VERIFY_MODE = false;
+var VERIFY_TICKS = new Set();
 
 function findEmpByAction(t) {
   if (!t) return null;
@@ -3753,7 +3756,7 @@ function markStage(id, target){
   closeModal();
   persist(); renderRecruitment();
 }
-function onboardCandidate(id){
+async function onboardCandidate(id){
   if(!guardEdit()) return;
   const r = RECRUITMENT.find(x=>x.id===id); if(!r) return;
   
@@ -3852,7 +3855,7 @@ function onboardCandidate(id){
   })();
 }
 
-function cancelCandidate(id){
+async function cancelCandidate(id){
   if(!guardEdit()) return;
   const r = RECRUITMENT.find(x=>x.id===id); if(!r) return;
   const reason = prompt('Cancellation reason (optional):','');
@@ -4210,7 +4213,7 @@ function editDemand(projectName) {
   });
 }
 
-function saveDemand(projectName, event) {
+async function saveDemand(projectName, event) {
   if (!guardEdit()) return;
 
   const btn = event && event.target ? event.target : null;
@@ -4759,7 +4762,7 @@ function askCloseProject(pid){
     `
   });
 }
-function doCloseProject(pid, deactivate){
+async function doCloseProject(pid, deactivate){
   const bn = LANG==='bn';
   const p = DATA.projects.find(x=>String(x['Project ID'])===String(pid) || String(x.id)===String(pid) || x.ProjectName===pid || x.project_name===pid); if(!p) return;
   const pName = p.ProjectName || p.project_name;
@@ -4830,7 +4833,7 @@ function doCloseProject(pid, deactivate){
     }
   })();
 }
-function reopenProject(pid){
+async function reopenProject(pid){
   const bn = LANG==='bn';
   const p = DATA.projects.find(x=>String(x['Project ID'])===String(pid) || String(x.id)===String(pid) || x.ProjectName===pid || x.project_name===pid); if(!p) return;
   const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null) || window.sb;
@@ -5150,7 +5153,7 @@ function empPickOpen(id) {
 }
 
 let _empFetchDebounce = null;
-function empPickFilter(id) {
+async function empPickFilter(id) {
   const inp = document.getElementById(id + '_q');
   const q = (inp && inp.value || '').trim();
   empPickRender(id, q);
@@ -6804,148 +6807,10 @@ function exportActivityLogCSV(){
 }
 
 
-function csvImportPreview(){
-  const text = (document.getElementById('csvInput')?.value||'').trim();
-  if(!text){ toast('Paste CSV first','error'); return; }
-  const sep = text.indexOf('\t')>-1 && text.indexOf('\t')<text.indexOf('\n') ? '\t' : ',';
-  const lines = text.split(/\r?\n/).filter(l=>l.trim());
-  const parseLine = (l) => {
-    if(sep==='\t') return l.split('\t').map(s=>s.trim());
-    const out=[]; let cur='',q=false;
-    for(let i=0;i<l.length;i++){ const c=l[i];
-      if(c==='"'){ if(q && l[i+1]==='"'){cur+='"';i++;} else q=!q; }
-      else if(c===',' && !q){ out.push(cur.trim()); cur=''; }
-      else cur+=c;
-    }
-    out.push(cur.trim()); return out;
-  };
-  const headerRaw = parseLine(lines[0]);
-  const headerMap = {
-    'employeeid':'EmployeeID','emp id':'EmployeeID','আইডি':'EmployeeID','কর্মী আইডি':'EmployeeID','id':'EmployeeID',
-    'fullname':'FullName','name':'FullName','নাম':'FullName',
-    'fullnamebn':'FullNameBn','name bn':'FullNameBn','বাংলা নাম':'FullNameBn',
-    'fathername':'FatherName','father':'FatherName','পিতার নাম':'FatherName','পিতা':'FatherName',
-    'mothername':'MotherName','mother':'MotherName','মাতার নাম':'MotherName','মাতা':'MotherName',
-    'dob':'DOB','birthdate':'DOB','জন্ম তারিখ':'DOB','জন্ম':'DOB',
-    'nid':'NID','nid/birthcertificate':'NID','এনআইডি':'NID','জাতীয় পরিচয়':'NID',
-    'phonenumber':'PhoneNumber','phone':'PhoneNumber','mobile':'PhoneNumber','মোবাইল':'PhoneNumber','ফোন':'PhoneNumber',
-    'designation':'Designation','পদবি':'Designation','পদ':'Designation',
-    'projectname':'ProjectName','project':'ProjectName','প্রজেক্ট':'ProjectName',
-    'joindate':'JoinDate','join date':'JoinDate','যোগদান':'JoinDate','যোগদান তারিখ':'JoinDate',
-    'salary':'Salary','বেতন':'Salary',
-    'address':'Address','ঠিকানা':'Address',
-    'maritalstatus':'MaritalStatus','বৈবাহিক':'MaritalStatus',
-    'education':'Education','শিক্ষা':'Education',
-    'religion':'Religion','ধর্ম':'Religion',
-  };
-  const header = headerRaw.map(h => headerMap[h.toLowerCase().trim()] || h.trim());
-  const unmapped = headerRaw.filter((_,i)=>!headerMap[headerRaw[i].toLowerCase().trim()]);
-  const rows = [];
-  for(let i=1;i<lines.length;i++){
-    const cells = parseLine(lines[i]);
-    const obj = {}; header.forEach((h,j)=>{ if(cells[j]!==undefined) obj[h]=cells[j]; });
-    if(Object.keys(obj).length) rows.push(obj);
-  }
-  /* Duplicate check */
-  const dupes = []; const fresh = [];
-  const existingNID = new Set(DATA.employees.map(e=>String(e.NID||e['NID/BirthCertificate']||'').replace(/\D/g,'')).filter(Boolean));
-  const existingPhone = new Set(DATA.employees.map(e=>String(e.PhoneNumber||'').replace(/\D/g,'')).filter(Boolean));
-  rows.forEach(r=>{
-    const nid = String(r.NID||'').replace(/\D/g,'');
-    const ph = String(r.PhoneNumber||'').replace(/\D/g,'');
-    if((nid && existingNID.has(nid)) || (ph && existingPhone.has(ph))) dupes.push(r);
-    else fresh.push(r);
-  });
-  const bn = LANG==='bn';
-  const html = `
-    <div class="card" style="margin:0">
-      <div class="card-header"><h3>${bn?'ইমপোর্ট প্রিভিউ':'Import Preview'}</h3></div>
-      <div class="card-body">
-        <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
-          <div class="kpi"><div class="kpi-icon" style="background:var(--success-soft);color:var(--success)">${ico('users')}</div><div class="kpi-label">${bn?'নতুন':'New'}</div><div class="kpi-value">${num(fresh.length)}</div></div>
-          <div class="kpi"><div class="kpi-icon" style="background:var(--warning-soft);color:var(--warning)">${ico('warn')}</div><div class="kpi-label">${bn?'ডুপ্লিকেট':'Duplicates'}</div><div class="kpi-value">${num(dupes.length)}</div></div>
-          <div class="kpi"><div class="kpi-icon" style="background:var(--primary-soft);color:var(--primary)">${ico('file')}</div><div class="kpi-label">${bn?'মোট সারি':'Total Rows'}</div><div class="kpi-value">${num(rows.length)}</div></div>
-        </div>
-        ${unmapped.length?`<p style="color:#f59e0b;margin-bottom:10px">⚠ ${bn?'ম্যাপ হয়নি কলাম':'Unmapped columns'}: ${unmapped.join(', ')}</p>`:''}
-        <div style="max-height:300px;overflow:auto;border:1px solid var(--border-strong);border-radius:6px">
-          <table><thead><tr>${header.map(h=>`<th>${h}</th>`).join('')}<th>${bn?'অবস্থা':'Status'}</th></tr></thead>
-          <tbody>${rows.slice(0,50).map(r=>{const isDup=dupes.includes(r);return `<tr>${header.map(h=>`<td>${r[h]||''}</td>`).join('')}<td>${isDup?`<span class="pill danger sm">${bn?'ডুপ্লিকেট':'Dup'}</span>`:`<span class="pill success sm">${bn?'নতুন':'New'}</span>`}</td></tr>`}).join('')}</tbody></table>
-        </div>
-        ${rows.length>50?`<p class="small-mute" style="text-align:center;padding:8px">${bn?'... আরও '+num(rows.length-50)+' সারি':'... '+num(rows.length-50)+' more rows'}</p>`:''}
-        <div class="btn-row" style="margin-top:14px">
-          <button class="btn primary" onclick="csvImportConfirm(${jsQ(JSON.stringify(fresh))}, event)">${bn?'নতুন '+num(fresh.length)+' জন ইমপোর্ট করুন':'Import '+fresh.length+' new'}</button>
-          <button class="btn ghost" onclick="document.getElementById('csvPreview').innerHTML=''">${bn?'বাতিল':'Cancel'}</button>
-        </div>
-      </div>
-    </div>`;
-  document.getElementById('csvPreview').innerHTML = html;
-}
-function csvImportConfirm(rowsJson, event){
-  if(!guardEdit()) return;
-  
-  const btn = event && event.target ? event.target : null;
-  if(btn) { btn.disabled = true; btn.innerHTML = 'Importing...'; }
 
-  (async function() {
-    try {
-      let rows = [];
-      try { rows = JSON.parse(String(rowsJson).replace(/&quot;/g,'"').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')); } catch(e){}
-      if(!rows.length){ toast('No new rows','warn'); return; }
-      
-      const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null) || window.sb;
-      if(!sbClient) throw new Error('Database connection not established.');
-      
-      const maxEmp = Math.max(0, ...DATA.employees.map(e=>parseInt(e.EmployeeID)||0));
-      
-      const dbPayload = rows.slice(0, 100).map((r, i) => ({
-        employee_id: r.EmployeeID || String(maxEmp+1+i).padStart(4,'0'),
-        full_name: r.FullName||'',
-        full_name_bn: r.FullNameBn||'',
-        father_name: r.FatherName||'',
-        mother_name: r.MotherName||'',
-        dob: r.DOB||null,
-        nid: r.NID||'',
-        phone: r.PhoneNumber||'',
-        designation: r.Designation||'',
-        project_name: r.ProjectName||'',
-        join_date: r.JoinDate || todayISO(),
-        salary: +r.Salary||0,
-        address: r.Address||'',
-        marital_status: r.MaritalStatus||'',
-        education: r.Education||'',
-        religion: r.Religion||'',
-        status: 'Active'
-      }));
-      
-      const { error } = await sbClient.from('employees').insert(dbPayload);
-      if(error) throw error;
-      
-      await logActivity('create', 'employees', 'CSV Import', `Imported ${rows.length} employees`);
-      
-      if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
-        const freshData = await window.MGHRM.loadAll();
-        if (freshData) {
-          Object.keys(freshData).forEach(k => {
-            if (Array.isArray(freshData[k])) {
-              window.DATA[k] = freshData[k];
-            }
-          });
-        }
-      }
-      
-      toast(`${rows.length} rows imported successfully`, 'success');
-      persist(); 
-      renderReports(); 
-      showReport('csvImport');
-      
-    } catch (err) {
-      console.error(err);
-      toast('Import failed: ' + err.message, 'error');
-    } finally {
-      if(btn) { btn.disabled = false; btn.innerHTML = 'Import'; }
-    }
-  })();
-}
+
+
+
 
 function mrepShell({title, subtitle, kpis, body, landscape}){
   return `<div class="print-doc mrep${landscape?' landscape':''}">
@@ -7091,7 +6956,7 @@ function renderSettings(){
             </p>
             <div style="display:flex;gap:10px;flex-wrap:wrap">
               <button class="btn" onclick="exportBackupFile()">Export Complete Backup</button>
-              <button class="btn" style="background:#dc2626;color:#fff" onclick="wipeAllData()">Wipe All Data</button>
+              
             </div>
           </div>
         </div>
@@ -7101,21 +6966,7 @@ function renderSettings(){
 
     </div>`;
 
-  setTimeout(() => {
-    handleCsvTargetChange();
-    const dropZone = document.getElementById('csvDropZone');
-    if (dropZone) {
-      dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
-      dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-      dropZone.addEventListener('drop', e => {
-        e.preventDefault();
-        dropZone.classList.remove('dragover');
-        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
-          handleCsvFileSelected({ target: { files: e.dataTransfer.files } });
-        }
-      });
-    }
-  }, 0);
+
 }
 
 function handleLogoUpload(e) {
@@ -7130,7 +6981,7 @@ function handleLogoUpload(e) {
   reader.readAsDataURL(file);
 }
 
-function saveCompanyProfile(event) {
+async function saveCompanyProfile(event) {
   const btn = event && event.target ? event.target : null;
   if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
 
@@ -7175,137 +7026,8 @@ function saveCompanyProfile(event) {
 }
 
 /* ============ SMART CSV UPLOADER CORE & FUZZY MAPPING ============ */
-const CSV_SCHEMAS = {
-  employees: [
-    { key: 'id', label: 'ID (Supabase System ID) ⭐', isRoot: true },
-    { key: 'employee_id', label: 'EmployeeID (Badge Code)' },
-    { key: 'full_name', label: 'FullName (Employee Name) *', required: true },
-    { key: 'full_name_bn', label: 'FullNameBn (Bangla Name)' },
-    { key: 'father_name', label: 'FatherName' },
-    { key: 'mother_name', label: 'MotherName' },
-    { key: 'dob', label: 'DOB (Date of Birth)' },
-    { key: 'nid', label: 'NID / Birth Certificate' },
-    { key: 'phone', label: 'PhoneNumber (Mobile)' },
-    { key: 'designation', label: 'Designation (Rank)' },
-    { key: 'project_name', label: 'ProjectName (Posting)' },
-    { key: 'duty_hour', label: 'DutyHour (Shift Hours)' },
-    { key: 'education', label: 'Education / Qualification' },
-    { key: 'marital_status', label: 'MaritalStatus' },
-    { key: 'spouse_name', label: 'SpouseName' },
-    { key: 'spouse_phone', label: 'SpousePhone' },
-    { key: 'ec_name', label: 'Emergency Contact Person' },
-    { key: 'ec_phone', label: 'Emergency Contact Phone' },
-    { key: 'ec_relation', label: 'Emergency Contact Relation' },
-    { key: 'division', label: 'Division' },
-    { key: 'district', label: 'District (Home Zila)' },
-    { key: 'thana', label: 'Thana / Upazila' },
-    { key: 'religion', label: 'Religion' },
-    { key: 'address', label: 'Address (Present / Permanent)' },
-    { key: 'join_date', label: 'JoinDate (Joining Date)' },
-    { key: 'salary', label: 'Salary (Gross Salary)' },
-    { key: 'status', label: 'Status (Active / Inactive)' },
-    { key: 'notes', label: 'Notes' }
-  ],
-  transfers: [
-    { key: 'id', label: 'ID (Primary Key)' },
-    { key: 'employee_sys_id', label: 'Employee Sys ID (Root Foreign Key → Employees) ⭐', isFk: true, required: true },
-    { key: 'employee_id', label: 'EmployeeID' },
-    { key: 'full_name', label: 'FullName' },
-    { key: 'designation', label: 'Designation' },
-    { key: 'employee_id_bn', label: 'EmployeeIDBangla' },
-    { key: 'full_name_bn', label: 'FullNameBangla' },
-    { key: 'designation_bn', label: 'DesignationBangla' },
-    { key: 'current_project', label: 'CurrentProject (Previous Site)' },
-    { key: 'current_project_bn', label: 'CurrentProjectBangla' },
-    { key: 'new_project', label: 'NewProject (Destination Site)' },
-    { key: 'new_project_bn', label: 'NewProjectBangla' },
-    { key: 'transfer_date', label: 'TransferDate (Effective Date)' },
-    { key: 'transfer_date_bn', label: 'TransferDateBangla' },
-    { key: 'issues_date_bn', label: 'Issues DateBangla' },
-    { key: 'issue_date', label: 'IssueDate' },
-    { key: 'status', label: 'Status' },
-    { key: 'notes', label: 'Notes' }
-  ],
-  disciplinary: [
-    { key: 'action_id', label: 'ActionID (Primary Key)' },
-    { key: 'employee_sys_id', label: 'Employee Sys ID (Root Foreign Key → Employees) ⭐', isFk: true, required: true },
-    { key: 'employee_id', label: 'EmployeeID' },
-    { key: 'full_name', label: 'FullName' },
-    { key: 'designation', label: 'Designation' },
-    { key: 'project_name', label: 'ProjectName' },
-    { key: 'action_type', label: 'ActionType (Show Cause, Warning, etc.)' },
-    { key: 'ref_no', label: 'RefNo (Memo No.)' },
-    { key: 'incident_date', label: 'IncidentDate' },
-    { key: 'issue_date', label: 'IssueDate' },
-    { key: 'description', label: 'Description (Allegations / Findings)' }
-  ],
-  exits: [
-    { key: 'exit_id', label: 'ExitID (Primary Key)' },
-    { key: 'employee_sys_id', label: 'Employee Sys ID (Root Foreign Key → Employees) ⭐', isFk: true, required: true },
-    { key: 'employee_id', label: 'EmployeeID' },
-    { key: 'full_name', label: 'FullName' },
-    { key: 'designation', label: 'Designation' },
-    { key: 'current_project', label: 'CurrentProject' },
-    { key: 'join_date', label: 'JoinDate' },
-    { key: 'exit_date', label: 'ExitDate' },
-    { key: 'issue_date', label: 'IssueDate' },
-    { key: 'exit_type', label: 'ExitType (Resignation, Termination, etc.)' },
-    { key: 'exit_reason', label: 'ExitReason' },
-    { key: 'notes', label: 'Notes' }
-  ],
-  career: [
-    { key: 'career_id', label: 'CareerID (Primary Key)' },
-    { key: 'employee_sys_id', label: 'Employee Sys ID (Root Foreign Key → Employees) ⭐', isFk: true, required: true },
-    { key: 'employee_id', label: 'EmployeeID' },
-    { key: 'full_name', label: 'FullName' },
-    { key: 'change_type', label: 'ChangeType (Increment, Promotion, Demotion)' },
-    { key: 'current_designation', label: 'CurrentDesignation' },
-    { key: 'new_designation', label: 'NewDesignation' },
-    { key: 'current_salary', label: 'CurrentSalary' },
-    { key: 'new_salary', label: 'NewSalary' },
-    { key: 'increment_amount', label: 'IncrementAmount' },
-    { key: 'effective_date', label: 'EffectiveDate' },
-    { key: 'notes', label: 'Notes' }
-  ],
-  leaves: [
-    { key: 'leave_id', label: 'LeaveID / id (Primary Key)' },
-    { key: 'employee_sys_id', label: 'Employee Sys ID (Root Foreign Key → Employees) ⭐', isFk: true, required: true },
-    { key: 'employee_id', label: 'EmployeeID' },
-    { key: 'full_name', label: 'FullName / Name' },
-    { key: 'leave_type', label: 'LeaveType / Type' },
-    { key: 'from_date', label: 'FromDate / Start' },
-    { key: 'to_date', label: 'ToDate / End' },
-    { key: 'days_count', label: 'Days / DaysCount' },
-    { key: 'reason', label: 'Reason' },
-    { key: 'status', label: 'Status' }
-  ],
-  uniform: [
-    { key: 'uniform_id', label: 'UniformID (Primary Key)' },
-    { key: 'employee_sys_id', label: 'Employee Sys ID (Root Foreign Key → Employees) ⭐', isFk: true, required: true },
-    { key: 'employee_id', label: 'EmployeeID' },
-    { key: 'full_name', label: 'FullName' },
-    { key: 'item_name', label: 'ItemName (Shirt, Pants, Cap, Shoes, etc.)' },
-    { key: 'quantity', label: 'Quantity' },
-    { key: 'issue_date', label: 'IssueDate' },
-    { key: 'notes', label: 'Notes' }
-  ],
-  projects: [
-    { key: 'project_id', label: 'ProjectID (Primary Key)' },
-    { key: 'project_name', label: 'ProjectName *', required: true },
-    { key: 'project_name_bn', label: 'ProjectNameBangla' },
-    { key: 'location', label: 'Location' },
-    { key: 'start_date', label: 'StartDate' },
-    { key: 'status', label: 'Status' }
-  ],
-  demand: [
-    { key: 'demand_id', label: 'DemandID (Primary Key)' },
-    { key: 'project_name', label: 'ProjectName *', required: true },
-    { key: 'designation', label: 'Designation' },
-    { key: 'required_qty', label: 'RequiredQty' },
-    { key: 'posted_qty', label: 'PostedQty' },
-    { key: 'status', label: 'Status' }
-  ]
-};
+
+
 
 const CSV_SYNONYMS = {
   employee_sys_id: ['recordid', 'record_id', 'record id', 'serial', 'serialno', 'serial no', 'sl', 'sl no', 'slno', 'rootid', 'root id', 'master id', 'rec id', 'rec_id', 'id'],
@@ -7380,719 +7102,45 @@ const CSV_SYNONYMS = {
   posted_qty: ['postedqty', 'posted_qty', 'posted qty', 'deployed qty', 'posted']
 };
 
-function levenshteinDist(s1, s2) {
-  s1 = String(s1 || '').toLowerCase().trim();
-  s2 = String(s2 || '').toLowerCase().trim();
-  if (s1 === s2) return 0;
-  if (!s1.length) return s2.length;
-  if (!s2.length) return s1.length;
-  const matrix = [];
-  for (let i = 0; i <= s2.length; i++) matrix[i] = [i];
-  for (let j = 0; j <= s1.length; j++) matrix[0][j] = j;
-  for (let i = 1; i <= s2.length; i++) {
-    for (let j = 1; j <= s1.length; j++) {
-      if (s2.charAt(i - 1) === s1.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1];
-      } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1,
-          matrix[i][j - 1] + 1,
-          matrix[i - 1][j] + 1
-        );
-      }
-    }
-  }
-  return matrix[s2.length][s1.length];
-}
 
-function calculateSimilarity(str1, str2) {
-  const s1 = String(str1 || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  const s2 = String(str2 || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  if (!s1 && !s2) return 1.0;
-  if (!s1 || !s2) return 0.0;
-  if (s1 === s2) return 1.0;
-  const maxLen = Math.max(s1.length, s2.length);
-  const dist = levenshteinDist(s1, s2);
-  return Math.max(0, 1.0 - (dist / maxLen));
-}
 
-function fuzzyMatchColumn(csvHeader, targetTable) {
-  const schema = CSV_SCHEMAS[targetTable] || [];
-  const cleanHeader = String(csvHeader || '').trim();
-  const norm = cleanHeader.toLowerCase().replace(/[\s_\-\.]/g, '');
 
-  if (!norm) return { targetCol: '__skip__', confidence: 0, isAuto: false };
 
-  // 1. Direct synonym lookup
-  for (const [colKey, synonyms] of Object.entries(CSV_SYNONYMS)) {
-    const schemaCol = schema.find(c => c.key === colKey);
-    if (!schemaCol) continue;
-    for (const syn of synonyms) {
-      const synNorm = syn.toLowerCase().replace(/[\s_\-\.]/g, '');
-      if (norm === synNorm) {
-        return { targetCol: colKey, confidence: 1.0, isAuto: true, schemaCol };
-      }
-    }
-  }
 
-  // 2. Direct schema key match
-  for (const col of schema) {
-    const keyNorm = col.key.toLowerCase().replace(/[\s_\-\.]/g, '');
-    if (norm === keyNorm) {
-      return { targetCol: col.key, confidence: 0.98, isAuto: true, schemaCol: col };
-    }
-  }
 
-  // 3. Substring matching for compound headers (sorted by length descending, min length 4)
-  let bestSubMatch = null;
-  let maxSubLen = 0;
-  for (const col of schema) {
-    const synonyms = CSV_SYNONYMS[col.key] || [];
-    for (const syn of synonyms) {
-      const synNorm = syn.toLowerCase().replace(/[\s_\-\.]/g, '');
-      if (synNorm.length >= 4 && norm.includes(synNorm)) {
-        if (synNorm.length > maxSubLen) {
-          maxSubLen = synNorm.length;
-          bestSubMatch = { targetCol: col.key, confidence: 0.92, isAuto: true, schemaCol: col };
-        }
-      }
-    }
-  }
-  if (bestSubMatch) return bestSubMatch;
 
-  // 4. Fuzzy similarity
-  let bestMatch = null;
-  let highestScore = 0;
-  for (const col of schema) {
-    const colKeyNorm = col.key.toLowerCase().replace(/[\s_\-\.]/g, '');
-    let score = calculateSimilarity(norm, colKeyNorm);
-    const synonyms = CSV_SYNONYMS[col.key] || [];
-    for (const syn of synonyms) {
-      const synNorm = syn.toLowerCase().replace(/[\s_\-\.]/g, '');
-      const sScore = calculateSimilarity(norm, synNorm);
-      if (sScore > score) score = sScore;
-    }
-    if (score > highestScore && score >= 0.70) {
-      highestScore = score;
-      bestMatch = col;
-    }
-  }
 
-  if (bestMatch) {
-    return { targetCol: bestMatch.key, confidence: highestScore, isAuto: true, schemaCol: bestMatch };
-  }
 
-  return { targetCol: '__skip__', confidence: 0, isAuto: false };
-}
 
-function handleCsvTargetChange() {
-  const t = document.getElementById('csvTargetTable')?.value || 'employees';
-  const hintEl = document.getElementById('csvSchemaHint');
-  if (!hintEl) return;
 
-  if (t === 'employees') {
-    hintEl.innerHTML = `
-      <div class="alert-item info" style="margin:0;font-size:12px">
-        ${ico('users')}
-        <div>
-          <strong>Master Relational Root (Employees):</strong>
-          <span class="csv-badge-root">Universal Root: RecordID</span>
-          <p style="margin-top:2px">Legacy CSVs with <code>RecordID</code> or <code>Serial</code> are strictly preserved as the primary relational root key for all modules.</p>
-        </div>
-      </div>`;
-  } else if (['transfers', 'disciplinary', 'exits', 'career', 'leaves', 'uniform'].includes(t)) {
-    hintEl.innerHTML = `
-      <div class="alert-item info" style="margin:0;font-size:12px">
-        ${ico('link')}
-        <div>
-          <strong>Relational Child Table (${t}):</strong>
-          <span class="csv-badge-fk">Foreign Key: RecordID → employees.id</span>
-          <p style="margin-top:2px">Records automatically link to the corresponding employee via <code>RecordID</code> to maintain absolute relational integrity.</p>
-        </div>
-      </div>`;
-  } else {
-    hintEl.innerHTML = `
-      <div class="alert-item info" style="margin:0;font-size:12px">
-        ${ico('building')}
-        <div>
-          <strong>Reference Table (${t}):</strong>
-          <p style="margin-top:2px">Managed through primary keys and direct server push to Supabase.</p>
-        </div>
-      </div>`;
-  }
 
-  if (window.__csvImportState && window.__csvImportState.headers) {
-    window.__csvImportState.targetTable = t;
-    const headers = window.__csvImportState.headers;
-    window.__csvImportState.mapping = headers.map(h => {
-      const match = fuzzyMatchColumn(h, t);
-      return {
-        csvHeader: h,
-        targetCol: match.targetCol,
-        confidence: match.confidence,
-        isAuto: match.isAuto
-      };
-    });
-    renderCsvWorkspace();
-  }
-}
 
-function parseCSVLike(text) {
-  const firstLine = (text.split(/\r?\n/)[0] || '');
-  const delim = firstLine.indexOf('\t') >= 0 ? '\t' : firstLine.indexOf(';') >= 0 ? ';' : ',';
-  const rows = [];
-  let cur = [];
-  let field = '';
-  let inQ = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (inQ) {
-      if (c === '"') {
-        if (text[i + 1] === '"') { field += '"'; i++; }
-        else inQ = false;
-      } else {
-        field += c;
-      }
-    } else {
-      if (c === '"') {
-        inQ = true;
-      } else if (c === delim) {
-        cur.push(field);
-        field = '';
-      } else if (c === '\n') {
-        cur.push(field);
-        rows.push(cur);
-        cur = [];
-        field = '';
-      } else if (c === '\r') {
-        // skip carriage return
-      } else {
-        field += c;
-      }
-    }
-  }
-  if (field.length || cur.length) {
-    cur.push(field);
-    rows.push(cur);
-  }
-  return { rows, delim };
-}
 
-function handleCsvFileSelected(event) {
-  const file = event.target?.files?.[0];
-  if (!file) return;
 
-  const name = file.name.toLowerCase();
-  if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
-    openModal('Excel File Notice', `
-      <div class="alert-item warning">
-        ${ico('warn')}
-        <div>
-          <h5>Excel Format Detected</h5>
-          <p>Please open the file in Excel and choose <strong>"File → Save As → CSV UTF-8"</strong> before uploading. This preserves Unicode encoding and character safety.</p>
-        </div>
-      </div>
-      <div style="display:flex;justify-content:flex-end;margin-top:10px">
-        <button class="btn primary" onclick="closeModal()">Understood</button>
-      </div>`);
-    return;
-  }
 
-  const targetTable = document.getElementById('csvTargetTable')?.value || 'employees';
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    let text = e.target.result;
-    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1); // Strip BOM
 
-    const { rows, delim } = parseCSVLike(text);
-    if (!rows.length) {
-      toast('The selected file is empty or could not be read.', 'error');
-      return;
-    }
 
-    const headers = rows[0].map(h => String(h || '').trim()).filter(Boolean);
-    const dataRows = rows.slice(1).filter(r => r.some(v => String(v || '').trim()));
 
-    if (!dataRows.length) {
-      toast('The CSV contains headers but no data rows.', 'error');
-      return;
-    }
 
-    const rawObjects = dataRows.map(r => {
-      const obj = {};
-      headers.forEach((h, i) => {
-        obj[h] = String(r[i] !== undefined ? r[i] : '').trim();
-      });
-      return obj;
-    });
 
-    const mapping = headers.map(h => {
-      const match = fuzzyMatchColumn(h, targetTable);
-      return {
-        csvHeader: h,
-        targetCol: match.targetCol,
-        confidence: match.confidence,
-        isAuto: match.isAuto
-      };
-    });
 
-    window.__csvImportState = {
-      targetTable,
-      fileName: file.name,
-      fileSize: (file.size / 1024).toFixed(1) + ' KB',
-      delimiter: delim === '\t' ? 'Tab (TSV)' : delim === ';' ? 'Semicolon (;)' : 'Comma (,)',
-      headers,
-      rows: rawObjects,
-      mapping,
-      activeTab: 'mapping'
-    };
 
-    renderCsvWorkspace();
-  };
-  reader.readAsText(file, 'utf-8');
-}
 
-function renderCsvWorkspace() {
-  const state = window.__csvImportState;
-  const ws = document.getElementById('csvWorkspace');
-  if (!state || !ws) return;
 
-  ws.style.display = 'block';
-  const schema = CSV_SCHEMAS[state.targetTable] || [];
-  const activeMappings = state.mapping.filter(m => m.targetCol && m.targetCol !== '__skip__');
-  const isRootMapped = activeMappings.some(m => m.targetCol === 'id' || m.targetCol === 'employee_id' || m.targetCol === 'employee_sys_id');
-  const hasRootRequirement = schema.some(c => c.isRoot || c.isFk);
 
-  // Tab Header
-  let html = `
-    <div style="background:var(--bg-dim);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-      <div>
-        <div style="font-weight:700;font-size:13.5px;color:var(--text-1);display:flex;align-items:center;gap:8px">
-          <span>📄 ${state.fileName}</span>
-          <span class="chip" style="font-size:10px">${state.fileSize}</span>
-          <span class="chip" style="font-size:10px">${state.delimiter}</span>
-        </div>
-        <div class="small-mute" style="margin-top:3px">
-          ${num(state.rows.length)} data rows detected · ${num(state.headers.length)} CSV columns · Target: <strong>${state.targetTable}</strong>
-        </div>
-      </div>
-      <button class="btn ghost sm" onclick="resetCsvUploader()">✕ Remove File</button>
-    </div>
 
-    <div style="display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:14px">
-      <button class="btn ${state.activeTab==='mapping'?'primary':'ghost'} sm" style="border-radius:6px 6px 0 0" onclick="switchCsvTab('mapping')">
-        1. Column Mapping & Schema (${num(activeMappings.length)}/${num(state.headers.length)})
-      </button>
-      <button class="btn ${state.activeTab==='preview'?'primary':'ghost'} sm" style="border-radius:6px 6px 0 0" onclick="switchCsvTab('preview')">
-        2. Live Data Preview (First 10 Rows)
-      </button>
-    </div>
-  `;
 
-  if (state.activeTab === 'mapping') {
-    // Relational Integrity Alert
-    if (hasRootRequirement) {
-      if (isRootMapped) {
-        html += `
-          <div class="alert-item success" style="margin-bottom:14px;padding:8px 12px">
-            ${ico('check')}
-            <div style="font-size:12px">
-              <strong>Identifier Verified:</strong> Primary ID or EmployeeID is mapped for database alignment.
-            </div>
-          </div>`;
-      }
-    }
 
-    // Mapping Table
-    html += `
-      <div class="table-wrap" style="max-height:360px;overflow:auto;border:1px solid var(--border);border-radius:6px;margin-bottom:14px">
-        <table style="font-size:11.5px;margin:0">
-          <thead>
-            <tr style="background:var(--bg-dim)">
-              <th style="width:25%">CSV Header (Source)</th>
-              <th style="width:30%">Sample Data (Row 1-2)</th>
-              <th style="width:30%">Target Database Column</th>
-              <th style="width:15%">Match Status</th>
-            </tr>
-          </thead>
-          <tbody>
-    `;
 
-    state.mapping.forEach((m, idx) => {
-      const sample1 = state.rows[0] ? state.rows[0][m.csvHeader] || '' : '';
-      const sample2 = state.rows[1] ? state.rows[1][m.csvHeader] || '' : '';
-      const sampleText = [sample1, sample2].filter(Boolean).join(' | ');
-
-      const isRootCol = m.targetCol === 'employee_sys_id';
-      const statusBadge = m.targetCol === '__skip__'
-        ? `<span class="csv-badge-skip">Skipped</span>`
-        : m.isAuto
-        ? `<span class="csv-badge-match">✓ Auto-Matched</span>`
-        : `<span class="csv-badge-manual">Manual</span>`;
-
-      html += `
-        <tr style="${isRootCol ? 'background:rgba(34,197,94,0.06)' : ''}">
-          <td>
-            <div style="font-weight:600;color:var(--text-1)">${m.csvHeader}</div>
-          </td>
-          <td>
-            <div style="color:var(--text-2);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${sampleText}">
-              ${sampleText || '<span class="small-mute">(Empty)</span>'}
-            </div>
-          </td>
-          <td>
-            <select style="width:100%;font-size:11.5px;padding:4px 6px;border-radius:4px" onchange="updateCsvMapping(${idx}, this.value)">
-              <option value="__skip__">-- Skip / Do Not Import --</option>
-              ${schema.map(c => `
-                <option value="${c.key}" ${m.targetCol===c.key ? 'selected' : ''}>
-                  ${c.label}
-                </option>
-              `).join('')}
-            </select>
-          </td>
-          <td>
-            ${statusBadge}
-            ${isRootCol ? `<div style="margin-top:2px"><span class="csv-badge-root">Root ID</span></div>` : ''}
-          </td>
-        </tr>
-      `;
-    });
-
-    html += `
-          </tbody>
-        </table>
-      </div>
-    `;
-  } else {
-    // Preview Table
-    const previewRows = state.rows.slice(0, 10);
-    const cols = activeMappings.map(m => m.targetCol);
-
-    html += `
-      <div class="table-wrap" style="max-height:360px;overflow:auto;border:1px solid var(--border);border-radius:6px;margin-bottom:14px">
-        <table style="font-size:11px;margin:0">
-          <thead>
-            <tr style="background:var(--bg-dim)">
-              ${activeMappings.map(m => `<th>${m.targetCol} ${m.targetCol==='employee_sys_id'?'⭐':''}</th>`).join('')}
-            </tr>
-          </thead>
-          <tbody>
-            ${previewRows.map(r => `
-              <tr>
-                ${activeMappings.map(m => {
-                  const val = r[m.csvHeader] || '';
-                  return `<td>${String(val).replace(/</g,'&lt;').slice(0, 70)}</td>`;
-                }).join('')}
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-      <div class="small-mute" style="margin-bottom:12px">Displaying first 10 rows formatted according to your column mapping.</div>
-    `;
-  }
-
-  // Push Action Bar & Real-time Progress Bar
-  html += `
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
-      <button id="csvBtnPush" class="btn success" style="font-weight:700;font-size:13.5px;padding:8px 20px" onclick="executeCsvServerPush()">
-        🚀 Direct Server Push to Supabase (${num(state.rows.length)} Records)
-      </button>
-      <div class="small-mute">
-        Direct batch-upsert with real-time relational verification.
-      </div>
-    </div>
-
-    <div id="csvProgressBarContainer" style="display:none;margin-top:14px;background:var(--bg-dim);padding:14px;border-radius:8px;border:1px solid var(--border)">
-      <div style="font-size:12px;font-weight:600;margin-bottom:6px;display:flex;justify-content:space-between">
-        <span id="csvProgressTitle">Streaming records to Supabase...</span>
-        <span id="csvProgressPercent">0%</span>
-      </div>
-      <div style="height:9px;background:var(--border-strong);border-radius:5px;overflow:hidden">
-        <div id="csvProgressBarFill" style="height:100%;width:0%;background:var(--success);transition:width 0.2s ease"></div>
-      </div>
-      <div id="csvProgressStatus" style="font-size:11.5px;margin-top:6px;color:var(--text-2)">
-        Preparing batches...
-      </div>
-    </div>
-  `;
-
-  ws.innerHTML = html;
-}
-
-function switchCsvTab(tab) {
-  if (window.__csvImportState) {
-    window.__csvImportState.activeTab = tab;
-    renderCsvWorkspace();
-  }
-}
-
-function updateCsvMapping(index, targetCol) {
-  if (!window.__csvImportState || !window.__csvImportState.mapping[index]) return;
-  window.__csvImportState.mapping[index].targetCol = targetCol;
-  window.__csvImportState.mapping[index].isAuto = false;
-  renderCsvWorkspace();
-}
-
-function resetCsvUploader() {
-  window.__csvImportState = null;
-  const fileInput = document.getElementById('csvFileInput');
-  if (fileInput) fileInput.value = '';
-  const ws = document.getElementById('csvWorkspace');
-  if (ws) { ws.style.display = 'none'; ws.innerHTML = ''; }
-  toast('File selection cleared', 'info');
-}
-
-async function executeCsvServerPush() {
-  if (!guardEdit()) return;
-  const state = window.__csvImportState;
-  if (!state || !state.rows || !state.rows.length) {
-    toast('No CSV data available to upload. Please load a file first.', 'error');
-    return;
-  }
-
-  const table = state.targetTable;
-  const mapping = state.mapping;
-  const rawRows = state.rows;
-  const batchSize = parseInt(document.getElementById('csvBatchSize')?.value, 10) || 50;
-
-  const activeMappings = mapping.filter(m => m.targetCol && m.targetCol !== '__skip__');
-  if (!activeMappings.length) {
-    toast('Please map at least one column before uploading.', 'error');
-    return;
-  }
-
-  const schema = CSV_SCHEMAS[table] || [];
-  const rootCol = schema.find(c => c.isRoot || c.isFk);
-  const isRootMapped = activeMappings.some(m => m.targetCol === 'id' || m.targetCol === 'employee_id' || m.targetCol === 'employee_sys_id');
-
-  if (rootCol && !isRootMapped && table !== 'employees') {
-    const proceed = confirm(`Warning: Core identifier for ${table} is not mapped.\n\nDo you wish to proceed anyway?`);
-    if (!proceed) return;
-  }
-
-  // Transform rows to Supabase-ready payload
-  const transformedRows = [];
-  for (let i = 0; i < rawRows.length; i++) {
-    const raw = rawRows[i];
-    const rowObj = {};
-    activeMappings.forEach(m => { if(!raw) return;
-      let val = raw[m.csvHeader];
-      if (val !== undefined && val !== null) {
-        val = String(val).trim();
-        // Number sanitization
-        if (m.targetCol === 'employee_sys_id' || m.targetCol === 'salary' || m.targetCol === 'days_count' || m.targetCol === 'quantity' || m.targetCol === 'current_salary' || m.targetCol === 'new_salary') {
-          const numVal = parseInt(val.replace(/[^\d]/g, ''), 10);
-          if (!isNaN(numVal)) val = numVal;
-        }
-        rowObj[m.targetCol] = val;
-      }
-    });
-
-    if (Object.keys(rowObj).length > 0) {
-      transformedRows.push(rowObj);
-    }
-  }
-
-  if (!transformedRows.length) {
-    toast('No valid data rows found to push.', 'error');
-    return;
-  }
-
-  const btnPush = document.getElementById('csvBtnPush');
-  const progressContainer = document.getElementById('csvProgressBarContainer');
-  const progressBarFill = document.getElementById('csvProgressBarFill');
-  const progressPercent = document.getElementById('csvProgressPercent');
-  const progressStatus = document.getElementById('csvProgressStatus');
-
-  if (btnPush) {
-    btnPush.disabled = true;
-    btnPush.innerHTML = '⏳ Uploading Batches...';
-  }
-  if (progressContainer) progressContainer.style.display = 'block';
-
-  try {
-    let result = null;
-    if (window.MGHRM && typeof window.MGHRM.batchUpsert === 'function') {
-      result = await window.MGHRM.batchUpsert(table, transformedRows, function (progress) {
-        const pct = (typeof progress === 'object' ? progress.percent : 0) || 0;
-        if (progressBarFill) progressBarFill.style.width = pct + '%';
-        if (progressPercent) progressPercent.innerText = pct + '%';
-        if (progressStatus && typeof progress === 'object') {
-          progressStatus.innerHTML = `Batch ${progress.batch} of ${progress.totalBatches} (${pct}%): Uploaded ${progress.processed} of ${progress.total} records...`;
-        }
-      }, batchSize);
-
-      // Synchronize in-memory DATA[table] by reloading from Supabase
-      if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
-        const freshData = await window.MGHRM.loadAll();
-        if (freshData) {
-          Object.keys(freshData).forEach(k => {
-            if (Array.isArray(freshData[k])) {
-              window.DATA[k] = freshData[k];
-            }
-          });
-        }
-      }
-    } else {
-      console.warn('MGHRM.batchUpsert not found, CSV import failed.');
-      throw new Error('Database connection not established.');
-    }
-
-    if (progressBarFill) progressBarFill.style.width = '100%';
-    if (progressPercent) progressPercent.innerText = '100%';
-    if (progressStatus) {
-      progressStatus.innerHTML = `<span style="color:var(--success);font-weight:600">✓ Server Push Complete! ${result.count || transformedRows.length} records successfully upserted into "${table}".</span>`;
-    }
-
-    toast(`Success: ${result.count || transformedRows.length} records imported into ${table}`, 'success');
-    await logActivity('import', table, '', `Imported ${result.count || transformedRows.length} records via Smart CSV Uploader`);
-
-    persist();
-    if (typeof renderAll === 'function') renderAll();
-
-    setTimeout(() => {
-      if (btnPush) {
-        btnPush.disabled = false;
-        btnPush.innerHTML = `🚀 Direct Server Push to Supabase (${transformedRows.length} Records)`;
-      }
-    }, 1200);
-
-  } catch (err) {
-    console.error('CSV Server Push failed:', err);
-    if (progressStatus) {
-      progressStatus.innerHTML = `<span style="color:var(--danger)">❌ Push Error: ${err.message || 'Database error'}</span>`;
-    }
-    toast('Import failed: ' + (err.message || 'Check console logs'), 'error');
-    if (btnPush) {
-      btnPush.disabled = false;
-      btnPush.innerHTML = 'Retry Direct Server Push';
-    }
-  }
-}
 
 /* Fallback adapter for legacy import button */
-function importHint() { handleCsvTargetChange(); }
-function importPreview() { handleCsvFileSelected({ target: document.getElementById('imFile') }); }
-function importConfirm() { executeCsvServerPush(); }
 
-async function wipeAllData(){
-  if(!guardEdit()) return;
-  const step1 = prompt('WARNING: Wipe ALL data? To confirm, type exactly: DELETE ALL');
-  if(step1 !== 'DELETE ALL'){
-    toast('Wipe cancelled', 'warning');
-    return;
-  }
-  /* auto-download backup first */
-  try {
-    if(typeof exportBackupFile === 'function') exportBackupFile();
-  } catch(e) {}
 
-  if(!confirm('Final warning: backup downloaded. All transactional database tables will be permanently deleted. Proceed with total wipe?')) {
-    return;
-  }
 
-  let wipeSuccess = true;
-  /* Wipe Supabase Server Data */
-  const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null) || window.sb;
 
-  if (sbClient) {
-    toast('Wiping server data sequentially, please wait...', 'info');
-    
-    // STRICT RULE: Do NOT wipe reference/system tables (divisions, districts, thanas, designations, profiles, app_settings).
-    const tablesToWipe = [
-      'meeting_attendance',
-      'meetings',
-      'uniform',
-      'leaves',
-      'career',
-      'transfers',
-      'exits',
-      'disciplinary',
-      'recruitment_archive',
-      'demand',
-      'activity_log',
-      'employees',
-      'projects'
-    ];
-    
-    try {
-      for (const tableName of tablesToWipe) {
-        // Find PK from TABLE_MAP if available, default to 'id'
-        const tMap = (window.MGHRM && window.MGHRM.TABLE_MAP) || {};
-        let pk = 'id';
-        for (let k in tMap) {
-          if (tMap[k].table === tableName) { pk = tMap[k].pk; break; }
-        }
-        
-        let query = sbClient.from(tableName).delete();
-        // A dummy condition that matches all rows:
-        if (pk === 'id' || pk === 'demand_id') {
-          query = query.neq(pk, 0);
-        } else if (pk === 'setting_key' || pk === 'project_name') {
-          query = query.neq(pk, '');
-        } else {
-          query = query.neq(pk, 0); // fallback
-        }
-        
-        const { error } = await query;
-        
-        if (error) {
-          console.error(`[Wipe Data] Failed to wipe ${tableName}:`, error.message || error);
-          wipeSuccess = false;
-        } else {
-          console.log(`[Wipe Data] Successfully wiped table: ${tableName}`);
-        }
-      }
-    } catch(e) {
-      console.error('[Wipe Data] Failed to wipe Supabase:', e);
-      wipeSuccess = false;
-    }
-  }
 
-  if (!wipeSuccess) {
-    toast('Failed to wipe some server tables (Check permissions or RLS policies).', 'error');
-  } else {
-    toast('All transactional data wiped successfully from server.', 'success');
-  }
 
-  // Clear local JS arrays so UI updates instantly
-  DATA.employees = []; 
-  DATA.projects = []; 
-  DATA.transfers = []; 
-  DATA.disciplinary = [];
-  DATA.exits = []; 
-  DATA.leaves = []; 
-  DATA.career = []; 
-  DATA.uniforms = [];
-  DATA.todos = []; 
-  DATA.paradeState = []; 
-  DATA.paradeRecords = {}; 
-  DATA.meetings = {};
-  DATA.demand = [];
-  DATA.recruitmentArchive = []; 
-  DATA.activityLog = [];
-  
-  if(typeof RECRUITMENT !== 'undefined' && Array.isArray(RECRUITMENT)) RECRUITMENT.length = 0;
-  if(typeof NOTIFICATIONS !== 'undefined' && Array.isArray(NOTIFICATIONS)) NOTIFICATIONS.length = 0;
-  
-  await logActivity('wipe', 'ALL', '', 'Database completely wiped by user');
-  
-  // Reload fresh from server to ensure complete sync
-  if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
-    const freshData = await window.MGHRM.loadAll();
-    if (freshData) {
-          Object.keys(freshData).forEach(k => {
-            if (Array.isArray(freshData[k])) {
-              window.DATA[k] = freshData[k];
-            }
-          });
-        }
-  }
-  
-  persist();
-  renderAll();
-}
+
 
 function uploadLogo(ev){
   const file = ev.target.files[0]; if(!file) return;
@@ -8228,7 +7276,7 @@ function empNameBn(e){
 }
 
 /* ============ NOTIFICATIONS + SCHEDULED TRANSFERS ============ */
-const NOTIFICATIONS = [];
+/* NOTIFICATIONS already initialized */
 function applyScheduledTransfers(){
   
   const today = todayISO();
@@ -8675,7 +7723,7 @@ function mtSaveMeetingNote(iso, val){
   if(d.submitted) return;
   d.meetingNote = val; persist();
 }
-function mtSubmitDay(iso, event){
+async function mtSubmitDay(iso, event){
   if(!guardEdit()) return;
   const d = mtEnsure(iso);
   if(d.submitted){ toast('Already submitted','info'); return; }
@@ -9206,7 +8254,7 @@ function renderUniform(){
     </div>
   `;
 }
-function unifSubmit(event){
+async function unifSubmit(event){
   if(!guardEdit()) return;
   const rid = document.getElementById('unEmp').value;
   const itm = document.getElementById('unItem').value;
@@ -9474,7 +8522,7 @@ const OD_LOCK_FILE = 'MGSecurityHRM-lock.json';
 const DEVICE_ID = 'dev-' + Math.random().toString(36).slice(2,10);
 let odDir = null;                 /* File System Access directory handle (OneDrive folder) */
 let odLinked = false, READONLY = false, lockTimer = null, odWriteTimer = null;
-let VERIFY_MODE = false; const VERIFY_TICKS = new Set();   
+/* VERIFY_MODE & VERIFY_TICKS already initialized */   
 const OD_FLAG = 'mghrm_od_was_linked';
 
 function snapshotState(){
@@ -9820,7 +8868,7 @@ function printEmpProfile(recordId){
 
 /* ============ INTERACTIVE NOTIFICATIONS (pending confirmations surface as toasts) ============ */
 let _pendingToastAt = 0, _pendingToastCount = -1;
-function checkPendingToast(force){
+async function checkPendingToast(force){
   const n = NOTIFICATIONS.length;
   if(n>0 && (force || n!==_pendingToastCount || Date.now()-_pendingToastAt>120000)){
     _pendingToastAt = Date.now(); _pendingToastCount = n;
@@ -10403,7 +9451,6 @@ setInterval(()=>checkPendingToast(true), 180000);
   
   function fillData(d){
     var n = 0;
-    window.__sbEmpties = [];
     Object.keys(d).forEach(function (k) {
       if (k === 'appSettings' && d[k]) {
         var profile = d[k].find(function(s) { return s.setting_key === 'company_profile'; });
@@ -10417,12 +9464,6 @@ setInterval(()=>checkPendingToast(true), 180000);
       }
       if (window.DATA && Object.prototype.hasOwnProperty.call(window.DATA, k)) {
         var srv = Array.isArray(d[k]) ? d[k] : null;
-        var loc = Array.isArray(window.DATA[k]) ? window.DATA[k] : null;
-        
-        if (srv && loc && srv.length === 0 && loc.length > 0) {
-          window.__sbEmpties.push(k);
-          return;
-        }
         if (srv) { window.DATA[k] = srv; n++; }
       }
     });

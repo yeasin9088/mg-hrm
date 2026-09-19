@@ -2087,7 +2087,10 @@ async function renderDashboard(){
   const shortage = Math.max(0,totalDemand-totalActual);
   const shortagePct = totalDemand>0 ? (shortage*100/totalDemand).toFixed(1) : 0;
   const recentJoins = active.filter(e=>daysAgo(e.JoinDate)<=30);
-  const recentTransfers = DATA.transfers.filter(t=>daysAgo(t.TransferDate)<=30);
+  const recentTransfers = DATA.transfers.filter(t => {
+    const st = t.status || t.Status;
+    return st === 'Completed' && t.TransferDate && daysAgo(t.TransferDate) <= 30;
+  });
   const recentDisc = DATA.disciplinary.filter(a=>daysAgo(a.IssueDate)<=30);
   const recentExits = DATA.exits.filter(x=>daysAgo(x.ExitDate)<=30);
   
@@ -2367,8 +2370,7 @@ function computeAlerts(){
       title: `${shortProj.length} projects with 20%+ shortage`,
       detail: shortProj.slice(0,3).map(p=>projName(p.project)).join(', ') + (shortProj.length>3?'…':'')});
   }
-  // Repeated disciplinary
-  const empTransfers = DATA.transfers.filter(t=>ematch(t)).sort((a,b)=>parseDate(b.TransferDate)-parseDate(a.TransferDate));
+
   const empDisc = {};
   DATA.disciplinary.forEach(d=>empDisc[d.EmployeeID]=(empDisc[d.EmployeeID]||0)+1);
   const repeat = Object.entries(empDisc).filter(([,n])=>n>=2);
@@ -4886,7 +4888,7 @@ function renderTransferTable() {
     return true;
   }).sort((a,b)=>+b.id-+a.id || String(b.id||'').localeCompare(String(a.id||'')));
 
-  document.getElementById('trTableBody').innerHTML = rows.slice(0, 100).map(t=>{
+  document.getElementById('trTableBody').innerHTML = rows.map(t=>{
     const e = findEmpByAction(t);
     const empId = e ? (e.id || e.EmployeeID || '') : (t.EmployeeID || '—');
     const trStatus = t.status || t.Status || 'Scheduled';

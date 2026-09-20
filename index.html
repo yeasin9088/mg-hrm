@@ -2142,15 +2142,16 @@ function refNo(prefix='MG/SEC'){
   const d=new Date(); const yy=d.getFullYear(); const mm=String(d.getMonth()+1).padStart(2,'0');
   const seq=String(Math.floor(Math.random()*899+100)); return `${prefix}/${yy}/${mm}/${seq}`;
 }
-function escapeHtml(str){
-  if(str == null) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+function escapeHtml(unsafe){
+  if(unsafe == null) return '';
+  return String(unsafe)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
+window.escapeHtml = escapeHtml;
 
 /* ============ Toast + Modal ============ */
 function toast(msg,type='info',onClick,sticky=false){
@@ -3226,20 +3227,20 @@ function renderEmpTable(){
         >
       </td>`:''}
       <td>${num(i+1)}</td>
-      <td><span class="chip" style="font-size:11px;font-weight:600">${e.id ? num(e.id) : '—'}</span></td>
+      <td><span class="chip" style="font-size:11px;font-weight:600">${e.id ? escapeHtml(num(e.id)) : '—'}</span></td>
       <td>
         <div style="display:flex;gap:10px;align-items:center">
-          <div class="emp-avatar" style="width:32px;height:32px;font-size:12px">${initials(e.FullName)}</div>
-          <div><strong>${e.FullName||''}</strong><br><span class="small-mute">${e.EmployeeID ? `${'Official ID:'} ${num(e.EmployeeID)}` : (e.id ? `${'System ID:'} ${num(e.id)}` : '')}</span></div>
+          <div class="emp-avatar" style="width:32px;height:32px;font-size:12px">${escapeHtml(initials(e.FullName))}</div>
+          <div><strong>${escapeHtml(e.FullName||'')}</strong><br><span class="small-mute">${e.EmployeeID ? `${'Official ID:'} ${escapeHtml(num(e.EmployeeID))}` : (e.id ? `${'System ID:'} ${escapeHtml(num(e.id))}` : '')}</span></div>
         </div>
       </td>
-      <td>${desig(e.Designation||'')}</td>
-      <td style="font-size:12px">${projName(e.ProjectName||'')}</td>
-      <td>${fmtDate(e.JoinDate)}</td>
-      <td>${num(e.PhoneNumber||'')}</td>
-      <td>${e.Salary?money(e.Salary):''}</td>
-      <td><span class="pill ${e.Status==='Active'?'active':e.Status==='Candidate'?'info':e.Status==='Application Rejected'?'danger':'inactive'}">${e.Status||''}</span></td>
-      <td><button class="btn sm ghost" onclick="event.stopPropagation();openEmpDetail('${empKey}')">${'View'}</button></td>
+      <td>${escapeHtml(desig(e.Designation||''))}</td>
+      <td style="font-size:12px">${escapeHtml(projName(e.ProjectName||''))}</td>
+      <td>${escapeHtml(fmtDate(e.JoinDate))}</td>
+      <td>${escapeHtml(num(e.PhoneNumber||''))}</td>
+      <td>${e.Salary?escapeHtml(money(e.Salary)):''}</td>
+      <td><span class="pill ${e.Status==='Active'?'active':e.Status==='Candidate'?'info':e.Status==='Application Rejected'?'danger':'inactive'}">${escapeHtml(e.Status||'')}</span></td>
+      <td><button class="btn sm ghost" onclick="event.stopPropagation();openEmpDetail('${escapeHtml(empKey)}')">${'View'}</button></td>
     </tr>
   `;}).join('');
   document.getElementById('empTableBody').innerHTML = html + (rows.length>200 ?
@@ -3313,26 +3314,26 @@ function openEmpDetail(recordId){
   const empKey = e.id || e.EmployeeID;
   const html = `
     <div class="emp-header">
-      <div class="emp-avatar" style="width:80px;height:80px;font-size:26px">${initials(e.FullName)}</div>
+      <div class="emp-avatar" style="width:80px;height:80px;font-size:26px">${escapeHtml(initials(e.FullName))}</div>
       <div style="flex:1">
-        <h3>${e.FullName||''}</h3>
-        <div class="sub">${desig(e.Designation||'')} · ${projName(e.ProjectName||'')}</div>
+        <h3>${escapeHtml(e.FullName||'')}</h3>
+        <div class="sub">${escapeHtml(desig(e.Designation||''))} · ${escapeHtml(projName(e.ProjectName||''))}</div>
         <div class="meta">
-          <span>🆔 ${'System ID:'} <strong>${e.id ? num(e.id) : '—'}</strong></span>
-          ${e.EmployeeID ? `<span>💳 ${'Official ID:'} <strong>${num(e.EmployeeID)}</strong></span>` : ''}
-          <span>📞 ${num(e.PhoneNumber||'')}</span>
-          <span>📅 ${'Joined:'} ${fmtDate(e.JoinDate)}</span>
-          <span class="pill ${e.Status==='Active'?'active':'inactive'}" style="text-transform:none">${e.Status||''}</span>
+          <span>🆔 ${'System ID:'} <strong>${e.id ? escapeHtml(num(e.id)) : '—'}</strong></span>
+          ${e.EmployeeID ? `<span>💳 ${'Official ID:'} <strong>${escapeHtml(num(e.EmployeeID))}</strong></span>` : ''}
+          <span>📞 ${escapeHtml(num(e.PhoneNumber||''))}</span>
+          <span>📅 ${'Joined:'} ${escapeHtml(fmtDate(e.JoinDate))}</span>
+          <span class="pill ${e.Status==='Active'?'active':'inactive'}" style="text-transform:none">${escapeHtml(e.Status||'')}</span>
         </div>
       </div>
       <div class="btn-row">
-        <button class="btn sm" onclick="empActionQuick('transfer','${empKey}')">${'Transfer'}</button>
-        <button class="btn sm" onclick="empActionQuick('disciplinary','${empKey}')">${'Notice'}</button>
-        <button class="btn sm" onclick="empActionQuick('leave','${empKey}')">${'Leave'}</button>
-        ${e.Status==='Active'?`<button class="btn sm danger" onclick="empActionQuick('exit','${empKey}')">${'Exit'}</button>`:`<button class="btn sm primary" onclick="promptReactivate('${empKey}')">${'Reactivate'}</button>`}
-        <button class="btn sm" onclick="closeModal();openApplicantForm('${empKey}')">${ico('edit')} ${'Edit'}</button>
-        <button class="btn sm danger" onclick="deleteEmployeeDirectly('${empKey}')">${ico('trash')} ${'Delete'}</button>
-        <button class="btn sm primary" onclick="printEmpProfile('${empKey}')">${ico('print')} ${'Print Profile'}</button>
+        <button class="btn sm" onclick="empActionQuick('transfer','${escapeHtml(empKey)}')">${'Transfer'}</button>
+        <button class="btn sm" onclick="empActionQuick('disciplinary','${escapeHtml(empKey)}')">${'Notice'}</button>
+        <button class="btn sm" onclick="empActionQuick('leave','${escapeHtml(empKey)}')">${'Leave'}</button>
+        ${e.Status==='Active'?`<button class="btn sm danger" onclick="empActionQuick('exit','${escapeHtml(empKey)}')">${'Exit'}</button>`:`<button class="btn sm primary" onclick="promptReactivate('${escapeHtml(empKey)}')">${'Reactivate'}</button>`}
+        <button class="btn sm" onclick="closeModal();openApplicantForm('${escapeHtml(empKey)}')">${ico('edit')} ${'Edit'}</button>
+        <button class="btn sm danger" onclick="deleteEmployeeDirectly('${escapeHtml(empKey)}')">${ico('trash')} ${'Delete'}</button>
+        <button class="btn sm primary" onclick="printEmpProfile('${escapeHtml(empKey)}')">${ico('print')} ${'Print Profile'}</button>
       </div>
     </div>
 
@@ -3411,20 +3412,20 @@ function openEmpDetail(recordId){
           ].sort((a,b)=>parseDate(b.date)-parseDate(a.date)).map(x=>`
             <div class="tl-item ${x.type==='disc'||x.type==='exit'?'warning':x.type==='career'?'success':''}">
               <div class="tl-dot"></div>
-              <h5>${x.title}</h5>
-              <div class="date">${fmtDateLong(x.date)}</div>
-              <p>${x.detail||''}</p>
+              <h5>${escapeHtml(x.title)}</h5>
+              <div class="date">${escapeHtml(fmtDateLong(x.date))}</div>
+              <p>${escapeHtml(x.detail||'')}</p>
             </div>
           `).join('')}
         </div>` : ''}
       ` : `<p class="small-mute" style="text-align:center;padding:40px">${'No history yet'}</p>`}
     </div>
   `;
-  openModal(e.FullName, html);
+  openModal(escapeHtml(e.FullName), html);
 }
 function row(label,val,wide=false){
   if(!val) return '';
-  return `<div class="info-row" ${wide?'style="grid-column:1/-1"':''}><label>${label}</label><div class="value">${val}</div></div>`;
+  return `<div class="info-row" ${wide?'style="grid-column:1/-1"':''}><label>${escapeHtml(label)}</label><div class="value">${escapeHtml(val)}</div></div>`;
 }
 function switchTab(container, key){
   const c = document.getElementById(container);
@@ -6531,7 +6532,7 @@ function renderTransfer(){
           <div class="field wide"><label>${'Notes / Extra Instructions'}</label><textarea id="trNotes" rows="2"></textarea></div>
         </div>
         <div style="margin-top:14px" class="btn-row">
-          <button class="btn primary" onclick="submitTransfer()">${'Submit'}</button>
+          <button class="btn primary" id="btnSubmitTransfer" onclick="submitTransfer()">${'Submit'}</button>
           <button class="btn" onclick="previewTransferOrder()">${ico('print')} ${'Bangla Order Letter'}</button>
         </div>
         <div id="trHint" class="small-mute" style="margin-top:8px"></div>
@@ -6597,13 +6598,13 @@ function renderTransferTable() {
     const trStatus = t.status || t.Status || 'Scheduled';
     const pillClass = trStatus === 'Cancelled' ? 'inactive' : trStatus === 'Completed' ? 'completed' : (trStatus === 'Awaiting Confirmation' || trStatus === 'Join Pending' ? 'warning' : 'scheduled');
     return `<tr class="row-click" onclick="openTransferPopup(${jsQ(t.id)})" style="cursor:pointer">
-      <td>${num(t.id)}</td>
-      <td><span class="chip" style="font-size:11px;font-weight:600">${num(empId)}</span></td>
-      <td><strong>${t.FullName}</strong></td>
-      <td>${projName(t.CurrentProject)}</td>
-      <td>${projName(t.NewProject)}</td>
-      <td>${fmtDate(t.TransferDate)}</td>
-      <td><span class="pill ${pillClass}">${trStatus}</span></td>
+      <td>${escapeHtml(num(t.id))}</td>
+      <td><span class="chip" style="font-size:11px;font-weight:600">${escapeHtml(num(empId))}</span></td>
+      <td><strong>${escapeHtml(t.FullName||'')}</strong></td>
+      <td>${escapeHtml(projName(t.CurrentProject))}</td>
+      <td>${escapeHtml(projName(t.NewProject))}</td>
+      <td>${escapeHtml(fmtDate(t.TransferDate))}</td>
+      <td><span class="pill ${pillClass}">${escapeHtml(trStatus)}</span></td>
       <td onclick="event.stopPropagation()"><button class="btn ghost sm" onclick="reprintTransfer(${jsQ(t.id)})">${ico('print')}</button></td>
     </tr>`}).join('') || `<tr><td colspan="8" class="small-mute" style="text-align:center;padding:20px">${'No data found'}</td></tr>`;
 }
@@ -6622,21 +6623,21 @@ function openTransferPopup(tid){
     'Cancelled':'বাতিল', 'Completed':'সম্পন্ন (জয়েন করেছেন)',
     'Awaiting Confirmation':'যোগদানের অপেক্ষায়', 'Join Pending':'যোগদানের অপেক্ষায় (Join Pending)', 'Scheduled':'নির্ধারিত', 'Recorded':'রেকর্ডকৃত'
   })[status] || status : status;
-  const statusPill = `<span class="pill ${pillCls}">${pillTxt}</span>`;
+  const statusPill = `<span class="pill ${pillCls}">${escapeHtml(pillTxt)}</span>`;
   const emp = findEmpByAction(t);
   const empActive = emp && emp.Status==='Active';
-  openModal(bn?`ট্রান্সফার #${num(t.id)}`:`Transfer #${t.id}`,
+  openModal(bn?`ট্রান্সফার #${escapeHtml(num(t.id))}`:`Transfer #${escapeHtml(t.id)}`,
     `<div class="pop-detail">
-      <div class="pop-row"><span>${bn?'স্মারক নং':'Memo No.'}</span><b>${memo}</b></div>
-      <div class="pop-row"><span>${bn?'কর্মচারী':'Employee'}</span><b>${t.FullName} <span class="small-mute">(#${num(t.EmployeeID||'')})</span></b></div>
-      <div class="pop-row"><span>${bn?'পদবি':'Designation'}</span><b>${t.Designation||''}</b></div>
-      <div class="pop-row"><span>${bn?'হতে':'From'}</span><b>${projName(t.CurrentProject)}</b></div>
-      <div class="pop-row"><span>${bn?'-এ':'To'}</span><b style="color:var(--purple)">${projName(t.NewProject)}</b></div>
-      <div class="pop-row"><span>${bn?'ট্রান্সফার তারিখ':'Transfer Date'}</span><b>${fmtDate(t.TransferDate)}</b></div>
-      <div class="pop-row"><span>${bn?'ইস্যু তারিখ':'Issue Date'}</span><b>${fmtDate(t['Issues Date']||t.IssueDate||'')}</b></div>
+      <div class="pop-row"><span>${bn?'স্মারক নং':'Memo No.'}</span><b>${escapeHtml(memo)}</b></div>
+      <div class="pop-row"><span>${bn?'কর্মচারী':'Employee'}</span><b>${escapeHtml(t.FullName||'')} <span class="small-mute">(#${escapeHtml(num(t.EmployeeID||''))})</span></b></div>
+      <div class="pop-row"><span>${bn?'পদবি':'Designation'}</span><b>${escapeHtml(t.Designation||'')}</b></div>
+      <div class="pop-row"><span>${bn?'হতে':'From'}</span><b>${escapeHtml(projName(t.CurrentProject))}</b></div>
+      <div class="pop-row"><span>${bn?'-এ':'To'}</span><b style="color:var(--purple)">${escapeHtml(projName(t.NewProject))}</b></div>
+      <div class="pop-row"><span>${bn?'ট্রান্সফার তারিখ':'Transfer Date'}</span><b>${escapeHtml(fmtDate(t.TransferDate))}</b></div>
+      <div class="pop-row"><span>${bn?'ইস্যু তারিখ':'Issue Date'}</span><b>${escapeHtml(fmtDate(t['Issues Date']||t.IssueDate||''))}</b></div>
       <div class="pop-row"><span>${bn?'অবস্থা':'Status'}</span>${statusPill}</div>
-      ${emp?`<div class="pop-row"><span>${bn?'বর্তমান প্রজেক্ট (Employeetbl)':'Current Project (Employeetbl)'}</span><b>${projName(emp.ProjectName)}</b></div>`:''}
-      ${t.Notes?`<div class="pop-row"><span>${bn?'নোট':'Notes'}</span><b>${t.Notes}</b></div>`:''}
+      ${emp?`<div class="pop-row"><span>${bn?'বর্তমান প্রজেক্ট (Employeetbl)':'Current Project (Employeetbl)'}</span><b>${escapeHtml(projName(emp.ProjectName))}</b></div>`:''}
+      ${t.Notes?`<div class="pop-row"><span>${bn?'নোট':'Notes'}</span><b>${escapeHtml(t.Notes)}</b></div>`:''}
     </div>
     <div class="pop-hint">${bn?'💡 "যোগদান নিশ্চিত" চাপলে Employeetbl.ProjectName আপডেট হবে ও status "সম্পন্ন" হবে। "বাতিল" চাপলে শুধু হিস্ট্রি রেকর্ড "Cancelled" হবে; Employeetbl অপরিবর্তিত।':'💡 "Confirm Joined" updates Employeetbl.ProjectName and marks Completed. "Cancel" only marks the history record — Employeetbl is not touched.'}</div>`,
     `<button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>
@@ -7007,8 +7008,8 @@ async function submitTransfer(){
   const notes = document.getElementById('trNotes').value;
   if(!rid||!np||!td){ toast('Fill Employee, New Project, and Date', 'error'); return; }
 
+  const btn = document.getElementById('btnSubmitTransfer') || (typeof event !== 'undefined' && event && event.target ? event.target : null);
   window.mtCustomConfirm("Confirm Transfer", "Are you sure you want to save this transfer record?", "primary", async function() {
-    const btn = event && event.target ? event.target : document.getElementById('btnSubmitTransfer');
     if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
 
     try {
@@ -7205,7 +7206,7 @@ function renderDisciplinary(){
           </div>
         </div>
         <div style="margin-top:14px" class="btn-row">
-          <button class="btn primary" onclick="submitDisciplinary()">${'Save'}</button>
+          <button class="btn primary" id="btnSubmitDisc" onclick="submitDisciplinary()">${'Save'}</button>
           <button class="btn" onclick="previewDisciplinary()">${ico('print')} ${'Preview Full Bangla Notice'}</button>
         </div>
       </div>
@@ -7265,11 +7266,11 @@ function renderDisciplinaryTable() {
     const aid = d.ActionID || d.action_id || d.id;
     return `<tr class="row-click clickable" onclick="openDisciplinaryPopup(${jsQ(aid)})" style="cursor:pointer">
       <td>${rows.length - i}</td>
-      <td><span class="chip" style="font-size:11px;font-weight:600">${num(empId)}</span></td>
-      <td><strong>${num(d.RefNo||d.ref_no||'')}</strong></td>
-      <td>${d.FullName||d.full_name||''}</td>
-      <td>${d.ActionType||d.action_type||''}</td>
-      <td>${fmtDate(d.IssueDate||d.issue_date)}</td>
+      <td><span class="chip" style="font-size:11px;font-weight:600">${escapeHtml(num(empId))}</span></td>
+      <td><strong>${escapeHtml(num(d.RefNo||d.ref_no||''))}</strong></td>
+      <td>${escapeHtml(d.FullName||d.full_name||'')}</td>
+      <td>${escapeHtml(d.ActionType||d.action_type||'')}</td>
+      <td>${escapeHtml(fmtDate(d.IssueDate||d.issue_date))}</td>
       <td onclick="event.stopPropagation()"><button class="btn ghost sm" onclick="reprintDisc(${jsQ(aid)})">${ico('print')}</button></td>
     </tr>`}).join('') || `<tr><td colspan="7" class="small-mute" style="text-align:center;padding:20px">${'No disciplinary records'}</td></tr>`;
 }
@@ -7283,9 +7284,9 @@ function openDisciplinaryPopup(aid, isEditing = false){
   const bn = LANG==='bn';
 
   const descContent = isEditing
-    ? `<div class="field wide" style="margin-top:12px"><label>${bn?'চিঠির বডি (সম্পাদনযোগ্য)':'Letter body (editable)'}</label><textarea id="_dcDescEdit" rows="10" style="width:100%">${(d.Description||d.description||'').replace(/</g,'&lt;')}</textarea></div>
+    ? `<div class="field wide" style="margin-top:12px"><label>${bn?'চিঠির বডি (সম্পাদনযোগ্য)':'Letter body (editable)'}</label><textarea id="_dcDescEdit" rows="10" style="width:100%">${escapeHtml(d.Description||d.description||'')}</textarea></div>
        <p class="small-mute" style="margin-top:6px">${bn?'শুধু লেখা সম্পাদনযোগ্য; স্মারক নং ও ইস্যু তারিখ অপরিবর্তিত থাকবে।':'Only the letter body is editable; ref no. and dates stay unchanged.'}</p>`
-    : `<div class="field wide" style="margin-top:12px"><label>${bn?'চিঠির বডি':'Letter body'}</label><div style="background:var(--bg,#f8fafc);border:1px solid var(--border);border-radius:6px;padding:12px;max-height:220px;overflow-y:auto;white-space:pre-wrap;font-family:inherit;font-size:13px">${(d.Description||d.description||'—').replace(/</g,'&lt;')}</div></div>`;
+    : `<div class="field wide" style="margin-top:12px"><label>${bn?'চিঠির বডি':'Letter body'}</label><div style="background:var(--bg,#f8fafc);border:1px solid var(--border);border-radius:6px;padding:12px;max-height:220px;overflow-y:auto;white-space:pre-wrap;font-family:inherit;font-size:13px">${escapeHtml(d.Description||d.description||'—')}</div></div>`;
 
   const actionsHtml = isEditing
     ? `<button class="btn" onclick="openDisciplinaryPopup(${jsQ(actualAid)}, false)">${bn?'বাতিল':'Cancel'}</button>
@@ -7295,15 +7296,15 @@ function openDisciplinaryPopup(aid, isEditing = false){
        <button class="btn" onclick="openDisciplinaryPopup(${jsQ(actualAid)}, true)">✏️ ${bn?'এডিট টেক্সট':'Edit Text'}</button>
        <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteDisciplinary(${jsQ(actualAid)})">${bn?'ডিলিট':'Delete'}</button>`;
 
-  openModal(bn?`শৃঙ্খলা অ্যাকশন — ${d.RefNo||d.ref_no||''}`:`Disciplinary — ${d.RefNo||d.ref_no||''}`,
+  openModal(bn?`শৃঙ্খলা অ্যাকশন — ${escapeHtml(d.RefNo||d.ref_no||'')}`:`Disciplinary — ${escapeHtml(d.RefNo||d.ref_no||'')}`,
     `<div class="pop-detail">
-      <div class="pop-row"><span>${bn?'স্মারক নং':'Ref No.'}</span><b>${d.RefNo||d.ref_no||''}</b></div>
-      <div class="pop-row"><span>${bn?'কর্মচারী':'Employee'}</span><b>${d.FullName||d.full_name||''} <span class="small-mute">(#${num(d.EmployeeID||d.employee_id||'')})</span></b></div>
-      <div class="pop-row"><span>${bn?'পদবি':'Designation'}</span><b>${d.Designation||d.designation||''}</b></div>
-      <div class="pop-row"><span>${bn?'প্রজেক্ট':'Project'}</span><b>${projName(d.ProjectName||d.project_name)}</b></div>
-      <div class="pop-row"><span>${bn?'অ্যাকশন':'Action'}</span><b>${d.ActionType||d.action_type||''}</b></div>
-      <div class="pop-row"><span>${bn?'ঘটনার তারিখ':'Incident Date'}</span><b>${fmtDate(d.IncidentDate||d.incident_date)}</b></div>
-      <div class="pop-row"><span>${bn?'ইস্যু তারিখ':'Issue Date'}</span><b>${fmtDate(d.IssueDate||d.issue_date)}</b></div>
+      <div class="pop-row"><span>${bn?'স্মারক নং':'Ref No.'}</span><b>${escapeHtml(d.RefNo||d.ref_no||'')}</b></div>
+      <div class="pop-row"><span>${bn?'কর্মচারী':'Employee'}</span><b>${escapeHtml(d.FullName||d.full_name||'')} <span class="small-mute">(#${escapeHtml(num(d.EmployeeID||d.employee_id||''))})</span></b></div>
+      <div class="pop-row"><span>${bn?'পদবি':'Designation'}</span><b>${escapeHtml(d.Designation||d.designation||'')}</b></div>
+      <div class="pop-row"><span>${bn?'প্রজেক্ট':'Project'}</span><b>${escapeHtml(projName(d.ProjectName||d.project_name))}</b></div>
+      <div class="pop-row"><span>${bn?'অ্যাকশন':'Action'}</span><b>${escapeHtml(d.ActionType||d.action_type||'')}</b></div>
+      <div class="pop-row"><span>${bn?'ঘটনার তারিখ':'Incident Date'}</span><b>${escapeHtml(fmtDate(d.IncidentDate||d.incident_date))}</b></div>
+      <div class="pop-row"><span>${bn?'ইস্যু তারিখ':'Issue Date'}</span><b>${escapeHtml(fmtDate(d.IssueDate||d.issue_date))}</b></div>
     </div>
     ${descContent}`,
     actionsHtml);
@@ -7350,8 +7351,8 @@ async function submitDisciplinary(){
   const rid = document.getElementById('dcEmp').value;
   if(!rid){ toast('Select employee first','error'); return; }
   
+  const btn = document.getElementById('btnSubmitDisc') || (typeof event !== 'undefined' && event && event.target ? event.target : null);
   window.mtCustomConfirm("Disciplinary Action", "Are you sure you want to save this disciplinary record?", "danger", async function() {
-    const btn = event && event.target ? event.target : document.getElementById('btnSubmitDisc');
     if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
 
     try {
@@ -7512,7 +7513,7 @@ function renderLeave(){
           <div class="field wide"><label>${'Reason'} *</label><textarea id="lvReason" rows="2"></textarea></div>
         </div>
         <div style="margin-top:14px" class="btn-row">
-          <button class="btn primary" onclick="submitLeave()">${'Submit'}</button>
+          <button class="btn primary" id="btnSubmitLeave" onclick="submitLeave()">${'Submit'}</button>
         </div>
       </div>
     </div>
@@ -7525,17 +7526,17 @@ function renderLeave(){
             <thead><tr><th style="width:50px">${'#'}</th><th>ID</th><th>${'Employee'}</th><th>${'Type'}</th><th>${'Days'}</th><th>${'Status'}</th><th></th></tr></thead>
             <tbody>
               ${SAMPLE_LEAVES.slice().sort((a,b)=>+b.id-+a.id).map((l,i)=>{
-                const lt = LEAVE_TYPES.find(x=>x.key===l.type);
+                const lt = LEAVE_TYPES.find(x=>x.key===l.type) || {color:'#666', [LANG]: l.type};
                 const emp = findEmpByAction(l);
                 const empId = emp ? (emp.id || emp.EmployeeID || '') : (l.empId || '—');
                 return `<tr class="row-click" onclick="openLeavePopup(${jsQ(l.id)})" style="cursor:pointer">
-                  <td>${num(l.id)}</td>
-                  <td><span class="chip" style="font-size:11px;font-weight:600">${num(empId)}</span></td>
-                  <td><strong>${l.name}</strong><br><span class="small-mute">${fmtDate(l.start)} — ${fmtDate(l.end)}</span></td>
-                  <td><span class="chip" style="color:${lt.color}">${lt[LANG]}</span></td>
-                  <td>${num(l.days)}</td>
-                  <td><span class="pill ${l.status==='Approved'?'approved':(l.status==='Rejected'?'danger':'pending')}">${l.status}</span></td>
-                  <td onclick="event.stopPropagation()">${l.status==='Pending'?`<button class="btn success sm" onclick="approveLeave(${l.id})">${'Approve'}</button>`:''}</td>
+                  <td>${escapeHtml(num(l.id))}</td>
+                  <td><span class="chip" style="font-size:11px;font-weight:600">${escapeHtml(num(empId))}</span></td>
+                  <td><strong>${escapeHtml(l.name||'')}</strong><br><span class="small-mute">${escapeHtml(fmtDate(l.start))} — ${escapeHtml(fmtDate(l.end))}</span></td>
+                  <td><span class="chip" style="color:${lt.color}">${escapeHtml(lt[LANG])}</span></td>
+                  <td>${escapeHtml(num(l.days))}</td>
+                  <td><span class="pill ${l.status==='Approved'?'approved':(l.status==='Rejected'?'danger':'pending')}">${escapeHtml(l.status||'')}</span></td>
+                  <td onclick="event.stopPropagation()">${l.status==='Pending'?`<button class="btn success sm" onclick="approveLeave(${jsQ(l.id)})">${'Approve'}</button>`:''}</td>
                 </tr>`;
               }).join('')}
             </tbody>
@@ -7592,7 +7593,7 @@ async function submitLeave(){
   const e = document.getElementById('lvEnd').value;
   if(!rid||!s||!e){ toast('Fill Employee, Start & End dates','error'); return; }
   
-  const btn = event && event.target ? event.target : null;
+  const btn = document.getElementById('btnSubmitLeave') || (typeof event !== 'undefined' && event && event.target ? event.target : null);
   if (btn) { btn.disabled = true; btn.innerHTML = 'Submitting...'; }
 
   try {
@@ -7657,13 +7658,13 @@ function openLeavePopup(id){
   const bn = LANG==='bn';
   const lt = LEAVE_TYPES.find(x=>x.key===l.type) || {bn:l.type,en:l.type,color:'#666'};
   const statusColor = l.status==='Approved'?'approved':(l.status==='Rejected'?'danger':'pending');
-  openModal(`${bn?'ছুটির আবেদন':'Leave Application'} — ${l.name||''}`,
+  openModal(`${bn?'ছুটির আবেদন':'Leave Application'} — ${escapeHtml(l.name||'')}`,
     `<div class="pop-detail">
-      <div class="pop-row"><div class="pop-hint">${bn?'কর্মচারী':'Employee'}</div><div><strong>${l.name||''}</strong></div></div>
-      <div class="pop-row"><div class="pop-hint">${bn?'ধরন':'Type'}</div><div><span class="chip" style="color:${lt.color}">${lt[LANG]}</span></div></div>
-      <div class="pop-row"><div class="pop-hint">${bn?'সময়কাল':'Period'}</div><div>${fmtDate(l.start)} — ${fmtDate(l.end)} <span class="chip">${num(l.days)} ${bn?'দিন':'days'}</span></div></div>
-      <div class="pop-row"><div class="pop-hint">${bn?'অবস্থা':'Status'}</div><div><span class="pill ${statusColor}">${l.status||''}</span></div></div>
-      <div class="pop-row"><div class="pop-hint">${bn?'কারণ':'Reason'}</div><div><textarea id="lvEditReason" rows="3" style="width:100%">${l.reason||''}</textarea></div></div>
+      <div class="pop-row"><div class="pop-hint">${bn?'কর্মচারী':'Employee'}</div><div><strong>${escapeHtml(l.name||'')}</strong></div></div>
+      <div class="pop-row"><div class="pop-hint">${bn?'ধরন':'Type'}</div><div><span class="chip" style="color:${lt.color}">${escapeHtml(lt[LANG])}</span></div></div>
+      <div class="pop-row"><div class="pop-hint">${bn?'সময়কাল':'Period'}</div><div>${escapeHtml(fmtDate(l.start))} — ${escapeHtml(fmtDate(l.end))} <span class="chip">${escapeHtml(num(l.days))} ${bn?'দিন':'days'}</span></div></div>
+      <div class="pop-row"><div class="pop-hint">${bn?'অবস্থা':'Status'}</div><div><span class="pill ${statusColor}">${escapeHtml(l.status||'')}</span></div></div>
+      <div class="pop-row"><div class="pop-hint">${bn?'কারণ':'Reason'}</div><div><textarea id="lvEditReason" rows="3" style="width:100%">${escapeHtml(l.reason||'')}</textarea></div></div>
     </div>`,
     `<button class="btn primary" onclick="saveLeaveEdit(${jsQ(l.id)})">${bn?'কারণ সেভ':'Save reason'}</button>
      ${l.status==='Pending'?`<button class="btn success" onclick="approveLeave(${jsQ(l.id)});closeModal()">${bn?'অনুমোদন':'Approve'}</button>
@@ -7732,7 +7733,7 @@ function renderExit(){
           <div class="field wide"><label>${'Exit Reason'} *</label><textarea id="exReason" rows="3"></textarea></div>
         </div>
         <div style="margin-top:14px" class="btn-row">
-          <button class="btn danger" onclick="submitExit()">${'Mark as Exited'}</button>
+          <button class="btn danger" id="btnSubmitExit" onclick="submitExit()">${'Mark as Exited'}</button>
           <button class="btn" onclick="previewClearance()">${ico('print')} ${'Clearance Certificate'}</button>
           <button class="btn" onclick="previewExperience()">${ico('print')} ${'Experience Certificate'}</button>
         </div>
@@ -7748,14 +7749,14 @@ function renderExit(){
             const e = findEmpByAction(x);
             const empKey = e ? (e.id || e.EmployeeID || '') : (x.employee_sys_id || x.EmployeeID || '');
             const empId = e ? (e.id || e.EmployeeID || '') : (x.EmployeeID || '—');
-            return `<tr class="row-click clickable" onclick="openEmpDetail('${empKey}')" style="cursor:pointer">
+            return `<tr class="row-click clickable" onclick="openEmpDetail('${escapeHtml(empKey)}')" style="cursor:pointer">
             <td>${rows.length - i}</td>
-            <td><span class="chip" style="font-size:11px;font-weight:600">${num(empId)}</span></td>
-            <td><strong>${x.FullName||''}</strong></td>
-            <td>${desig(x.Designation||'')}</td>
-            <td>${projName(x.CurrentProject||x.ProjectName||'')}</td>
-            <td>${fmtDate(x.ExitDate)}</td>
-            <td class="small-mute" style="max-width:280px">${x.ExitReason||x.ExitType||''}</td>
+            <td><span class="chip" style="font-size:11px;font-weight:600">${escapeHtml(num(empId))}</span></td>
+            <td><strong>${escapeHtml(x.FullName||'')}</strong></td>
+            <td>${escapeHtml(desig(x.Designation||''))}</td>
+            <td>${escapeHtml(projName(x.CurrentProject||x.ProjectName||''))}</td>
+            <td>${escapeHtml(fmtDate(x.ExitDate))}</td>
+            <td class="small-mute" style="max-width:280px">${escapeHtml(x.ExitReason||x.ExitType||'')}</td>
             </tr>`}).join('') || `<tr><td colspan="7" class="small-mute" style="text-align:center;padding:20px">${'No exit records'}</td></tr>`}</tbody>
         </table>
       </div>
@@ -7770,7 +7771,7 @@ function exFillEmp(){
   const badgeEl = document.getElementById('exEmpBadge');
   if (badgeEl) {
     const empDisplayId = e ? (e.EmployeeID || e.id ) : '';
-    badgeEl.innerHTML = e ? `<span class="emp-fetch-badge success">✓ ${e.FullName} (ID #${empDisplayId})</span>` : '';
+    badgeEl.innerHTML = e ? `<span class="emp-fetch-badge success">✓ ${escapeHtml(e.FullName)} (ID #${escapeHtml(empDisplayId)})</span>` : '';
   }
 }
 
@@ -7780,16 +7781,16 @@ function openExitPopup(eid){
   const emp = findEmpByAction(x);
   const empKey = emp ? (emp.id || emp.EmployeeID ) : (x.EmployeeID || '');
   const empDisplayId = emp ? (emp.EmployeeID || emp.id ) : (x.EmployeeID || '');
-  openModal(bn?`চাকরি ত্যাগ — ${x.FullName}`:`Exit — ${x.FullName}`,
+  openModal(bn?`চাকরি ত্যাগ — ${escapeHtml(x.FullName)}`:`Exit — ${escapeHtml(x.FullName)}`,
     `<div class="pop-detail">
-      <div class="pop-row"><span>${bn?'কর্মচারী':'Employee'}</span><b>${x.FullName} <span class="small-mute">(#${num(empDisplayId)})</span></b></div>
-      <div class="pop-row"><span>${bn?'পদবি':'Designation'}</span><b>${x.Designation||''}</b></div>
-      <div class="pop-row"><span>${bn?'প্রজেক্ট':'Project'}</span><b>${projName(x.CurrentProject)}</b></div>
-      <div class="pop-row"><span>${bn?'যোগদানের তারিখ':'Join Date'}</span><b>${fmtDate(x.JoinDate)}</b></div>
-      <div class="pop-row"><span>${bn?'ত্যাগের তারিখ':'Exit Date'}</span><b>${fmtDate(x.ExitDate)}</b></div>
-      <div class="pop-row"><span>${bn?'ইস্যু তারিখ':'Issue Date'}</span><b>${fmtDate(x.IssueDate)}</b></div>
-      <div class="pop-row"><span>${bn?'কারণ':'Reason'}</span><b>${x.ExitReason||x.ExitType||'—'}</b></div>
-      <div class="pop-row"><span>${bn?'বর্তমান স্ট্যাটাস':'Current Status'}</span><b>${emp?emp.Status:'—'}</b></div>
+      <div class="pop-row"><span>${bn?'কর্মচারী':'Employee'}</span><b>${escapeHtml(x.FullName||'')} <span class="small-mute">(#${escapeHtml(num(empDisplayId))})</span></b></div>
+      <div class="pop-row"><span>${bn?'পদবি':'Designation'}</span><b>${escapeHtml(x.Designation||'')}</b></div>
+      <div class="pop-row"><span>${bn?'প্রজেক্ট':'Project'}</span><b>${escapeHtml(projName(x.CurrentProject))}</b></div>
+      <div class="pop-row"><span>${bn?'যোগদানের তারিখ':'Join Date'}</span><b>${escapeHtml(fmtDate(x.JoinDate))}</b></div>
+      <div class="pop-row"><span>${bn?'ত্যাগের তারিখ':'Exit Date'}</span><b>${escapeHtml(fmtDate(x.ExitDate))}</b></div>
+      <div class="pop-row"><span>${bn?'ইস্যু তারিখ':'Issue Date'}</span><b>${escapeHtml(fmtDate(x.IssueDate))}</b></div>
+      <div class="pop-row"><span>${bn?'কারণ':'Reason'}</span><b>${escapeHtml(x.ExitReason||x.ExitType||'—')}</b></div>
+      <div class="pop-row"><span>${bn?'বর্তমান স্ট্যাটাস':'Current Status'}</span><b>${escapeHtml(emp?emp.Status:'—')}</b></div>
     </div>
     <div class="pop-hint">${bn?'⚠ কর্মচারীর বর্তমান অবস্থা Employeetbl-এর Status থেকে আসে; এই পপআপ থেকে সংশোধন করতে চাইলে "পুনর্বহাল" চাপুন।':'⚠ Employee current status comes from Employeetbl.Status; use "Reactivate" to restore.'}</div>`,
     `${emp?`<button class="btn primary" onclick="promptReactivate(${jsQ(empKey)}, ${jsQ(x.ExitID)})">${bn?'পুনর্বহাল':'Reactivate'}</button>`:''}
@@ -7896,8 +7897,8 @@ async function submitExit(){
   const r   = document.getElementById('exReason').value;
   if(!rid||!d||!r){ toast('Fill all required fields','error'); return; }
   
+  const btn = document.getElementById('btnSubmitExit') || (typeof event !== 'undefined' && event && event.target ? event.target : null);
   window.mtCustomConfirm("Employee Exit", "Are you sure you want to save this exit record?", "danger", async function() {
-    const btn = event && event.target ? event.target : document.getElementById('btnSubmitExit');
     if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
 
     try {

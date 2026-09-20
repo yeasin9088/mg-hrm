@@ -2414,7 +2414,7 @@ function globalSearch(){
 }
 
 /* ============ Icons (inline SVG) ============ */
-function ico(name){
+function ico(name, size){
   const map={
     users:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>',
     check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>',
@@ -2434,7 +2434,11 @@ function ico(name){
     calendar:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
     settings:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg>',
   };
-  return map[name]||'';
+  let res = map[name]||'';
+  if(size && res){
+    res = res.replace('<svg ', `<svg width="${size}" height="${size}" `);
+  }
+  return res;
 }
 
 /* ============ DASHBOARD ============ */
@@ -6072,7 +6076,7 @@ async function fetchProjectsDirectly() {
 
   if (!sbClient) {
     console.warn('[Projects] Supabase client not initialized yet');
-    return null;
+    return DATA.projects || null;
   }
 
   try {
@@ -6082,12 +6086,8 @@ async function fetchProjectsDirectly() {
       .order('id', { ascending: true });
 
     if (error) {
-      console.error('[Projects] Direct Supabase fetch error:', error.message || error);
-      const tbody = document.getElementById('projectsTableBody');
-      if (tbody && (!DATA.projects || DATA.projects.length === 0)) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:#dc2626">Failed to load projects: ${String(error.message || error)}</td></tr>`;
-      }
-      return null;
+      console.warn('[Projects] Supabase fetch warning:', error.message || error);
+      return DATA.projects || null;
     }
 
     if (Array.isArray(data)) {
@@ -6096,9 +6096,9 @@ async function fetchProjectsDirectly() {
       return DATA.projects;
     }
   } catch (err) {
-    console.error('[Projects] Error fetching projects from Supabase:', err);
+    console.warn('[Projects] Network offline / Failed to fetch handled gracefully:', err.message || err);
   }
-  return null;
+  return DATA.projects || null;
 }
 window.fetchProjectsDirectly = fetchProjectsDirectly;
 
@@ -6322,9 +6322,9 @@ function saveProject(existingId){
       is_active: rec.Status !== 'Closed' && rec.Status !== 'Inactive'
     };
     if (existingId) {
-      sbClient.from('projects').update(dbPayload).or(`id.eq.${existingId},project_name.eq.${rec.ProjectName}`).then(() => fetchProjectsDirectly());
+      sbClient.from('projects').update(dbPayload).or(`id.eq.${existingId},project_name.eq.${rec.ProjectName}`).then(() => fetchProjectsDirectly()).catch(err => console.warn('[Projects] Update offline/warning:', err));
     } else {
-      sbClient.from('projects').insert([dbPayload]).then(() => fetchProjectsDirectly());
+      sbClient.from('projects').insert([dbPayload]).then(() => fetchProjectsDirectly()).catch(err => console.warn('[Projects] Insert offline/warning:', err));
     }
   }
 }
@@ -9094,7 +9094,45 @@ function empNameBn(e){
 }
 
 /* ============ NOTIFICATIONS + SCHEDULED TRANSFERS ============ */
-/* NOTIFICATIONS already initialized */
+window.timeAgo = function(timestamp) {
+  if (!timestamp) return '';
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return 'Just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(timestamp).toLocaleDateString();
+};
+
+window.getUnreadNotifCount = function() {
+  return NOTIFICATIONS.filter(n => !n.isRead).length;
+};
+
+window.markNotifAsRead = function(id) {
+  const n = NOTIFICATIONS.find(x => String(x.id) === String(id));
+  if (n && !n.isRead) {
+    n.isRead = true;
+    persist();
+    updateNotifBadge();
+  }
+};
+
+window.markAllNotifsAsRead = function() {
+  let changed = false;
+  NOTIFICATIONS.forEach(n => {
+    if (!n.isRead) { n.isRead = true; changed = true; }
+  });
+  if (changed) {
+    persist();
+    updateNotifBadge();
+    if(typeof renderNotifDropdown === 'function') renderNotifDropdown();
+    if(typeof renderNotifications === 'function') renderNotifications();
+  }
+};
+
 function applyScheduledTransfers(){
   
   const today = todayISO();
@@ -9105,6 +9143,7 @@ function applyScheduledTransfers(){
       t._applied = true; t.Status = 'Awaiting Confirmation'; t.status = 'Awaiting Confirmation';
       NOTIFICATIONS.unshift({
         id:'tj'+t.id, type:'transfer_join', transferId:t.id, severity:'warning',
+        createdAt: Date.now(), isRead: false,
         title:`${t.FullName} — Confirm Joining`,
         detail:`Scheduled transfer on ${fmtDate(t.TransferDate)} from ${projName(t.CurrentProject)} to ${projName(t.NewProject)}. Did they join the new project? Clicking "Joined" updates their project; clicking "Cancel order" cancels the transfer.`
       });
@@ -9162,6 +9201,7 @@ function buildNotifications(){
   DATA.disciplinary.forEach(d=>{
     if(d.ActionType && (String(d.ActionType).includes('শোকজ') || String(d.ActionType).toLowerCase().includes('show-cause')) && !d._replied && daysAgo(d.IssueDate)>=1 && !NOTIFICATIONS.find(x=>x.type==='sc'&&String(x.ref)===String(d.ActionID))){
       NOTIFICATIONS.push({ id:'sc'+d.ActionID, type:'sc', ref:d.ActionID, severity:'warning',
+        createdAt: Date.now(), isRead: false,
         title:`Show-cause follow-up — ${d.FullName}`,
         detail:`Response window (01 working day) for show-cause notice issued on ${fmtDate(d.IssueDate)} has ended. Did you receive a response? If yes, issue a warning letter.` });
     }
@@ -9169,6 +9209,7 @@ function buildNotifications(){
   RECRUITMENT.forEach(r=>{
     if(r.stage!=='Confirmed' && daysAgo(r.date)>=3 && !NOTIFICATIONS.find(x=>x.type==='rec'&&String(x.ref)===String(r.id))){
       NOTIFICATIONS.push({ id:'rec'+r.id, type:'rec', ref:r.id, severity:'info',
+        createdAt: Date.now(), isRead: false,
         title:`Stuck in recruitment pipeline — ${r.name}`,
         detail:`Pending at "${r.stage}" stage for ${daysAgo(r.date)} days. Take next action.` });
     }
@@ -9179,6 +9220,7 @@ function buildNotifications(){
     const empRef = e.id || e.EmployeeID ;
     if(left>=0 && left<=7 && !NOTIFICATIONS.find(x=>x.type==='prob'&&(String(x.ref)===String(empRef) || String(x.ref)===String(e.RecordID)))){
       NOTIFICATIONS.push({ id:'prob'+empRef, type:'prob', ref:empRef, severity:'info',
+        createdAt: Date.now(), isRead: false,
         title:`Probation period ending — ${e.FullName}`,
         detail:`6 months from join date (${fmtDate(e.JoinDate)}) will be completed ${left===0?'today':'in '+left+' days'}. Decide on conversion to regular employee.` });
     }
@@ -9209,97 +9251,143 @@ function notifActions(n){
   if(n.type==='sc') return `<button class="btn success sm" onclick="markReplied('${n.ref}')">✓ ${'Reply received'}</button> <button class="btn ghost sm" onclick="dismissNotif('${n.id}')">${'Later'}</button>`;
   return `<button class="btn ghost sm" onclick="dismissNotif('${n.id}')">${'Dismiss'}</button>`;
 }
-/* Notification panel — v3.2: grouped by type, expandable, urgent-first */
-window.__notifGroupOpen = window.__notifGroupOpen || {};
-function renderNotifications(){
-  const bySev = {danger:[], warning:[], info:[]};
-  const byType = {};
-  NOTIFICATIONS.forEach(n=>{
-    (bySev[n.severity]||bySev.info).push(n);
-    const t = n.type||'general';
-    (byType[t] = byType[t] || []).push(n);
-  });
-  // Sort groups by (has_danger desc, count desc)
-  const typeOrder = Object.keys(byType).sort((a,b)=>{
-    const ad = byType[a].some(n=>n.severity==='danger')?1:0;
-    const bd = byType[b].some(n=>n.severity==='danger')?1:0;
-    if(ad!==bd) return bd-ad;
-    return byType[b].length - byType[a].length;
-  });
-  const groupHTML = typeOrder.map(t=>{
-    const list = byType[t];
-    const meta = NOTIF_META[t] || {icon:'bell', tag_bn:'সাধারণ', tag_en:'General'};
-    const tag = meta.tag_en;
-    const hasDanger = list.some(n=>n.severity==='danger');
-    const hasWarn = list.some(n=>n.severity==='warning');
-    const badgeCls = hasDanger?'danger':(hasWarn?'warning':'info');
-    const isOpen = window.__notifGroupOpen[t] !== false; // default open
-    return `<div class="notif-group ${badgeCls}" style="margin-bottom:12px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg-elev)">
-      <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer;background:var(--bg-dim)" onclick="toggleNotifGroup('${t}')">
-        <div style="width:36px;height:36px;border-radius:9px;display:grid;place-items:center;background:var(--${badgeCls}-soft);color:var(--${badgeCls})">${ico(meta.icon)}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:14px;color:var(--text)">${tag}</div>
-          <div class="small-mute" style="font-size:11.5px">${num(list.length)} ${'items'}${hasDanger?' · <span style="color:var(--danger);font-weight:600">'+('Urgent')+'</span>':''}</div>
+/* Modern Inbox Feed — v4.0: linear-style unread vs previously read feed */
+window.renderNotifications = function() {
+    const page = document.getElementById('page-notifications');
+    if (!page) return;
+
+    const unreadCount = getUnreadNotifCount();
+    const urgentCount = NOTIFICATIONS.filter(n => n.severity === 'danger' && !n.isRead).length;
+
+    // Header Section
+    const headHtml = `
+      <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:32px; padding-bottom:16px; border-bottom:1px solid var(--border);">
+        <div>
+          <h2 style="margin:0 0 6px 0; color:var(--text-main); font-size:1.6rem; font-weight:700; letter-spacing:-0.5px;">Inbox</h2>
+          <p style="margin:0; color:var(--text-mute); font-size:0.95rem;">
+            ${unreadCount === 0 ? 'You are all caught up.' : `You have <strong style="color:var(--text-main);">${unreadCount} unread</strong> messages${urgentCount > 0 ? ` (<span style="color:var(--danger); font-weight:600;">${urgentCount} urgent</span>)` : ''}`}
+          </p>
         </div>
-        <span style="background:var(--${badgeCls}-soft);color:var(--${badgeCls});padding:3px 10px;border-radius:20px;font-weight:700;font-size:12px">${num(list.length)}</span>
-        <span style="color:var(--text-muted);font-size:14px;transition:transform .2s;transform:rotate(${isOpen?'90':'0'}deg)">▸</span>
-      </div>
-      <div style="display:${isOpen?'block':'none'};padding:12px 14px;background:var(--bg)">
-        ${list.map(n=>notifCardHTML(n)).join('')}
-      </div>
-    </div>`;
-  }).join('');
-  document.getElementById('page-notifications').innerHTML = `
-    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
-      ${kpi('Urgent', num(bySev.danger.length),'r', ico('warn'), 'Immediate action','','')}
-      ${kpi('Follow-up', num(bySev.warning.length),'y', ico('bell'), 'Review soon','','')}
-      ${kpi('Informational', num(bySev.info.length),'b', ico('check'), 'For your awareness','','')}
-    </div>
-    <div class="card">
-      <div class="card-header">
-        <div><h3>${'All Notifications'}</h3><span class="sub">${num(NOTIFICATIONS.length)} ${'pending actions — grouped by type'}</span></div>
-        <div style="display:flex;gap:6px">
-          <button class="btn ghost sm" onclick="notifExpandAll(true)">${'Expand all'}</button>
-          <button class="btn ghost sm" onclick="notifExpandAll(false)">${'Collapse all'}</button>
+        <div>
+          ${unreadCount > 0 ? `<button class="btn outline" style="font-weight:600; padding:8px 16px; border-radius:6px;" onclick="markAllNotifsAsRead(); renderNotifications();">${typeof ico==='function'?ico('check'):''} Mark all as read</button>` : ''}
         </div>
       </div>
-      <div class="card-body" style="background:var(--bg);border-radius:0 0 var(--radius) var(--radius)">
-        ${typeOrder.length ? groupHTML
-        : `<div class="notif-empty">
-             <div class="ne-ring">${ico('check')}</div>
-             <h4 style="font-size:15px;font-weight:700;color:var(--text)">${'All caught up'}</h4>
-             <p style="margin-top:4px">${'No action needed — everything is up to date'}</p>
-           </div>`}
-      </div>
-    </div>`;
-}
-function toggleNotifGroup(t){
-  window.__notifGroupOpen[t] = (window.__notifGroupOpen[t] === false);
-  renderNotifications();
-}
-function notifExpandAll(open){
-  const types = new Set();
-  NOTIFICATIONS.forEach(n=>types.add(n.type||'general'));
-  types.forEach(t=>{ window.__notifGroupOpen[t] = open; });
-  renderNotifications();
-}
+    `;
+
+    // Data Separation & Sorting
+    const unreadNotifs = NOTIFICATIONS.filter(n => !n.isRead).sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const readNotifs = NOTIFICATIONS.filter(n => n.isRead).sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+    // Unified Card Builder
+    function buildCard(n) {
+         const meta = (typeof NOTIF_META !== 'undefined' && NOTIF_META[n.type]) ? NOTIF_META[n.type] : (window.NOTIF_META ? (window.NOTIF_META[n.type] || {icon:'bell'}) : {icon:'bell'});
+         const bg = !n.isRead ? 'background:#f0f7ff; border-left:4px solid var(--primary);' : 'background:var(--bg-elev); border-left:4px solid transparent; opacity:0.85;';
+         const dot = !n.isRead ? `<div style="width:10px; height:10px; border-radius:50%; background:var(--primary); flex-shrink:0; margin-top:5px; box-shadow:0 0 0 4px rgba(var(--primary-rgb), 0.1);"></div>` : '';
+         
+         // Isolate button clicks from parent card routing
+         const actionsHtml = (typeof notifActions === 'function') ? notifActions(n).replace(/onclick="/g, 'onclick="event.stopPropagation(); ') : '';
+
+         return `
+         <div style="padding:18px 24px; margin-bottom:10px; border:1px solid var(--border); border-radius:10px; cursor:pointer; transition:all 0.2s ease; display:flex; gap:16px; align-items:flex-start; ${bg}" onclick="handleNotifClick('${n.id}', '${n.type}')" onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.05)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+             <div style="color:var(--primary); padding-top:2px; transform:scale(1.1);">${typeof ico==='function'?ico(meta.icon):''}</div>
+             <div style="flex:1; min-width:0;">
+                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                     <h5 style="margin:0; font-size:1.05rem; color:var(--text-main); font-weight:${!n.isRead?'700':'500'}; letter-spacing:-0.2px;">${n.title}</h5>
+                     <span style="font-size:0.85rem; color:var(--text-mute); font-weight:500;">${timeAgo(n.createdAt)}</span>
+                 </div>
+                 <p style="margin:0; font-size:0.95rem; color:var(--text-mute); line-height:1.5;">${n.detail}</p>
+                 ${actionsHtml ? `<div style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;">${actionsHtml}</div>` : ''}
+             </div>
+             ${dot}
+         </div>`;
+    }
+
+    // Compile Sections
+    const unreadHtml = unreadNotifs.length 
+        ? `<div style="margin-bottom:40px;"><h4 style="margin-bottom:16px; color:var(--text-main); font-size:1.1rem; font-weight:600; display:flex; align-items:center; gap:8px;">${typeof ico==='function'?ico('bell'):''} New & Unread</h4>${unreadNotifs.map(buildCard).join('')}</div>` 
+        : '';
+
+    const readHtml = readNotifs.length 
+        ? `<div><h4 style="margin-bottom:16px; color:var(--text-mute); font-size:1rem; font-weight:500;">Previously Read</h4>${readNotifs.map(buildCard).join('')}</div>` 
+        : '';
+
+    const emptyHtml = (!unreadNotifs.length && !readNotifs.length) 
+        ? `<div class="notif-empty" style="padding:80px 24px; text-align:center; border:1px dashed var(--border); border-radius:16px; background:var(--bg-dim);">
+            <div style="width:64px; height:64px; margin:0 auto 20px auto; color:var(--text-mute); opacity:0.4;">
+                ${typeof ico === 'function' ? ico('check', 64) : '✓'}
+            </div>
+            <h3 style="color:var(--text-main); margin-bottom:8px; font-size:1.2rem;">Your inbox is clear</h3>
+            <p style="color:var(--text-mute); font-size:0.95rem;">You don't have any notifications right now.</p>
+          </div>` 
+        : '';
+
+    // Inject into Page (centered, max-width layout for readability)
+    page.innerHTML = `<div style="max-width:850px; margin:0 auto; padding:20px 0 60px 0; animation: fadeIn 0.3s ease;">${headHtml}${emptyHtml}${unreadHtml}${readHtml}</div>`;
+};
+window.handleNotifClick = function(id, type) {
+    markNotifAsRead(id);
+    const dd = document.getElementById('notifDropdown');
+    if (dd) dd.classList.remove('open');
+    
+    // Deep routing based on notification type
+    if (type === 'transfer_join') navigate('transfer');
+    else if (type === 'rec') navigate('recruitment');
+    else if (type === 'prob' || type === 'rehire') navigate('employees');
+    else if (type === 'sc') navigate('disciplinary');
+    else navigate('notifications');
+};
+
 function renderNotifDropdown(){
-  const dd = document.getElementById('notifDropdown'); if(!dd) return;
-  const head = `<div class="nd-head"><h4>${'Notifications'}</h4><span style="cursor:pointer;color:var(--primary);font-weight:600" onclick="event.stopPropagation();document.getElementById('notifDropdown').classList.remove('open');navigate('notifications')">${'See all →'}</span></div>`;
-  const bySev = {danger:[], warning:[], info:[]};
-  NOTIFICATIONS.forEach(n=>(bySev[n.severity]||bySev.info).push(n));
-  const ordered = [...bySev.danger, ...bySev.warning, ...bySev.info];
-  const body = ordered.length
-    ? ordered.map(n=>notifCardHTML(n, true)).join('')
-    : `<div class="notif-empty" style="padding:24px"><div class="ne-ring" style="width:46px;height:46px">${ico('check')}</div><p>${'All clear'}</p></div>`;
-  dd.innerHTML = head + body;
+    const dd = document.getElementById('notifDropdown'); 
+    if(!dd) return;
+    
+    const head = `<div class="nd-head" style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border);">
+        <h4 style="margin:0; font-size:1rem; color:var(--text-main);">Notifications</h4>
+        <div style="display:flex; gap:12px; font-size:0.8rem;">
+            <span style="cursor:pointer; color:var(--text-mute); transition:color 0.2s;" onmouseover="this.style.color='var(--text-main)'" onmouseout="this.style.color='var(--text-mute)'" onclick="event.stopPropagation(); markAllNotifsAsRead(); renderNotifDropdown();">Mark all read</span>
+            <span style="cursor:pointer; color:var(--primary); font-weight:600;" onclick="event.stopPropagation(); document.getElementById('notifDropdown').classList.remove('open'); navigate('notifications');">See all &rarr;</span>
+        </div>
+    </div>`;
+    
+    // Sort: Unread first, then by date desc. Limit to 10 for dropdown.
+    const sorted = [...NOTIFICATIONS].sort((a,b) => {
+        if (a.isRead === b.isRead) return (b.createdAt || 0) - (a.createdAt || 0);
+        return a.isRead ? 1 : -1;
+    }).slice(0, 10); 
+    
+    const body = sorted.length
+        ? `<div style="max-height:420px; overflow-y:auto; display:flex; flex-direction:column;">` + sorted.map(n => {
+            const meta = (typeof NOTIF_META !== 'undefined' && NOTIF_META[n.type]) ? NOTIF_META[n.type] : ((window.NOTIF_META && window.NOTIF_META[n.type]) ? window.NOTIF_META[n.type] : {icon:'bell'});
+            const unreadStyle = !n.isRead ? 'background:#f0f7ff; border-left:3px solid var(--primary);' : 'background:transparent; border-left:3px solid transparent; opacity:0.85;';
+            const dot = !n.isRead ? `<div style="width:8px; height:8px; border-radius:50%; background:var(--primary); margin-top:4px; flex-shrink:0;"></div>` : '';
+            
+            // Intercept quick action clicks so they don't trigger the card's deep link
+            const actionsHtml = (typeof notifActions === 'function') ? notifActions(n).replace(/onclick="/g, 'onclick="event.stopPropagation(); ') : '';
+
+            return `
+            <div style="padding:14px 16px; border-bottom:1px solid var(--border); cursor:pointer; transition:all 0.2s; display:flex; gap:12px; ${unreadStyle}" onclick="handleNotifClick('${n.id}', '${n.type}')" onmouseover="this.style.backgroundColor='#f8fafc'" onmouseout="this.style.backgroundColor='${!n.isRead ? '#f0f7ff' : 'transparent'}'">
+                <div style="color:var(--primary); padding-top:2px;">${typeof ico==='function'?ico(meta.icon):''}</div>
+                <div style="flex:1; min-width:0;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                        <h5 style="margin:0; font-size:0.9rem; color:var(--text-main); font-weight:${!n.isRead?'700':'500'}; line-height:1.3;">${n.title}</h5>
+                        <span style="font-size:0.75rem; color:var(--text-mute); white-space:nowrap; margin-left:auto;">${timeAgo(n.createdAt)}</span>
+                    </div>
+                    <p style="margin:6px 0 0 0; font-size:0.82rem; color:var(--text-mute); line-height:1.4;">${n.detail}</p>
+                    ${actionsHtml ? `<div style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap;">${actionsHtml}</div>` : ''}
+                </div>
+                ${dot}
+            </div>`;
+        }).join('') + `</div>`
+        : `<div class="notif-empty" style="padding:40px 24px; text-align:center;"><div style="color:var(--success); margin-bottom:12px; transform:scale(1.5);">${typeof ico==='function'?ico('check'):'✓'}</div><h4 style="margin:0 0 4px 0; color:var(--text-main); font-size:1rem;">All caught up!</h4><p style="color:var(--text-mute); font-size:0.85rem; margin:0;">No new notifications to review.</p></div>`;
+    
+    dd.innerHTML = head + body;
 }
 function updateNotifBadge(){
-  const n = NOTIFICATIONS.length;
+  const unreadCount = getUnreadNotifCount();
   const b = document.getElementById('notifBadge');
-  if(b){ b.style.display = n ? 'grid' : 'none'; b.textContent = n; }
+  if(b){ b.style.display = unreadCount > 0 ? 'grid' : 'none'; b.textContent = unreadCount > 99 ? '99+' : unreadCount; }
   const nb = document.getElementById('navNotifBadge');
-  if(nb){ nb.style.display = n ? '' : 'none'; nb.textContent = n; }
+  if(nb){ nb.style.display = unreadCount > 0 ? '' : 'none'; nb.textContent = unreadCount > 99 ? '99+' : unreadCount; }
 }
 function toggleNotifDropdown(ev){
   if(ev) ev.stopPropagation();
@@ -12268,6 +12356,10 @@ function restoreState(){
     if(Array.isArray(s.RECRUITMENT)){ RECRUITMENT.length = 0; s.RECRUITMENT.forEach(r=>RECRUITMENT.push(r)); }
     if(Array.isArray(s.todos)){ DATA.todos = s.todos; }
     if(Array.isArray(s.notifications)){ NOTIFICATIONS.length = 0; s.notifications.forEach(n=>NOTIFICATIONS.push(n)); }
+    NOTIFICATIONS.forEach(n => {
+      if (!n.createdAt) n.createdAt = Date.now();
+      if (n.isRead === undefined) n.isRead = false;
+    });
     return true;
   }catch(e){ return false; }
 }
@@ -12517,6 +12609,7 @@ function rehireEmployee(recordId, applicant){
     }).catch(console.error);
   }
   NOTIFICATIONS.unshift({ id:'rh'+Date.now(), type:'rehire', severity:'info',
+    createdAt: Date.now(), isRead: false,
     title:`${'Re-hire completed'} — ${e.FullName}`,
     detail:`${fmtDateBnFormal(e.JoinDate)} ${'re-joined. Previous employment history is kept in the profile.'}` });
   closeModal();

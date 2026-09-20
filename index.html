@@ -105,11 +105,12 @@ body {
 body.lang-bn { font-family: var(--font-bn), var(--font-en); }
 
 /* ============ LAYOUT ============ */
-.layout { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; }
+.layout { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; transition: grid-template-columns 0.3s ease; }
 .sidebar {
   background: var(--sidebar); color: var(--text-inv);
   padding: 18px 0 40px; position: sticky; top: 0;
   height: 100vh; overflow-y: auto;
+  transition: transform 0.3s ease, width 0.3s ease;
 }
 .brand {
   padding: 0 20px 18px;
@@ -678,31 +679,98 @@ tbody tr.clickable { cursor: pointer; }
   .tl-item p { font-size: 10.5pt !important; color: #222 !important; margin: 0 !important; }
 }
 
-/* ============ COLLAPSIBLE SIDEBAR ============ */
-.side-toggle {
-  margin: 10px 14px 4px; width: calc(100% - 28px);
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14);
-  color: rgba(255,255,255,.85); border-radius: 8px; padding: 7px 0;
-  cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600;
-  transition: background .15s;
+/* ============ COLLAPSIBLE SIDEBAR & LOGO TOGGLE ============ */
+.side-toggle { display: none !important; }
+
+.sidebar-brand, .brand {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  transition: background .15s ease, padding .3s ease;
 }
-.side-toggle:hover { background: rgba(255,255,255,.16); color: #fff; }
-.side-toggle svg { width: 15px; height: 15px; transition: transform .2s; }
-.layout.side-collapsed { grid-template-columns: 68px 1fr; }
-.layout.side-collapsed .sidebar { padding: 14px 0 30px; }
-.layout.side-collapsed .brand { padding: 0 0 14px; justify-content: center; }
-.layout.side-collapsed .brand > div:last-child { display: none; }
-.layout.side-collapsed .nav-section { display: none; }
-.layout.side-collapsed .nav-item { justify-content: center; padding: 11px 0; gap: 0; }
-.layout.side-collapsed .nav-item span { display: none; }
-.layout.side-collapsed .nav-item svg { width: 19px; height: 19px; opacity: 1; }
-.layout.side-collapsed .nav-item .badge {
+.sidebar-brand:hover, .brand:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.sidebar-brand .brand-logo, .brand .brand-logo {
+  position: relative;
+}
+.sidebar-brand .toggle-icon, .brand .toggle-icon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.92);
+  border-radius: 8px;
+  color: #ffffff;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+.sidebar-brand:hover .toggle-icon, .brand:hover .toggle-icon {
+  opacity: 1;
+}
+.sidebar-brand .toggle-icon svg, .brand .toggle-icon svg {
+  width: 18px;
+  height: 18px;
+  transition: transform 0.25s ease;
+}
+.layout.side-collapsed .toggle-icon svg,
+.sidebar.collapsed .toggle-icon svg {
+  transform: rotate(180deg);
+}
+
+.layout.side-collapsed { grid-template-columns: 80px 1fr; }
+.layout.side-collapsed .sidebar, .sidebar.collapsed { width: 80px; padding: 14px 0 30px; }
+.layout.side-collapsed .brand, .sidebar.collapsed .brand { padding: 0 0 14px; justify-content: center; }
+.layout.side-collapsed .brand > div:last-child,
+.layout.side-collapsed .brand .brand-info,
+.sidebar.collapsed .brand > div:last-child,
+.sidebar.collapsed .brand .brand-info { display: none; }
+.layout.side-collapsed .nav-section, .sidebar.collapsed .nav-section { display: none; }
+.layout.side-collapsed .nav-item, .sidebar.collapsed .nav-item { justify-content: center; padding: 11px 0; gap: 0; }
+.layout.side-collapsed .nav-item span, .sidebar.collapsed .nav-item span { display: none; }
+.layout.side-collapsed .nav-item svg, .sidebar.collapsed .nav-item svg { width: 20px; height: 20px; opacity: 1; }
+.layout.side-collapsed .nav-item .badge, .sidebar.collapsed .nav-item .badge {
   position: absolute; top: 3px; right: 8px; margin: 0; padding: 0 4px;
   min-width: 15px; height: 15px; font-size: 9px; line-height: 15px;
 }
-.layout.side-collapsed .side-toggle svg { transform: rotate(180deg); }
-.layout.side-collapsed .side-toggle span { display: none; }
+
+.sidebar-mobile-close {
+  display: none;
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.7);
+  padding: 6px;
+  cursor: pointer;
+  border-radius: 6px;
+  margin-left: auto;
+}
+.sidebar-mobile-close:hover {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+}
+
+/* Mobile backdrop overlay */
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  z-index: 9998;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.sidebar-backdrop.active,
+body.sidebar-open .sidebar-backdrop {
+  display: block;
+  opacity: 1;
+}
+body.sidebar-open {
+  overflow: hidden;
+}
 
 /* ============ SEARCHABLE EMPLOYEE PICKER ============ */
 .emp-pick { position: relative; }
@@ -1384,37 +1452,128 @@ tbody tr.clickable { cursor: pointer; }
 .pipe-card h6 { font-size: 12.5px; font-weight: 600; margin-bottom: 3px; }
 .pipe-card p { color: var(--text-muted); font-size: 11px; }
 
-/* ============ MOBILE / PHONE LAYOUT ============ */
-@media (max-width: 860px) {
-  .layout, .layout.side-collapsed { grid-template-columns: 1fr; }
-  .layout.side-collapsed .nav-item { justify-content: flex-start; padding: 8px 10px; gap: 12px; }
-  .layout.side-collapsed .nav-item span { display: inline; }
-  .layout.side-collapsed .brand > div:last-child { display: block; }
-  .side-toggle { display: none; }
+/* ============ MOBILE / RESPONSIVE LAYOUT ============ */
+@media (max-width: 768px) {
+  .layout, .layout.side-collapsed {
+    grid-template-columns: 1fr;
+    display: block;
+  }
+  .mobile-header {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    border-bottom: 1px solid var(--border);
+    background: var(--card, #fff);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
   .sidebar {
-    position: static; height: auto; padding: 8px 6px;
-    display: flex; flex-direction: row; align-items: center; gap: 2px;
-    overflow-x: auto; overflow-y: hidden;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    height: 100vh !important;
+    z-index: 9999 !important;
+    transform: translateX(-100%);
+    width: 280px !important;
+    box-shadow: 4px 0 15px rgba(0,0,0,0.15);
+    transition: transform 0.3s ease, width 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 18px 0 40px;
   }
-  .sidebar .brand { border-bottom: none; padding: 0 10px 0 6px; flex-shrink: 0; }
-  .sidebar .brand p { display: none; }
-  .sidebar .brand h1 { font-size: 12.5px; white-space: nowrap; }
-  .sidebar .nav-section { display: none; }
+  .sidebar.open {
+    transform: translateX(0) !important;
+  }
+  .sidebar .brand {
+    padding: 0 16px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+  .sidebar .brand .brand-info,
+  .sidebar .brand > div:last-child {
+    display: block !important;
+  }
+  .sidebar .brand p {
+    display: block !important;
+  }
+  .sidebar .brand h1 {
+    font-size: 14px !important;
+  }
+  .sidebar .nav-section {
+    display: block !important;
+    padding: 12px 20px 6px;
+  }
   .nav-item {
-    border-left: none; border-bottom: 2px solid transparent;
-    padding: 8px 10px; white-space: nowrap; flex-shrink: 0; font-size: 12.5px;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 12px !important;
+    padding: 10px 20px !important;
+    border-left: 3px solid transparent !important;
+    border-bottom: none !important;
+    font-size: 13.5px !important;
+    white-space: normal;
   }
-  .nav-item.active { border-left-color: transparent; border-bottom-color: var(--sidebar-active); }
-  .nav-item svg { display: none; }
-  .main { padding: 14px 12px 60px; }
+  .nav-item.active {
+    border-left-color: var(--sidebar-active) !important;
+    border-bottom-color: transparent !important;
+    background: rgba(255,255,255,0.06);
+  }
+  .nav-item svg {
+    display: block !important;
+    width: 18px;
+    height: 18px;
+  }
+  .nav-item span {
+    display: inline !important;
+  }
+  .nav-item .badge {
+    position: static;
+    margin-left: auto;
+  }
+  .main {
+    padding: 14px 12px 60px;
+  }
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .topbar-right {
+    flex-wrap: wrap;
+  }
+  .global-search {
+    width: 100%;
+  }
+  .form-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .grid-2 {
+    grid-template-columns: 1fr !important;
+  }
+  .modal.wide {
+    max-width: 100vw;
+    margin: 0;
+  }
+  .print-doc {
+    width: 100%;
+    min-height: auto;
+    padding: 10mm 8mm;
+  }
+  .kpi-grid, .grid-3, .grid-4 {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+@media (min-width: 769px) and (max-width: 860px) {
   .topbar { flex-direction: column; align-items: stretch; gap: 10px; }
-  .topbar-right { flex-wrap: wrap; }
-  .global-search { width: 100%; }
-  .form-grid { grid-template-columns: 1fr !important; }
-  .grid-2 { grid-template-columns: 1fr !important; }
-  .modal.wide { max-width: 100vw; margin: 0; }
-  .print-doc { width: 100%; min-height: auto; padding: 10mm 8mm; }
-  .kpi-grid, .grid-3, .grid-4 { grid-template-columns: 1fr 1fr !important; }
+  .form-grid, .grid-2 { grid-template-columns: 1fr !important; }
 }
 /* ============ v3.4 UI Modernization ============ */
 
@@ -1541,17 +1700,27 @@ input:focus, select:focus, textarea:focus {
 <body>
 <div class="layout">
   <aside class="sidebar">
-    <div class="brand">
-      <div class="brand-logo" id="brandLogo">MG</div>
-      <div>
+    <div class="brand sidebar-brand" id="sidebarBrand" onclick="mtToggleSidebar()" title="Toggle Sidebar (Expand / Collapse)" role="button" tabindex="0">
+      <div class="brand-logo" id="brandLogo">
+        <span class="brand-logo-text">MG</span>
+        <div class="toggle-icon" aria-hidden="true" title="Toggle Sidebar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="11 17 6 12 11 7"/>
+            <polyline points="18 17 13 12 18 7"/>
+          </svg>
+        </div>
+      </div>
+      <div class="brand-info">
         <h1>MG Security HRM</h1>
         <p data-i18n="tagline">HR Management System</p>
       </div>
+      <button type="button" class="sidebar-mobile-close" onclick="event.stopPropagation(); mtCloseSidebarMobile();" aria-label="Close Sidebar" title="Close">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
     </div>
-    <button class="side-toggle" id="sideToggle" onclick="toggleSidebar()" title="Collapse / Expand">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
-      <span data-i18n="side_collapse">Collapse</span>
-    </button>
 
     <div class="nav-section" data-i18n="nav_main">Main</div>
     <div class="nav-item active" data-nav="dashboard">
@@ -1637,8 +1806,23 @@ input:focus, select:focus, textarea:focus {
       <span data-i18n="nav_settings">Settings</span>
     </div>
   </aside>
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="mtCloseSidebarMobile()"></div>
 
   <main class="main">
+    <div class="mobile-header" id="mobileHeader" style="display: none;">
+      <button type="button" class="btn ghost icon-only" onclick="mtToggleSidebar()" aria-label="Open Navigation Menu" style="padding: 7px; border: 1px solid var(--border); border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; background: var(--card, #fff); cursor: pointer;">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="12" x2="21" y2="12"/>
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="width: 28px; height: 28px; border-radius: 6px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 11px;">MG</div>
+        <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--text);">Mahbub Group</h3>
+      </div>
+      <div style="width: 36px;"></div>
+    </div>
     <div class="topbar">
       <div class="topbar-left">
         <h2 id="pageTitle">Dashboard</h2>
@@ -2141,9 +2325,17 @@ const LEAVE_TYPES = [
 /* ============ Navigation ============ */
 let currentPage='dashboard';
 document.querySelectorAll('.nav-item').forEach(el=>{
-  el.addEventListener('click',()=>navigate(el.dataset.nav));
+  el.addEventListener('click',()=>{
+    if (typeof window.mtCloseSidebarMobile === 'function') {
+      window.mtCloseSidebarMobile();
+    }
+    navigate(el.dataset.nav);
+  });
 });
 function navigate(p){
+  if (typeof window.mtCloseSidebarMobile === 'function') {
+    window.mtCloseSidebarMobile();
+  }
   currentPage=p;
   VERIFY_MODE=false; VERIFY_TICKS.clear();          
   const dd=document.getElementById('notifDropdown'); if(dd) dd.classList.remove('open');
@@ -8686,7 +8878,9 @@ function uploadLogo(ev){
 }
 function renderBrandLogo(){
   const el = document.getElementById('brandLogo'); if(!el) return;
-  el.innerHTML = COMPANY.logoDataUrl ? `<img src="${COMPANY.logoDataUrl}" alt="logo">` : 'MG';
+  const logoContent = COMPANY && COMPANY.logoDataUrl ? `<img src="${COMPANY.logoDataUrl}" alt="logo">` : '<span class="brand-logo-text">MG</span>';
+  const toggleIconHtml = `<div class="toggle-icon" aria-hidden="true" title="Toggle Sidebar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg></div>`;
+  el.innerHTML = logoContent + toggleIconHtml;
 }
 function renderGateLogos(){
   document.querySelectorAll('[data-gate-logo]').forEach(function(el){
@@ -11556,15 +11750,42 @@ async function checkPendingToast(force){
 
 /* ============ Orchestration ============ */
 
-function toggleSidebar(){
-  const lay = document.querySelector('.layout');
-  const collapsed = lay.classList.toggle('side-collapsed');
-  try{ localStorage.setItem('mghrm_sidebar', collapsed?'1':'0'); }catch(e){}
-}
+window.mtToggleSidebar = function() {
+  const sidebar = document.querySelector('.sidebar');
+  const layout = document.querySelector('.layout');
+  const backdrop = document.getElementById('sidebarBackdrop');
+  if (!sidebar) return;
+
+  if (window.innerWidth <= 768) {
+    const isOpen = sidebar.classList.toggle('open');
+    if (backdrop) backdrop.classList.toggle('active', isOpen);
+    document.body.classList.toggle('sidebar-open', isOpen);
+  } else {
+    // Desktop: toggle collapsed
+    const isCollapsed = sidebar.classList.toggle('collapsed');
+    if (layout) layout.classList.toggle('side-collapsed', isCollapsed);
+    try {
+      localStorage.setItem('mghrm_sidebar', isCollapsed ? '1' : '0');
+    } catch(e) {}
+  }
+};
+window.toggleSidebar = window.mtToggleSidebar;
+
+window.mtCloseSidebarMobile = function() {
+  const sidebar = document.querySelector('.sidebar');
+  const backdrop = document.getElementById('sidebarBackdrop');
+  if (sidebar) sidebar.classList.remove('open');
+  if (backdrop) backdrop.classList.remove('active');
+  document.body.classList.remove('sidebar-open');
+};
+
 function restoreSidebar(){
   try{
-    if(localStorage.getItem('mghrm_sidebar')==='1'){
-      document.querySelector('.layout').classList.add('side-collapsed');
+    if (window.innerWidth > 768 && localStorage.getItem('mghrm_sidebar') === '1'){
+      const lay = document.querySelector('.layout');
+      const sb = document.querySelector('.sidebar');
+      if (lay) lay.classList.add('side-collapsed');
+      if (sb) sb.classList.add('collapsed');
     }
   }catch(e){}
 }

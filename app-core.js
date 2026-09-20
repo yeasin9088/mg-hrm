@@ -917,6 +917,10 @@
       if (global.DATA && global.DATA.meetings && !Array.isArray(global.DATA.meetings)) {
         out.meetings = global.DATA.meetings;
       }
+      if (global.DATA) {
+        global.DATA.meetingAttendance = Array.isArray(out.meetingAttendance) ? out.meetingAttendance : [];
+        global.DATA.meeting_attendance = global.DATA.meetingAttendance;
+      }
       if (out.todos) {
         var DATA = (typeof window !== 'undefined' && window.DATA) || global.DATA;
         if (DATA) {

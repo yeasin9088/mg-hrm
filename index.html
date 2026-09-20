@@ -1726,10 +1726,10 @@ input:focus, select:focus, textarea:focus {
 </script>
 </head>
 <body>
-<div id="mtSyncLoader" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 99999; flex-direction: column; justify-content: center; align-items: center;">
-<h3 style="margin-bottom: 15px;">Syncing Data to Server...</h3>
-<div style="width: 300px; height: 8px; background: #eee; border-radius: 10px; overflow: hidden; margin-bottom: 10px;"><div id="mtSyncBar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.3s;"></div></div>
-<p id="mtSyncText" class="mute">Uploading notes: 0 of 0</p>
+<div id="mtSyncLoader" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.95); z-index: 99999; flex-direction: column; justify-content: center; align-items: center;">
+<h3 id="mtSyncTitle" style="margin-bottom: 10px;">Processing...</h3>
+<div style="width: 320px; height: 6px; background: #eee; border-radius: 10px; overflow: hidden; margin-bottom: 12px;"><div id="mtSyncBar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.2s;"></div></div>
+<p id="mtSyncDetails" class="mute" style="font-size: 0.95rem;">Preparing data</p>
 </div>
 <div class="layout">
   <aside class="sidebar">
@@ -9607,7 +9607,7 @@ window.mtBuildNotesSection = mtBuildNotesSection;
 function mtToggleProject(iso, proj){
   if(!guardEdit()) return;
   const d = mtEnsure(iso);
-  if(d.submitted){ toast('Attendance already submitted for today','error'); return; }
+  if(d.submitted && !d.unlocked){ toast('Attendance already submitted for today','error'); return; }
   if(d.off){ toast('This day is marked off — unmark it first','error'); return; }
   if(d.present[proj]){
     delete d.present[proj];
@@ -9630,19 +9630,21 @@ function mtToggleProject(iso, proj){
     const presentCount = Object.keys(d.present||{}).length;
     counterEl.textContent = `${presentCount} / ${totalProjects}`;
   }
+  if(typeof window.mtCheckDirty === 'function') window.mtCheckDirty(iso);
 }
 function mtSaveNote(iso, proj, val){
   const d = mtEnsure(iso);
-  if(d.submitted) return;
+  if(d.submitted && !d.unlocked) return;
   const notes = mtGetNotes(iso, proj);
   if(val && val.trim()){
     notes.push(val.trim());
   }
   persist();
+  if(typeof window.mtCheckDirty === 'function') window.mtCheckDirty(iso);
 }
 function mtShowNoteBox(iso, proj){
   const d = mtEnsure(iso);
-  if(d.submitted) return;
+  if(d.submitted && !d.unlocked) return;
   const tile = document.querySelector('.mt-tile[data-proj="'+CSS.escape(proj)+'"]');
   if(!tile) return;
   const body = tile.querySelector('.mt-tile-body') || tile;
@@ -9666,7 +9668,7 @@ window.mtShowNoteBox = mtShowNoteBox;
 
 function mtLockNoteBox(iso, proj){
   const d = mtEnsure(iso);
-  if(d.submitted) return;
+  if(d.submitted && !d.unlocked) return;
   const tile = document.querySelector('.mt-tile[data-proj="'+CSS.escape(proj)+'"]');
   if(!tile) return;
   const body = tile.querySelector('.mt-tile-body') || tile;
@@ -9685,6 +9687,7 @@ function mtLockNoteBox(iso, proj){
     const list = newBox.querySelector('.mt-notes-list');
     if(list) list.scrollTop = list.scrollHeight;
   }
+  if(typeof window.mtCheckDirty === 'function') window.mtCheckDirty(iso);
 }
 window.mtLockNoteBox = mtLockNoteBox;
 
@@ -9700,7 +9703,7 @@ window.mtCancelNoteBox = mtCancelNoteBox;
 
 function mtDeleteNote(iso, proj, idx){
   const d = mtEnsure(iso);
-  if(d.submitted) return;
+  if(d.submitted && !d.unlocked) return;
   const notes = mtGetNotes(iso, proj);
   if(notes && idx >= 0 && idx < notes.length){
     notes.splice(idx, 1);
@@ -9714,11 +9717,12 @@ function mtDeleteNote(iso, proj, idx){
       }
     }
   }
+  if(typeof window.mtCheckDirty === 'function') window.mtCheckDirty(iso);
 }
 window.mtDeleteNote = mtDeleteNote;
 function mtSaveRep(iso, proj, selectEl){
   const d = mtEnsure(iso);
-  if(d.submitted) return;
+  if(d.submitted && !d.unlocked) return;
   const val = (selectEl && selectEl.value) ? selectEl.value : '';
   if(!d.representatives) d.representatives = {};
   if(!val){
@@ -9735,17 +9739,20 @@ function mtSaveRep(iso, proj, selectEl){
     };
   }
   persist();
+  if(typeof window.mtCheckDirty === 'function') window.mtCheckDirty(iso);
 }
 window.mtSaveRep = mtSaveRep;
 function mtSaveMeetingNote(iso, val){
   const d = mtEnsure(iso);
-  if(d.submitted) return;
-  d.meetingNote = val; persist();
+  if(d.submitted && !d.unlocked) return;
+  d.meetingNote = val; 
+  persist();
+  if(typeof window.mtCheckDirty === 'function') window.mtCheckDirty(iso);
 }
 function mtSetStatus(iso, proj, status){
   if(!guardEdit()) return;
   const d = mtEnsure(iso);
-  if(d.submitted){ toast('Attendance already submitted for today','error'); return; }
+  if(d.submitted && !d.unlocked){ toast('Attendance already submitted for today','error'); return; }
   if(d.off){ toast('This day is marked off — unmark it first','error'); return; }
   if(status === 'present'){
     d.present[proj] = true;
@@ -9766,28 +9773,121 @@ function mtSetStatus(iso, proj, status){
     const tile = document.querySelector('.mt-tile[data-proj="'+CSS.escape(pj)+'"]');
     if(tile) tile.classList.add('expanded');
   });
+
+  if(typeof window.mtCheckDirty === 'function') window.mtCheckDirty(iso);
 }
 window.mtSetStatus = mtSetStatus;
+window.mtUpdateLoader = function(title, details, percent) {
+  const t = document.getElementById('mtSyncTitle');
+  const d = document.getElementById('mtSyncDetails');
+  const s = document.getElementById('mtSyncText');
+  const b = document.getElementById('mtSyncBar');
+  if (t) t.innerText = title;
+  if (d) d.innerText = details;
+  if (s) s.innerText = details;
+  if (b) b.style.width = Math.min(100, Math.max(0, Math.round(percent))) + '%';
+};
+
+window.mtOriginalState = {};
+
+window.mtCheckDirty = function(iso) {
+  const targetIso = iso || (typeof MT_SELECTED_DATE !== 'undefined' ? MT_SELECTED_DATE : todayISO());
+  const current = (window.DATA && window.DATA.meetings && window.DATA.meetings[targetIso]) || {};
+  const original = window.mtOriginalState || {};
+
+  let isDirty = false;
+
+  // Compare meetingNote
+  if (String(current.meetingNote || '').trim() !== String(original.meetingNote || '').trim()) {
+    isDirty = true;
+  }
+
+  // Compare present status
+  const currPres = Object.keys(current.present || {}).filter(k => current.present[k]).sort();
+  const origPres = Object.keys(original.present || {}).filter(k => original.present[k]).sort();
+  if (JSON.stringify(currPres) !== JSON.stringify(origPres)) {
+    isDirty = true;
+  }
+
+  // Compare absent status
+  const currAbs = Object.keys(current.absent || {}).filter(k => current.absent[k]).sort();
+  const origAbs = Object.keys(original.absent || {}).filter(k => original.absent[k]).sort();
+  if (JSON.stringify(currAbs) !== JSON.stringify(origAbs)) {
+    isDirty = true;
+  }
+
+  // Compare representatives
+  const currReps = current.representatives || {};
+  const origReps = original.representatives || {};
+  const allRepKeys = Array.from(new Set([...Object.keys(currReps), ...Object.keys(origReps)]));
+  for (const k of allRepKeys) {
+    const cVal = currReps[k] ? (typeof currReps[k] === 'object' ? (currReps[k].id || currReps[k].value || currReps[k].name) : currReps[k]) : '';
+    const oVal = origReps[k] ? (typeof origReps[k] === 'object' ? (origReps[k].id || origReps[k].value || origReps[k].name) : origReps[k]) : '';
+    if (String(cVal) !== String(oVal)) {
+      isDirty = true;
+      break;
+    }
+  }
+
+  // Compare notes
+  const currNotes = current.notes || {};
+  const origNotes = original.notes || {};
+  const allNoteKeys = Array.from(new Set([...Object.keys(currNotes), ...Object.keys(origNotes)]));
+  for (const k of allNoteKeys) {
+    const cN = JSON.stringify(Array.isArray(currNotes[k]) ? currNotes[k] : (currNotes[k] ? [currNotes[k]] : []));
+    const oN = JSON.stringify(Array.isArray(origNotes[k]) ? origNotes[k] : (origNotes[k] ? [origNotes[k]] : []));
+    if (cN !== oN) {
+      isDirty = true;
+      break;
+    }
+  }
+
+  // Update UI button state
+  const btn = document.getElementById('mtUpdateChangesBtn');
+  if (btn) {
+    btn.disabled = !isDirty;
+    if (isDirty) {
+      btn.style.opacity = '1';
+      btn.style.cursor = 'pointer';
+      btn.classList.remove('disabled');
+    } else {
+      btn.style.opacity = '0.6';
+      btn.style.cursor = 'not-allowed';
+      btn.classList.add('disabled');
+    }
+  }
+
+  return isDirty;
+};
+
 async function mtSubmitDay(iso, event){
   if(!guardEdit()) return;
   const d = mtEnsure(iso);
-  if(d.submitted){ toast('Already submitted','info'); return; }
+  if(d.submitted && !d.unlocked){ toast('Already submitted','info'); return; }
   const presentProjs = Object.keys(d.present||{});
   const absentProjs = Object.keys(d.absent||{});
   if(!presentProjs.length && !absentProjs.length && !d.meetingNote){
     if(!confirm('No projects marked and meeting-note empty. Submit anyway?')) return;
   }
   
-  const btn = event && event.target ? event.target : null;
+  const btn = event && event.target ? event.target : (document.getElementById('mtSubmitDayBtn') || null);
   if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
 
   const loader = document.getElementById('mtSyncLoader');
-  const syncBar = document.getElementById('mtSyncBar');
-  const syncText = document.getElementById('mtSyncText');
 
   try {
+    // 1. INSTANT PAINT: Show loader immediately and yield to DOM
+    if (loader) loader.style.display = 'flex';
+    if (typeof window.mtUpdateLoader === 'function') {
+      window.mtUpdateLoader('Preparing Submission', 'Gathering meeting data...', 5);
+    }
+    // Crucial DOM yield so browser repaints before synchronous processing
+    await new Promise(r => setTimeout(r, 50));
+
     if (!window.sb) throw new Error('Database connection not established.');
-    
+
+    // 2. Prepare Meeting DB row
+    let meetingDbId;
     const meetingId = 'MTG-' + Date.now();
     const meetingPayload = {
       meeting_id: meetingId,
@@ -9797,45 +9897,11 @@ async function mtSubmitDay(iso, event){
       agenda: d.meetingNote || 'Daily routine check',
       created_by: window.localStorage.getItem('mghrm_user') || 'Admin'
     };
-
     const { data: mData, error: mErr } = await window.sb.from('meetings').insert([meetingPayload]).select();
     if (mErr) throw mErr;
+    meetingDbId = mData && mData[0] ? (mData[0].meeting_id || mData[0].id) : meetingId;
 
-    const meetingDbId = mData && mData[0] ? mData[0].meeting_id : meetingId;
-
-    const eligibleMap = mtEligible();
-    const eligibleProjs = Object.keys(eligibleMap).sort((a,b)=>a.localeCompare(b));
-    const targetProjs = eligibleProjs.length > 0
-      ? eligibleProjs
-      : Array.from(new Set([...presentProjs, ...absentProjs]));
-
-    const attendanceArray = targetProjs.map(proj => {
-      const activeEmps = (window.DATA.employees || []).filter(e => e.Status === 'Active' && e.ProjectName === proj);
-      const savedRep = d.representatives && d.representatives[proj];
-      const rep = savedRep || activeEmps.find(e => (e.Designation||'').toLowerCase().includes('supervisor') || (e.Designation||'').toLowerCase().includes('incharge')) || activeEmps[0] || {};
-      
-      const projNotes = (d.notes && d.notes[proj]) || [];
-      const remarksStr = Array.isArray(projNotes) 
-        ? projNotes.join(' | ') 
-        : (typeof projNotes === 'string' ? projNotes.trim() : '');
-
-      return {
-        meeting_id: meetingDbId,
-        employee_id: String(rep.id || rep.EmployeeID || rep.employee_id || ''),
-        full_name: rep.FullName || rep.fullName || rep.name || '',
-        designation: rep.Designation || rep.designation || '',
-        project_name: proj,
-        status: d.present[proj] ? 'Present' : (d.absent[proj] ? 'Absent' : 'Absent'),
-        remarks: remarksStr
-      };
-    });
-
-    if (attendanceArray.length > 0) {
-      const { error: attErr } = await window.sb.from('meeting_attendance').insert(attendanceArray);
-      if (attErr) throw attErr;
-    }
-
-    // Extract all meeting notes into pendingNotes array
+    // 3. Prepare all To-Do notes array
     const pendingNotes = [];
     Object.entries(d.notes||{}).forEach(([proj, val]) => {
       const nList = Array.isArray(val) ? val : (val ? [String(val)] : []);
@@ -9860,84 +9926,330 @@ async function mtSubmitDay(iso, event){
       window.MGHRM.bindDirectCrudProxy(DATA.todos, 'todos');
     }
 
-    // If pendingNotes.length > 0, show the loader and loop through asynchronously
+    // Loop through pendingNotes asynchronously
     if (pendingNotes.length > 0) {
-      if (loader) {
-        loader.style.display = 'flex';
-        if (syncBar) syncBar.style.width = '0%';
-        if (syncText) syncText.innerText = 'Uploading notes: 0 of ' + pendingNotes.length;
-      }
-
-      for (let i = 0; i < pendingNotes.length; i++) {
-        const barEl = document.getElementById('mtSyncBar');
-        const txtEl = document.getElementById('mtSyncText');
-        if (barEl) barEl.style.width = Math.round(((i + 1) / pendingNotes.length) * 100) + '%';
-        if (txtEl) txtEl.innerText = `Uploading note ${i + 1} of ${pendingNotes.length}`;
+      for(let i = 0; i < pendingNotes.length; i++) {
+        const pct = 10 + Math.round(((i + 1) / pendingNotes.length) * 30);
+        if (typeof window.mtUpdateLoader === 'function') {
+          window.mtUpdateLoader('Syncing To-Do List', `Sending note ${i + 1} of ${pendingNotes.length}`, pct);
+        }
         
-        // CRITICAL FIX: Guarantee unique ID to prevent 'todos_pkey' constraint error
         pendingNotes[i].id = Date.now() + (i * 10000) + Math.floor(Math.random() * 9999);
-        
         DATA.todos.unshift(pendingNotes[i]);
-        persist(); // Trigger the DB insert
-        await new Promise(r => setTimeout(r, 400)); // 400ms delay to prevent rate limit
-      }
-
-      if (loader) {
-        loader.style.display = 'none';
+        persist(); // Trigger storage/sync
+        await new Promise(r => setTimeout(r, 100)); // DB rate limit safety
       }
     }
-    
+
+    // 4. Prepare all attendance records array
+    const eligibleMap = mtEligible();
+    const eligibleProjs = Object.keys(eligibleMap).sort((a,b)=>a.localeCompare(b));
+    const targetProjs = eligibleProjs.length > 0
+      ? eligibleProjs
+      : Array.from(new Set([...presentProjs, ...absentProjs]));
+
+    const attendanceRecords = targetProjs.map(proj => {
+      const activeEmps = (window.DATA.employees || []).filter(e => e.Status === 'Active' && e.ProjectName === proj);
+      const savedRep = d.representatives && d.representatives[proj];
+      const rep = savedRep || activeEmps.find(e => (e.Designation||'').toLowerCase().includes('supervisor') || (e.Designation||'').toLowerCase().includes('incharge')) || activeEmps[0] || {};
+      
+      const projNotes = (d.notes && d.notes[proj]) || [];
+      const remarksStr = Array.isArray(projNotes) 
+        ? projNotes.join(' | ') 
+        : (typeof projNotes === 'string' ? projNotes.trim() : '');
+
+      return {
+        meeting_id: meetingDbId,
+        employee_id: String(rep.id || rep.EmployeeID || rep.employee_id || ''),
+        full_name: rep.FullName || rep.fullName || rep.name || '',
+        designation: rep.Designation || rep.designation || '',
+        project_name: proj,
+        status: d.present[proj] ? 'Present' : (d.absent[proj] ? 'Absent' : 'Absent'),
+        remarks: remarksStr
+      };
+    });
+
+    // Loop through attendance records asynchronously
+    for(let i = 0; i < attendanceRecords.length; i++) {
+      const pct = 40 + Math.round(((i + 1) / (attendanceRecords.length || 1)) * 60);
+      if (typeof window.mtUpdateLoader === 'function') {
+        window.mtUpdateLoader('Saving Attendance', `Loading data to server: ${i + 1} / ${attendanceRecords.length}`, pct);
+      }
+      
+      const attItem = attendanceRecords[i];
+      const { error: attErr } = await window.sb.from('meeting_attendance').insert([attItem]);
+      if (attErr) throw attErr;
+
+      await new Promise(r => setTimeout(r, 100)); // DB rate limit safety
+    }
+
+    // Keep memory in sync
+    if (window.DATA) {
+      if (!Array.isArray(window.DATA.meetingAttendance)) window.DATA.meetingAttendance = [];
+      window.DATA.meetingAttendance = window.DATA.meetingAttendance.filter(r => r.meeting_id !== meetingDbId);
+      attendanceRecords.forEach(a => window.DATA.meetingAttendance.push(a));
+      window.DATA.meeting_attendance = window.DATA.meetingAttendance;
+    }
+
+    if (typeof window.mtUpdateLoader === 'function') {
+      window.mtUpdateLoader('Completed', 'All data successfully saved', 100);
+    }
+    await new Promise(r => setTimeout(r, 100));
+    if (loader) loader.style.display = 'none';
+
     d.submitted = true;
+    d.isEditing = false;
+    d.wasSubmitted = true;
     d.submittedAt = new Date().toISOString();
+    delete d.unlocked;
 
-    if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
-      const freshData = await window.MGHRM.loadAll();
-      if (freshData) {
-        Object.keys(freshData).forEach(k => {
-          if (k === 'meetings' || k === 'todos') return;
-          if (Array.isArray(freshData[k])) {
-            window.DATA[k] = freshData[k];
-          }
-        });
-      }
-    }
-
-    logActivity('submit','meetings', iso, `${presentProjs.length} present, ${absentProjs.length} absent · ${pendingNotes.length} follow-ups added to To-Do`);
-    toast(("Today's meeting submitted — ")+num(pendingNotes.length)+(' follow-ups added to To-Do'),'success');
-    
     DATA.meetings[iso].submitted = true;
+    DATA.meetings[iso].submittedAt = d.submittedAt;
+    DATA.meetings[iso].isEditing = false;
+    DATA.meetings[iso].wasSubmitted = true;
+    delete DATA.meetings[iso].unlocked;
+    window.mtOriginalState = {};
+
     persist(); 
     renderMeeting(); 
+    if(typeof renderTodo==='function') renderTodo();
     if(typeof updateTodoBadge==='function') updateTodoBadge();
+    toast(`Today's meeting submitted — ${num(pendingNotes.length)} follow-ups added to To-Do`, 'success');
 
   } catch (err) {
     console.error(err);
+    if (loader) loader.style.display = 'none';
     toast('Error submitting meeting: ' + err.message, 'error');
   } finally {
     if (loader) loader.style.display = 'none';
     if (btn) { btn.disabled = false; btn.innerHTML = ico('check') + " Submit Today's Meeting"; }
   }
 }
+
+async function mtUpdateDay(iso) {
+  if(!guardEdit()) return;
+  const targetIso = iso || (typeof MT_SELECTED_DATE !== 'undefined' ? MT_SELECTED_DATE : todayISO());
+  const d = mtEnsure(targetIso);
+  const orig = window.mtOriginalState || {};
+
+  const loader = document.getElementById('mtSyncLoader');
+  const updateBtn = document.getElementById('mtUpdateChangesBtn');
+  if (updateBtn) { updateBtn.disabled = true; updateBtn.innerHTML = 'Updating...'; }
+
+  try {
+    // 1. INSTANT PAINT: Show loader immediately and yield to DOM
+    if (loader) loader.style.display = 'flex';
+    if (typeof window.mtUpdateLoader === 'function') {
+      window.mtUpdateLoader('Updating Records', 'Checking for changes...', 10);
+    }
+    // Crucial DOM yield
+    await new Promise(r => setTimeout(r, 50));
+
+    if (!window.sb) throw new Error('Database connection not established.');
+
+    // 2. Check if general meeting note changed
+    const currMeetingNote = String(d.meetingNote || '').trim();
+    const origMeetingNote = String(orig.meetingNote || '').trim();
+    const meetingNoteChanged = currMeetingNote !== origMeetingNote;
+
+    // 3. Locate existing meeting row in database
+    const { data: existingMeetings, error: mFindErr } = await window.sb
+      .from('meetings')
+      .select('*')
+      .eq('meeting_date', targetIso);
+
+    if (mFindErr) console.warn('[Update Meeting Error]', mFindErr);
+
+    let meetingDbId = null;
+    if (existingMeetings && existingMeetings.length > 0) {
+      meetingDbId = existingMeetings[0].meeting_id || String(existingMeetings[0].id);
+      if (meetingNoteChanged) {
+        await window.sb
+          .from('meetings')
+          .update({
+            agenda: d.meetingNote || 'Daily routine check'
+          })
+          .eq('id', existingMeetings[0].id);
+      }
+    }
+
+    // 4. Fetch existing attendance rows in DB for this meeting
+    const allKnownMeetingIds = Array.from(new Set([
+      meetingDbId,
+      ...(existingMeetings || []).map(m => m.meeting_id).filter(Boolean)
+    ])).filter(Boolean);
+
+    let dbAttRows = [];
+    if (allKnownMeetingIds.length > 0) {
+      const { data: attRows } = await window.sb
+        .from('meeting_attendance')
+        .select('*')
+        .in('meeting_id', allKnownMeetingIds);
+      if (Array.isArray(attRows)) dbAttRows = attRows;
+    }
+
+    // 5. Identify changed rows by comparing current data with mtOriginalState
+    const eligibleMap = mtEligible();
+    const eligibleProjs = Object.keys(eligibleMap).sort((a,b)=>a.localeCompare(b));
+    const targetProjs = eligibleProjs.length > 0
+      ? eligibleProjs
+      : Array.from(new Set([...Object.keys(d.present||{}), ...Object.keys(d.absent||{})]));
+
+    const changedRecords = [];
+    for (const proj of targetProjs) {
+      const currStatus = d.present && d.present[proj] ? 'Present' : 'Absent';
+      const origStatus = orig.present && orig.present[proj] ? 'Present' : 'Absent';
+
+      const currRep = d.representatives && d.representatives[proj];
+      const origRep = orig.representatives && orig.representatives[proj];
+      const currRepVal = currRep ? (typeof currRep === 'object' ? (currRep.id || currRep.value || currRep.name) : currRep) : '';
+      const origRepVal = origRep ? (typeof origRep === 'object' ? (origRep.id || origRep.value || origRep.name) : origRep) : '';
+
+      const currNotes = Array.isArray(d.notes && d.notes[proj]) ? d.notes[proj].join(' | ') : String((d.notes && d.notes[proj]) || '').trim();
+      const origNotes = Array.isArray(orig.notes && orig.notes[proj]) ? orig.notes[proj].join(' | ') : String((orig.notes && orig.notes[proj]) || '').trim();
+
+      const isChanged = (currStatus !== origStatus) || (String(currRepVal) !== String(origRepVal)) || (currNotes !== origNotes);
+
+      if (isChanged) {
+        const activeEmps = (window.DATA.employees || []).filter(e => e.Status === 'Active' && e.ProjectName === proj);
+        const repObj = currRep || activeEmps.find(e => (e.Designation||'').toLowerCase().includes('supervisor') || (e.Designation||'').toLowerCase().includes('incharge')) || activeEmps[0] || {};
+        
+        changedRecords.push({
+          project_name: proj,
+          status: currStatus,
+          remarks: currNotes,
+          employee_id: String(repObj.id || repObj.EmployeeID || repObj.employee_id || ''),
+          full_name: repObj.FullName || repObj.fullName || repObj.name || '',
+          designation: repObj.Designation || repObj.designation || ''
+        });
+      }
+    }
+
+    // 6. Asynchronously loop through ONLY the changed records to patch the database
+    // STRICTLY DO NOT INTERACT WITH DATA.todos
+    if (changedRecords.length > 0) {
+      for (let i = 0; i < changedRecords.length; i++) {
+        const chg = changedRecords[i];
+        const pct = 20 + Math.round(((i + 1) / changedRecords.length) * 75);
+        if (typeof window.mtUpdateLoader === 'function') {
+          window.mtUpdateLoader('Updating Records', `Updating record ${i + 1} of ${changedRecords.length}`, pct);
+        }
+
+        const matchedDbRow = dbAttRows.find(r => 
+          String(r.project_name || '').trim().toLowerCase() === String(chg.project_name || '').trim().toLowerCase()
+        );
+
+        if (matchedDbRow) {
+          const { error: updErr } = await window.sb
+            .from('meeting_attendance')
+            .update({
+              status: chg.status,
+              remarks: chg.remarks,
+              employee_id: chg.employee_id,
+              full_name: chg.full_name,
+              designation: chg.designation
+            })
+            .eq('id', matchedDbRow.id);
+          if (updErr) console.warn('[Patch attendance row error]', updErr);
+        } else {
+          const newAtt = {
+            meeting_id: meetingDbId || ('MTG-' + Date.now()),
+            employee_id: chg.employee_id,
+            full_name: chg.full_name,
+            designation: chg.designation,
+            project_name: chg.project_name,
+            status: chg.status,
+            remarks: chg.remarks
+          };
+          await window.sb.from('meeting_attendance').insert([newAtt]);
+        }
+
+        await new Promise(r => setTimeout(r, 100)); // DB rate limit safety
+      }
+    }
+
+    if (typeof window.mtUpdateLoader === 'function') {
+      window.mtUpdateLoader('Completed', 'Changes saved successfully', 100);
+    }
+    await new Promise(r => setTimeout(r, 100));
+    if (loader) loader.style.display = 'none';
+
+    // 7. End: Lock and persist
+    d.unlocked = false;
+    d.isEditing = false;
+    d.submitted = true;
+    d.wasSubmitted = true;
+    DATA.meetings[targetIso].unlocked = false;
+    DATA.meetings[targetIso].isEditing = false;
+    DATA.meetings[targetIso].submitted = true;
+    DATA.meetings[targetIso].wasSubmitted = true;
+    window.mtOriginalState = {};
+
+    persist();
+    renderMeeting();
+    toast(`Meeting records updated (${num(changedRecords.length)} changed)`, 'success');
+
+  } catch (err) {
+    console.error(err);
+    if (loader) loader.style.display = 'none';
+    toast('Error updating meeting: ' + err.message, 'error');
+  } finally {
+    if (loader) loader.style.display = 'none';
+    if (updateBtn) { updateBtn.disabled = false; updateBtn.innerHTML = ico('check') + " Update Changes"; }
+  }
+}
+window.mtUpdateDay = mtUpdateDay;
+
 function mtUnsubmit(iso){
   if(!guardEdit()) return;
   if(!confirm('Un-submit to edit again? Notes already added to To-Do are NOT removed automatically.')) return;
   const targetIso = iso || (typeof MT_SELECTED_DATE !== 'undefined' ? MT_SELECTED_DATE : todayISO());
   const d = mtEnsure(targetIso);
+  window.mtOriginalState = JSON.parse(JSON.stringify(d || {}));
   d.submitted = false;
+  d.isEditing = true;
+  d.wasSubmitted = true;
   d.unlocked = true; // Bypass time-lock
   d.off = false;
   delete d.offReason;
-  persist(); renderMeeting();
+  persist(); 
+  renderMeeting();
+  if (typeof window.mtCheckDirty === 'function') {
+    window.mtCheckDirty(targetIso);
+  }
 }
+
 window.mtEditDay = function(iso) {
   const targetIso = iso || (typeof MT_SELECTED_DATE !== 'undefined' ? MT_SELECTED_DATE : todayISO());
   const d = mtEnsure(targetIso);
+  window.mtOriginalState = JSON.parse(JSON.stringify(d || {}));
   d.submitted = false;
+  d.isEditing = true;
+  d.wasSubmitted = true;
   d.unlocked = true; // Bypass time-lock
   d.off = false; // Remove postponed state
   delete d.offReason;
   persist();
   renderMeeting();
+  if (typeof window.mtCheckDirty === 'function') {
+    window.mtCheckDirty(targetIso);
+  }
+};
+
+window.mtCancelEditDay = function(iso) {
+  const targetIso = iso || (typeof MT_SELECTED_DATE !== 'undefined' ? MT_SELECTED_DATE : todayISO());
+  if (window.mtOriginalState && Object.keys(window.mtOriginalState).length > 0) {
+    DATA.meetings[targetIso] = JSON.parse(JSON.stringify(window.mtOriginalState));
+  } else {
+    const d = mtEnsure(targetIso);
+    d.submitted = true;
+    d.isEditing = false;
+    delete d.unlocked;
+  }
+  window.mtOriginalState = {};
+  persist();
+  renderMeeting();
+  toast('Edit cancelled', 'info');
 };
 function mtMarkOff(iso){
   if(!guardEdit()) return;
@@ -10458,7 +10770,13 @@ function renderMeeting(){
               <textarea rows="2" placeholder="${'e.g. new policy communicated to all…'}" oninput="mtSaveMeetingNote('${today}',this.value)">${((rec&&rec.meetingNote)||'').replace(/</g,'&lt;')}</textarea>
             </div>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-              <button class="btn primary" style="font-weight:700" onclick="mtSubmitDay('${today}', event)">${ico('check')} ${"Submit Today's Meeting"}</button>
+              ${(rec && (rec.isEditing || rec.wasSubmitted || (rec.submittedAt && !rec.submitted))) ? `
+                <button id="mtSubmitDayBtn" class="btn primary disabled" style="font-weight:700;opacity:0.5;cursor:not-allowed;" disabled title="Already submitted. Use 'Update Changes' to update records.">${ico('check')} ${"Submit Today's Meeting"}</button>
+                <button id="mtUpdateChangesBtn" class="btn success disabled" style="font-weight:700;opacity:0.6;cursor:not-allowed;" disabled onclick="mtUpdateDay('${today}')">${ico('check')} ${"Update Changes"}</button>
+                <button type="button" class="btn ghost sm" onclick="mtCancelEditDay('${today}')">${ico('x')} ${"Cancel Edit"}</button>
+              ` : `
+                <button id="mtSubmitDayBtn" class="btn primary" style="font-weight:700" onclick="mtSubmitDay('${today}', event)">${ico('check')} ${"Submit Today's Meeting"}</button>
+              `}
               <div style="flex:1"></div>
               <input type="text" id="mtOffNote" placeholder="${'Reason for no meeting…'}" style="flex:1;min-width:200px;padding:8px 12px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit;font-size:13px">
               <button class="btn danger sm" onclick="mtMarkOff('${today}')">${ico('x')} ${'No meeting today'}</button>
@@ -10514,6 +10832,9 @@ function renderMeeting(){
     </div>
   `;
   updateMeetingBadge();
+  if (typeof window.mtCheckDirty === 'function') {
+    window.mtCheckDirty(today);
+  }
 }
 function updateMeetingBadge(){
   const b = document.getElementById('navMeetingBadge'); if(!b) return;

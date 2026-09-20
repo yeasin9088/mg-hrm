@@ -9188,17 +9188,36 @@ function mtGetProjectReps(projName){
     const st = e.Status || e.status;
     return p === projName && (st === 'Active' || !st);
   });
-  const supervisors = [];
-  const guards = [];
-  emps.forEach(e => {
-    const des = (e.Designation || e.designation || '').toLowerCase();
-    if(des.includes('incharge') || des.includes('supervisor') || des.includes('asst')){
-      supervisors.push(e);
-    } else {
-      guards.push(e);
+
+  const getRank = (desig) => {
+    const d = (desig || '').toLowerCase();
+    if (d.includes('incharge')) return 1;
+    // Check 'asst' or 'assistant' before 'supervisor' so 'Assistant Supervisor' gets rank 3
+    if (d.includes('asst') || d.includes('assistant')) return 3;
+    if (d.includes('supervisor')) return 2;
+    return 4; // Guards and others
+  };
+
+  return emps.slice().sort((a, b) => {
+    // Tier 1: Designation Rank
+    const rankA = getRank(a.Designation || a.designation);
+    const rankB = getRank(b.Designation || b.designation);
+    if (rankA !== rankB) {
+      return rankA - rankB;
     }
+
+    // Tier 2: Seniority (Older employees appear above newer ones)
+    const dateA = a.JoiningDate || a.JoinDate || a.join_date;
+    const dateB = b.JoiningDate || b.JoinDate || b.join_date;
+    if (dateA && dateB) {
+      const timeA = new Date(dateA).getTime();
+      const timeB = new Date(dateB).getTime();
+      if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) {
+        return timeA - timeB;
+      }
+    }
+    return (parseInt(a.id, 10) || 0) - (parseInt(b.id, 10) || 0);
   });
-  return supervisors.length > 0 ? supervisors : guards;
 }
 window.mtGetProjectReps = mtGetProjectReps;
 function mtGetNotes(iso, proj){
@@ -9552,16 +9571,16 @@ window.mtEditDay = function(iso) {
 };
 function mtMarkOff(iso){
   if(!guardEdit()) return;
-  const note = (document.getElementById('mtOffNote')?.value||'').trim();
+  const note = (document.getElementById('mtOffNote')?.value||'').trim() || 'Meeting Postponed';
   const d = mtEnsure(iso);
-  d.off = true; d.note = note; d.present = {}; d.absent = {};
+  d.off = true; d.offReason = note; d.note = note; d.present = {}; d.absent = {};
   persist(); renderMeeting();
   toast('Marked as no-meeting day','success');
 }
 function mtUnmarkOff(iso){
   if(!guardEdit()) return;
   const d = mtEnsure(iso);
-  d.off = false; d.note = '';
+  d.off = false; d.unlocked = true; d.note = ''; d.offReason = '';
   persist(); renderMeeting();
 }
 function mtShiftMonth(n){ MT_MONTH = new Date(MT_MONTH.getFullYear(), MT_MONTH.getMonth()+n, 1); renderMeeting(); }
@@ -9570,19 +9589,23 @@ window.mtSelectDate = function(iso) {
   renderMeeting();
 };
 function mtStats(y, m){
-  
   const eligible = mtEligible();
   const projs = Object.keys(eligible);
   const daysInMonth = new Date(y, m+1, 0).getDate();
   const perProj = {}; projs.forEach(p=>perProj[p]={present:0, absent:0});
   let workdays=0, heldDays=0, totalPresent=0, totalPossible=0;
   const today = todayISO();
+  const now = new Date();
+  const isAfter11 = now.getHours() >= 11;
   for(let d=1; d<=daysInMonth; d++){
     const iso = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     if(iso > today) continue;                                  
     if(mtIsFriday(iso)) continue;                              
     const rec = mtDay(iso);
-    if(rec && rec.off) continue;                               
+    const isPast = iso < today;
+    const isToday = iso === today;
+    const isAutoPostponed = (!rec || !rec.submitted) && !rec?.unlocked && (isPast || (isToday && isAfter11));
+    if((rec && rec.off) || isAutoPostponed) continue;                               
     workdays++;
     const hasAny = rec && Object.keys(rec.present||{}).length>0;
     if(hasAny) heldDays++;
@@ -9719,10 +9742,132 @@ function mtRenderSummaryView(today, rec, projNames) {
 }
 window.mtRenderSummaryView = mtRenderSummaryView;
 
+function mtRenderPostponedView(today, rec, isFri, isAutoPostponed) {
+  const currentReason = (rec && (rec.offReason || rec.note)) || (isFri ? 'Friday — Weekly Holiday' : 'Meeting Postponed');
+  const now = new Date();
+  const isToday = today === todayISO();
+  const isPast = today < todayISO();
+  const isAfter11 = isToday && now.getHours() >= 11;
+
+  let noticeText = '';
+  if (isFri) {
+    noticeText = 'Friday is the scheduled weekly holiday. Daily attendance session is not held.';
+  } else if (isAutoPostponed) {
+    if (isToday && isAfter11) {
+      noticeText = 'Attendance was not submitted by 11:00 AM. This session has been automatically locked and marked as Postponed / Not Held.';
+    } else {
+      noticeText = 'Attendance was not submitted for this past date. This session is locked and marked as Postponed / Not Held.';
+    }
+  } else {
+    noticeText = 'This session has been marked as Postponed / Not Held.';
+  }
+
+  const presets = ['Public Holiday', 'Official Holiday', 'Severe Weather', 'Management Meeting', 'Administrative Decision'];
+
+  return `
+    <div id="mtPostponedView" style="padding: 24px; background: var(--surface, #ffffff); border: 1px solid var(--border); border-radius: 10px; margin: 4px 0 10px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border);">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+            <span class="badge" style="padding: 3px 9px; font-size: 11px; font-weight: 700; border-radius: 12px; background: var(--bg-dim, #f1f5f9); color: var(--text-muted, #475569); border: 1px solid var(--border);">
+              ${isFri ? 'Weekly Holiday' : (isAutoPostponed ? 'Time-Locked' : 'Postponed')}
+            </span>
+            <h4 style="margin: 0; font-size: 16px; font-weight: 700; color: var(--text);">
+              ${isFri ? 'Friday — No Meeting Scheduled' : 'Meeting Postponed / Not Held'}
+            </h4>
+          </div>
+          <p style="margin: 0; font-size: 13px; color: var(--text-2); line-height: 1.5;">${escapeHtml(noticeText)}</p>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          ${!isFri ? `
+            <button type="button" class="btn ghost sm" onclick="mtOverridePostpone('${today}')" style="font-weight: 600; font-size: 12px; border: 1px solid var(--border);">
+              Override Lock &amp; Record Attendance
+            </button>
+          ` : ''}
+        </div>
+      </div>
+
+      <div style="background: var(--surface-2, #f8fafc); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+        <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px;">
+          Special Reason / Note
+        </label>
+        <p style="font-size: 12px; color: var(--text-muted, #64748b); margin: 0 0 10px 0;">
+          Specify the reason or special note for this date (e.g. Public Holiday). This is displayed on the monthly register and daily reports.
+        </p>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+          <input type="text" id="mtPostponeReasonInput" value="${escapeHtml(currentReason)}" placeholder="e.g. Public Holiday, Severe Weather, Management Meeting..." style="flex: 1; min-width: 240px; padding: 8px 12px; border: 1px solid var(--border-strong, #cbd5e1); border-radius: 6px; font-size: 13px; color: var(--text); background: var(--card, #fff);">
+          <button type="button" class="btn primary sm" onclick="mtSavePostponeReason('${today}')" style="font-weight: 600; padding: 8px 16px; font-size: 13px;">
+            Save Reason
+          </button>
+        </div>
+        <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+          <span style="font-size: 11px; color: var(--text-muted, #64748b); font-weight: 600;">Quick Presets:</span>
+          ${presets.map(p => `
+            <button type="button" class="btn ghost sm" style="font-size: 11px; padding: 2px 8px; height: auto; border-radius: 12px; background: var(--card, #fff); border: 1px solid var(--border);" onclick="mtApplyReasonPreset('${today}', '${escapeHtml(p)}')">
+              ${escapeHtml(p)}
+            </button>
+          `).join('')}
+        </div>
+      </div>
+
+      <div style="font-size: 12px; color: var(--text-muted, #64748b); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <span>Session Date: <strong>${today}</strong></span>
+        <span>Registered Reason: <strong style="color: var(--text);">${escapeHtml(currentReason)}</strong></span>
+      </div>
+    </div>
+  `;
+}
+window.mtRenderPostponedView = mtRenderPostponedView;
+
+window.mtSavePostponeReason = function(iso, val) {
+  const inputEl = document.getElementById('mtPostponeReasonInput');
+  const reason = (typeof val === 'string' ? val : (inputEl ? inputEl.value : '')).trim();
+  const d = mtEnsure(iso);
+  d.off = true;
+  d.offReason = reason || 'Meeting Postponed';
+  d.note = d.offReason;
+  persist();
+  renderMeeting();
+  toast('Postponement reason saved', 'success');
+};
+window.mtApplyReasonPreset = function(iso, preset) {
+  const inputEl = document.getElementById('mtPostponeReasonInput');
+  if (inputEl) inputEl.value = preset;
+  mtSavePostponeReason(iso, preset);
+};
+window.mtOverridePostpone = function(iso) {
+  if (!guardEdit()) return;
+  if (!confirm('Override time-lock to record attendance for ' + iso + '?')) return;
+  const d = mtEnsure(iso);
+  d.off = false;
+  d.unlocked = true;
+  persist();
+  renderMeeting();
+};
+
 function renderMeeting(){
   const page = document.getElementById('page-meeting');
   const today = MT_SELECTED_DATE;
   const realToday = todayISO();
+  const d = mtEnsure(today);
+
+  const now = new Date();
+  const isToday = MT_SELECTED_DATE === todayISO();
+  const isPastDate = MT_SELECTED_DATE < todayISO();
+  const isAfter11AM = now.getHours() >= 11;
+
+  // Lock condition: Not submitted AND (it's a past date OR it's today after 11:00 AM)
+  const isAutoPostponed = !d.submitted && !d.unlocked && (isPastDate || (isToday && isAfter11AM));
+
+  if (isAutoPostponed) {
+    d.off = true;
+    if (!d.offReason) d.offReason = 'Meeting Postponed';
+    if (!d.note) d.note = d.offReason;
+  }
+
+  const rec = d;
+  const isFri = mtIsFriday(today);
+  const isOff = isFri || !!(rec && rec.off);
   const eligible = mtEligible();
   const projNames = Object.keys(eligible);
   const y = MT_MONTH.getFullYear();
@@ -9730,15 +9875,11 @@ function renderMeeting(){
   const mIdx = MT_MONTH.getMonth();
   projNames.sort((a, b) => (mtGetProjectScore(b, y, m) - mtGetProjectScore(a, y, m)) || a.localeCompare(b));
   const totalProjects = projNames.length;
-  const rec = mtDay(today);
-  const isFri = mtIsFriday(today);
-  const isOff = isFri || (rec && rec.off);
   const presentCount = rec ? Object.keys(rec.present||{}).length : 0;
   const stats = mtStats(y, mIdx);
   const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const absentRank = stats.projs.map(p=>({p, ...stats.perProj[p]})).sort((a,b)=>b.absent-a.absent);
 
-  
   const daysInMonth = new Date(y, mIdx+1, 0).getDate();
   let calHtml = '';
   for(let d=1; d<=daysInMonth; d++){
@@ -9747,11 +9888,15 @@ function renderMeeting(){
     const fri = mtIsFriday(iso);
     const future = iso > realToday;
     const isSelected = iso === MT_SELECTED_DATE;
-    const isToday = iso === realToday;
-    const cls = future ? '' : fri || (r&&r.off) ? 'off' : (r && Object.keys(r.present||{}).length) ? 'held' : 'missed';
-    calHtml += `<div class="mt-day ${cls} ${isToday?'today':''} ${isSelected?'selected':''}" onclick="mtSelectDate('${iso}')" style="${isSelected?'border:2px solid var(--primary);box-shadow:0 0 0 2px rgba(37,99,235,0.25);':''}" title="${iso}${fri?' (Friday)':''}${r&&r.note?' — '+r.note:''}">
+    const isTodayCal = iso === realToday;
+    const isPastCal = iso < realToday;
+    const isCalDayAutoPostponed = (!r || !r.submitted) && !r?.unlocked && (isPastCal || (isTodayCal && isAfter11AM));
+    const isDayOff = fri || (r && r.off) || isCalDayAutoPostponed;
+    const dayReason = fri ? 'Friday — Weekly Holiday' : ((r && (r.offReason || r.note)) || (isCalDayAutoPostponed ? 'Meeting Postponed' : ''));
+    const cls = future ? '' : isDayOff ? 'off' : (r && Object.keys(r.present||{}).length) ? 'held' : 'missed';
+    calHtml += `<div class="mt-day ${cls} ${isTodayCal?'today':''} ${isSelected?'selected':''}" onclick="mtSelectDate('${iso}')" style="${isSelected?'border:2px solid var(--primary);box-shadow:0 0 0 2px rgba(37,99,235,0.25);':''}" title="${iso}${fri?' (Friday)':''}${dayReason?' — '+dayReason:''}">
       <div class="d">${num(d)}</div>
-      <div style="font-size:9px;opacity:.8">${future?'—':fri?'Fri':(r&&r.off)?'Off':(r&&Object.keys(r.present||{}).length)?num(Object.keys(r.present).length)+' ✓':'✗'}</div>
+      <div style="font-size:9px;opacity:.8">${future?'—':fri?'Fri':isDayOff?'Off':(r&&Object.keys(r.present||{}).length)?num(Object.keys(r.present).length)+' ✓':'✗'}</div>
     </div>`;
   }
 
@@ -9764,11 +9909,19 @@ function renderMeeting(){
     const dayOfWeek = dObj.getDay();
     const isFri = dayOfWeek === 5;
     const dayMeeting = (window.DATA && window.DATA.meetings && window.DATA.meetings[isoDate]) || null;
-    const isOffDay = isFri || !!(dayMeeting && dayMeeting.off);
-    const friBg = isOffDay ? 'background: var(--bg-mute, #eceef8); color: ' + (isFri ? 'var(--danger, #e11d48)' : 'var(--text-muted, #7a7a9d)') + ';' : 'background: var(--bg-dim, #f8fafc); color: var(--text-2, #3d3c66);';
+    const isPastDay = isoDate < realToday;
+    const isTodayDay = isoDate === realToday;
+    const isDaySubmitted = !!(dayMeeting && dayMeeting.submitted);
+    const isDayUnlocked = !!(dayMeeting && dayMeeting.unlocked);
+    const isDayAutoPostponed = !isDaySubmitted && !isDayUnlocked && (isPastDay || (isTodayDay && isAfter11AM));
+    const isOffDay = isFri || isDayAutoPostponed || !!(dayMeeting && dayMeeting.off);
+    const dayReason = isFri ? 'Friday — Weekly Holiday' : ((dayMeeting && (dayMeeting.offReason || dayMeeting.note)) || (isDayAutoPostponed ? 'Meeting Postponed' : ''));
 
-    matrixThRow1 += `<th style="position: sticky; top: 0; z-index: 8; ${friBg} border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); padding: 5px 2px; text-align: center; min-width: 32px; font-size: 11px; font-weight: 700; height: 28px; box-sizing: border-box;">${num(d)}</th>`;
-    matrixThRow2 += `<th style="position: sticky; top: 28px; z-index: 8; ${friBg} border-bottom: 2px solid var(--border-strong); border-right: 1px solid var(--border); padding: 3px 2px; text-align: center; min-width: 32px; font-size: 10px; font-weight: 600; height: 24px; box-sizing: border-box;">${dayNamesShort[dayOfWeek]}</th>`;
+    const friBg = isOffDay ? 'background: #f1f5f9; color: ' + (isFri ? 'var(--danger, #e11d48)' : 'var(--text-muted, #64748b)') + ';' : 'background: var(--bg-dim, #f8fafc); color: var(--text-2, #3d3c66);';
+    const noteMarker = (isOffDay && !isFri && dayMeeting && (dayMeeting.offReason || dayMeeting.note)) ? '<span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:#f59e0b;margin-left:2px;vertical-align:middle;" title="' + escapeHtml(dayReason) + '"></span>' : '';
+
+    matrixThRow1 += `<th style="position: sticky; top: 0; z-index: 8; ${friBg} border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); padding: 5px 2px; text-align: center; min-width: 32px; font-size: 11px; font-weight: 700; height: 28px; box-sizing: border-box;" title="${num(d)} ${dayNamesShort[dayOfWeek]} — ${escapeHtml(dayReason || 'Working Day')}">${num(d)}${noteMarker}</th>`;
+    matrixThRow2 += `<th style="position: sticky; top: 28px; z-index: 8; ${friBg} border-bottom: 2px solid var(--border-strong); border-right: 1px solid var(--border); padding: 3px 2px; text-align: center; min-width: 32px; font-size: 10px; font-weight: 600; height: 24px; box-sizing: border-box;" title="${num(d)} ${dayNamesShort[dayOfWeek]} — ${escapeHtml(dayReason || 'Working Day')}">${dayNamesShort[dayOfWeek]}</th>`;
   }
 
   const matrixBodyHtml = projNames.map(p => {
@@ -9782,21 +9935,35 @@ function renderMeeting(){
       const dObj = new Date(y, mIdx, d);
       const isFri = dObj.getDay() === 5;
       const meeting = (window.DATA && window.DATA.meetings && window.DATA.meetings[isoDate]) || null;
-      const isOff = isFri || !!(meeting && meeting.off);
-      const cellBg = isOff ? 'background: var(--bg-mute, #eceef8);' : '';
+      const isPastDay = isoDate < realToday;
+      const isTodayDay = isoDate === realToday;
+      const isDaySubmitted = !!(meeting && meeting.submitted);
+      const isDayUnlocked = !!(meeting && meeting.unlocked);
+      const isDayAutoPostponed = !isDaySubmitted && !isDayUnlocked && (isPastDay || (isTodayDay && isAfter11AM));
+      const isOff = isFri || isDayAutoPostponed || !!(meeting && meeting.off);
+      const dayReason = isFri ? 'Friday — Weekly Holiday' : ((meeting && (meeting.offReason || meeting.note)) || (isDayAutoPostponed ? 'Meeting Postponed' : ''));
 
       let cellContent = '';
-      if (meeting && meeting.present && meeting.present[p]) {
+      let cellTitle = `${projName(p)} · ${isoDate}`;
+      let cellBg = '';
+
+      if (isOff) {
+        cellBg = 'background: #f1f5f9; color: #94a3b8; cursor: default;';
+        cellContent = '<span style="color: #94a3b8; font-size: 11px; font-weight: 500;">—</span>';
+        cellTitle = `${projName(p)} · ${isoDate}: ${escapeHtml(dayReason)}`;
+      } else if (meeting && meeting.present && meeting.present[p]) {
         cellContent = '<span style="color: var(--success, #059669); font-weight: 800; font-size: 12px;">✓</span>';
+        cellTitle += ' — Present';
         totalP++;
       } else if (meeting && meeting.absent && meeting.absent[p]) {
         cellContent = '<span style="color: var(--danger, #e11d48); font-weight: 800; font-size: 12px;">✗</span>';
+        cellTitle += ' — Absent';
         totalA++;
       } else {
         cellContent = '';
       }
 
-      daysCells += `<td style="text-align: center; padding: 4px 2px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); ${cellBg}">${cellContent}</td>`;
+      daysCells += `<td style="text-align: center; padding: 4px 2px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); ${cellBg}" title="${cellTitle}">${cellContent}</td>`;
     }
 
     return `<tr class="row-click" onclick="openProjMeetingHistory('${pSafe}')" style="cursor: pointer;" title="${'Click to view monthly history'}">
@@ -9813,9 +9980,42 @@ function renderMeeting(){
     </tr>`;
   }).join('') || `<tr><td colspan="${daysInMonth + 3}" class="small-mute" style="text-align:center;padding:20px">${'No projects found'}</td></tr>`;
 
+  const monthNotes = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const isoDate = `${y}-${m}-${String(d).padStart(2, '0')}`;
+    const dObj = new Date(y, mIdx, d);
+    const isFri = dObj.getDay() === 5;
+    const meeting = (window.DATA && window.DATA.meetings && window.DATA.meetings[isoDate]) || null;
+    const isPastDay = isoDate < realToday;
+    const isTodayDay = isoDate === realToday;
+    const isDaySubmitted = !!(meeting && meeting.submitted);
+    const isDayUnlocked = !!(meeting && meeting.unlocked);
+    const isDayAutoPostponed = !isDaySubmitted && !isDayUnlocked && (isPastDay || (isTodayDay && isAfter11AM));
+    const reason = (meeting && (meeting.offReason || meeting.note)) || (isDayAutoPostponed ? 'Meeting Postponed' : '');
+    if (reason && !isFri) {
+      monthNotes.push({ date: isoDate, day: d, reason });
+    }
+  }
+
+  const notesLogHtml = monthNotes.length > 0 ? `
+    <div style="margin-top: 14px; padding: 12px 16px; background: var(--surface-2, #f8fafc); border: 1px solid var(--border); border-radius: 8px;">
+      <h5 style="margin: 0 0 8px 0; font-size: 11px; font-weight: 700; color: var(--text-muted, #64748b); text-transform: uppercase; letter-spacing: 0.5px;">
+        Monthly Register Notes &amp; Special Reasons (${monthNotes.length})
+      </h5>
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px;">
+        ${monthNotes.map(n => `
+          <div style="font-size: 12px; color: var(--text-2); background: var(--card, #fff); padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <span style="font-weight: 600; color: var(--text); font-size: 11.5px;">${n.date} (${num(n.day)}):</span>
+            <span style="color: var(--primary, #2563eb); font-weight: 600; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px;">${escapeHtml(n.reason)}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  ` : '';
+
   page.innerHTML = `
     <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
-      ${kpi(today === realToday ? "Today's Meeting" : `Meeting (${today})`, isOff?('OFF'):`${num(presentCount)}/${num(projNames.length)}`, isOff?'r':'g', ico('calendar'), isFri?('Friday — weekly off'):(rec&&rec.off)?(rec.note||('Marked off')):fmtDateLong(today),'','')}
+      ${kpi(today === realToday ? "Today's Meeting" : `Meeting (${today})`, isOff?('OFF'):`${num(presentCount)}/${num(projNames.length)}`, isOff?'r':'g', ico('calendar'), isFri?('Friday — weekly off'):(rec&&rec.off)?(rec.offReason||rec.note||('Marked off')):fmtDateLong(today),'','')}
       ${kpi('Meetings Held', `${num(stats.heldDays)}/${num(stats.workdays)}`,'b', ico('check'), 'of working days','','')}
       ${kpi('Total Attendance (proj.)', `${num(stats.totalPresent)}/${num(stats.totalPossible)}`,'p', ico('users'), stats.totalPossible?num((stats.totalPresent*100/stats.totalPossible).toFixed(1))+'%':'—','','')}
       ${kpi('Most Absent', absentRank.length&&absentRank[0].absent>0?num(absentRank[0].absent)+(' days'):'—','y', ico('warn'), absentRank.length&&absentRank[0].absent>0?projName(absentRank[0].p):('All regular'),'','')}
@@ -9829,12 +10029,7 @@ function renderMeeting(){
         </div>
         <div class="card-body">
           ${isOff ? `
-            <div class="alert-item ${isFri?'info':'warning'}" style="margin-bottom:10px">
-              ${ico('calendar')}
-              <div><h5>${isFri ? ('Today is Friday — no meeting') : ('Today marked as no-meeting')}</h5>
-              <p>${isFri ? ('Friday is the weekly holiday — no attendance needed.') : (rec.note||'')}</p></div>
-            </div>
-            ${!isFri ? `<button class="btn success sm" onclick="mtUnmarkOff('${today}')">${'Meeting happened — take attendance'}</button>` : ''}
+            ${mtRenderPostponedView(today, rec, isFri, isAutoPostponed)}
           ` : (rec && rec.submitted) ? `
             ${mtRenderSummaryView(today, rec, projNames)}
           ` : `
@@ -9941,16 +10136,19 @@ function renderMeeting(){
           </tbody>
         </table>
       </div>
+      ${notesLogHtml}
     </div>
   `;
   updateMeetingBadge();
 }
 function updateMeetingBadge(){
-  
   const b = document.getElementById('navMeetingBadge'); if(!b) return;
   const today = todayISO();
   const rec = mtDay(today);
-  const pending = !mtIsFriday(today) && !(rec && rec.off) && !(rec && rec.submitted) && !(rec && Object.keys(rec.present||{}).length);
+  const now = new Date();
+  const isAfter11 = now.getHours() >= 11;
+  const isPostponed = (!rec || !rec.submitted) && !rec?.unlocked && isAfter11;
+  const pending = !mtIsFriday(today) && !(rec && rec.off) && !isPostponed && !(rec && rec.submitted) && !(rec && Object.keys(rec.present||{}).length);
   b.style.display = pending ? '' : 'none';
   b.textContent = '!';
 }
@@ -10078,6 +10276,10 @@ function printMeetingReport(){
   const projNames = Object.keys(eligible);
   projNames.sort((a, b) => (mtGetProjectScore(b, y, mStr) - mtGetProjectScore(a, y, mStr)) || a.localeCompare(b));
 
+  const now = new Date();
+  const realToday = todayISO();
+  const isAfter11 = now.getHours() >= 11;
+
   let thRow1 = '';
   let thRow2 = '';
   for (let d = 1; d <= daysInMonth; d++) {
@@ -10086,7 +10288,10 @@ function printMeetingReport(){
     const dayOfWeek = dObj.getDay();
     const isFri = dayOfWeek === 5;
     const dayMeeting = (window.DATA && window.DATA.meetings && window.DATA.meetings[isoDate]) || null;
-    const isOffDay = isFri || !!(dayMeeting && dayMeeting.off);
+    const isPast = isoDate < realToday;
+    const isTodayDay = isoDate === realToday;
+    const isDayAutoPostponed = (!dayMeeting || !dayMeeting.submitted) && !dayMeeting?.unlocked && (isPast || (isTodayDay && isAfter11));
+    const isOffDay = isFri || isDayAutoPostponed || !!(dayMeeting && dayMeeting.off);
     const bgStyle = isOffDay ? 'background-color: #f1f5f9; color: ' + (isFri ? '#e11d48;' : '#64748b;') : 'background-color: #f8fafc; color: #1e293b;';
 
     thRow1 += `<th style="${bgStyle} border: 1px solid #cbd5e1; padding: 3px 1px; text-align: center; font-size: 8.5px; font-weight: 700; width: 20px;">${d}</th>`;
@@ -10104,11 +10309,16 @@ function printMeetingReport(){
       const dObj = new Date(y, m, d);
       const isFri = dObj.getDay() === 5;
       const meeting = (window.DATA && window.DATA.meetings && window.DATA.meetings[isoDate]) || null;
-      const isOff = isFri || !!(meeting && meeting.off);
+      const isPast = isoDate < realToday;
+      const isTodayDay = isoDate === realToday;
+      const isDayAutoPostponed = (!meeting || !meeting.submitted) && !meeting?.unlocked && (isPast || (isTodayDay && isAfter11));
+      const isOff = isFri || isDayAutoPostponed || !!(meeting && meeting.off);
       const cellBg = isOff ? 'background-color: #f1f5f9;' : '';
 
       let cellContent = '';
-      if (meeting && meeting.present && meeting.present[p]) {
+      if (isOff) {
+        cellContent = '<span style="color: #94a3b8; font-size: 9px;">—</span>';
+      } else if (meeting && meeting.present && meeting.present[p]) {
         cellContent = '<span style="color: #059669; font-weight: 800; font-size: 10.5px;">✓</span>';
         totalP++;
       } else if (meeting && meeting.absent && meeting.absent[p]) {
@@ -10137,6 +10347,28 @@ function printMeetingReport(){
   if (!projNames.length) {
     matrixBodyHtml = `<tr><td colspan="${daysInMonth + 3}" style="text-align:center;padding:16px;font-size:10px;color:#64748b;">No projects found</td></tr>`;
   }
+
+  const monthNotes = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const isoDate = `${y}-${mStr}-${String(d).padStart(2, '0')}`;
+    const dObj = new Date(y, m, d);
+    const isFri = dObj.getDay() === 5;
+    const meeting = (window.DATA && window.DATA.meetings && window.DATA.meetings[isoDate]) || null;
+    const isPast = isoDate < realToday;
+    const isTodayDay = isoDate === realToday;
+    const isDayAutoPostponed = (!meeting || !meeting.submitted) && !meeting?.unlocked && (isPast || (isTodayDay && isAfter11));
+    const reason = (meeting && (meeting.offReason || meeting.note)) || (isDayAutoPostponed ? 'Meeting Postponed' : '');
+    if (reason && !isFri) {
+      monthNotes.push({ date: isoDate, day: d, reason });
+    }
+  }
+
+  const monthNotesHtml = monthNotes.length > 0 ? `
+    <div style="margin-top: 6px; padding: 4px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 7.5pt;">
+      <strong style="color: #475569; text-transform: uppercase; font-size: 7pt; margin-right: 8px;">Notes &amp; Special Reasons:</strong>
+      ${monthNotes.map(n => `<span style="display: inline-block; margin-right: 12px; color: #1e293b;"><strong>${n.day}th:</strong> ${escapeHtml(n.reason)}</span>`).join('')}
+    </div>
+  ` : '';
 
   const printDocHtml = `<div class="print-doc landscape mrep mt-matrix-print">
     <style>
@@ -10252,9 +10484,11 @@ function printMeetingReport(){
       </tbody>
     </table>
 
+    ${monthNotesHtml}
+
     <div class="print-footer">
       <span>${typeof COMPANY !== 'undefined' ? COMPANY.name : 'Mahbub Group'} — Security Division</span>
-      <span>Green (✓) = Present · Red (✗) = Absent · Gray = Off / Friday</span>
+      <span>Green (✓) = Present · Red (✗) = Absent · Gray (—) = Off / Friday / Postponed</span>
       <span>Generated: ${typeof fmtDateEnLong === 'function' ? fmtDateEnLong(todayISO()) : todayISO()}</span>
     </div>
   </div>`;

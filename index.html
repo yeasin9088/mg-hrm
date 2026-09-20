@@ -77,6 +77,7 @@ function findEmp(rid) {
   --sidebar: #1e1b4b; --sidebar-alt: #312e81; --sidebar-active: #a5b4fc;
   --card: #ffffff; --border: #e4e6f2; --border-strong: #cdd0e4;
   --text: #17163a; --text-2: #3d3c66; --text-muted: #7a7a9d; --text-mute: #7a7a9d; --text-inv: #ffffff;
+  --text-main: #17163a;
   --primary: #4f46e5; --primary-hover: #4338ca; --primary-soft: #eceafd;
   --success: #059669; --success-soft: #d6f5e9;
   --danger: #e11d48;  --danger-soft: #ffe4ec;
@@ -922,10 +923,58 @@ tbody tr.clickable { cursor: pointer; }
 .table.modern tbody tr:hover {
   background: var(--surface-hover, #f8fafc);
 }
-.btn.danger.ghost { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
-.btn.danger.ghost:hover { background: var(--danger-soft, #fee2e2); color: var(--danger); }
-.btn.success.ghost { background: transparent; color: var(--success); border: 1px solid var(--success); }
-.btn.success.ghost:hover { background: var(--success-soft, #ecfdf5); color: var(--success); }
+.btn.danger.ghost {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  transition: all 0.2s ease;
+}
+.btn.danger.ghost:hover {
+  background-color: var(--danger-soft);
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.btn.success.ghost {
+  background: transparent;
+  color: var(--success);
+  border: 1px solid var(--success);
+  transition: all 0.2s ease;
+}
+.btn.success.ghost:hover {
+  background-color: var(--success-soft);
+  color: var(--success);
+  border-color: var(--success);
+}
+.mt-rep-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: 100%;
+  padding: 10px 14px;
+  padding-right: 36px;
+  font-size: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background-color: #fcfcfc;
+  color: var(--text-main, var(--text));
+  transition: all 0.2s ease;
+  cursor: pointer;
+  outline: none;
+  margin-bottom: 12px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px 16px;
+}
+.mt-rep-select:hover {
+  border-color: var(--primary-soft);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+.mt-rep-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+  background-color: #fff;
+}
 .mt-tile h5 { font-size: 12.5px; font-weight: 700; padding-right: 26px; line-height: 1.35; }
 .mt-tile .mt-members { margin-top: 6px; font-size: 11px; color: var(--text-2); line-height: 1.5; }
 .mt-tile-body { display: none; margin-top: 12px; border-top: 1px dashed var(--border); padding-top: 12px; }
@@ -9183,11 +9232,24 @@ function mtEnsure(iso){
 }
 function mtGetProjectReps(projName){
   if(!projName) return [];
-  const emps = (window.DATA.employees || []).filter(e => {
+  const activeEmps = (window.DATA.employees || []).filter(e => {
     const p = e.ProjectName || e.project_name;
     const st = e.Status || e.status;
     return p === projName && (st === 'Active' || !st);
   });
+
+  const supervisors = activeEmps.filter(e => {
+    const d = (e.Designation || e.designation || '').toLowerCase();
+    return d.includes('incharge') || d.includes('supervisor') || d.includes('asst') || d.includes('assistant');
+  });
+
+  const guards = activeEmps.filter(e => {
+    const d = (e.Designation || e.designation || '').toLowerCase();
+    return !d.includes('incharge') && !d.includes('supervisor') && !d.includes('asst') && !d.includes('assistant');
+  });
+
+  // The critical fallback logic: strictly supervisory staff, ONLY fallback to guards if no supervisory staff exist
+  let selectedGroup = supervisors.length > 0 ? supervisors : guards;
 
   const getRank = (desig) => {
     const d = (desig || '').toLowerCase();
@@ -9198,7 +9260,7 @@ function mtGetProjectReps(projName){
     return 4; // Guards and others
   };
 
-  return emps.slice().sort((a, b) => {
+  return selectedGroup.slice().sort((a, b) => {
     // Tier 1: Designation Rank
     const rankA = getRank(a.Designation || a.designation);
     const rankB = getRank(b.Designation || b.designation);
@@ -9560,12 +9622,21 @@ async function mtSubmitDay(iso, event){
 function mtUnsubmit(iso){
   if(!guardEdit()) return;
   if(!confirm('Un-submit to edit again? Notes already added to To-Do are NOT removed automatically.')) return;
-  const d = mtEnsure(iso); d.submitted = false;
+  const targetIso = iso || (typeof MT_SELECTED_DATE !== 'undefined' ? MT_SELECTED_DATE : todayISO());
+  const d = mtEnsure(targetIso);
+  d.submitted = false;
+  d.unlocked = true; // Bypass time-lock
+  d.off = false;
+  delete d.offReason;
   persist(); renderMeeting();
 }
 window.mtEditDay = function(iso) {
-  const d = mtEnsure(iso);
+  const targetIso = iso || (typeof MT_SELECTED_DATE !== 'undefined' ? MT_SELECTED_DATE : todayISO());
+  const d = mtEnsure(targetIso);
   d.submitted = false;
+  d.unlocked = true; // Bypass time-lock
+  d.off = false; // Remove postponed state
+  delete d.offReason;
   persist();
   renderMeeting();
 };
@@ -9780,7 +9851,7 @@ function mtRenderPostponedView(today, rec, isFri, isAutoPostponed) {
         </div>
         <div style="display: flex; gap: 8px; align-items: center;">
           ${!isFri ? `
-            <button type="button" class="btn ghost sm" onclick="mtOverridePostpone('${today}')" style="font-weight: 600; font-size: 12px; border: 1px solid var(--border);">
+            <button type="button" class="btn ghost sm" onclick="mtUnlockDay('${MT_SELECTED_DATE}')" style="font-weight: 600; font-size: 12px; border: 1px solid var(--border); cursor: pointer;">
               Override Lock &amp; Record Attendance
             </button>
           ` : ''}
@@ -9835,15 +9906,16 @@ window.mtApplyReasonPreset = function(iso, preset) {
   if (inputEl) inputEl.value = preset;
   mtSavePostponeReason(iso, preset);
 };
-window.mtOverridePostpone = function(iso) {
-  if (!guardEdit()) return;
-  if (!confirm('Override time-lock to record attendance for ' + iso + '?')) return;
-  const d = mtEnsure(iso);
-  d.off = false;
-  d.unlocked = true;
+window.mtUnlockDay = function(iso) {
+  const targetIso = iso || (typeof MT_SELECTED_DATE !== 'undefined' ? MT_SELECTED_DATE : todayISO());
+  mtEnsure(targetIso);
+  DATA.meetings[targetIso].unlocked = true;
+  DATA.meetings[targetIso].off = false; // Remove the postponed state
+  delete DATA.meetings[targetIso].offReason; // Clear any postpone reason
   persist();
   renderMeeting();
 };
+window.mtOverridePostpone = window.mtUnlockDay;
 
 function renderMeeting(){
   const page = document.getElementById('page-meeting');
@@ -9863,6 +9935,9 @@ function renderMeeting(){
     d.off = true;
     if (!d.offReason) d.offReason = 'Meeting Postponed';
     if (!d.note) d.note = d.offReason;
+  } else if (d.unlocked && d.offReason === 'Meeting Postponed') {
+    d.off = false;
+    delete d.offReason;
   }
 
   const rec = d;
@@ -10042,7 +10117,7 @@ function renderMeeting(){
                 const pSafe = p.replace(/'/g,"\\'").replace(/"/g,'&quot;');
                 const reps = mtGetProjectReps(p);
                 const savedRep = (rec && rec.representatives && rec.representatives[p]) || null;
-                const repSelectHtml = `<select class="input" style="width:100%;margin-bottom:10px;font-size:12px;padding:6px 8px" onclick="event.stopPropagation()" onchange="mtSaveRep('${today}', '${pSafe}', this)">
+                const repSelectHtml = `<select class="mt-rep-select" onclick="event.stopPropagation()" onchange="mtSaveRep('${today}', '${pSafe}', this)">
                   <option value="">-- Select Representative --</option>
                   ${reps.length === 0 ? `<option value="" disabled>No active staff in project</option>` : reps.map(emp => {
                     const empId = emp.id != null ? emp.id : (emp.EmployeeID || emp.employee_id || '');
@@ -10061,10 +10136,10 @@ function renderMeeting(){
                   }).join('')}
                 </select>`;
                 const noteHtml = mtBuildNotesSection(today, p, false);
-                const presBtnCls = isPres ? 'btn success sm mt-btn-present' : 'btn ghost sm mt-btn-present';
+                const presBtnCls = isPres ? 'btn success sm mt-btn-present' : 'btn success ghost sm mt-btn-present';
                 const absBtnCls = isAbs ? 'btn danger sm mt-btn-absent' : 'btn danger ghost sm mt-btn-absent';
                 const statusButtonsHtml = `<div style="display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
-                  <button type="button" class="${presBtnCls}" style="flex:1;justify-content:center;font-weight:600;${!isPres?'border:1px solid var(--border);color:var(--text);':''}" onclick="event.stopPropagation(); mtSetStatus('${today}', '${pSafe}', 'present')">Present</button>
+                  <button type="button" class="${presBtnCls}" style="flex:1;justify-content:center;font-weight:600;" onclick="event.stopPropagation(); mtSetStatus('${today}', '${pSafe}', 'present')">Present</button>
                   <button type="button" class="${absBtnCls}" style="flex:1;justify-content:center;font-weight:600;" onclick="event.stopPropagation(); mtSetStatus('${today}', '${pSafe}', 'absent')">Absent</button>
                 </div>`;
                 return `<div class="mt-tile ${tileCls}" data-proj="${pSafe}" onclick="this.classList.toggle('expanded')">

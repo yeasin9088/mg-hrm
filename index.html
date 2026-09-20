@@ -6799,6 +6799,13 @@ function empPickOpen(id) {
 let _empFetchDebounce = null;
 async function empPickFilter(id) {
   const inp = document.getElementById(id + '_q');
+  if (inp) {
+      inp.style.backgroundColor = '';
+      inp.style.borderColor = '';
+      inp.style.color = '';
+      inp.style.fontSize = '13px';
+      inp.style.fontWeight = 'normal';
+  }
   const q = (inp && inp.value || '').trim();
   empPickRender(id, q);
   const listEl = document.getElementById(id + '_list');
@@ -6887,17 +6894,32 @@ function empPickChoose(id, rid, isAutoFetch) {
   const hid = document.getElementById(id);
   if (hid) hid.value = empKey;
   const inp = document.getElementById(id + '_q');
-  if (inp) inp.value = '#' + empDisplayId + ' · ' + e.FullName + ' — ' + (e.Designation || '');
+  if (inp) {
+      const displayText = `#${empDisplayId} · ${e.FullName} — ${e.Designation || 'N/A'}`;
+      inp.value = displayText;
+      
+      // Apply the light green success styling
+      inp.style.backgroundColor = '#f0fdf4';
+      inp.style.borderColor = '#bbf7d0';
+      inp.style.color = 'var(--success)';
+      
+      // Normalize typography to match adjacent form inputs exactly (13px)
+      inp.style.fontSize = '13px';
+      inp.style.fontWeight = '500';
+      inp.style.fontFamily = 'inherit';
+      inp.style.transition = 'all 0.2s ease';
+  }
+  
   const wrap = document.getElementById(id + '_wrap');
   if (wrap) wrap.classList.add('chosen');
   const listEl = document.getElementById(id + '_list');
   if (listEl) listEl.classList.remove('open');
-
+  
+  // Completely HIDE and CLEAR the external badge
   const badgeEl = document.getElementById(id + '_badge');
   if (badgeEl) {
-    badgeEl.className = 'emp-fetch-badge success';
-    badgeEl.style.display = 'inline-flex';
-    badgeEl.innerHTML = '<span>' + ico('check') + ' Linked: #' + empDisplayId + ' · ' + e.FullName + ' · ' + (e.Designation || '') + ' (' + (e.ProjectName || 'Unassigned') + ')</span>';
+      badgeEl.style.display = 'none';
+      badgeEl.innerHTML = '';
   }
 
   const cb = EMP_PICKER_CB[id];
@@ -6913,7 +6935,15 @@ function setEmpPicker(id, rid) {
   if (!hid) return;
   hid.value = empKey;
   const inp = document.getElementById(id + '_q');
-  if (inp) inp.value = '#' + empDisplayId + ' · ' + e.FullName + ' — ' + (e.Designation || '');
+  if (inp) {
+    inp.value = '#' + empDisplayId + ' · ' + e.FullName + ' — ' + (e.Designation || '');
+    inp.style.backgroundColor = '#f0fdf4';
+    inp.style.borderColor = '#bbf7d0';
+    inp.style.color = 'var(--success)';
+    inp.style.fontSize = '13px';
+    inp.style.fontWeight = '500';
+    inp.style.fontFamily = 'inherit';
+  }
   const w = document.getElementById(id + '_wrap');
   if (w) w.classList.add('chosen');
   const cb = EMP_PICKER_CB[id];
@@ -6951,11 +6981,21 @@ function assertActiveEmp(rid){
 function trFillEmp(){
   const rid = document.getElementById('trEmp')?.value;
   const e = findEmp(rid);
-  document.getElementById('trCurr').value = e ? e.ProjectName : '';
+  const curProjInput = document.getElementById('trCurr');
+  if (curProjInput) {
+    curProjInput.value = e ? (e.ProjectName || '') : '';
+    if (curProjInput.value) {
+      curProjInput.style.backgroundColor = '#f0fdf4';
+      curProjInput.style.borderColor = '#bbf7d0';
+    } else {
+      curProjInput.style.backgroundColor = '';
+      curProjInput.style.borderColor = '';
+    }
+  }
   const badgeEl = document.getElementById('trEmpBadge');
   if (badgeEl) {
-    const empDisplayId = e ? (e.EmployeeID || e.id ) : '';
-    badgeEl.innerHTML = e ? `<span class="emp-fetch-badge success">✓ ${e.FullName} (ID #${empDisplayId})</span>` : '';
+    badgeEl.innerHTML = ''; // Clear redundant text completely
+    badgeEl.style.display = 'none';
   }
 }
 async function submitTransfer(){
@@ -13677,6 +13717,26 @@ setInterval(()=>checkPendingToast(true), 180000);
     if (e.key !== 'Enter') return;
     if (el('authGate').className === 'show' && !signupMode) doLogin();
   });
+
+  document.addEventListener('input', handleFilledState, true);
+  document.addEventListener('change', handleFilledState, true);
+  
+  function handleFilledState(e) {
+      const t = e.target;
+      if (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA') {
+          // Exclude checkboxes, radios, and search bars from the green effect
+          if (t.type === 'checkbox' || t.type === 'radio' || t.type === 'search') return;
+          
+          if (t.value && t.value.trim() !== '') {
+              t.style.backgroundColor = '#f0fdf4';
+              t.style.borderColor = '#bbf7d0';
+              t.style.transition = 'all 0.3s ease';
+          } else {
+              t.style.backgroundColor = '';
+              t.style.borderColor = '';
+          }
+      }
+  }
 
   if ('serviceWorker' in navigator) {
     if (window.self !== window.top || location.hostname.includes('run.app') || location.hostname === 'localhost' || location.hostname === '127.0.0.1') {

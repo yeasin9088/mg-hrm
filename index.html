@@ -870,13 +870,58 @@ tbody tr.clickable { cursor: pointer; }
 .mt-tile.present { border-color: var(--success); background: var(--success-soft); }
 .mt-tile.absent { border-color: var(--danger); background: var(--danger-soft, #fee2e2); }
 .mt-tile .mt-check {
-  position: absolute; top: 10px; right: 10px; width: 24px; height: 24px;
-  border-radius: 50%; border: 2px solid var(--border-strong);
-  display: grid; place-items: center; color: transparent; font-weight: 800; font-size: 14px;
-  background: white; transition: all .15s;
+  position: absolute; top: 12px; right: 12px; width: 22px; height: 22px;
+  border-radius: 50%; border: 2px solid var(--border-strong, #cbd5e1);
+  display: block; color: transparent;
+  background: white; transition: all .2s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
-.mt-tile.present .mt-check { background: var(--success); border-color: var(--success); color: white; }
-.mt-tile.absent .mt-check { background: var(--danger); border-color: var(--danger); color: white; }
+.mt-tile.present .mt-check { background: var(--success, #10b981); border-color: var(--success, #10b981); }
+.mt-tile.absent .mt-check { background: var(--danger, #ef4444); border-color: var(--danger, #ef4444); }
+.mt-btn-present, .mt-btn-absent {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mt-btn-present:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px -1px rgba(16, 185, 129, 0.25);
+}
+.mt-btn-absent:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px -1px rgba(239, 68, 68, 0.25);
+}
+.mt-btn-present:active, .mt-btn-absent:active {
+  transform: translateY(0);
+}
+.table.modern {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+}
+.table.modern th {
+  background: var(--surface-2, #f8fafc);
+  color: var(--text-2, #475569);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.2px;
+  border-bottom: 1px solid var(--border);
+  padding: 10px 14px;
+}
+.table.modern td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text, #1e293b);
+  vertical-align: middle;
+}
+.table.modern tbody tr:last-child td {
+  border-bottom: none;
+}
+.table.modern tbody tr:hover {
+  background: var(--surface-hover, #f8fafc);
+}
 .btn.danger.ghost { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
 .btn.danger.ghost:hover { background: var(--danger-soft, #fee2e2); color: var(--danger); }
 .btn.success.ghost { background: transparent; color: var(--success); border: 1px solid var(--success); }
@@ -9108,8 +9153,24 @@ function mtEligible(){
   return map;
 }
 function mtIsFriday(iso){ return parseDate(iso)?.getDay()===5; }
-function mtDay(iso){ return DATA.meetings[iso] || null; }
+function mtDay(iso){
+  if (!window.DATA) return null;
+  if (Array.isArray(window.DATA.meetings)) {
+    window.DATA.meetings = {};
+    if (window.MGHRM && typeof window.MGHRM.reconstructMeetings === 'function') {
+      window.MGHRM.reconstructMeetings();
+    }
+  }
+  return (window.DATA.meetings && window.DATA.meetings[iso]) || null;
+}
 function mtEnsure(iso){
+  if (!window.DATA) window.DATA = {};
+  if (!window.DATA.meetings || Array.isArray(window.DATA.meetings)) {
+    window.DATA.meetings = {};
+    if (window.MGHRM && typeof window.MGHRM.reconstructMeetings === 'function') {
+      window.MGHRM.reconstructMeetings();
+    }
+  }
   if(!DATA.meetings[iso]) DATA.meetings[iso] = { off:false, note:'', present:{}, absent:{}, notes:{}, representatives:{}, submitted:false, meetingNote:'' };
   const d = DATA.meetings[iso];
   if(!d.present) d.present = {};
@@ -9213,7 +9274,7 @@ function mtToggleProject(iso, proj){
     tile.classList.toggle('present', !!d.present[proj]);
     tile.classList.toggle('absent', !!d.absent[proj]);
     const chk = tile.querySelector('.mt-check');
-    if(chk) chk.textContent = d.absent[proj] ? '✕' : '✓';
+    if(chk) chk.textContent = '';
   }
   const counterEl = document.getElementById('mtAttendanceCounterBadge');
   if(counterEl){
@@ -9454,6 +9515,7 @@ async function mtSubmitDay(iso, event){
         const freshData = await window.MGHRM.loadAll();
         if (freshData) {
           Object.keys(freshData).forEach(k => {
+            if (k === 'meetings') return;
             if (Array.isArray(freshData[k])) {
               window.DATA[k] = freshData[k];
             }
@@ -9464,6 +9526,7 @@ async function mtSubmitDay(iso, event){
       logActivity('submit','meetings', iso, `${presentProjs.length} present, ${absentProjs.length} absent · ${added} follow-ups added to To-Do`);
       toast(("Today's meeting submitted — ")+num(added)+(' follow-ups added to To-Do'),'success');
       
+      DATA.meetings[iso].submitted = true;
       persist(); renderMeeting(); 
       if(typeof updateTodoBadge==='function') updateTodoBadge();
 
@@ -9481,6 +9544,12 @@ function mtUnsubmit(iso){
   const d = mtEnsure(iso); d.submitted = false;
   persist(); renderMeeting();
 }
+window.mtEditDay = function(iso) {
+  const d = mtEnsure(iso);
+  d.submitted = false;
+  persist();
+  renderMeeting();
+};
 function mtMarkOff(iso){
   if(!guardEdit()) return;
   const note = (document.getElementById('mtOffNote')?.value||'').trim();
@@ -9545,6 +9614,110 @@ function mtGetProjectScore(projName, currentYear, currentMonth){
   return (staffCount * 100) + attendanceCount;
 }
 window.mtGetProjectScore = mtGetProjectScore;
+
+function mtRenderSummaryView(today, rec, projNames) {
+  const d = rec || {};
+  const presentCount = Object.keys(d.present || {}).length;
+  const absentCount = Object.keys(d.absent || {}).length;
+
+  // Filter projects with attendance data (present or absent) for that day
+  const recordedProjs = (projNames || []).filter(p => (d.present && d.present[p]) || (d.absent && d.absent[p]));
+  const rowsToRender = recordedProjs.length > 0 ? recordedProjs : (projNames || []);
+
+  const rowsHtml = rowsToRender.map(p => {
+    const isP = !!(d.present && d.present[p]);
+    const isA = !!(d.absent && d.absent[p]);
+
+    let statusHtml = '';
+    if (isP) {
+      statusHtml = '<span class="badge success" style="display:inline-block;padding:3px 10px;font-size:11px;font-weight:600;border-radius:12px;background:var(--success-soft,#ecfdf5);color:var(--success,#059669);border:1px solid rgba(16,185,129,0.25);">Present</span>';
+    } else if (isA) {
+      statusHtml = '<span class="badge danger" style="display:inline-block;padding:3px 10px;font-size:11px;font-weight:600;border-radius:12px;background:var(--danger-soft,#fef2f2);color:var(--danger,#dc2626);border:1px solid rgba(239,68,68,0.25);">Absent</span>';
+    } else {
+      statusHtml = '<span class="badge mute" style="display:inline-block;padding:3px 10px;font-size:11px;font-weight:500;border-radius:12px;background:var(--bg-dim,#f1f5f9);color:var(--text-muted,#64748b);">Unmarked</span>';
+    }
+
+    const rep = d.representatives && d.representatives[p];
+    let repName = '';
+    let repDes = '';
+    if (rep) {
+      if (typeof rep === 'object') {
+        repName = rep.name || rep.fullName || '';
+        repDes = rep.designation || '';
+      } else if (typeof rep === 'string') {
+        const parts = rep.split('|');
+        repName = parts[1] || parts[0] || '';
+        repDes = parts[2] || '';
+      }
+    }
+    const repDisplay = repName 
+      ? `<span style="font-weight:600;color:var(--text);">${escapeHtml(repName)}</span>${repDes ? ` <span style="font-size:11px;color:var(--text-muted);">(${escapeHtml(repDes)})</span>` : ''}`
+      : '<span style="color:var(--text-muted);font-style:italic;">—</span>';
+
+    let notesArr = [];
+    if (d.notes && Array.isArray(d.notes[p])) {
+      notesArr = d.notes[p].filter(Boolean);
+    } else if (d.notes && typeof d.notes[p] === 'string') {
+      notesArr = d.notes[p].split('|').map(s => s.trim()).filter(Boolean);
+    }
+    const notesDisplay = notesArr.length > 0
+      ? notesArr.map(n => `<div style="line-height:1.45;margin-bottom:3px;font-size:11.5px;color:var(--text-2);"><span style="color:var(--primary);font-weight:bold;margin-right:4px;">•</span>${escapeHtml(n)}</div>`).join('')
+      : '<span style="color:var(--text-muted);font-style:italic;">—</span>';
+
+    return `<tr style="border-bottom: 1px solid var(--border); transition: background-color 0.15s ease;">
+      <td style="padding: 10px 14px; font-weight: 600; font-size: 13px; color: var(--text);">${projName(p)}</td>
+      <td style="padding: 10px 14px; font-size: 12.5px;">${repDisplay}</td>
+      <td style="padding: 10px 14px; text-align: center;">${statusHtml}</td>
+      <td style="padding: 10px 14px;">${notesDisplay}</td>
+    </tr>`;
+  }).join('');
+
+  const emptyRow = `<tr><td colspan="4" style="text-align:center;padding:24px;font-size:13px;color:var(--text-muted);">No attendance records found for this date.</td></tr>`;
+
+  const meetingNoteHtml = d.meetingNote ? `
+    <div style="margin-top: 16px; padding: 12px 16px; background: var(--bg-dim, #f8fafc); border: 1px solid var(--border); border-radius: 8px; font-size: 13px; color: var(--text);">
+      <strong style="color: var(--text); font-weight: 600;">General Meeting Note:</strong> ${escapeHtml(d.meetingNote)}
+    </div>
+  ` : '';
+
+  return `
+    <div id="mtSummaryView" class="card" style="padding: 20px; background: var(--surface, #ffffff); border: 1px solid var(--border); border-radius: 10px; margin: 10px 0; box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05));">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--border);">
+        <div>
+          <h4 style="margin: 0 0 6px 0; font-size: 16px; font-weight: 700; color: var(--text); letter-spacing: -0.2px;">Meeting Summary — ${MT_SELECTED_DATE}</h4>
+          <div style="font-size: 13px; color: var(--text-2); display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+            <span><strong>Present:</strong> <span style="color: var(--success, #059669); font-weight: 700;">${presentCount}</span></span>
+            <span><strong>Absent:</strong> <span style="color: var(--danger, #dc2626); font-weight: 700;">${absentCount}</span></span>
+            <span><strong>Total Recorded:</strong> <span style="font-weight: 700;">${recordedProjs.length}</span></span>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button type="button" class="btn primary outline" onclick="mtEditDay('${today}')" style="font-weight: 600; padding: 6px 14px; font-size: 13px; transition: all 0.2s ease;">Edit Attendance</button>
+          <button type="button" class="btn primary" onclick="printDailySummary('${today}')" style="font-weight: 600; padding: 6px 14px; font-size: 13px; transition: all 0.2s ease;">Print Summary</button>
+        </div>
+      </div>
+
+      <div style="overflow-x: auto; border: 1px solid var(--border); border-radius: 8px;">
+        <table class="table modern" style="width: 100%; border-collapse: collapse; margin: 0; text-align: left;">
+          <thead>
+            <tr style="background: var(--surface-2, #f8fafc); border-bottom: 1px solid var(--border);">
+              <th style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: var(--text-2); width: 26%;">Project Name</th>
+              <th style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: var(--text-2); width: 26%;">Representative</th>
+              <th style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: var(--text-2); width: 14%; text-align: center;">Status</th>
+              <th style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: var(--text-2); width: 34%;">Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml || emptyRow}
+          </tbody>
+        </table>
+      </div>
+
+      ${meetingNoteHtml}
+    </div>
+  `;
+}
+window.mtRenderSummaryView = mtRenderSummaryView;
 
 function renderMeeting(){
   const page = document.getElementById('page-meeting');
@@ -9663,14 +9836,7 @@ function renderMeeting(){
             </div>
             ${!isFri ? `<button class="btn success sm" onclick="mtUnmarkOff('${today}')">${'Meeting happened — take attendance'}</button>` : ''}
           ` : (rec && rec.submitted) ? `
-            <div class="alert-item info" style="margin-bottom:10px">
-              ${ico('check')}
-              <div><h5>${"✓ Today's meeting completed successfully"}</h5>
-              <p>${num(Object.keys(rec.present||{}).length)} ${'projects present · submitted:'} ${fmtDate(today)}${rec.submittedAt?' '+new Date(rec.submittedAt).toLocaleTimeString():''}</p>
-              ${rec.meetingNote?`<p style="margin-top:6px"><strong>${'Meeting note:'}</strong> ${rec.meetingNote}</p>`:''}
-              </div>
-            </div>
-            <div class="btn-row"><button class="btn ghost sm" onclick="mtUnsubmit('${today}')">↺ ${'Un-submit to edit'}</button></div>
+            ${mtRenderSummaryView(today, rec, projNames)}
           ` : `
             <p class="small-mute" style="margin-bottom:10px">${'Click a project to expand card details. Mark attendance or take notes inside.'}</p>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px" id="mtTiles">
@@ -9700,15 +9866,15 @@ function renderMeeting(){
                   }).join('')}
                 </select>`;
                 const noteHtml = mtBuildNotesSection(today, p, false);
-                const presBtnCls = isPres ? 'btn success sm' : 'btn ghost sm';
-                const absBtnCls = isAbs ? 'btn danger sm' : 'btn danger ghost sm';
+                const presBtnCls = isPres ? 'btn success sm mt-btn-present' : 'btn ghost sm mt-btn-present';
+                const absBtnCls = isAbs ? 'btn danger sm mt-btn-absent' : 'btn danger ghost sm mt-btn-absent';
                 const statusButtonsHtml = `<div style="display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
-                  <button type="button" class="${presBtnCls}" style="flex:1;justify-content:center;${!isPres?'border:1px solid var(--border);color:var(--text);':''}" onclick="event.stopPropagation(); mtSetStatus('${today}', '${pSafe}', 'present')">✅ Present</button>
-                  <button type="button" class="${absBtnCls}" style="flex:1;justify-content:center;" onclick="event.stopPropagation(); mtSetStatus('${today}', '${pSafe}', 'absent')">❌ Absent</button>
+                  <button type="button" class="${presBtnCls}" style="flex:1;justify-content:center;font-weight:600;${!isPres?'border:1px solid var(--border);color:var(--text);':''}" onclick="event.stopPropagation(); mtSetStatus('${today}', '${pSafe}', 'present')">Present</button>
+                  <button type="button" class="${absBtnCls}" style="flex:1;justify-content:center;font-weight:600;" onclick="event.stopPropagation(); mtSetStatus('${today}', '${pSafe}', 'absent')">Absent</button>
                 </div>`;
                 return `<div class="mt-tile ${tileCls}" data-proj="${pSafe}" onclick="this.classList.toggle('expanded')">
-                  <span class="mt-check" title="Toggle Attendance" onclick="event.stopPropagation(); mtToggleProject('${today}','${pSafe}')">${isAbs ? '✕' : '✓'}</span>
-                  <h5>${projName(p)} <span style="font-size: 0.75rem; background: var(--bg-mute); color: var(--text-mute); padding: 2px 6px; border-radius: 10px; float: right; margin-top: -2px;">👥 ${projStaffCount(p)}</span></h5>
+                  <span class="mt-check" aria-hidden="true"></span>
+                  <h5>${projName(p)} <span class="badge mute" style="font-size: 0.75rem; font-weight: 500; padding: 2px 8px; border-radius: 12px; float: right; margin-top: -2px;">Staff: ${projStaffCount(p)}</span></h5>
                   <div class="mt-tile-body" onclick="event.stopPropagation()">
                     ${repSelectHtml}
                     ${noteHtml}
@@ -9719,7 +9885,7 @@ function renderMeeting(){
             </div>
             <div class="divider"></div>
             <div class="field wide" style="margin-bottom:10px">
-              <label>${"📝 Today's general meeting note (across all projects)"}</label>
+              <label style="font-weight:600;color:var(--text);font-size:13px;">${"Today's general meeting note (across all projects)"}</label>
               <textarea rows="2" placeholder="${'e.g. new policy communicated to all…'}" oninput="mtSaveMeetingNote('${today}',this.value)">${((rec&&rec.meetingNote)||'').replace(/</g,'&lt;')}</textarea>
             </div>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -10095,6 +10261,283 @@ function printMeetingReport(){
 
   openPrint(printDocHtml);
 }
+
+function printDailySummary(iso) {
+  const targetIso = iso || (typeof MT_SELECTED_DATE !== 'undefined' ? MT_SELECTED_DATE : todayISO());
+  const meetings = (window.DATA && window.DATA.meetings) || (typeof DATA !== 'undefined' && DATA.meetings) || {};
+  const d = meetings[targetIso] || {};
+
+  const eligible = typeof mtEligible === 'function' ? mtEligible() : {};
+  const projNames = Object.keys(eligible);
+  projNames.sort((a, b) => a.localeCompare(b));
+
+  const presentList = projNames.filter(p => d.present && d.present[p]);
+  const absentList = projNames.filter(p => d.absent && d.absent[p]);
+  const recordedProjs = projNames.filter(p => (d.present && d.present[p]) || (d.absent && d.absent[p]));
+  const rowsToRender = recordedProjs.length > 0 ? recordedProjs : projNames;
+
+  let rowsHtml = '';
+  rowsToRender.forEach((p, idx) => {
+    const isP = !!(d.present && d.present[p]);
+    const isA = !!(d.absent && d.absent[p]);
+    const stBadge = isP 
+      ? '<span style="color:#059669;font-weight:700;font-size:8pt;background:#ecfdf5;padding:1px 6px;border-radius:4px;border:1px solid #a7f3d0;display:inline-block;">Present</span>' 
+      : (isA 
+        ? '<span style="color:#dc2626;font-weight:700;font-size:8pt;background:#fef2f2;padding:1px 6px;border-radius:4px;border:1px solid #fecaca;display:inline-block;">Absent</span>' 
+        : '<span style="color:#64748b;font-size:8pt;background:#f1f5f9;padding:1px 6px;border-radius:4px;border:1px solid #e2e8f0;display:inline-block;">Unmarked</span>');
+    
+    const rep = d.representatives && d.representatives[p];
+    let repName = '—';
+    let repDes = '';
+    if (rep) {
+      if (typeof rep === 'object') {
+        repName = rep.name || rep.fullName || '—';
+        repDes = rep.designation || '';
+      } else if (typeof rep === 'string') {
+        const parts = rep.split('|');
+        repName = parts[1] || parts[0] || '—';
+        repDes = parts[2] || '';
+      }
+    }
+    const repText = repName !== '—' 
+      ? `${escapeHtml(repName)}${repDes ? ` <span style="font-size:7.5pt;color:#64748b;">(${escapeHtml(repDes)})</span>` : ''}`
+      : '<span style="color:#94a3b8;font-style:italic;">—</span>';
+
+    let notesArr = [];
+    if (d.notes && Array.isArray(d.notes[p])) {
+      notesArr = d.notes[p].filter(Boolean);
+    } else if (d.notes && typeof d.notes[p] === 'string') {
+      notesArr = d.notes[p].split('|').map(s=>s.trim()).filter(Boolean);
+    }
+    const notesText = notesArr.length > 0 
+      ? notesArr.map(n => `<div style="line-height:1.3;margin-bottom:2px;">• ${escapeHtml(n)}</div>`).join('')
+      : '<span style="color:#94a3b8;font-style:italic;">—</span>';
+
+    const pName = typeof projName === 'function' ? projName(p) : p;
+
+    rowsHtml += `<tr>
+      <td style="padding:3px 4px;border:1px solid #cbd5e1;text-align:center;font-size:8pt;color:#64748b;">${idx + 1}</td>
+      <td style="padding:3px 6px;border:1px solid #cbd5e1;font-weight:600;font-size:8.5pt;color:#0f172a;">${escapeHtml(pName)}</td>
+      <td style="padding:3px 6px;border:1px solid #cbd5e1;font-size:8pt;">${repText}</td>
+      <td style="padding:3px 6px;border:1px solid #cbd5e1;text-align:center;">${stBadge}</td>
+      <td style="padding:3px 6px;border:1px solid #cbd5e1;font-size:8pt;color:#334155;">${notesText}</td>
+    </tr>`;
+  });
+
+  const generalNoteHtml = d.meetingNote ? `
+    <div style="margin-top:8px;padding:6px 10px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:4px;font-size:8pt;color:#1e293b;">
+      <strong>General Meeting Note:</strong> ${escapeHtml(d.meetingNote)}
+    </div>
+  ` : '';
+
+  const reportDateFormatted = typeof fmtDateLong === 'function' ? fmtDateLong(targetIso) : (typeof fmtDateEnLong === 'function' ? fmtDateEnLong(targetIso) : targetIso);
+
+  const printablePageHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Daily Meeting Summary - ${targetIso}</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 10mm 12mm;
+    }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print { display: none !important; }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #0f172a;
+      background: #fff;
+      font-size: 8.5pt;
+      line-height: 1.35;
+    }
+    .report-wrap {
+      width: 100%;
+      max-width: 186mm;
+      margin: 0 auto;
+    }
+    .report-header {
+      text-align: center;
+      border-bottom: 1.5px solid #0f172a;
+      padding-bottom: 5px;
+      margin-bottom: 8px;
+    }
+    .report-header h1 {
+      margin: 0 0 2px 0;
+      font-size: 13.5pt;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.2px;
+    }
+    .report-header h2 {
+      margin: 0 0 3px 0;
+      font-size: 10pt;
+      font-weight: 600;
+      color: #334155;
+    }
+    .report-header p {
+      margin: 0;
+      font-size: 8pt;
+      color: #64748b;
+    }
+    .summary-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 4px;
+      padding: 5px 10px;
+      margin-bottom: 8px;
+      font-size: 8pt;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: auto;
+      font-size: 8pt;
+      border: 1px solid #cbd5e1;
+    }
+    th {
+      background: #f1f5f9;
+      color: #1e293b;
+      font-weight: 700;
+      border: 1px solid #cbd5e1;
+      padding: 3.5px 6px;
+      text-align: left;
+    }
+    td {
+      border: 1px solid #cbd5e1;
+      vertical-align: middle;
+    }
+    tr {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .report-footer {
+      margin-top: 10px;
+      padding-top: 6px;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      font-size: 7.5pt;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  <div class="report-wrap">
+    <div class="report-header">
+      <h1>Mahbub Group of Industries</h1>
+      <h2>Security Department — Daily Meeting Attendance Summary</h2>
+      <p><strong>Date:</strong> ${reportDateFormatted} (${targetIso}) · <strong>Meeting Time:</strong> 9:30 AM – 10:30 AM</p>
+    </div>
+    <div class="summary-bar">
+      <div>
+        <span style="margin-right:12px;"><strong>Present:</strong> <span style="color:#059669;font-weight:700;">${presentList.length}</span></span>
+        <span style="margin-right:12px;"><strong>Absent:</strong> <span style="color:#dc2626;font-weight:700;">${absentList.length}</span></span>
+        <span><strong>Total Recorded:</strong> <strong>${rowsToRender.length}</strong></span>
+      </div>
+      <div style="color:#64748b;font-size:7.5pt;">
+        Status: Submitted & Recorded
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:24px;text-align:center;">#</th>
+          <th style="width:28%;">Project Name</th>
+          <th style="width:26%;">Representative</th>
+          <th style="width:14%;text-align:center;">Status</th>
+          <th style="width:32%;">Notes / Action Items</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsHtml}
+      </tbody>
+    </table>
+    ${generalNoteHtml}
+    <div class="report-footer">
+      <span>Mahbub Group — Security Division · Daily Summary</span>
+      <span>Printed: ${new Date().toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'})}</span>
+    </div>
+  </div>
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.print();
+      }, 200);
+    };
+  <\/script>
+</body>
+</html>`;
+
+  // Try opening native popup print window
+  let pWin = null;
+  try {
+    pWin = window.open('', '_blank', 'width=860,height=940');
+  } catch(e) {
+    pWin = null;
+  }
+
+  if (pWin && pWin.document) {
+    try {
+      pWin.document.open();
+      pWin.document.write(printablePageHtml);
+      pWin.document.close();
+      pWin.focus();
+      return;
+    } catch(err) {
+      console.warn('Direct print window write failed, falling back to modal:', err);
+    }
+  }
+
+  // Fallback for sandboxed iframes or popup blockers: open via in-app print preview
+  const modalDocHtml = `<div class="print-doc portrait" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a;max-width:186mm;margin:0 auto;padding:8mm 10mm;background:#fff;">
+    <div style="text-align:center;border-bottom:1.5px solid #0f172a;padding-bottom:5px;margin-bottom:8px;">
+      <h2 style="margin:0 0 2px 0;font-size:13.5pt;font-weight:800;color:#0f172a;">Mahbub Group of Industries</h2>
+      <h3 style="margin:0 0 3px 0;font-size:10pt;font-weight:600;color:#334155;">Security Department — Daily Meeting Attendance Summary</h3>
+      <p style="margin:0;font-size:8pt;color:#64748b;"><strong>Date:</strong> ${reportDateFormatted} (${targetIso}) · <strong>Meeting Time:</strong> 9:30 AM – 10:30 AM</p>
+    </div>
+    <div style="display:flex;justify-content:space-between;background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;padding:5px 10px;margin-bottom:8px;font-size:8pt;">
+      <div>
+        <span style="margin-right:12px;"><strong>Present:</strong> <span style="color:#059669;font-weight:700;">${presentList.length}</span></span>
+        <span style="margin-right:12px;"><strong>Absent:</strong> <span style="color:#dc2626;font-weight:700;">${absentList.length}</span></span>
+        <span><strong>Total Recorded:</strong> <strong>${rowsToRender.length}</strong></span>
+      </div>
+      <div style="color:#64748b;font-size:7.5pt;">Status: Submitted & Recorded</div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;border:1px solid #cbd5e1;font-size:8pt;">
+      <thead>
+        <tr>
+          <th style="width:24px;text-align:center;background:#f1f5f9;border:1px solid #cbd5e1;padding:3.5px 6px;">#</th>
+          <th style="width:28%;background:#f1f5f9;border:1px solid #cbd5e1;padding:3.5px 6px;">Project Name</th>
+          <th style="width:26%;background:#f1f5f9;border:1px solid #cbd5e1;padding:3.5px 6px;">Representative</th>
+          <th style="width:14%;text-align:center;background:#f1f5f9;border:1px solid #cbd5e1;padding:3.5px 6px;">Status</th>
+          <th style="width:32%;background:#f1f5f9;border:1px solid #cbd5e1;padding:3.5px 6px;">Notes / Action Items</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsHtml}
+      </tbody>
+    </table>
+    ${generalNoteHtml}
+    <div style="margin-top:10px;padding-top:6px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:7.5pt;color:#64748b;">
+      <span>Mahbub Group — Security Division · Daily Summary</span>
+      <span>Printed: ${new Date().toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'})}</span>
+    </div>
+  </div>`;
+
+  if (typeof openPrint === 'function') {
+    openPrint(modalDocHtml);
+  }
+}
+window.printDailySummary = printDailySummary;
 
 
 const UNIF_STAGES = [
@@ -11506,6 +11949,10 @@ setInterval(()=>checkPendingToast(true), 180000);
             Object.assign(window.COMPANY, profile.setting_value);
           }
         }
+        n++;
+        return;
+      }
+      if (k === 'meetings') {
         n++;
         return;
       }

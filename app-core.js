@@ -500,7 +500,159 @@
     }
     if (row.employee_id && !out.EmployeeID) out.EmployeeID = row.employee_id;
     if (row.full_name && !out.FullName) out.FullName = row.full_name;
+
+    if (key === 'meetings') {
+      parseMeetingRow(row);
+    } else if (key === 'meetingAttendance') {
+      parseMeetingAttendanceRow(row);
+    }
+
     return out;
+  }
+
+  /* ---------- Meeting Data Restoration Helpers ---------- */
+  var _meetingDateMap = {};
+  var _meetingAgendaMap = {};
+  var _pendingAttendance = {};
+
+  function ensureMeetingDay(isoDate) {
+    if (!global.DATA) return null;
+    if (!global.DATA.meetings || Array.isArray(global.DATA.meetings)) {
+      global.DATA.meetings = {};
+    }
+    if (!global.DATA.meetings[isoDate]) {
+      global.DATA.meetings[isoDate] = {
+        off: false,
+        note: '',
+        present: {},
+        absent: {},
+        notes: {},
+        representatives: {},
+        submitted: true,
+        meetingNote: ''
+      };
+    }
+    var d = global.DATA.meetings[isoDate];
+    if (!d.present) d.present = {};
+    if (!d.absent) d.absent = {};
+    if (!d.notes) d.notes = {};
+    if (!d.representatives) d.representatives = {};
+    if (typeof d.submitted !== 'boolean') d.submitted = true;
+    return d;
+  }
+
+  function parseMeetingRow(row) {
+    if (!row) return;
+    var mDate = row.meeting_date ? String(row.meeting_date).slice(0, 10) : '';
+    var mId = row.meeting_id != null ? String(row.meeting_id) : '';
+    if (mId && mDate) {
+      _meetingDateMap[mId] = mDate;
+    }
+    if (row.id != null && mDate) {
+      _meetingDateMap[String(row.id)] = mDate;
+    }
+    if (row.agenda) {
+      if (mId) _meetingAgendaMap[mId] = row.agenda;
+      if (row.id != null) _meetingAgendaMap[String(row.id)] = row.agenda;
+    }
+    if (mDate) {
+      var d = ensureMeetingDay(mDate);
+      if (d) {
+        d.submitted = true;
+        if (row.agenda && !d.meetingNote) {
+          d.meetingNote = row.agenda;
+        }
+      }
+    }
+    if (mId && _pendingAttendance[mId] && _pendingAttendance[mId].length) {
+      var pending = _pendingAttendance[mId];
+      delete _pendingAttendance[mId];
+      pending.forEach(function (att) {
+        parseMeetingAttendanceRow(att, mDate);
+      });
+    }
+  }
+
+  function parseMeetingAttendanceRow(row, isoDateOverride) {
+    if (!row) return;
+    var mId = row.meeting_id != null ? String(row.meeting_id) : '';
+    var isoDate = isoDateOverride ||
+      _meetingDateMap[mId] ||
+      (mId && mId.match(/^\d{4}-\d{2}-\d{2}/) ? mId.slice(0, 10) : '') ||
+      (row.meeting_date ? String(row.meeting_date).slice(0, 10) : '');
+
+    if (!isoDate && mId) {
+      if (!_pendingAttendance[mId]) _pendingAttendance[mId] = [];
+      _pendingAttendance[mId].push(row);
+      return;
+    }
+
+    if (!isoDate) return;
+
+    var d = ensureMeetingDay(isoDate);
+    if (!d) return;
+
+    // Database rows exist for this date -> set submitted = true
+    d.submitted = true;
+
+    if (mId && _meetingAgendaMap[mId] && !d.meetingNote) {
+      d.meetingNote = _meetingAgendaMap[mId];
+    }
+
+    var proj = row.project_name || row.ProjectName || '';
+    if (!proj) return;
+
+    var st = String(row.status || row.Status || '').trim().toLowerCase();
+    if (st === 'present') {
+      d.present[proj] = true;
+      delete d.absent[proj];
+    } else if (st === 'absent') {
+      d.absent[proj] = true;
+      delete d.present[proj];
+    } else if (row.status) {
+      d.present[proj] = true;
+      delete d.absent[proj];
+    }
+
+    // Representatives reconstruction
+    var empId = row.employee_id != null ? String(row.employee_id) : (row.employee_sys_id != null ? String(row.employee_sys_id) : '');
+    var empName = row.full_name || row.FullName || '';
+    var empDesig = row.designation || row.Designation || '';
+    if (empId || empName) {
+      var repVal = empId + '|' + empName + '|' + empDesig;
+      d.representatives[proj] = {
+        id: empId,
+        employee_id: empId,
+        name: empName,
+        fullName: empName,
+        designation: empDesig,
+        value: repVal
+      };
+    }
+
+    // Notes: parsed back into an array from the joined string
+    var remarks = row.remarks != null ? row.remarks : (row.Remarks != null ? row.Remarks : '');
+    if (remarks && typeof remarks === 'string') {
+      var noteList = remarks.split('|').map(function (s) { return s.trim(); }).filter(Boolean);
+      if (noteList.length > 0) {
+        d.notes[proj] = noteList;
+      }
+    } else if (Array.isArray(remarks)) {
+      d.notes[proj] = remarks;
+    }
+  }
+
+  function reconstructMeetingsData(meetingsRows, attendanceRows) {
+    if (Array.isArray(meetingsRows)) {
+      meetingsRows.forEach(function (m) {
+        parseMeetingRow(m);
+      });
+    }
+    if (Array.isArray(attendanceRows)) {
+      attendanceRows.forEach(function (att) {
+        parseMeetingAttendanceRow(att);
+      });
+    }
   }
 
   /* ---------- 3. Supabase Client & Lifecycle ----------------------------- */
@@ -687,6 +839,12 @@
       pairs.forEach(function (p) {
         out[p[0]] = p[1];
       });
+      // Reconstruct meetings attendance for all dates into DATA.meetings[isoDate]
+      reconstructMeetingsData(out.meetings, out.meetingAttendance);
+      out.rawMeetings = out.meetings;
+      if (global.DATA && global.DATA.meetings && !Array.isArray(global.DATA.meetings)) {
+        out.meetings = global.DATA.meetings;
+      }
       return out;
     });
   }
@@ -1483,6 +1641,7 @@
     currentUser: currentUser,
     myProfile: myProfile,
     loadAll: loadAll,
+    reconstructMeetings: reconstructMeetingsData,
     subscribeRealtime: subscribeRealtime,
     handleRealtimeEvent: handleRealtimeEvent,
     insert: insert,

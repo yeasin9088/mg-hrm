@@ -1071,6 +1071,8 @@
   var _isRealtimeEvent = false;
 
   function bindDirectCrudProxy(data, bucket) {
+    if (!data || !Array.isArray(data) || data._isCrudProxied) return;
+    data._isCrudProxied = true;
     var originalPush = data.push;
     var originalUnshift = data.unshift;
     var originalSplice = data.splice;
@@ -1750,6 +1752,7 @@
     TABLE_MAP: TABLE_MAP,
     toDb: toDb,
     fromDb: fromDb,
+    bindDirectCrudProxy: bindDirectCrudProxy,
     _client: raw,
     _view: sqlView,
     client: sb,
@@ -1759,6 +1762,7 @@
 
   // Expose appData as alias to MGHRM data layer
   global.appData = global.MGHRM;
+  global.bindDirectCrudProxy = bindDirectCrudProxy;
 
   // Immediate eager auto-initialization if config is present
   try {

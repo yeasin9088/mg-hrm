@@ -1726,6 +1726,11 @@ input:focus, select:focus, textarea:focus {
 </script>
 </head>
 <body>
+<div id="mtSyncLoader" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 99999; flex-direction: column; justify-content: center; align-items: center;">
+<h3 style="margin-bottom: 15px;">Syncing Data to Server...</h3>
+<div style="width: 300px; height: 8px; background: #eee; border-radius: 10px; overflow: hidden; margin-bottom: 10px;"><div id="mtSyncBar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.3s;"></div></div>
+<p id="mtSyncText" class="mute">Uploading notes: 0 of 0</p>
+</div>
 <div class="layout">
   <aside class="sidebar">
     <div class="brand sidebar-brand" id="sidebarBrand" onclick="mtToggleSidebar()" title="Toggle Sidebar (Expand / Collapse)" role="button" tabindex="0">
@@ -3192,10 +3197,19 @@ function renderEmpTable(){
     : `${num(rows.length)} / ${num(DATA.employees.length)} ${'employees'}`;
   document.querySelectorAll('#empTable .tickcol').forEach(el=>el.style.display = VERIFY_MODE?'':'none');
   const html = rows.map((e,i)=>{
-    const empKey = e.id || e.EmployeeID;
+    const empKey = String(e.id != null && e.id !== '' ? e.id : (e.EmployeeID != null ? e.EmployeeID : ''));
+    const isTicked = isEmpVerifyTicked(e);
     return `
-    <tr class="clickable" onclick="${VERIFY_MODE?`toggleVerifyTick('${empKey}')`:`openEmpDetail('${empKey}')`}">
-      ${VERIFY_MODE?`<td><span style="display:inline-grid;place-items:center;width:20px;height:20px;border:2px solid ${VERIFY_TICKS.has(empKey)?'var(--success)':'var(--border-strong)'};border-radius:5px;background:${VERIFY_TICKS.has(empKey)?'var(--success)':'#fff'};color:#fff;font-size:13px;font-weight:700">${VERIFY_TICKS.has(empKey)?'✓':''}</span></td>`:''}
+    <tr class="clickable ${isTicked ? 'verify-ticked-row' : ''}" style="${isTicked ? 'background:rgba(16,185,129,0.06);' : ''}" onclick="${VERIFY_MODE?`toggleVerifyTick('${empKey}')`:`openEmpDetail('${empKey}')`}">
+      ${VERIFY_MODE?`<td class="tickcol" style="text-align:center;width:40px;padding:6px" onclick="event.stopPropagation();toggleVerifyTick('${empKey}')">
+        <input type="checkbox"
+          class="verify-tick-cb"
+          style="width:19px;height:19px;cursor:pointer;accent-color:var(--success,#10b981);vertical-align:middle;margin:0"
+          onclick="event.stopPropagation()"
+          onchange="toggleVerifyTick('${empKey}')"
+          ${isTicked ? 'checked' : ''}
+        >
+      </td>`:''}
       <td>${num(i+1)}</td>
       <td><span class="chip" style="font-size:11px;font-weight:600">${e.id ? num(e.id) : '—'}</span></td>
       <td>
@@ -3214,10 +3228,24 @@ function renderEmpTable(){
     </tr>
   `;}).join('');
   document.getElementById('empTableBody').innerHTML = html + (rows.length>200 ?
-    `<tr><td colspan="9" style="text-align:center;padding:16px" class="small-mute">${'... '+(rows.length-200)+' more — narrow the filter'}</td></tr>` : '');
+    `<tr><td colspan="${VERIFY_MODE ? 11 : 10}" style="text-align:center;padding:16px" class="small-mute">${'... '+(rows.length-200)+' more — narrow the filter'}</td></tr>` : '');
 }
 function initials(name){ return (name||'?').split(/\s+/).map(w=>w[0]||'').slice(0,2).join('').toUpperCase(); }
 
+function isEmpVerifyTicked(empKeyOrEmp){
+  if(!empKeyOrEmp) return false;
+  if(typeof empKeyOrEmp === 'object'){
+    const k1 = empKeyOrEmp.id != null && empKeyOrEmp.id !== '' ? String(empKeyOrEmp.id) : null;
+    const k2 = empKeyOrEmp.EmployeeID != null && empKeyOrEmp.EmployeeID !== '' ? String(empKeyOrEmp.EmployeeID) : null;
+    return !!(
+      (k1 && (VERIFY_TICKS.has(k1) || VERIFY_TICKS.has(Number(k1)))) ||
+      (k2 && (VERIFY_TICKS.has(k2) || VERIFY_TICKS.has(Number(k2))))
+    );
+  }
+  const s = String(empKeyOrEmp);
+  const n = Number(empKeyOrEmp);
+  return VERIFY_TICKS.has(s) || (!isNaN(n) && VERIFY_TICKS.has(n));
+}
 
 function toggleVerifyMode(){
   VERIFY_MODE = !VERIFY_MODE;
@@ -3234,9 +3262,24 @@ function toggleVerifyMode(){
 }
 function toggleVerifyTick(rid){
   if(!VERIFY_MODE) return;
-  VERIFY_TICKS.has(rid) ? VERIFY_TICKS.delete(rid) : VERIFY_TICKS.add(rid);
+  if(typeof rid === 'object' && rid !== null){
+    rid = rid.id || rid.EmployeeID;
+  }
+  const sRid = String(rid != null ? rid : '').trim();
+  if(!sRid) return;
+  const nRid = Number(sRid);
+
+  const isTicked = VERIFY_TICKS.has(sRid) || (!isNaN(nRid) && VERIFY_TICKS.has(nRid));
+  if(isTicked){
+    VERIFY_TICKS.delete(sRid);
+    if(!isNaN(nRid)) VERIFY_TICKS.delete(nRid);
+  } else {
+    VERIFY_TICKS.add(sRid);
+  }
   renderEmpTable();
 }
+window.toggleVerifyTick = toggleVerifyTick;
+window.mtToggleVerifyTick = toggleVerifyTick;
 
 function openEmpDetail(recordId){
   const e = findEmp(recordId);
@@ -9738,109 +9781,142 @@ async function mtSubmitDay(iso, event){
   const btn = event && event.target ? event.target : null;
   if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
 
-  (async function() {
-    try {
-      if (!window.sb) throw new Error('Database connection not established.');
+  const loader = document.getElementById('mtSyncLoader');
+  const syncBar = document.getElementById('mtSyncBar');
+  const syncText = document.getElementById('mtSyncText');
+
+  try {
+    if (!window.sb) throw new Error('Database connection not established.');
+    
+    const meetingId = 'MTG-' + Date.now();
+    const meetingPayload = {
+      meeting_id: meetingId,
+      meeting_date: iso,
+      title: 'Morning Coordination Meeting',
+      venue: 'HQ',
+      agenda: d.meetingNote || 'Daily routine check',
+      created_by: window.localStorage.getItem('mghrm_user') || 'Admin'
+    };
+
+    const { data: mData, error: mErr } = await window.sb.from('meetings').insert([meetingPayload]).select();
+    if (mErr) throw mErr;
+
+    const meetingDbId = mData && mData[0] ? mData[0].meeting_id : meetingId;
+
+    const eligibleMap = mtEligible();
+    const eligibleProjs = Object.keys(eligibleMap).sort((a,b)=>a.localeCompare(b));
+    const targetProjs = eligibleProjs.length > 0
+      ? eligibleProjs
+      : Array.from(new Set([...presentProjs, ...absentProjs]));
+
+    const attendanceArray = targetProjs.map(proj => {
+      const activeEmps = (window.DATA.employees || []).filter(e => e.Status === 'Active' && e.ProjectName === proj);
+      const savedRep = d.representatives && d.representatives[proj];
+      const rep = savedRep || activeEmps.find(e => (e.Designation||'').toLowerCase().includes('supervisor') || (e.Designation||'').toLowerCase().includes('incharge')) || activeEmps[0] || {};
       
-      const meetingId = 'MTG-' + Date.now();
-      const meetingPayload = {
-        meeting_id: meetingId,
-        meeting_date: iso,
-        title: 'Morning Coordination Meeting',
-        venue: 'HQ',
-        agenda: d.meetingNote || 'Daily routine check',
-        created_by: window.localStorage.getItem('mghrm_user') || 'Admin'
+      const projNotes = (d.notes && d.notes[proj]) || [];
+      const remarksStr = Array.isArray(projNotes) 
+        ? projNotes.join(' | ') 
+        : (typeof projNotes === 'string' ? projNotes.trim() : '');
+
+      return {
+        meeting_id: meetingDbId,
+        employee_id: String(rep.id || rep.EmployeeID || rep.employee_id || ''),
+        full_name: rep.FullName || rep.fullName || rep.name || '',
+        designation: rep.Designation || rep.designation || '',
+        project_name: proj,
+        status: d.present[proj] ? 'Present' : (d.absent[proj] ? 'Absent' : 'Absent'),
+        remarks: remarksStr
       };
+    });
 
-      const { data: mData, error: mErr } = await window.sb.from('meetings').insert([meetingPayload]).select();
-      if (mErr) throw mErr;
+    if (attendanceArray.length > 0) {
+      const { error: attErr } = await window.sb.from('meeting_attendance').insert(attendanceArray);
+      if (attErr) throw attErr;
+    }
 
-      const meetingDbId = mData && mData[0] ? mData[0].meeting_id : meetingId;
-
-      const eligibleMap = mtEligible();
-      const eligibleProjs = Object.keys(eligibleMap).sort((a,b)=>a.localeCompare(b));
-      const targetProjs = eligibleProjs.length > 0
-        ? eligibleProjs
-        : Array.from(new Set([...presentProjs, ...absentProjs]));
-
-      const attendanceArray = targetProjs.map(proj => {
-        const activeEmps = (window.DATA.employees || []).filter(e => e.Status === 'Active' && e.ProjectName === proj);
-        const savedRep = d.representatives && d.representatives[proj];
-        const rep = savedRep || activeEmps.find(e => (e.Designation||'').toLowerCase().includes('supervisor') || (e.Designation||'').toLowerCase().includes('incharge')) || activeEmps[0] || {};
-        
-        const projNotes = (d.notes && d.notes[proj]) || [];
-        const remarksStr = Array.isArray(projNotes) 
-          ? projNotes.join(' | ') 
-          : (typeof projNotes === 'string' ? projNotes.trim() : '');
-
-        return {
-          meeting_id: meetingDbId,
-          employee_id: String(rep.id || rep.EmployeeID || rep.employee_id || ''),
-          full_name: rep.FullName || rep.fullName || rep.name || '',
-          designation: rep.Designation || rep.designation || '',
-          project_name: proj,
-          status: d.present[proj] ? 'Present' : (d.absent[proj] ? 'Absent' : 'Absent'),
-          remarks: remarksStr
-        };
-      });
-
-      if (attendanceArray.length > 0) {
-        const { error: attErr } = await window.sb.from('meeting_attendance').insert(attendanceArray);
-        if (attErr) throw attErr;
-      }
-
-      // Add to Todos as before
-      DATA.todos = DATA.todos || [];
-      let added = 0;
-      Object.entries(d.notes||{}).forEach(([proj, val]) => {
-        const nList = Array.isArray(val) ? val : (val ? [String(val)] : []);
-        nList.forEach(singleNote => {
-          const s = String(singleNote || '').trim();
-          if(s){
-            DATA.todos.unshift({
-              id: Date.now()+Math.floor(Math.random()*100000),
-              project: proj,
-              who: ('Meeting attendance — ')+iso,
-              note: s,
-              date: iso,
-              status: 'pending',
-              source: 'meeting',
-              sourceDate: iso
-            });
-            added++;
-          }
-        });
-      });
-      
-      d.submitted = true;
-      d.submittedAt = new Date().toISOString();
-
-      if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
-        const freshData = await window.MGHRM.loadAll();
-        if (freshData) {
-          Object.keys(freshData).forEach(k => {
-            if (k === 'meetings') return;
-            if (Array.isArray(freshData[k])) {
-              window.DATA[k] = freshData[k];
-            }
+    // Extract all meeting notes into pendingNotes array
+    const pendingNotes = [];
+    Object.entries(d.notes||{}).forEach(([proj, val]) => {
+      const nList = Array.isArray(val) ? val : (val ? [String(val)] : []);
+      nList.forEach(singleNote => {
+        const s = String(singleNote || '').trim();
+        if(s){
+          pendingNotes.push({
+            project: proj,
+            who: 'Meeting — ' + iso,
+            note: s,
+            date: iso,
+            status: 'pending',
+            source: 'meeting',
+            sourceDate: iso
           });
         }
+      });
+    });
+
+    DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
+    if (!DATA.todos._isCrudProxied && window.MGHRM && typeof window.MGHRM.bindDirectCrudProxy === 'function') {
+      window.MGHRM.bindDirectCrudProxy(DATA.todos, 'todos');
+    }
+
+    // If pendingNotes.length > 0, show the loader and loop through asynchronously
+    if (pendingNotes.length > 0) {
+      if (loader) {
+        loader.style.display = 'flex';
+        if (syncBar) syncBar.style.width = '0%';
+        if (syncText) syncText.innerText = 'Uploading notes: 0 of ' + pendingNotes.length;
       }
 
-      logActivity('submit','meetings', iso, `${presentProjs.length} present, ${absentProjs.length} absent · ${added} follow-ups added to To-Do`);
-      toast(("Today's meeting submitted — ")+num(added)+(' follow-ups added to To-Do'),'success');
-      
-      DATA.meetings[iso].submitted = true;
-      persist(); renderMeeting(); 
-      if(typeof updateTodoBadge==='function') updateTodoBadge();
+      for (let i = 0; i < pendingNotes.length; i++) {
+        const barEl = document.getElementById('mtSyncBar');
+        const txtEl = document.getElementById('mtSyncText');
+        if (barEl) barEl.style.width = Math.round(((i + 1) / pendingNotes.length) * 100) + '%';
+        if (txtEl) txtEl.innerText = `Uploading note ${i + 1} of ${pendingNotes.length}`;
+        
+        // CRITICAL FIX: Guarantee unique ID to prevent 'todos_pkey' constraint error
+        pendingNotes[i].id = Date.now() + (i * 10000) + Math.floor(Math.random() * 9999);
+        
+        DATA.todos.unshift(pendingNotes[i]);
+        persist(); // Trigger the DB insert
+        await new Promise(r => setTimeout(r, 400)); // 400ms delay to prevent rate limit
+      }
 
-    } catch (err) {
-      console.error(err);
-      toast('Error submitting meeting: ' + err.message, 'error');
-    } finally {
-      if (btn) { btn.disabled = false; btn.innerHTML = ico('check') + " Submit Today's Meeting"; }
+      if (loader) {
+        loader.style.display = 'none';
+      }
     }
-  })();
+    
+    d.submitted = true;
+    d.submittedAt = new Date().toISOString();
+
+    if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
+      const freshData = await window.MGHRM.loadAll();
+      if (freshData) {
+        Object.keys(freshData).forEach(k => {
+          if (k === 'meetings' || k === 'todos') return;
+          if (Array.isArray(freshData[k])) {
+            window.DATA[k] = freshData[k];
+          }
+        });
+      }
+    }
+
+    logActivity('submit','meetings', iso, `${presentProjs.length} present, ${absentProjs.length} absent · ${pendingNotes.length} follow-ups added to To-Do`);
+    toast(("Today's meeting submitted — ")+num(pendingNotes.length)+(' follow-ups added to To-Do'),'success');
+    
+    DATA.meetings[iso].submitted = true;
+    persist(); 
+    renderMeeting(); 
+    if(typeof updateTodoBadge==='function') updateTodoBadge();
+
+  } catch (err) {
+    console.error(err);
+    toast('Error submitting meeting: ' + err.message, 'error');
+  } finally {
+    if (loader) loader.style.display = 'none';
+    if (btn) { btn.disabled = false; btn.innerHTML = ico('check') + " Submit Today's Meeting"; }
+  }
 }
 function mtUnsubmit(iso){
   if(!guardEdit()) return;
@@ -11296,32 +11372,82 @@ function printUniform(kind){
 /* ============ TO-DO / FOLLOW-UP ============ */
 
 DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
+window.MT_TODO_FILTER = window.MT_TODO_FILTER || 'all';
 
 function renderTodo(){
   DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
   const sec = document.getElementById('page-todo');
   if(!sec) return;
 
-  const openCount = DATA.todos.filter(function(t){ return t && t.status !== 'done'; }).length;
+  const totalCount = DATA.todos.length;
+  const pendingCount = DATA.todos.filter(function(t){
+    return t && (t.status || 'pending').toLowerCase() === 'pending';
+  }).length;
+  const approvedCount = DATA.todos.filter(function(t){
+    return t && (t.status || '').toLowerCase() === 'approved';
+  }).length;
+  const rejectedCount = DATA.todos.filter(function(t){
+    return t && (t.status || '').toLowerCase() === 'rejected';
+  }).length;
+  const solvedCount = DATA.todos.filter(function(t){
+    if (!t) return false;
+    const s = (t.status || '').toLowerCase();
+    return s === 'solved_approved' || s === 'solved_rejected' || s === 'solved' || s === 'done';
+  }).length;
+  const openCount = pendingCount + approvedCount;
 
   const activeProjsList = (typeof activeProjects === 'function' ? activeProjects() : [])
     .slice()
     .sort(function(a,b){ return ((a && a.ProjectName) || '').localeCompare((b && b.ProjectName) || ''); });
 
-  // Sort tasks: pending first, then by date descending, then id descending
-  const sortedTodos = DATA.todos.slice().sort(function(a, b){
-    const aDone = (a && a.status === 'done') ? 1 : 0;
-    const bDone = (b && b.status === 'done') ? 1 : 0;
-    if (aDone !== bDone) return aDone - bDone;
+  // Filter tasks based on active tab
+  const currentFilter = window.MT_TODO_FILTER || 'all';
+  const filteredTodos = DATA.todos.filter(function(t){
+    if (!t) return false;
+    const s = (t.status || 'pending').toLowerCase();
+    if (currentFilter === 'pending') return s === 'pending';
+    if (currentFilter === 'approved') return s === 'approved';
+    if (currentFilter === 'rejected') return s === 'rejected';
+    if (currentFilter === 'solved') return s === 'solved_approved' || s === 'solved_rejected' || s === 'solved' || s === 'done';
+    return true;
+  });
+
+  // Sort tasks: pending & approved first, then rejected, then solved, then date descending
+  const sortedTodos = filteredTodos.slice().sort(function(a, b){
+    function statusWeight(s) {
+      s = (s || 'pending').toLowerCase();
+      if (s === 'pending') return 1;
+      if (s === 'approved') return 2;
+      if (s === 'rejected') return 3;
+      if (s === 'solved_approved') return 4;
+      if (s === 'solved_rejected') return 5;
+      if (s === 'solved' || s === 'done') return 6;
+      return 1;
+    }
+    const wA = statusWeight(a ? a.status : '');
+    const wB = statusWeight(b ? b.status : '');
+    if (wA !== wB) return wA - wB;
     return String((b && b.date) || '').localeCompare(String((a && a.date) || '')) || (Number(b && b.id) || 0) - (Number(a && a.id) || 0);
   });
 
-  const checkCircleSvg = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="cursor: pointer; flex-shrink: 0; margin-right: 14px; margin-top: 2px;" title="Mark as pending"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
-  const emptyCircleSvg = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--text-mute, #94a3b8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="cursor: pointer; flex-shrink: 0; margin-right: 14px; margin-top: 2px;" title="Mark as completed"><circle cx="12" cy="12" r="9"/></svg>';
+  // SVG Icons
+  const checkCircleSvg = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-right: 12px; margin-top: 2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+  const redCheckCircleSvg = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-right: 12px; margin-top: 2px;"><circle cx="12" cy="12" r="9"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+  const approvedCircleSvg = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-right: 12px; margin-top: 2px;"><circle cx="12" cy="12" r="9"/><polyline points="9 12 11 14 15 10"/></svg>';
+  const rejectedCircleSvg = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-right: 12px; margin-top: 2px;"><circle cx="12" cy="12" r="9"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+  const emptyCircleSvg = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--text-mute, #94a3b8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-right: 12px; margin-top: 2px;"><circle cx="12" cy="12" r="9"/></svg>';
   const trashSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="cursor: pointer; color: var(--text-mute, #94a3b8); transition: color 0.2s;" onmouseover="this.style.color=\'#ef4444\'" onmouseout="this.style.color=\'var(--text-mute, #94a3b8)\'" title="Delete task"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
 
   const itemsHtml = sortedTodos.map(function(t){
-    const isDone = t.status === 'done';
+    const st = (t.status || 'pending').toLowerCase();
+    const isPending = st === 'pending';
+    const isApproved = st === 'approved';
+    const isRejected = st === 'rejected';
+    const isSolvedApproved = st === 'solved_approved';
+    const isSolvedRejected = st === 'solved_rejected';
+    const isLegacySolved = st === 'solved' || st === 'done';
+    const isSolved = isSolvedApproved || isSolvedRejected || isLegacySolved;
+
     const badges = [];
     if (t.project) {
       badges.push('<span class="badge mute">' + escapeHtml(typeof projName === 'function' ? projName(t.project) : t.project) + '</span>');
@@ -11336,15 +11462,82 @@ function renderTodo(){
       badges.push('<span class="badge mute">' + escapeHtml(t.who) + '</span>');
     }
 
-    const toggleSvg = isDone
-      ? '<div onclick="mtToggleTodoStatus(\'' + escapeHtml(String(t.id)) + '\')" style="cursor: pointer; display: inline-flex;">' + checkCircleSvg + '</div>'
-      : '<div onclick="mtToggleTodoStatus(\'' + escapeHtml(String(t.id)) + '\')" style="cursor: pointer; display: inline-flex;">' + emptyCircleSvg + '</div>';
+    // Status Badge / Pill
+    let statusPill = '';
+    if (isPending) {
+      statusPill = '<span class="badge" style="background:#fef3c7;color:#b45309;border:1px solid #fde68a;font-weight:600;font-size:11px;padding:2px 8px;border-radius:6px;">Pending</span>';
+    } else if (isApproved) {
+      statusPill = '<span class="badge" style="background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe;font-weight:600;font-size:11px;padding:2px 8px;border-radius:6px;">Approved</span>';
+    } else if (isRejected) {
+      statusPill = '<span class="badge" style="background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;font-weight:600;font-size:11px;padding:2px 8px;border-radius:6px;">Rejected</span>';
+    } else if (isSolvedApproved) {
+      statusPill = '<span class="badge" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;font-weight:700;font-size:10.5px;padding:2px 8px;border-radius:6px;letter-spacing:0.3px;">SOLVED (APPROVED)</span>';
+    } else if (isSolvedRejected) {
+      statusPill = '<span class="badge" style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;font-weight:700;font-size:10.5px;padding:2px 8px;border-radius:6px;letter-spacing:0.3px;">SOLVED (REJECTED)</span>';
+    } else {
+      statusPill = '<span class="badge" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;font-weight:700;font-size:10.5px;padding:2px 8px;border-radius:6px;letter-spacing:0.3px;">SOLVED</span>';
+    }
 
-    return '<div class="task-item ' + (isDone ? 'completed' : '') + '" style="display: flex; align-items: flex-start; padding: 14px; background: #fff; border: 1px solid var(--border); border-radius: 10px; transition: transform 0.2s, box-shadow 0.2s;">' +
+    // Action buttons logic (Advanced Workflow)
+    let workflowActions = '';
+    if (isPending) {
+      workflowActions = '<div style="display: inline-flex; align-items: center; gap: 6px; margin-left: 8px;">' +
+        '<button class="btn sm" style="background:#2563eb;color:#fff;border-radius:6px;padding:2px 9px;font-size:11.5px;height:24px;display:inline-flex;align-items:center;gap:4px;" onclick="event.stopPropagation();mtSetTodoStatus(\'' + escapeHtml(String(t.id)) + '\', \'approved\')" title="Approve this task">' +
+          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Approve' +
+        '</button>' +
+        '<button class="btn sm ghost" style="color:#ef4444;border:1px solid #fecaca;background:#fff;border-radius:6px;padding:2px 9px;font-size:11.5px;height:24px;display:inline-flex;align-items:center;gap:4px;" onclick="event.stopPropagation();mtSetTodoStatus(\'' + escapeHtml(String(t.id)) + '\', \'rejected\')" title="Reject this task">' +
+          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="6"/></svg> Reject' +
+        '</button>' +
+      '</div>';
+    } else if (isApproved) {
+      workflowActions = '<div style="display: inline-flex; align-items: center; gap: 6px; margin-left: 8px;">' +
+        '<button class="btn sm" style="background:#10b981;color:#fff;border-radius:6px;padding:2px 10px;font-size:11.5px;height:24px;display:inline-flex;align-items:center;gap:4px;" onclick="event.stopPropagation();mtSetTodoStatus(\'' + escapeHtml(String(t.id)) + '\', \'solved_approved\')" title="Mark as solved (approved)">' +
+          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Mark Solved' +
+        '</button>' +
+        '<button class="btn sm ghost" style="color:var(--text-mute);font-size:11.5px;padding:2px 6px;height:24px;" onclick="event.stopPropagation();mtSetTodoStatus(\'' + escapeHtml(String(t.id)) + '\', \'pending\')" title="Undo approval">Undo</button>' +
+      '</div>';
+    } else if (isRejected) {
+      workflowActions = '<div style="display: inline-flex; align-items: center; gap: 6px; margin-left: 8px;">' +
+        '<button class="btn sm" style="background:#10b981;color:#fff;border-radius:6px;padding:2px 10px;font-size:11.5px;height:24px;display:inline-flex;align-items:center;gap:4px;" onclick="event.stopPropagation();mtSetTodoStatus(\'' + escapeHtml(String(t.id)) + '\', \'solved_rejected\')" title="Mark as solved (rejected)">' +
+          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Mark Solved' +
+        '</button>' +
+        '<button class="btn sm ghost" style="color:var(--text-mute);font-size:11.5px;padding:2px 6px;height:24px;" onclick="event.stopPropagation();mtSetTodoStatus(\'' + escapeHtml(String(t.id)) + '\', \'pending\')" title="Reopen as pending">Reopen</button>' +
+      '</div>';
+    } else {
+      workflowActions = '<div style="display: inline-flex; align-items: center; gap: 6px; margin-left: 8px;">' +
+        '<button class="btn sm ghost" style="color:var(--text-mute);border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:11.5px;height:24px;" onclick="event.stopPropagation();mtSetTodoStatus(\'' + escapeHtml(String(t.id)) + '\', \'pending\')" title="Reopen as pending">Reopen</button>' +
+      '</div>';
+    }
+
+    let toggleSvg = '';
+    if (isSolvedApproved || isLegacySolved) {
+      toggleSvg = '<div onclick="mtToggleTodoStatus(\'' + escapeHtml(String(t.id)) + '\')" style="cursor: pointer; display: inline-flex;" title="Solved (Approved) — Click to reopen">' + checkCircleSvg + '</div>';
+    } else if (isSolvedRejected) {
+      toggleSvg = '<div onclick="mtToggleTodoStatus(\'' + escapeHtml(String(t.id)) + '\')" style="cursor: pointer; display: inline-flex;" title="Solved (Rejected) — Click to reopen">' + redCheckCircleSvg + '</div>';
+    } else if (isApproved) {
+      toggleSvg = '<div onclick="mtToggleTodoStatus(\'' + escapeHtml(String(t.id)) + '\')" style="cursor: pointer; display: inline-flex;" title="Approved — Click to mark solved">' + approvedCircleSvg + '</div>';
+    } else if (isRejected) {
+      toggleSvg = '<div onclick="mtToggleTodoStatus(\'' + escapeHtml(String(t.id)) + '\')" style="cursor: pointer; display: inline-flex;" title="Rejected — Click to mark solved">' + rejectedCircleSvg + '</div>';
+    } else {
+      toggleSvg = '<div onclick="mtToggleTodoStatus(\'' + escapeHtml(String(t.id)) + '\')" style="cursor: pointer; display: inline-flex;" title="Pending — Click to approve">' + emptyCircleSvg + '</div>';
+    }
+
+    let noteStyle = 'font-size: 1rem; color: var(--text-main); word-break: break-word; line-height: 1.5;';
+    if (isSolved) {
+      noteStyle += ' text-decoration: line-through; opacity: 0.55;';
+    } else if (isRejected) {
+      noteStyle += ' opacity: 0.85;';
+    }
+
+    return '<div class="task-item ' + (isSolved ? 'completed' : '') + '" style="display: flex; align-items: flex-start; padding: 14px 16px; background: #fff; border: 1px solid var(--border); border-radius: 10px; transition: transform 0.2s, box-shadow 0.2s;">' +
       toggleSvg +
       '<div style="flex: 1; min-width: 0;">' +
-        '<div class="todo-note-text" style="font-size: 1rem; color: var(--text-main); word-break: break-word; line-height: 1.5; ' + (isDone ? 'text-decoration: line-through; opacity: 0.5;' : '') + '">' + escapeHtml(t.note || '') + '</div>' +
-        (badges.length ? '<div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center;">' + badges.join('') + '</div>' : '') +
+        '<div class="todo-note-text" style="' + noteStyle + '">' + escapeHtml(t.note || '') + '</div>' +
+        '<div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center;">' +
+          statusPill +
+          badges.join('') +
+          workflowActions +
+        '</div>' +
       '</div>' +
       '<div style="margin-left: 12px; flex-shrink: 0; display: flex; align-items: center;">' +
         '<div onclick="delTodo(\'' + escapeHtml(String(t.id)) + '\')" style="cursor: pointer; display: inline-flex;">' + trashSvg + '</div>' +
@@ -11356,20 +11549,39 @@ function renderTodo(){
     '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 8px; opacity: 0.5;">' +
       '<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>' +
     '</svg>' +
-    '<div style="font-weight: 500; font-size: 0.95rem;">No tasks yet</div>' +
+    '<div style="font-weight: 500; font-size: 0.95rem;">No tasks found</div>' +
     '<div style="font-size: 0.82rem; margin-top: 4px; opacity: 0.8;">Write a note or task above and press Enter to save</div>' +
   '</div>';
 
+  // Filter tabs HTML
+  const filterBtnStyle = function(k){
+    const active = currentFilter === k;
+    return 'cursor:pointer;padding:5px 12px;font-size:12.5px;font-weight:' + (active ? '600' : '500') + ';border-radius:20px;border:1px solid ' + (active ? 'var(--primary)' : 'var(--border)') + ';background:' + (active ? 'var(--primary)' : '#fff') + ';color:' + (active ? '#fff' : 'var(--text-mute)') + ';transition:all 0.15s;';
+  };
+
+  const filterTabsHtml = '<div style="display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap;">' +
+    '<button type="button" style="' + filterBtnStyle('all') + '" onclick="mtSetTodoFilter(\'all\')">All (' + totalCount + ')</button>' +
+    '<button type="button" style="' + filterBtnStyle('pending') + '" onclick="mtSetTodoFilter(\'pending\')">Pending (' + pendingCount + ')</button>' +
+    '<button type="button" style="' + filterBtnStyle('approved') + '" onclick="mtSetTodoFilter(\'approved\')">Approved (' + approvedCount + ')</button>' +
+    '<button type="button" style="' + filterBtnStyle('rejected') + '" onclick="mtSetTodoFilter(\'rejected\')">Rejected (' + rejectedCount + ')</button>' +
+    '<button type="button" style="' + filterBtnStyle('solved') + '" onclick="mtSetTodoFilter(\'solved\')">Solved (' + solvedCount + ')</button>' +
+  '</div>';
+
   sec.innerHTML = '<div class="card" style="margin-bottom: 24px; border-radius: 14px; padding: 22px 24px 28px; background: var(--card);">' +
-    '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">' +
+    '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">' +
       '<div>' +
         '<h3 style="margin: 0; font-size: 1.2rem; font-weight: 600; color: var(--text-main);">To-Do / Follow-up Tasks</h3>' +
-        '<p style="margin: 3px 0 0; font-size: 0.82rem; color: var(--text-mute);">Quick call notes, reminders, and project follow-up items</p>' +
+        '<p style="margin: 3px 0 0; font-size: 0.82rem; color: var(--text-mute);">Quick call notes, reminders, meeting action items, and project follow-up items</p>' +
       '</div>' +
-      '<span class="badge" style="background: var(--bg-dim); color: var(--text-mute); font-size: 0.8rem; font-weight: 600; padding: 4px 10px; border-radius: 20px;">' + num(openCount) + ' open</span>' +
+      '<div style="display: flex; align-items: center; gap: 10px;">' +
+        '<span class="badge" style="background: var(--bg-dim); color: var(--text-mute); font-size: 0.8rem; font-weight: 600; padding: 4px 10px; border-radius: 20px;">' + num(openCount) + ' open</span>' +
+        '<button class="btn secondary sm" onclick="printTodos()" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 13px; font-weight: 500; border-radius: 8px;">' +
+          ico('print') + ' Print Notes' +
+        '</button>' +
+      '</div>' +
     '</div>' +
 
-    '<div class="todo-quick-add" style="margin-bottom: 24px; position: relative;">' +
+    '<div class="todo-quick-add" style="margin-bottom: 20px; position: relative;">' +
       '<input type="text" id="tdQuickNote" class="input wide" placeholder="Write a note or task and press Enter..." style="font-size: 1.1rem; padding: 16px 20px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.03); transition: all 0.3s; width: 100%; box-sizing: border-box;" onkeypress="mtQuickAddTodo(event)">' +
       '<div style="display: flex; gap: 15px; margin-top: 12px; padding: 0 5px; align-items: center; flex-wrap: wrap;">' +
         '<select id="tdQuickProj" class="input sm" style="max-width: 220px; border: none; background: transparent; font-weight: 500; color: var(--text-mute); cursor: pointer;">' +
@@ -11380,6 +11592,8 @@ function renderTodo(){
       '</div>' +
     '</div>' +
 
+    filterTabsHtml +
+
     '<div class="todo-list" style="display: flex; flex-direction: column; gap: 8px;">' +
       (itemsHtml || emptyStateHtml) +
     '</div>' +
@@ -11389,6 +11603,11 @@ function renderTodo(){
     updateTodoBadge();
   }
 }
+
+window.mtSetTodoFilter = function(filter) {
+  window.MT_TODO_FILTER = filter;
+  renderTodo();
+};
 
 window.mtQuickAddTodo = function(event) {
   if (event.key !== 'Enter') return;
@@ -11410,11 +11629,23 @@ window.mtQuickAddTodo = function(event) {
     date: date,
     who: 'Admin',
     status: 'pending',
-    source: 'direct'
+    source: 'direct',
+    sourceDate: date
   };
 
   DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
   DATA.todos.unshift(task);
+
+  // Synchronize to Supabase immediately
+  if (window.appData && typeof window.appData.insert === 'function') {
+    window.appData.insert('todos', task).catch(function(err){
+      console.error('Error inserting quick-add todo to Supabase:', err);
+    });
+  } else if (window.sb) {
+    window.sb.from('todos').insert([task]).catch(function(err){
+      console.error('Error inserting quick-add todo directly:', err);
+    });
+  }
 
   persist();
   renderTodo();
@@ -11430,27 +11661,174 @@ window.mtQuickAddTodo = function(event) {
   }
 };
 
-window.mtToggleTodoStatus = function(id) {
+window.mtSetTodoStatus = function(id, newStatus) {
   DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
   const t = DATA.todos.find(function(x){ return String(x.id) === String(id); });
   if (!t) return;
-  t.status = (t.status === 'done') ? 'pending' : 'done';
-  persist();
-  renderTodo();
-};
+  t.status = newStatus;
 
-window.delTodo = function(id) {
-  DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
-  DATA.todos = DATA.todos.filter(function(x){ return String(x.id) !== String(id); });
+  // Real-time synchronization to Supabase
+  if (window.appData && typeof window.appData.update === 'function') {
+    window.appData.update('todos', t.id, { status: newStatus }).catch(function(err){
+      console.error('Failed to sync todo status update to Supabase:', err);
+    });
+  } else if (window.sb) {
+    window.sb.from('todos').update({ status: newStatus }).eq('id', t.id).catch(function(err){
+      console.error('Failed to update todo status in Supabase:', err);
+    });
+  }
+
   persist();
   renderTodo();
   if (typeof updateTodoBadge === 'function') updateTodoBadge();
 };
 
+window.mtToggleTodoStatus = function(id) {
+  DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
+  const t = DATA.todos.find(function(x){ return String(x.id) === String(id); });
+  if (!t) return;
+  
+  // Advanced progression: pending -> approved, approved -> solved_approved, rejected -> solved_rejected, solved -> pending
+  let nextStatus = 'pending';
+  const current = (t.status || 'pending').toLowerCase();
+  if (current === 'pending') {
+    nextStatus = 'approved';
+  } else if (current === 'approved') {
+    nextStatus = 'solved_approved';
+  } else if (current === 'rejected') {
+    nextStatus = 'solved_rejected';
+  } else {
+    nextStatus = 'pending';
+  }
+
+  window.mtSetTodoStatus(id, nextStatus);
+};
+
+window.delTodo = function(id) {
+  DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
+  DATA.todos = DATA.todos.filter(function(x){ return String(x.id) !== String(id); });
+  
+  // Remove from Supabase immediately
+  if (window.appData && typeof window.appData.remove === 'function') {
+    window.appData.remove('todos', id).catch(function(err){
+      console.error('Error removing todo from Supabase:', err);
+    });
+  } else if (window.sb) {
+    window.sb.from('todos').delete().eq('id', id).catch(function(err){
+      console.error('Error deleting todo directly:', err);
+    });
+  }
+
+  persist();
+  renderTodo();
+  if (typeof updateTodoBadge === 'function') updateTodoBadge();
+};
+
+window.printTodos = function() {
+  DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
+  const list = DATA.todos.slice().sort(function(a, b){
+    function statusWeight(s) {
+      s = (s || 'pending').toLowerCase();
+      if (s === 'pending') return 1;
+      if (s === 'approved') return 2;
+      if (s === 'rejected') return 3;
+      if (s === 'solved_approved') return 4;
+      if (s === 'solved_rejected') return 5;
+      if (s === 'solved' || s === 'done') return 6;
+      return 1;
+    }
+    const wA = statusWeight(a ? a.status : '');
+    const wB = statusWeight(b ? b.status : '');
+    if (wA !== wB) return wA - wB;
+    return String((b && b.date) || '').localeCompare(String((a && a.date) || '')) || (Number(b && b.id) || 0) - (Number(a && a.id) || 0);
+  });
+
+  const total = list.length;
+  const pending = list.filter(function(t){ return t && (t.status || 'pending').toLowerCase() === 'pending'; }).length;
+  const approved = list.filter(function(t){ return t && (t.status || '').toLowerCase() === 'approved'; }).length;
+  const rejected = list.filter(function(t){ return t && (t.status || '').toLowerCase() === 'rejected'; }).length;
+  const solved = list.filter(function(t){
+    if (!t) return false;
+    const s = (t.status || '').toLowerCase();
+    return s === 'solved_approved' || s === 'solved_rejected' || s === 'solved' || s === 'done';
+  }).length;
+
+  const rowsHtml = list.map(function(t, idx) {
+    const st = (t.status || 'pending').toLowerCase();
+    let stBadge = '<span style="color:#b45309;font-weight:600">Pending</span>';
+    if (st === 'approved') {
+      stBadge = '<span style="color:#1d4ed8;font-weight:600">Approved</span>';
+    } else if (st === 'rejected') {
+      stBadge = '<span style="color:#b91c1c;font-weight:600">Rejected</span>';
+    } else if (st === 'solved_approved') {
+      stBadge = '<span style="color:#15803d;font-weight:700">SOLVED (APPROVED)</span>';
+    } else if (st === 'solved_rejected') {
+      stBadge = '<span style="color:#991b1b;font-weight:700">SOLVED (REJECTED)</span>';
+    } else if (st === 'solved' || st === 'done') {
+      stBadge = '<span style="color:#15803d;font-weight:700">SOLVED</span>';
+    }
+
+    const pName = t.project ? (typeof projName === 'function' ? projName(t.project) : t.project) : '—';
+    const dStr = t.date ? (typeof fmtDate === 'function' ? fmtDate(t.date) : t.date) : '—';
+    const who = t.who || (t.source === 'meeting' ? 'Meeting' : 'Direct');
+    const isSolved = st === 'solved_approved' || st === 'solved_rejected' || st === 'solved' || st === 'done';
+    const noteStyle = isSolved ? 'line-height:1.4;text-decoration:line-through;opacity:0.65;' : 'line-height:1.4;';
+
+    return '<tr>' +
+      '<td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:center;font-size:10pt;">' + (idx + 1) + '</td>' +
+      '<td style="border:1px solid #cbd5e1;padding:6px 8px;white-space:nowrap;font-size:10pt;">' + escapeHtml(dStr) + '</td>' +
+      '<td style="border:1px solid #cbd5e1;padding:6px 8px;font-size:10pt;font-weight:600;">' + escapeHtml(pName) + '</td>' +
+      '<td style="border:1px solid #cbd5e1;padding:6px 8px;font-size:10pt;' + noteStyle + '">' + escapeHtml(t.note || '') + '</td>' +
+      '<td style="border:1px solid #cbd5e1;padding:6px 8px;font-size:9.5pt;white-space:nowrap;color:#475569;">' + escapeHtml(who) + '</td>' +
+      '<td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:center;font-size:9pt;white-space:nowrap;">' + stBadge + '</td>' +
+    '</tr>';
+  }).join('') || '<tr><td colspan="6" style="border:1px solid #cbd5e1;padding:24px;text-align:center;color:#64748b;">No follow-up notes found</td></tr>';
+
+  // Minimal clean internal document: strictly internal H3, no corporate letterheads or signatures
+  const html = '<div class="print-doc" style="padding:15px;font-family:inherit;">' +
+    '<div style="margin:0 0 12px 0;border-bottom:2px solid #0f172a;padding-bottom:8px;display:flex;justify-content:space-between;align-items:baseline;">' +
+      '<h3 style="margin:0;font-size:15pt;font-weight:700;color:#0f172a;letter-spacing:-0.2px;">Internal To-Do & Follow-up List</h3>' +
+      '<span style="font-size:9pt;color:#64748b;">Generated: ' + (typeof fmtDateEnLong === 'function' ? fmtDateEnLong(todayISO()) : todayISO()) + '</span>' +
+    '</div>' +
+    '<div style="display:flex;gap:16px;margin-bottom:12px;font-size:9.5pt;background:#f8fafc;padding:6px 12px;border:1px solid #e2e8f0;border-radius:6px;">' +
+      '<span><strong>Total:</strong> ' + total + '</span>' +
+      '<span><strong>Pending:</strong> ' + pending + '</span>' +
+      '<span><strong>Approved:</strong> ' + approved + '</span>' +
+      '<span><strong>Rejected:</strong> ' + rejected + '</span>' +
+      '<span><strong>Solved:</strong> ' + solved + '</span>' +
+    '</div>' +
+    '<table style="width:100%;border-collapse:collapse;margin-top:4px;font-family:inherit;">' +
+      '<thead>' +
+        '<tr style="background:#f1f5f9;">' +
+          '<th style="border:1px solid #94a3b8;padding:7px 6px;text-align:center;width:35px;font-size:9pt;">#</th>' +
+          '<th style="border:1px solid #94a3b8;padding:7px 8px;text-align:left;width:85px;font-size:9pt;">Date</th>' +
+          '<th style="border:1px solid #94a3b8;padding:7px 8px;text-align:left;width:130px;font-size:9pt;">Project</th>' +
+          '<th style="border:1px solid #94a3b8;padding:7px 8px;text-align:left;font-size:9pt;">Task / Action Note</th>' +
+          '<th style="border:1px solid #94a3b8;padding:7px 8px;text-align:left;width:110px;font-size:9pt;">Source</th>' +
+          '<th style="border:1px solid #94a3b8;padding:7px 8px;text-align:center;width:130px;font-size:9pt;">Status</th>' +
+        '</tr>' +
+      '</thead>' +
+      '<tbody>' +
+        rowsHtml +
+      '</tbody>' +
+    '</table>' +
+  '</div>';
+
+  if (typeof openPrint === 'function') {
+    openPrint(html);
+  }
+};
+
+window.printTodoList = window.printTodos;
+
 window.updateTodoBadge = function(){
-  const b = document.getElementById('navTodoBadge');
+  const b = document.getElementById('navTodoBadge') || document.getElementById('todoNavBadge');
   if(!b) return;
-  const open = (DATA.todos||[]).filter(function(t){ return t && t.status !== 'done'; }).length;
+  const open = (DATA.todos||[]).filter(function(t){
+    if (!t) return false;
+    const s = String(t.status || 'pending').toLowerCase();
+    return s !== 'solved_approved' && s !== 'solved_rejected' && s !== 'solved' && s !== 'done';
+  }).length;
   b.style.display = open > 0 ? '' : 'none';
   b.textContent = num(open);
 };

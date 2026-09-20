@@ -420,6 +420,23 @@
         'DecidedAt': 'decided_at',
         'Notes': 'notes'
        }
+    },
+
+    todos: {
+      table: 'todos',
+      pk: 'id',
+      localKey: 'todos',
+      allowed: ['id', 'project', 'who', 'note', 'date', 'status', 'source', 'sourceDate'],
+      map: {
+        'id': 'id',
+        'project': 'project',
+        'who': 'who',
+        'note': 'note',
+        'date': 'date',
+        'status': 'status',
+        'source': 'source',
+        'sourceDate': 'sourceDate'
+      }
     }
   };
 
@@ -434,7 +451,31 @@
   }
 
   function toDb(key, rec) { if (!rec) return {};
-    var m = TABLE_MAP[key];
+    var tableName = (TABLE_MAP[key] && TABLE_MAP[key].table) || key;
+    var m = TABLE_MAP[tableName] || TABLE_MAP[key];
+
+    if (tableName === 'todos' || key === 'todos') {
+      var allowed = (m && m.allowed) || ['id', 'project', 'who', 'note', 'date', 'status', 'source', 'sourceDate'];
+      var out = {};
+      allowed.forEach(function (col) {
+        if (rec[col] !== undefined) {
+          var v = rec[col];
+          if (typeof v === 'string' && v.trim() === '') v = null;
+          out[col] = v;
+        } else if (col === 'sourceDate' && rec.source_date !== undefined) {
+          var v2 = rec.source_date;
+          if (typeof v2 === 'string' && v2.trim() === '') v2 = null;
+          out[col] = v2;
+        }
+      });
+      delete out.created_at;
+      delete out.updated_at;
+      if (out.id === undefined || out.id === null || String(out.id).indexOf('temp_') === 0 || String(out.id).indexOf('local_') === 0) {
+        delete out.id;
+      }
+      return out;
+    }
+
     if (!m) return rec;
     var out = {}, k, col, v;
     var allowed = m.allowed || [];
@@ -474,7 +515,38 @@
     return out;
   }
 
+  function parseTodoRow(r) {
+    if (!r) return {};
+    var item = Object.assign({}, r);
+    if (item.sourceDate === undefined && item.source_date !== undefined) {
+      item.sourceDate = item.source_date;
+    }
+    if (item.status === undefined || item.status === null) {
+      item.status = 'pending';
+    }
+    return item;
+  }
+
   function fromDb(key, row) {
+    var tableName = (TABLE_MAP[key] && TABLE_MAP[key].table) || key;
+    var rows = row;
+    var DATA = (typeof window !== 'undefined' && window.DATA) || global.DATA || {};
+
+    if (tableName === 'todos' || key === 'todos') {
+      if (Array.isArray(rows)) {
+        var cleanRows = rows.map(parseTodoRow);
+        DATA.todos = Array.isArray(cleanRows) ? cleanRows : [];
+        if (global.DATA) global.DATA.todos = DATA.todos;
+        return DATA.todos;
+      }
+      if (rows === null || rows === undefined) {
+        DATA.todos = [];
+        if (global.DATA) global.DATA.todos = DATA.todos;
+        return DATA.todos;
+      }
+      return parseTodoRow(row);
+    }
+
     if (!row) return row;
     var m = TABLE_MAP[key] || {};
     var map = m.map || {};
@@ -845,6 +917,12 @@
       if (global.DATA && global.DATA.meetings && !Array.isArray(global.DATA.meetings)) {
         out.meetings = global.DATA.meetings;
       }
+      if (out.todos) {
+        var DATA = (typeof window !== 'undefined' && window.DATA) || global.DATA;
+        if (DATA) {
+          DATA.todos = Array.isArray(out.todos) ? out.todos : [];
+        }
+      }
       return out;
     });
   }
@@ -890,8 +968,12 @@
             handleRealtimeEvent(payload);
           }
         })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'todos' }, function (payload) {
+          console.log('⚡ [Real-Time] Todos table changed:', payload);
+          handleRealtimeEvent(payload);
+        })
         .on('postgres_changes', { event: '*', schema: 'public' }, function (payload) {
-          if (payload && payload.table !== 'projects' && payload.table !== 'employees') {
+          if (payload && payload.table !== 'projects' && payload.table !== 'employees' && payload.table !== 'todos') {
             console.log('⚡ [Real-Time] Remote change received:', payload);
             handleRealtimeEvent(payload);
           }
@@ -942,11 +1024,15 @@
       }
     }
 
-    if (!bucket || !global.DATA[bucket]) return;
+    if (!bucket) return;
+    if (bucket === 'todos' && (!global.DATA[bucket] || !Array.isArray(global.DATA[bucket]))) {
+      global.DATA[bucket] = [];
+    }
+    if (!global.DATA[bucket]) return;
     var dataArr = global.DATA[bucket];
 
     if (eventType === 'DELETE') {
-      var deletedId = payload.old.id;
+      var deletedId = payload.old ? payload.old.id : null;
       var idx = dataArr.findIndex(function (x) {
         return String(x.id) === String(deletedId);
       });
@@ -969,8 +1055,13 @@
       if (eventType === 'INSERT') {
         if (idx === -1) dataArr.unshift(jsRecord);
       } else if (eventType === 'UPDATE') {
-        if (idx !== -1 && dataArr[idx]) if(dataArr[idx]) { dataArr[idx] = Object.assign(dataArr[idx], jsRecord); }
+        if (idx !== -1 && dataArr[idx]) { dataArr[idx] = Object.assign(dataArr[idx], jsRecord); }
+        else if (idx === -1) { dataArr.unshift(jsRecord); }
       }
+    }
+
+    if (bucket === 'todos' && typeof global.updateTodoBadge === 'function') {
+      try { global.updateTodoBadge(); } catch (e) {}
     }
 
     if (typeof global.refreshAll === 'function') global.refreshAll();
@@ -1665,6 +1756,9 @@
     sb: sb,
     version: '2.1.1'
   };
+
+  // Expose appData as alias to MGHRM data layer
+  global.appData = global.MGHRM;
 
   // Immediate eager auto-initialization if config is present
   try {

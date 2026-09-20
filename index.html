@@ -3472,12 +3472,12 @@ function renderPendingRecruitment(){
     return;
   }
 
-  grid.innerHTML = candidates.map(e => {
-    const empKey = e.id || e.EmployeeID || e.employee_id;
-    const name = e.FullName || e.full_name || 'Candidate';
-    const desigName = e.Designation || e.designation || 'Security Guard';
-    const phoneNum = e.PhoneNumber || e.phone || '';
-    const proj = e.ProjectName || e.project_name || 'Unassigned';
+  grid.innerHTML = candidates.map(emp => {
+    const empKey = emp.id != null ? emp.id : (emp.EmployeeID || emp.employee_id || '');
+    const name = emp.FullName || emp.full_name || 'Candidate';
+    const desigName = emp.Designation || emp.designation || 'Security Guard';
+    const phoneNum = emp.PhoneNumber || emp.phone || '';
+    const proj = emp.ProjectName || emp.project_name || 'Unassigned';
 
     return `
       <div class="card" style="margin: 0; padding: 18px; border-radius: 12px; border: 1px solid var(--border, #e2e8f0); background: #fff; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
@@ -3503,8 +3503,8 @@ function renderPendingRecruitment(){
             <button class="btn sm" onclick="openApplicantForm(${jsQ(empKey)})">Continue / Edit</button>
           </div>
           <div style="display: flex; gap: 6px; align-items: center;">
-            <button class="btn sm success" onclick="approveCandidate(${jsQ(empKey)})" title="Approve & Hire">${ico('check')} Approve &amp; Hire</button>
-            <button class="btn sm danger" onclick="rejectCandidate(${jsQ(empKey)})" title="Reject">${ico('x')} Reject</button>
+            <button class="btn success sm" onclick="approveCandidate('${emp.id != null ? emp.id : empKey}')">${ico('check')} Approve &amp; Hire</button>
+            <button class="btn danger sm" onclick="rejectCandidate('${emp.id != null ? emp.id : empKey}')">${ico('x')} Reject</button>
           </div>
         </div>
       </div>
@@ -3513,134 +3513,78 @@ function renderPendingRecruitment(){
 }
 
 /* ---------- Phase 4: Candidate Finalization (Onboarding & Rejection) ---------- */
-async function approveCandidate(id){
-  if(typeof guardEdit === 'function' && !guardEdit()) return;
-  if(!id) return;
-
-  if(!confirm('Are you sure you want to officially onboard this candidate?')) return;
-
-  const btn = window.event && window.event.currentTarget ? window.event.currentTarget : null;
-  const origText = btn ? btn.innerHTML : '';
-  if(btn){ btn.disabled = true; btn.innerHTML = 'Onboarding...'; }
-
-  try {
-    const emp = (window.DATA && Array.isArray(window.DATA.employees)) ? window.DATA.employees.find(e =>
-      String(e.id) === String(id) ||
-      String(e.EmployeeID) === String(id) ||
-      String(e.employee_id) === String(id)
-    ) : null;
-    const targetId = (emp && emp.id) ? emp.id : id;
-
-    if(window.MGHRM && typeof window.MGHRM.approveCandidate === 'function'){
-      await window.MGHRM.approveCandidate(targetId);
-    } else {
-      const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
-                    || (window.MGHRM && window.MGHRM.sb)
-                    || window.sb
-                    || (typeof sb !== 'undefined' ? sb : null);
-      if(!sbClient) throw new Error('Database connection not established.');
+window.approveCandidate = function(id) {
+  if(!confirm("Are you sure you want to approve and hire this candidate?")) return;
+  const emp = (window.DATA.employees || []).find(e => String(e.id) === String(id) || String(e.EmployeeID) === String(id) || String(e.employee_id) === String(id));
+  if(emp) {
+    emp.Status = 'Active';
+    emp.status = 'Active';
+    if (!emp.JoinDate && !emp.join_date) {
+      emp.JoinDate = (typeof todayISO === 'function' ? todayISO() : new Date().toISOString().split('T')[0]);
+      emp.join_date = emp.JoinDate;
+    }
+    // Direct sync with Supabase database
+    const sbClient = window.sb || (window.MGHRM && window.MGHRM.sb);
+    if (sbClient) {
+      const targetId = emp.id != null ? emp.id : id;
       let query = sbClient.from('employees').update({ status: 'Active' });
-      if(/^\d+$/.test(String(targetId))){
+      if (/^\d+$/.test(String(targetId))) {
         query = query.eq('id', Number(targetId));
       } else {
         query = query.eq('employee_id', targetId);
       }
-      const { error } = await query;
-      if(error) throw error;
+      query.then(r => {
+        if (r.error) console.error('[Supabase Approve Error]:', r.error);
+        else console.log('⚡ Candidate approved in Supabase:', targetId);
+      }).catch(err => console.error('[Supabase Approve Catch]:', err));
     }
-
-    if(emp){
-      emp.Status = 'Active';
-      emp.status = 'Active';
+    if (window.MGHRM && typeof window.MGHRM.update === 'function') {
+      window.MGHRM.update('employees', emp.id || id, { status: 'Active' }).catch(console.error);
     }
-
-    toast('Candidate successfully onboarded!', 'success');
-
+    toast('Candidate approved & hired!', 'success');
+    persist(); // Instantly pushes the update to the database via app-core sync
     if(typeof syncRecruitmentFromEmployees === 'function') syncRecruitmentFromEmployees();
     if(typeof renderPendingRecruitment === 'function') renderPendingRecruitment();
     if(typeof renderRecruitment === 'function') renderRecruitment();
     if(typeof renderEmpTable === 'function') renderEmpTable();
     if(typeof renderEmployees === 'function') renderEmployees();
     if(typeof renderDashboard === 'function') renderDashboard();
-
-    if(typeof fetchEmployeesDirectly === 'function'){
-      fetchEmployeesDirectly().then(() => {
-        if(typeof syncRecruitmentFromEmployees === 'function') syncRecruitmentFromEmployees();
-        if(typeof renderPendingRecruitment === 'function') renderPendingRecruitment();
-        if(typeof renderEmpTable === 'function') renderEmpTable();
-      }).catch(() => {});
-    }
-  } catch(err){
-    console.error('[Approve Candidate Error]:', err);
-    toast('Error onboarding candidate: ' + (err.message || err), 'error');
-    if(btn){ btn.disabled = false; btn.innerHTML = origText; }
   }
-}
-window.approveCandidate = approveCandidate;
+};
 
-async function rejectCandidate(id){
-  if(typeof guardEdit === 'function' && !guardEdit()) return;
-  if(!id) return;
-
-  if(!confirm('Are you sure you want to reject this application?')) return;
-
-  const btn = window.event && window.event.currentTarget ? window.event.currentTarget : null;
-  const origText = btn ? btn.innerHTML : '';
-  if(btn){ btn.disabled = true; btn.innerHTML = 'Rejecting...'; }
-
-  try {
-    const emp = (window.DATA && Array.isArray(window.DATA.employees)) ? window.DATA.employees.find(e =>
-      String(e.id) === String(id) ||
-      String(e.EmployeeID) === String(id) ||
-      String(e.employee_id) === String(id)
-    ) : null;
-    const targetId = (emp && emp.id) ? emp.id : id;
-
-    if(window.MGHRM && typeof window.MGHRM.rejectCandidate === 'function'){
-      await window.MGHRM.rejectCandidate(targetId);
-    } else {
-      const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
-                    || (window.MGHRM && window.MGHRM.sb)
-                    || window.sb
-                    || (typeof sb !== 'undefined' ? sb : null);
-      if(!sbClient) throw new Error('Database connection not established.');
-      let query = sbClient.from('employees').update({ status: 'Application Rejected' });
-      if(/^\d+$/.test(String(targetId))){
+window.rejectCandidate = function(id) {
+  if(!confirm("Are you sure you want to reject this candidate?")) return;
+  const emp = (window.DATA.employees || []).find(e => String(e.id) === String(id) || String(e.EmployeeID) === String(id) || String(e.employee_id) === String(id));
+  if(emp) {
+    emp.Status = 'Rejected';
+    emp.status = 'Rejected';
+    // Direct sync with Supabase database
+    const sbClient = window.sb || (window.MGHRM && window.MGHRM.sb);
+    if (sbClient) {
+      const targetId = emp.id != null ? emp.id : id;
+      let query = sbClient.from('employees').update({ status: 'Rejected' });
+      if (/^\d+$/.test(String(targetId))) {
         query = query.eq('id', Number(targetId));
       } else {
         query = query.eq('employee_id', targetId);
       }
-      const { error } = await query;
-      if(error) throw error;
+      query.then(r => {
+        if (r.error) console.error('[Supabase Reject Error]:', r.error);
+        else console.log('⚡ Candidate rejected in Supabase:', targetId);
+      }).catch(err => console.error('[Supabase Reject Catch]:', err));
     }
-
-    if(emp){
-      emp.Status = 'Application Rejected';
-      emp.status = 'Application Rejected';
+    if (window.MGHRM && typeof window.MGHRM.update === 'function') {
+      window.MGHRM.update('employees', emp.id || id, { status: 'Rejected' }).catch(console.error);
     }
-
-    toast('Candidate application rejected.', 'success');
-
+    toast('Candidate rejected.', 'info');
+    persist(); // Instantly pushes the update to the database
     if(typeof syncRecruitmentFromEmployees === 'function') syncRecruitmentFromEmployees();
     if(typeof renderPendingRecruitment === 'function') renderPendingRecruitment();
     if(typeof renderRecruitment === 'function') renderRecruitment();
     if(typeof renderEmpTable === 'function') renderEmpTable();
     if(typeof renderDashboard === 'function') renderDashboard();
-
-    if(typeof fetchEmployeesDirectly === 'function'){
-      fetchEmployeesDirectly().then(() => {
-        if(typeof syncRecruitmentFromEmployees === 'function') syncRecruitmentFromEmployees();
-        if(typeof renderPendingRecruitment === 'function') renderPendingRecruitment();
-        if(typeof renderEmpTable === 'function') renderEmpTable();
-      }).catch(() => {});
-    }
-  } catch(err){
-    console.error('[Reject Candidate Error]:', err);
-    toast('Error rejecting candidate: ' + (err.message || err), 'error');
-    if(btn){ btn.disabled = false; btn.innerHTML = origText; }
   }
-}
-window.rejectCandidate = rejectCandidate;
+};
 
 function getCandidateRecord(id) {
   if (!id) return null;
@@ -12241,6 +12185,9 @@ function restoreState(){
 }
 function persist(){
   if(READONLY) return;                                   /* another device holds the lock */
+  if(window.MGHRM && typeof window.MGHRM.pushAll === 'function'){
+    try { window.MGHRM.pushAll(); } catch(e) {}
+  }
   /* LocalStorage purged for Direct Server Architecture */
   if(odDir){                                             /* debounced write into the OneDrive folder */
     clearTimeout(odWriteTimer);

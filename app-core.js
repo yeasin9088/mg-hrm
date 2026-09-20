@@ -1323,7 +1323,7 @@
     if (!id) return Promise.reject(new Error('Candidate ID is required.'));
     if (!ready || !sb) return Promise.reject(new Error('Supabase client is not connected.'));
 
-    var query = sb.from('employees').update({ status: 'Application Rejected' });
+    var query = sb.from('employees').update({ status: 'Rejected' });
     if (/^\d+$/.test(String(id))) {
       query = query.eq('id', Number(id));
     } else {

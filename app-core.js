@@ -14,9 +14,11 @@
         'id', 'employee_id', 'full_name', 'full_name_bn',
         'father_name', 'mother_name', 'dob', 'phone', 'nid', 'education', 'religion',
         'height', 'weight', 'marital_status', 'spouse_name', 'spouse_phone',
-        'ec_name', 'ec_relation', 'ec_phone', 'division', 'district', 'thana',
-        'address', 'address_bn', 'division_id', 'district_id', 'upazila_id',
-        'union_id', 'village', 'street', 'designation', 'project_name',
+        'ec_name', 'ec_relation', 'ec_phone',
+        'ec_name2', 'ec_relation2', 'ec_phone2',
+        'division', 'district', 'upazila', 'union', 'village', 'street',
+        'perm_division', 'perm_district', 'perm_upazila', 'perm_union', 'perm_village', 'perm_street',
+        'designation', 'project_name',
         'join_date', 'duty_hour', 'salary', 'status', 'exit_date', 'exit_reason',
         'remarks', 'photo_url', 'created_at', 'updated_at'
        ],
@@ -38,14 +40,32 @@
         'MaritalStatus': 'marital_status',
         'SpouseName': 'spouse_name',
         'SpousePhone': 'spouse_phone',
+        'ECName': 'ec_name',
+        'ECRelation': 'ec_relation',
+        'ECPhoneNumber': 'ec_phone',
+        'ECPhone': 'ec_phone',
+        'ECName2': 'ec_name2',
+        'ECRelation2': 'ec_relation2',
+        'ECPhoneNumber2': 'ec_phone2',
+        'ECPhone2': 'ec_phone2',
         'EmergencyName': 'ec_name',
         'EmergencyRelation': 'ec_relation',
         'EmergencyPhone': 'ec_phone',
+        'EmergencyName2': 'ec_name2',
+        'EmergencyRelation2': 'ec_relation2',
+        'EmergencyPhone2': 'ec_phone2',
         'Division': 'division',
         'District': 'district',
-        'Thana': 'thana',
-        'Address': 'address',
-        'AddressBangla': 'address_bn',
+        'Upazila': 'upazila',
+        'Union': 'union',
+        'Village': 'village',
+        'Street': 'street',
+        'PermDivision': 'perm_division',
+        'PermDistrict': 'perm_district',
+        'PermUpazila': 'perm_upazila',
+        'PermUnion': 'perm_union',
+        'PermVillage': 'perm_village',
+        'PermStreet': 'perm_street',
         'Designation': 'designation',
         'ProjectName': 'project_name',
         'JoinDate': 'join_date',
@@ -443,6 +463,13 @@
     delete out.updated_at;
     if (out.id === undefined || out.id === null) delete out.id;
     if (key === 'employees') {
+      delete out.address;
+      delete out.address_bn;
+      delete out.thana;
+      delete out.division_id;
+      delete out.district_id;
+      delete out.upazila_id;
+      delete out.union_id;
     }
     return out;
   }
@@ -1103,32 +1130,52 @@
     var presAddr = (extra && extra.presentAddress) || (r && r.presentAddress) || {};
     var permAddr = (extra && extra.permanentAddress) || (r && r.permanentAddress) || {};
 
+    var presDiv = (emp && (emp.division || emp.Division)) || presAddr.division || '';
+    var presDist = (emp && (emp.district || emp.District)) || presAddr.district || '';
+    var presUpz = (emp && (emp.upazila || emp.Upazila || emp.thana || emp.Thana)) || presAddr.upazila || presAddr.thana || '';
+    var presUni = (emp && (emp.union || emp.Union)) || presAddr.union || '';
+    var presVil = (emp && (emp.village || emp.Village)) || presAddr.village || '';
+    var presStr = (emp && (emp.street || emp.Street)) || presAddr.street || '';
+
+    var permDiv = (emp && (emp.perm_division || emp.PermDivision)) || permAddr.division || permAddr.perm_division || presDiv;
+    var permDist = (emp && (emp.perm_district || emp.PermDistrict)) || permAddr.district || permAddr.perm_district || presDist;
+    var permUpz = (emp && (emp.perm_upazila || emp.PermUpazila)) || permAddr.upazila || permAddr.perm_upazila || permAddr.thana || presUpz;
+    var permUni = (emp && (emp.perm_union || emp.PermUnion)) || permAddr.union || permAddr.perm_union || presUni;
+    var permVil = (emp && (emp.perm_village || emp.PermVillage)) || permAddr.village || permAddr.perm_village || presVil;
+    var permStr = (emp && (emp.perm_street || emp.PermStreet)) || permAddr.street || permAddr.perm_street || presStr;
+
     var presentAddress = {
-      village: presAddr.village || (emp && (emp.Village || emp.village)) || '',
-      street: presAddr.street || (emp && (emp.Street || emp.street)) || '',
-      thana: presAddr.thana || (emp && (emp.Thana || emp.thana)) || '',
-      district: presAddr.district || (emp && (emp.District || emp.district)) || '',
-      division: presAddr.division || (emp && (emp.Division || emp.division)) || ''
+      village: presVil,
+      street: presStr,
+      union: presUni,
+      upazila: presUpz,
+      thana: presUpz,
+      district: presDist,
+      division: presDiv
     };
 
     var permanentAddress = {
-      village: permAddr.village || (emp && (emp.Village || emp.village)) || '',
-      street: permAddr.street || (emp && (emp.Street || emp.street)) || '',
-      thana: permAddr.thana || (emp && (emp.Thana || emp.thana)) || '',
-      district: permAddr.district || (emp && (emp.District || emp.district)) || '',
-      division: permAddr.division || (emp && (emp.Division || emp.division)) || ''
+      village: permVil,
+      street: permStr,
+      union: permUni,
+      upazila: permUpz,
+      thana: permUpz,
+      district: permDist,
+      division: permDiv
     };
 
-    var ec1 = (extra && extra.ec1) || (r && r.ec1) || {
-      name: (emp && (emp.ECName || emp.ec_name)) || '',
-      relation: (emp && (emp.ECRelation || emp.ec_relation)) || '',
-      mobile: (emp && (emp.ECPhoneNumber || emp.ec_phone)) || ''
+    var ec1 = {
+      name: (emp && (emp.ec_name || emp.ECName)) || (extra && extra.ec1 && extra.ec1.name) || (r && r.ec1 && r.ec1.name) || '',
+      relation: (emp && (emp.ec_relation || emp.ECRelation)) || (extra && extra.ec1 && extra.ec1.relation) || (r && r.ec1 && r.ec1.relation) || '',
+      mobile: (emp && (emp.ec_phone || emp.ECPhoneNumber)) || (extra && extra.ec1 && (extra.ec1.mobile || extra.ec1.phone)) || (r && r.ec1 && (r.ec1.mobile || r.ec1.phone)) || '',
+      phone: (emp && (emp.ec_phone || emp.ECPhoneNumber)) || (extra && extra.ec1 && (extra.ec1.mobile || extra.ec1.phone)) || (r && r.ec1 && (r.ec1.mobile || r.ec1.phone)) || ''
     };
 
-    var ec2 = (extra && extra.ec2) || (r && r.ec2) || {
-      name: '',
-      relation: '',
-      mobile: ''
+    var ec2 = {
+      name: (emp && (emp.ec_name2 || emp.ECName2)) || (extra && extra.ec2 && extra.ec2.name) || (r && r.ec2 && r.ec2.name) || '',
+      relation: (emp && (emp.ec_relation2 || emp.ECRelation2)) || (extra && extra.ec2 && extra.ec2.relation) || (r && r.ec2 && r.ec2.relation) || '',
+      mobile: (emp && (emp.ec_phone2 || emp.ECPhoneNumber2)) || (extra && extra.ec2 && (extra.ec2.mobile || extra.ec2.phone)) || (r && r.ec2 && (r.ec2.mobile || r.ec2.phone)) || '',
+      phone: (emp && (emp.ec_phone2 || emp.ECPhoneNumber2)) || (extra && extra.ec2 && (extra.ec2.mobile || extra.ec2.phone)) || (r && r.ec2 && (r.ec2.mobile || r.ec2.phone)) || ''
     };
 
     var reference = (extra && extra.reference) || (r && r.reference) || {
@@ -1174,6 +1221,25 @@
       spousePhone: (emp && (emp.SpousePhoneNum || emp.spouse_phone)) || extra.spousePhone || (r ? r.spousePhone : ''),
       presentAddress: presentAddress,
       permanentAddress: permanentAddress,
+      division: presDiv,
+      district: presDist,
+      upazila: presUpz,
+      union: presUni,
+      village: presVil,
+      street: presStr,
+      thana: presUpz,
+      perm_division: permDiv,
+      perm_district: permDist,
+      perm_upazila: permUpz,
+      perm_union: permUni,
+      perm_village: permVil,
+      perm_street: permStr,
+      ec_name: ec1.name,
+      ec_relation: ec1.relation,
+      ec_phone: ec1.mobile,
+      ec_name2: ec2.name,
+      ec_relation2: ec2.relation,
+      ec_phone2: ec2.mobile,
       ec1: ec1,
       ec2: ec2,
       reference: reference,

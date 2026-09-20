@@ -6967,80 +6967,82 @@ async function submitTransfer(){
   const notes = document.getElementById('trNotes').value;
   if(!rid||!np||!td){ toast('Fill Employee, New Project, and Date', 'error'); return; }
 
-  const btn = event && event.target ? event.target : document.getElementById('btnSubmitTransfer');
-  if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
+  window.mtCustomConfirm("Confirm Transfer", "Are you sure you want to save this transfer record?", "primary", async function() {
+    const btn = event && event.target ? event.target : document.getElementById('btnSubmitTransfer');
+    if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
 
-  try {
-    let e = assertActiveEmp(rid);
-    if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeById === 'function') {
-      e = await window.MGHRM.fetchEmployeeById(rid);
-    }
-    if(!e){ throw new Error('Employee not found or inactive'); }
+    try {
+      let e = assertActiveEmp(rid);
+      if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeById === 'function') {
+        e = await window.MGHRM.fetchEmployeeById(rid);
+      }
+      if(!e){ throw new Error('Employee not found or inactive'); }
 
-    if (!window.sb) {
-      throw new Error('Database connection not established.');
-    }
+      if (!window.sb) {
+        throw new Error('Database connection not established.');
+      }
 
-    const isFuture = new Date(td) > new Date();
+      const isFuture = new Date(td) > new Date();
 
-    const targetProj = DATA.projects.find(p => p.ProjectName === np) || {};
-    const npBn = targetProj.ProjectNameBangla || targetProj.project_name_bn || '';
+      const targetProj = DATA.projects.find(p => p.ProjectName === np) || {};
+      const npBn = targetProj.ProjectNameBangla || targetProj.project_name_bn || '';
 
-    const payload = {
-      employee_sys_id: e.id,
-      employee_id: String(e.EmployeeID || e.id || ''),
-      employee_id_bn: String(e.EmployeeIDBangla || ''),
-      full_name: e.FullName || '',
-      full_name_bn: e.FullNameBn || e.FullNameBangla || '',
-      designation: e.Designation || '',
-      designation_bn: e.DesignationBangla || e.DesignationBn || '',
-      current_project: e.ProjectName || '',
-      current_project_bn: e.ProjectNameBangla || e.ProjectNameBn || '',
-      new_project: np,
-      new_project_bn: npBn,
-      transfer_date: td,
-      transfer_date_bn: td ? toBnDigits(td) : '',
-      issues_date: iss || '',
-      issues_date_bn: iss ? toBnDigits(iss) : '',
-      notes: notes || '',
-      status: isFuture ? 'Scheduled' : 'Completed'
-    };
-    
-    const { data: insertedTr, error: trErr } = await window.sb.from('transfers').insert([payload]).select();
-    if (trErr) throw trErr;
-    const insertedId = (insertedTr && insertedTr[0] && insertedTr[0].id) ? insertedTr[0].id : '';
-
-    if (!isFuture) {
-      const { error: empErr } = await window.sb.from('employees').update({
-        project_name: np
-      }).eq('id', e.id);
-      if (empErr) throw empErr;
-    }
-
-    if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
-      const freshData = await window.MGHRM.loadAll();
-      if (freshData) {
-          Object.keys(freshData).forEach(k => {
-            if (Array.isArray(freshData[k])) {
-              window.DATA[k] = freshData[k];
-            }
-          });
-        }
-    }
-    
-    logActivity('create', 'transfers', insertedId, `Transfer for ${e.FullName} to ${np}`);
-    toast(isFuture 
-      ? 'Scheduled — employee project NOT changed (edit on Employees tab)'
-      : `Completed — ${e.FullName} transferred to ${np}`, 'success');
+      const payload = {
+        employee_sys_id: e.id,
+        employee_id: String(e.EmployeeID || e.id || ''),
+        employee_id_bn: String(e.EmployeeIDBangla || ''),
+        full_name: e.FullName || '',
+        full_name_bn: e.FullNameBn || e.FullNameBangla || '',
+        designation: e.Designation || '',
+        designation_bn: e.DesignationBangla || e.DesignationBn || '',
+        current_project: e.ProjectName || '',
+        current_project_bn: e.ProjectNameBangla || e.ProjectNameBn || '',
+        new_project: np,
+        new_project_bn: npBn,
+        transfer_date: td,
+        transfer_date_bn: td ? toBnDigits(td) : '',
+        issues_date: iss || '',
+        issues_date_bn: iss ? toBnDigits(iss) : '',
+        notes: notes || '',
+        status: isFuture ? 'Scheduled' : 'Completed'
+      };
       
-    closeModal();
-    if (typeof refreshAll === 'function') refreshAll();
-  } catch (err) {
-    console.error(err);
-    toast('Error: ' + err.message, 'error');
-  } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = 'Submit'; }
-  }
+      const { data: insertedTr, error: trErr } = await window.sb.from('transfers').insert([payload]).select();
+      if (trErr) throw trErr;
+      const insertedId = (insertedTr && insertedTr[0] && insertedTr[0].id) ? insertedTr[0].id : '';
+
+      if (!isFuture) {
+        const { error: empErr } = await window.sb.from('employees').update({
+          project_name: np
+        }).eq('id', e.id);
+        if (empErr) throw empErr;
+      }
+
+      if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
+        const freshData = await window.MGHRM.loadAll();
+        if (freshData) {
+            Object.keys(freshData).forEach(k => {
+              if (Array.isArray(freshData[k])) {
+                window.DATA[k] = freshData[k];
+              }
+            });
+          }
+      }
+      
+      logActivity('create', 'transfers', insertedId, `Transfer for ${e.FullName} to ${np}`);
+      toast(isFuture 
+        ? 'Scheduled — employee project NOT changed (edit on Employees tab)'
+        : `Completed — ${e.FullName} transferred to ${np}`, 'success');
+        
+      closeModal();
+      if (typeof refreshAll === 'function') refreshAll();
+    } catch (err) {
+      console.error(err);
+      toast('Error: ' + err.message, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = 'Submit'; }
+    }
+  });
 }
 function reprintTransfer(id){
   const tr = DATA.transfers.find(x=>String(x.id)===String(id)); if(!tr) return;
@@ -7308,57 +7310,59 @@ async function submitDisciplinary(){
   const rid = document.getElementById('dcEmp').value;
   if(!rid){ toast('Select employee first','error'); return; }
   
-  const btn = event && event.target ? event.target : document.getElementById('btnSubmitDisc');
-  if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
+  window.mtCustomConfirm("Disciplinary Action", "Are you sure you want to save this disciplinary record?", "danger", async function() {
+    const btn = event && event.target ? event.target : document.getElementById('btnSubmitDisc');
+    if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
 
-  try {
-    let e = assertActiveEmp(rid);
-    if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeById === 'function') {
-      e = await window.MGHRM.fetchEmployeeById(rid);
+    try {
+      let e = assertActiveEmp(rid);
+      if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeById === 'function') {
+        e = await window.MGHRM.fetchEmployeeById(rid);
+      }
+      if(!e) throw new Error('Employee not found or inactive');
+      if(!window.sb) throw new Error('Database connection not established.');
+
+      const type = document.getElementById('dcType').value;
+      const newId = String(Date.now());
+      
+      const payload = {
+        action_id: newId,
+        ref_no: document.getElementById('dcRef').value || '',
+        employee_sys_id: e.id,
+        employee_id: String(e.EmployeeID || e.id || ''),
+        full_name: e.FullName || '',
+        designation: e.Designation || '',
+        project_name: e.ProjectName || '',
+        action_type: DC_TEMPLATES[type].label.en || '',
+        incident_date: document.getElementById('dcIncident').value || '',
+        issue_date: document.getElementById('dcIssue').value || '',
+        description: document.getElementById('dcDesc').value || ''
+      };
+      
+      const { error } = await window.sb.from('disciplinary').insert([payload]);
+      if (error) throw error;
+
+      if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
+        const freshData = await window.MGHRM.loadAll();
+        if (freshData) {
+            Object.keys(freshData).forEach(k => {
+              if (Array.isArray(freshData[k])) {
+                window.DATA[k] = freshData[k];
+              }
+            });
+          }
+      }
+      
+      toast(DC_TEMPLATES[type].label.en + ' saved successfully', 'success');
+      closeModal();
+      if (typeof refreshAll === 'function') refreshAll();
+    } catch (err) {
+      console.error(err);
+      toast('Disciplinary action failed: ' + err.message, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = 'Submit Action'; }
     }
-    if(!e) throw new Error('Employee not found or inactive');
-    if(!window.sb) throw new Error('Database connection not established.');
-
-    const type = document.getElementById('dcType').value;
-    const newId = String(Date.now());
-    
-    const payload = {
-      action_id: newId,
-      ref_no: document.getElementById('dcRef').value || '',
-      employee_sys_id: e.id,
-      employee_id: String(e.EmployeeID || e.id || ''),
-      full_name: e.FullName || '',
-      designation: e.Designation || '',
-      project_name: e.ProjectName || '',
-      action_type: DC_TEMPLATES[type].label.en || '',
-      incident_date: document.getElementById('dcIncident').value || '',
-      issue_date: document.getElementById('dcIssue').value || '',
-      description: document.getElementById('dcDesc').value || ''
-    };
-    
-    const { error } = await window.sb.from('disciplinary').insert([payload]);
-    if (error) throw error;
-
-    if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
-      const freshData = await window.MGHRM.loadAll();
-      if (freshData) {
-          Object.keys(freshData).forEach(k => {
-            if (Array.isArray(freshData[k])) {
-              window.DATA[k] = freshData[k];
-            }
-          });
-        }
-    }
-    
-    toast(DC_TEMPLATES[type].label.en + ' saved successfully', 'success');
-    closeModal();
-    if (typeof refreshAll === 'function') refreshAll();
-  } catch (err) {
-    console.error(err);
-    toast('Disciplinary action failed: ' + err.message, 'error');
-  } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = 'Submit Action'; }
-  }
+  });
 }
 function reprintDisc(id){
   const d = DATA.disciplinary.find(x=>String(x.ActionID||x.action_id||x.id)===String(id)); if(!d) return;
@@ -7852,65 +7856,67 @@ async function submitExit(){
   const r   = document.getElementById('exReason').value;
   if(!rid||!d||!r){ toast('Fill all required fields','error'); return; }
   
-  const btn = event && event.target ? event.target : document.getElementById('btnSubmitExit');
-  if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
+  window.mtCustomConfirm("Employee Exit", "Are you sure you want to save this exit record?", "danger", async function() {
+    const btn = event && event.target ? event.target : document.getElementById('btnSubmitExit');
+    if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
 
-  try {
-    let e = assertActiveEmp(rid);
-    if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeById === 'function') {
-      e = await window.MGHRM.fetchEmployeeById(rid);
+    try {
+      let e = assertActiveEmp(rid);
+      if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeById === 'function') {
+        e = await window.MGHRM.fetchEmployeeById(rid);
+      }
+      if(!e){ throw new Error('Employee not found or inactive'); }
+
+      if (!window.sb) {
+        throw new Error('Database connection not established.');
+      }
+
+      const newExitId = String(Date.now());
+      const exitPayload = {
+        exit_id: newExitId,
+        employee_sys_id: e.id,
+        employee_id: String(e.EmployeeID || e.id || ''),
+        full_name: e.FullName || '',
+        designation: e.Designation || '',
+        current_project: e.ProjectName || '',
+        join_date: e.JoinDate || '',
+        exit_reason: r,
+        exit_date: d,
+        issue_date: document.getElementById('exIssue').value || ''
+      };
+
+      const { error: exitErr } = await window.sb.from('exits').insert([exitPayload]);
+      if (exitErr) throw exitErr;
+
+      const { error: empErr } = await window.sb.from('employees').update({
+        status: 'Inactive',
+        exit_date: d,
+        exit_reason: r
+      }).eq('id', e.id);
+      if (empErr) throw empErr;
+
+      if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
+        const freshData = await window.MGHRM.loadAll();
+        if (freshData) {
+            Object.keys(freshData).forEach(k => {
+              if (Array.isArray(freshData[k])) {
+                window.DATA[k] = freshData[k];
+              }
+            });
+          }
+      }
+
+      logActivity('create','exits',newExitId,`${e.FullName} marked as Inactive (${r})`);
+      toast(`${e.FullName} marked as Inactive`,'success');
+      closeModal();
+      if (typeof refreshAll === 'function') refreshAll();
+    } catch(err) {
+      console.error(err);
+      toast('Error: ' + err.message, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = 'Submit'; }
     }
-    if(!e){ throw new Error('Employee not found or inactive'); }
-
-    if (!window.sb) {
-      throw new Error('Database connection not established.');
-    }
-
-    const newExitId = String(Date.now());
-    const exitPayload = {
-      exit_id: newExitId,
-      employee_sys_id: e.id,
-      employee_id: String(e.EmployeeID || e.id || ''),
-      full_name: e.FullName || '',
-      designation: e.Designation || '',
-      current_project: e.ProjectName || '',
-      join_date: e.JoinDate || '',
-      exit_reason: r,
-      exit_date: d,
-      issue_date: document.getElementById('exIssue').value || ''
-    };
-
-    const { error: exitErr } = await window.sb.from('exits').insert([exitPayload]);
-    if (exitErr) throw exitErr;
-
-    const { error: empErr } = await window.sb.from('employees').update({
-      status: 'Inactive',
-      exit_date: d,
-      exit_reason: r
-    }).eq('id', e.id);
-    if (empErr) throw empErr;
-
-    if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
-      const freshData = await window.MGHRM.loadAll();
-      if (freshData) {
-          Object.keys(freshData).forEach(k => {
-            if (Array.isArray(freshData[k])) {
-              window.DATA[k] = freshData[k];
-            }
-          });
-        }
-    }
-
-    logActivity('create','exits',newExitId,`${e.FullName} marked as Inactive (${r})`);
-    toast(`${e.FullName} marked as Inactive`,'success');
-    closeModal();
-    if (typeof refreshAll === 'function') refreshAll();
-  } catch(err) {
-    console.error(err);
-    toast('Error: ' + err.message, 'error');
-  } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = 'Submit'; }
-  }
+  });
 }
 function previewClearance(){
   const rid = document.getElementById('exEmp').value;
@@ -9842,164 +9848,170 @@ async function mtSubmitDay(iso, event){
   if(d.submitted && !d.unlocked){ toast('Already submitted','info'); return; }
   const presentProjs = Object.keys(d.present||{});
   const absentProjs = Object.keys(d.absent||{});
-  if(!presentProjs.length && !absentProjs.length && !d.meetingNote){
-    if(!confirm('No projects marked and meeting-note empty. Submit anyway?')) return;
-  }
   
-  const btn = event && event.target ? event.target : (document.getElementById('mtSubmitDayBtn') || null);
-  if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
+  let confirmMsg = "Are you sure you want to submit this meeting attendance?";
+  let confirmType = "primary";
+  if(!presentProjs.length && !absentProjs.length && !d.meetingNote){
+    confirmMsg = "No projects marked and meeting-note empty. Submit anyway?";
+    confirmType = "danger";
+  }
 
-  const loader = document.getElementById('mtSyncLoader');
+  window.mtCustomConfirm("Submit Meeting", confirmMsg, confirmType, async function() {
+    const btn = event && event.target ? event.target : (document.getElementById('mtSubmitDayBtn') || null);
+    if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
 
-  try {
-    // 1. INSTANT PAINT: Show loader immediately and yield to DOM
-    if (loader) loader.style.display = 'flex';
-    if (typeof window.mtUpdateLoader === 'function') {
-      window.mtUpdateLoader('Preparing Submission', 'Gathering meeting data...', 5);
-    }
-    // Crucial DOM yield so browser repaints before synchronous processing
-    await new Promise(r => setTimeout(r, 50));
+    const loader = document.getElementById('mtSyncLoader');
 
-    if (!window.sb) throw new Error('Database connection not established.');
+    try {
+      // 1. INSTANT PAINT: Show loader immediately and yield to DOM
+      if (loader) loader.style.display = 'flex';
+      if (typeof window.mtUpdateLoader === 'function') {
+        window.mtUpdateLoader('Preparing Submission', 'Gathering meeting data...', 5);
+      }
+      // Crucial DOM yield so browser repaints before synchronous processing
+      await new Promise(r => setTimeout(r, 50));
 
-    // 2. Prepare Meeting DB row
-    let meetingDbId;
-    const meetingId = 'MTG-' + Date.now();
-    const meetingPayload = {
-      meeting_id: meetingId,
-      meeting_date: iso,
-      title: 'Morning Coordination Meeting',
-      venue: 'HQ',
-      agenda: d.meetingNote || 'Daily routine check',
-      created_by: window.localStorage.getItem('mghrm_user') || 'Admin'
-    };
-    const { data: mData, error: mErr } = await window.sb.from('meetings').insert([meetingPayload]).select();
-    if (mErr) throw mErr;
-    meetingDbId = mData && mData[0] ? (mData[0].meeting_id || mData[0].id) : meetingId;
+      if (!window.sb) throw new Error('Database connection not established.');
 
-    // 3. Prepare all To-Do notes array
-    const pendingNotes = [];
-    Object.entries(d.notes||{}).forEach(([proj, val]) => {
-      const nList = Array.isArray(val) ? val : (val ? [String(val)] : []);
-      nList.forEach(singleNote => {
-        const s = String(singleNote || '').trim();
-        if(s){
-          pendingNotes.push({
-            project: proj,
-            who: 'Meeting — ' + iso,
-            note: s,
-            date: iso,
-            status: 'pending',
-            source: 'meeting',
-            sourceDate: iso
-          });
-        }
+      // 2. Prepare Meeting DB row
+      let meetingDbId;
+      const meetingId = 'MTG-' + Date.now();
+      const meetingPayload = {
+        meeting_id: meetingId,
+        meeting_date: iso,
+        title: 'Morning Coordination Meeting',
+        venue: 'HQ',
+        agenda: d.meetingNote || 'Daily routine check',
+        created_by: window.localStorage.getItem('mghrm_user') || 'Admin'
+      };
+      const { data: mData, error: mErr } = await window.sb.from('meetings').insert([meetingPayload]).select();
+      if (mErr) throw mErr;
+      meetingDbId = mData && mData[0] ? (mData[0].meeting_id || mData[0].id) : meetingId;
+
+      // 3. Prepare all To-Do notes array
+      const pendingNotes = [];
+      Object.entries(d.notes||{}).forEach(([proj, val]) => {
+        const nList = Array.isArray(val) ? val : (val ? [String(val)] : []);
+        nList.forEach(singleNote => {
+          const s = String(singleNote || '').trim();
+          if(s){
+            pendingNotes.push({
+              project: proj,
+              who: 'Meeting — ' + iso,
+              note: s,
+              date: iso,
+              status: 'pending',
+              source: 'meeting',
+              sourceDate: iso
+            });
+          }
+        });
       });
-    });
 
-    DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
-    if (!DATA.todos._isCrudProxied && window.MGHRM && typeof window.MGHRM.bindDirectCrudProxy === 'function') {
-      window.MGHRM.bindDirectCrudProxy(DATA.todos, 'todos');
-    }
+      DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
+      if (!DATA.todos._isCrudProxied && window.MGHRM && typeof window.MGHRM.bindDirectCrudProxy === 'function') {
+        window.MGHRM.bindDirectCrudProxy(DATA.todos, 'todos');
+      }
 
-    // Loop through pendingNotes asynchronously
-    if (pendingNotes.length > 0) {
-      for(let i = 0; i < pendingNotes.length; i++) {
-        const pct = 10 + Math.round(((i + 1) / pendingNotes.length) * 30);
+      // Loop through pendingNotes asynchronously
+      if (pendingNotes.length > 0) {
+        for(let i = 0; i < pendingNotes.length; i++) {
+          const pct = 10 + Math.round(((i + 1) / pendingNotes.length) * 30);
+          if (typeof window.mtUpdateLoader === 'function') {
+            window.mtUpdateLoader('Syncing To-Do List', `Sending note ${i + 1} of ${pendingNotes.length}`, pct);
+          }
+          
+          pendingNotes[i].id = Date.now() + (i * 10000) + Math.floor(Math.random() * 9999);
+          DATA.todos.unshift(pendingNotes[i]);
+          persist(); // Trigger storage/sync
+          await new Promise(r => setTimeout(r, 100)); // DB rate limit safety
+        }
+      }
+
+      // 4. Prepare all attendance records array
+      const eligibleMap = mtEligible();
+      const eligibleProjs = Object.keys(eligibleMap).sort((a,b)=>a.localeCompare(b));
+      const targetProjs = eligibleProjs.length > 0
+        ? eligibleProjs
+        : Array.from(new Set([...presentProjs, ...absentProjs]));
+
+      const attendanceRecords = targetProjs.map(proj => {
+        const activeEmps = (window.DATA.employees || []).filter(e => e.Status === 'Active' && e.ProjectName === proj);
+        const savedRep = d.representatives && d.representatives[proj];
+        const rep = savedRep || activeEmps.find(e => (e.Designation||'').toLowerCase().includes('supervisor') || (e.Designation||'').toLowerCase().includes('incharge')) || activeEmps[0] || {};
+        
+        const projNotes = (d.notes && d.notes[proj]) || [];
+        const remarksStr = Array.isArray(projNotes) 
+          ? projNotes.join(' | ') 
+          : (typeof projNotes === 'string' ? projNotes.trim() : '');
+
+        return {
+          meeting_id: meetingDbId,
+          employee_id: String(rep.id || rep.EmployeeID || rep.employee_id || ''),
+          full_name: rep.FullName || rep.fullName || rep.name || '',
+          designation: rep.Designation || rep.designation || '',
+          project_name: proj,
+          status: d.present[proj] ? 'Present' : (d.absent[proj] ? 'Absent' : 'Absent'),
+          remarks: remarksStr
+        };
+      });
+
+      // Loop through attendance records asynchronously
+      for(let i = 0; i < attendanceRecords.length; i++) {
+        const pct = 40 + Math.round(((i + 1) / (attendanceRecords.length || 1)) * 60);
         if (typeof window.mtUpdateLoader === 'function') {
-          window.mtUpdateLoader('Syncing To-Do List', `Sending note ${i + 1} of ${pendingNotes.length}`, pct);
+          window.mtUpdateLoader('Saving Attendance', `Loading data to server: ${i + 1} / ${attendanceRecords.length}`, pct);
         }
         
-        pendingNotes[i].id = Date.now() + (i * 10000) + Math.floor(Math.random() * 9999);
-        DATA.todos.unshift(pendingNotes[i]);
-        persist(); // Trigger storage/sync
+        const attItem = attendanceRecords[i];
+        const { error: attErr } = await window.sb.from('meeting_attendance').insert([attItem]);
+        if (attErr) throw attErr;
+
         await new Promise(r => setTimeout(r, 100)); // DB rate limit safety
       }
-    }
 
-    // 4. Prepare all attendance records array
-    const eligibleMap = mtEligible();
-    const eligibleProjs = Object.keys(eligibleMap).sort((a,b)=>a.localeCompare(b));
-    const targetProjs = eligibleProjs.length > 0
-      ? eligibleProjs
-      : Array.from(new Set([...presentProjs, ...absentProjs]));
-
-    const attendanceRecords = targetProjs.map(proj => {
-      const activeEmps = (window.DATA.employees || []).filter(e => e.Status === 'Active' && e.ProjectName === proj);
-      const savedRep = d.representatives && d.representatives[proj];
-      const rep = savedRep || activeEmps.find(e => (e.Designation||'').toLowerCase().includes('supervisor') || (e.Designation||'').toLowerCase().includes('incharge')) || activeEmps[0] || {};
-      
-      const projNotes = (d.notes && d.notes[proj]) || [];
-      const remarksStr = Array.isArray(projNotes) 
-        ? projNotes.join(' | ') 
-        : (typeof projNotes === 'string' ? projNotes.trim() : '');
-
-      return {
-        meeting_id: meetingDbId,
-        employee_id: String(rep.id || rep.EmployeeID || rep.employee_id || ''),
-        full_name: rep.FullName || rep.fullName || rep.name || '',
-        designation: rep.Designation || rep.designation || '',
-        project_name: proj,
-        status: d.present[proj] ? 'Present' : (d.absent[proj] ? 'Absent' : 'Absent'),
-        remarks: remarksStr
-      };
-    });
-
-    // Loop through attendance records asynchronously
-    for(let i = 0; i < attendanceRecords.length; i++) {
-      const pct = 40 + Math.round(((i + 1) / (attendanceRecords.length || 1)) * 60);
-      if (typeof window.mtUpdateLoader === 'function') {
-        window.mtUpdateLoader('Saving Attendance', `Loading data to server: ${i + 1} / ${attendanceRecords.length}`, pct);
+      // Keep memory in sync
+      if (window.DATA) {
+        if (!Array.isArray(window.DATA.meetingAttendance)) window.DATA.meetingAttendance = [];
+        window.DATA.meetingAttendance = window.DATA.meetingAttendance.filter(r => r.meeting_id !== meetingDbId);
+        attendanceRecords.forEach(a => window.DATA.meetingAttendance.push(a));
+        window.DATA.meeting_attendance = window.DATA.meetingAttendance;
       }
-      
-      const attItem = attendanceRecords[i];
-      const { error: attErr } = await window.sb.from('meeting_attendance').insert([attItem]);
-      if (attErr) throw attErr;
 
-      await new Promise(r => setTimeout(r, 100)); // DB rate limit safety
+      if (typeof window.mtUpdateLoader === 'function') {
+        window.mtUpdateLoader('Completed', 'All data successfully saved', 100);
+      }
+      await new Promise(r => setTimeout(r, 100));
+      if (loader) loader.style.display = 'none';
+
+      d.submitted = true;
+      d.isEditing = false;
+      d.wasSubmitted = true;
+      d.submittedAt = new Date().toISOString();
+      delete d.unlocked;
+
+      DATA.meetings[iso].submitted = true;
+      DATA.meetings[iso].submittedAt = d.submittedAt;
+      DATA.meetings[iso].isEditing = false;
+      DATA.meetings[iso].wasSubmitted = true;
+      delete DATA.meetings[iso].unlocked;
+      window.mtOriginalState = {};
+
+      persist(); 
+      renderMeeting(); 
+      if(typeof renderTodo==='function') renderTodo();
+      if(typeof updateTodoBadge==='function') updateTodoBadge();
+      toast(`Today's meeting submitted — ${num(pendingNotes.length)} follow-ups added to To-Do`, 'success');
+
+    } catch (err) {
+      console.error(err);
+      if (loader) loader.style.display = 'none';
+      toast('Error submitting meeting: ' + err.message, 'error');
+    } finally {
+      if (loader) loader.style.display = 'none';
+      if (btn) { btn.disabled = false; btn.innerHTML = ico('check') + " Submit Today's Meeting"; }
     }
-
-    // Keep memory in sync
-    if (window.DATA) {
-      if (!Array.isArray(window.DATA.meetingAttendance)) window.DATA.meetingAttendance = [];
-      window.DATA.meetingAttendance = window.DATA.meetingAttendance.filter(r => r.meeting_id !== meetingDbId);
-      attendanceRecords.forEach(a => window.DATA.meetingAttendance.push(a));
-      window.DATA.meeting_attendance = window.DATA.meetingAttendance;
-    }
-
-    if (typeof window.mtUpdateLoader === 'function') {
-      window.mtUpdateLoader('Completed', 'All data successfully saved', 100);
-    }
-    await new Promise(r => setTimeout(r, 100));
-    if (loader) loader.style.display = 'none';
-
-    d.submitted = true;
-    d.isEditing = false;
-    d.wasSubmitted = true;
-    d.submittedAt = new Date().toISOString();
-    delete d.unlocked;
-
-    DATA.meetings[iso].submitted = true;
-    DATA.meetings[iso].submittedAt = d.submittedAt;
-    DATA.meetings[iso].isEditing = false;
-    DATA.meetings[iso].wasSubmitted = true;
-    delete DATA.meetings[iso].unlocked;
-    window.mtOriginalState = {};
-
-    persist(); 
-    renderMeeting(); 
-    if(typeof renderTodo==='function') renderTodo();
-    if(typeof updateTodoBadge==='function') updateTodoBadge();
-    toast(`Today's meeting submitted — ${num(pendingNotes.length)} follow-ups added to To-Do`, 'success');
-
-  } catch (err) {
-    console.error(err);
-    if (loader) loader.style.display = 'none';
-    toast('Error submitting meeting: ' + err.message, 'error');
-  } finally {
-    if (loader) loader.style.display = 'none';
-    if (btn) { btn.disabled = false; btn.innerHTML = ico('check') + " Submit Today's Meeting"; }
-  }
+  });
 }
 
 async function mtUpdateDay(iso) {
@@ -11536,10 +11548,10 @@ async function unifSubmit(event){
   
   if(!rid || !itm || !qty || !dt){ toast('Fill Employee, Item, Qty, Date','error'); return; }
 
-  const btn = event && event.target ? event.target : null;
-  if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
+  window.mtCustomConfirm("Assign Uniform", "Are you sure you want to save this uniform record?", "primary", async function() {
+    const btn = event && event.target ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
 
-  (async function() {
     try {
       let e = assertActiveEmp(rid);
       if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeById === 'function') {
@@ -11596,7 +11608,7 @@ async function unifSubmit(event){
     } finally {
       if (btn) { btn.disabled = false; btn.innerHTML = ico('plus') + ' Issue Item'; }
     }
-  })();
+  });
 }
 function unifSet(id, field, value){
   if(!guardEdit()) return;
@@ -11633,10 +11645,12 @@ function unifRemoveAsk(id){
 }
 function unifRemove(id){
   if(!guardEdit()) return;
-  const i = DATA.uniformOrders.findIndex(x=>x.id===id);
-  if(i>-1) DATA.uniformOrders.splice(i,1);
-  closeModal(); persist(); renderUniform();
-  toast('Order deleted','success');
+  window.mtCustomConfirm("Delete Uniform Record", "Are you sure you want to delete this uniform order?", "danger", function() {
+    const i = DATA.uniformOrders.findIndex(x=>x.id===id);
+    if(i>-1) DATA.uniformOrders.splice(i,1);
+    closeModal(); persist(); renderUniform();
+    toast('Order deleted','success');
+  });
 }
 
 function printUniform(kind){
@@ -12002,23 +12016,25 @@ window.mtToggleTodoStatus = function(id) {
 };
 
 window.delTodo = function(id) {
-  DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
-  DATA.todos = DATA.todos.filter(function(x){ return String(x.id) !== String(id); });
-  
-  // Remove from Supabase immediately
-  if (window.appData && typeof window.appData.remove === 'function') {
-    window.appData.remove('todos', id).catch(function(err){
-      console.error('Error removing todo from Supabase:', err);
-    });
-  } else if (window.sb) {
-    window.sb.from('todos').delete().eq('id', id).catch(function(err){
-      console.error('Error deleting todo directly:', err);
-    });
-  }
+  window.mtCustomConfirm("Delete Note", "Are you sure you want to permanently delete this note?", "danger", function() {
+    DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
+    DATA.todos = DATA.todos.filter(function(x){ return String(x.id) !== String(id); });
+    
+    // Remove from Supabase immediately
+    if (window.appData && typeof window.appData.remove === 'function') {
+      window.appData.remove('todos', id).catch(function(err){
+        console.error('Error removing todo from Supabase:', err);
+      });
+    } else if (window.sb) {
+      window.sb.from('todos').delete().eq('id', id).catch(function(err){
+        console.error('Error deleting todo directly:', err);
+      });
+    }
 
-  persist();
-  renderTodo();
-  if (typeof updateTodoBadge === 'function') updateTodoBadge();
+    persist();
+    renderTodo();
+    if (typeof updateTodoBadge === 'function') updateTodoBadge();
+  });
 };
 
 window.printTodos = function() {

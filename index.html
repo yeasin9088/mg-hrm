@@ -14336,20 +14336,12 @@ setInterval(()=>checkPendingToast(true), 180000);
   }
 
   
-  var signupMode = false;
   function showLogin(){
     el('loginFields').style.display = '';
     el('authFoot').style.display = '';
     show('setupGate', false);
     show('authGate', true);
     setTimeout(function () { var e = el('authEmail'); if (e) e.focus(); }, 120);
-  }
-  function switchMode(on){
-    signupMode = on;
-    el('authSub').textContent = on ? 'Create a new account' : 'Sign in to continue';
-    el('authGo').textContent = on ? 'Create account' : 'Login';
-    el('authSwitch').textContent = on ? 'Already have an account? Login' : 'Create new account';
-    clearMsg('authMsg');
   }
   function doLogin(){
     var em = el('authEmail').value.trim(), pw = el('authPass').value;
@@ -14376,33 +14368,6 @@ setInterval(()=>checkPendingToast(true), 180000);
       else if (/Email not confirmed/i.test(t)) t = 'Click the confirmation link in your email first';
       msg('authMsg', t, 'err');
       b.disabled = false; b.textContent = 'Login';
-    });
-  }
-  function doSignup(){
-    var em = el('authEmail').value.trim(), pw = el('authPass').value;
-    if (!em || !pw) { msg('authMsg','Enter both email and password','err'); return; }
-    if (pw.length < 6) { msg('authMsg','Password must be at least 6 characters','err'); return; }
-    var b = el('authGo'); b.disabled = true;
-    b.innerHTML = '<span class="spin"></span>Creating…';
-
-    var ensureReady = Promise.resolve();
-    if (!G || !G.isReady()) {
-      var c = savedCfg();
-      if (c && G && typeof G.connect === 'function') {
-        ensureReady = G.connect(c);
-      }
-    }
-
-    ensureReady.then(function(){
-      return G.signUp(em, pw, em);
-    }).then(function(r){
-      b.disabled = false; b.textContent = 'Login';
-      if (r && r.session) { return startApp(); }
-      msg('authMsg','Account created. Click the confirmation link in your email, then login.','ok');
-      switchMode(false);
-    }).catch(function(e){
-      b.disabled = false; b.textContent = 'Login';
-      msg('authMsg', e.message || 'Account creation failed','err');
     });
   }
 
@@ -14500,7 +14465,7 @@ setInterval(()=>checkPendingToast(true), 180000);
   });
   document.addEventListener('keydown', function(e){
     if (e.key !== 'Enter') return;
-    if (el('authGate').className === 'show' && !signupMode) doLogin();
+    if (el('authGate').className === 'show') doLogin();
   });
 
   document.addEventListener('input', handleFilledState, true);

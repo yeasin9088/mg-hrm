@@ -1642,15 +1642,15 @@ body.sidebar-open {
 .addr-cascade-modern .ac-opt b { font-size:13px; color:#1e1b4b; font-weight:600; }
 .addr-cascade-modern .ac-opt .ac-alt { font-size:11px; color:#94a3b8; }
 .addr-cascade-modern .ac-empty { padding:14px; text-align:center; color:#94a3b8; font-size:12.5px; }
-.addr-cascade-modern .ac-chips { min-height:36px; padding:8px 10px; background:#fafbff;
-  border:1px dashed #cbd5e1; border-radius:8px; }
+.addr-cascade-modern .ac-chips { min-height:36px; padding:8px 10px; background:var(--primary-soft, #eef2ff);
+  border:1px solid rgba(79,70,229,.2); border-radius:8px; }
 .addr-cascade-modern .ac-chip-line { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
 .addr-cascade-modern .ac-chip { display:inline-flex; align-items:center; padding:4px 10px; font-size:12px;
-  font-weight:600; background:linear-gradient(135deg,#4f46e5,#7c3aed); color:#fff; border-radius:12px;
-  box-shadow:0 2px 6px rgba(79,70,229,.22); animation:acChipIn .25s ease; }
+  font-weight:600; background:var(--primary-soft, #eef2ff); color:var(--primary, #3730a3); border:1px solid rgba(79,70,229,.25); border-radius:6px;
+  box-shadow:0 1px 3px rgba(0,0,0,.05); animation:acChipIn .25s ease; }
 @keyframes acChipIn { from{opacity:0; transform:scale(.85);} to{opacity:1; transform:scale(1);} }
-.addr-cascade-modern .ac-arrow { color:#94a3b8; font-size:14px; font-weight:700; }
-.addr-cascade-modern .ac-chip-hint { font-size:12px; color:#94a3b8; text-align:center; padding:4px; }
+.addr-cascade-modern .ac-arrow { color:var(--primary, #4f46e5); font-size:14px; font-weight:700; }
+.addr-cascade-modern .ac-chip-hint { font-size:12px; color:var(--text-mute, #64748b); text-align:center; padding:4px; }
 
 
 .glass-card { background:rgba(255,255,255,.7); backdrop-filter:blur(10px);
@@ -2976,6 +2976,54 @@ async function fetchEmployeesDirectly() {
 }
 window.fetchEmployeesDirectly = fetchEmployeesDirectly;
 
+async function fetchLeaves() {
+  const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
+                || (window.MGHRM && window.MGHRM.sb)
+                || window.sb
+                || (typeof sb !== 'undefined' ? sb : null);
+  if (!sbClient) return DATA.leaves || [];
+  try {
+    const { data, error } = await sbClient.from('leaves').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    if (Array.isArray(data)) {
+      DATA.leaves = data.map(r => (window.MGHRM && typeof window.MGHRM.fromDb === 'function') ? window.MGHRM.fromDb('leaves', r) : r);
+      return DATA.leaves;
+    }
+  } catch (err) {
+    console.warn('Network offline, falling back to local cache.', err);
+    if (typeof toast === 'function') toast('You are offline. Showing cached data.', 'warning');
+    return DATA.leaves || [];
+  }
+  return DATA.leaves || [];
+}
+window.fetchLeaves = fetchLeaves;
+window.fetchLeavesDirectly = fetchLeaves;
+
+async function fetchMeetingAttendance() {
+  const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
+                || (window.MGHRM && window.MGHRM.sb)
+                || window.sb
+                || (typeof sb !== 'undefined' ? sb : null);
+  if (!sbClient) return DATA.meetingAttendance || [];
+  try {
+    const { data, error } = await sbClient.from('meeting_attendance').select('*');
+    if (error) throw error;
+    if (Array.isArray(data)) {
+      const parsed = data.map(r => (window.MGHRM && typeof window.MGHRM.fromDb === 'function') ? window.MGHRM.fromDb('meetingAttendance', r) : r);
+      DATA.meetingAttendance = parsed;
+      DATA.meeting_attendance = parsed;
+      return DATA.meetingAttendance;
+    }
+  } catch (err) {
+    console.warn('Network offline, falling back to local cache.', err);
+    if (typeof toast === 'function') toast('You are offline. Showing cached data.', 'warning');
+    return DATA.meetingAttendance || [];
+  }
+  return DATA.meetingAttendance || [];
+}
+window.fetchMeetingAttendance = fetchMeetingAttendance;
+window.fetchMeetingAttendanceDirectly = fetchMeetingAttendance;
+
 function handleEmployeeRealtimeUpdate(payload) {
   if (!payload || payload.table !== 'employees') return;
   const eventType = payload.eventType;
@@ -3081,6 +3129,14 @@ async function deleteEmployeeDirectly(empKey) {
 }
 window.deleteEmployeeDirectly = deleteEmployeeDirectly;
 
+let searchDebounceTimer;
+window.debouncedRenderEmpTable = function() {
+  clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(() => {
+    if (typeof renderEmpTable === 'function') renderEmpTable();
+  }, 250);
+};
+
 async function renderEmployees(){
   const page = document.getElementById('page-employees');
   if(!page) return;
@@ -3099,7 +3155,7 @@ async function renderEmployees(){
         </div>
         <div class="card-body">
           <div class="search-row">
-            <input type="text" id="empSearch" placeholder="${'Search name, ID, phone…'}" oninput="renderEmpTable()">
+            <input type="text" id="empSearch" placeholder="${'Search name, ID, phone…'}" oninput="debouncedRenderEmpTable()">
             <select id="empProjectFilter" onchange="renderEmpTable()"></select>
             <select id="empDesigFilter" onchange="renderEmpTable()"><option value="">${'All Designations'}</option></select>
             <select id="empStatusFilter" onchange="renderEmpTable()">
@@ -3148,6 +3204,18 @@ async function renderEmployees(){
       `<option value="">${'All Designations'}</option>` +
       usageSortedOptions(DESIGNATIONS, desigUsageCounts()).map(d=>`<option value="${d}">${d}</option>`).join('');
   }
+
+  const empSearchInput = document.getElementById('empSearch');
+  if (empSearchInput && !empSearchInput.__debounced) {
+    empSearchInput.__debounced = true;
+    empSearchInput.addEventListener('input', function() {
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => {
+        if (typeof renderEmpTable === 'function') renderEmpTable();
+      }, 250);
+    });
+  }
+
   renderEmpTable();
 
   // Direct fetch from Supabase (mirroring golden projects pattern)
@@ -3212,6 +3280,15 @@ function renderEmpTable(){
     ? `${num(rows.length)} / ${num(DATA.employees.length)} ${'employees'} — <strong style="color:var(--success)">✓ ${'ticked'}: ${num(VERIFY_TICKS.size)}</strong> <span class="small-mute">(${'tick only — no other action'})</span>`
     : `${num(rows.length)} / ${num(DATA.employees.length)} ${'employees'}`;
   document.querySelectorAll('#empTable .tickcol').forEach(el=>el.style.display = VERIFY_MODE?'':'none');
+
+  const tbody = document.getElementById('empTableBody');
+  if (!tbody) return;
+
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="15" style="text-align:center; padding:40px 20px; color:var(--text-mute); font-size:0.95rem;">No matching records found.</td></tr>`;
+    return;
+  }
+
   const html = rows.map((e,i)=>{
     const empKey = String(e.id != null && e.id !== '' ? e.id : (e.EmployeeID != null ? e.EmployeeID : ''));
     const isTicked = isEmpVerifyTicked(e);
@@ -3243,7 +3320,7 @@ function renderEmpTable(){
       <td><button class="btn sm ghost" onclick="event.stopPropagation();openEmpDetail('${escapeHtml(empKey)}')">${'View'}</button></td>
     </tr>
   `;}).join('');
-  document.getElementById('empTableBody').innerHTML = html + (rows.length>200 ?
+  tbody.innerHTML = html + (rows.length>200 ?
     `<tr><td colspan="${VERIFY_MODE ? 11 : 10}" style="text-align:center;padding:16px" class="small-mute">${'... '+(rows.length-200)+' more — narrow the filter'}</td></tr>` : '');
 }
 function initials(name){ return (name||'?').split(/\s+/).map(w=>w[0]||'').slice(0,2).join('').toUpperCase(); }
@@ -4105,6 +4182,18 @@ function openApplicantForm(empKey){
     window.currentRecruitId = existing.id;
     currentRecruitId = existing.id;
   }
+  let existingRemarks = {};
+  if (existing) {
+    try {
+      if (existing.Remarks && typeof existing.Remarks === 'string' && existing.Remarks.startsWith('{')) {
+        existingRemarks = JSON.parse(existing.Remarks);
+      } else if (existing.remarks && typeof existing.remarks === 'string' && existing.remarks.startsWith('{')) {
+        existingRemarks = JSON.parse(existing.remarks);
+      } else if (existing.remarks && typeof existing.remarks === 'object') {
+        existingRemarks = existing.remarks;
+      }
+    } catch(e) {}
+  }
 
   const tab = (id,label,active=false)=>`<div class="tab ${active?'active':''}" id="natab-${id}" onclick="switchTab('naTabs','${id}');naRefreshPrimary()">${label}</div>`;
   const fld = (id,label,type='text',placeholder='',val='',opts='')=>`<div class="field"><label>${label}</label>${opts?`<select id="na_${id}">${opts}</select>`:type==='textarea'?`<textarea id="na_${id}" rows="2" placeholder="${placeholder}">${escapeHtml(val)}</textarea>`:`<input id="na_${id}" type="${type}" placeholder="${placeholder}" value="${escapeHtml(String(val))}">`}</div>`;
@@ -4125,6 +4214,11 @@ function openApplicantForm(empKey){
   
   const marStat = existing ? (existing.MaritalStatus || existing.marital_status || '') : (cand ? cand.maritalStatus : '');
   const marOpts = `<option ${marStat==='Unmarried'?'selected':''}>Unmarried</option><option ${marStat==='Married'?'selected':''}>Married</option>`;
+
+  const refNameVal = existing ? (existing.ReferenceName || existing.reference_name || (existing.reference && existing.reference.name) || (existingRemarks.reference && existingRemarks.reference.name) || '') : (cand && cand.reference ? cand.reference.name : '');
+  const refDesigVal = existing ? (existing.ReferenceDesig || existing.ReferenceDesignation || existing.reference_desig || (existing.reference && existing.reference.desig) || (existingRemarks.reference && existingRemarks.reference.desig) || '') : (cand && cand.reference ? cand.reference.desig : '');
+  const refOrgVal = existing ? (existing.ReferenceOrg || existing.ReferenceOrganization || existing.reference_org || (existing.reference && existing.reference.org) || (existingRemarks.reference && existingRemarks.reference.org) || '') : (cand && cand.reference ? cand.reference.org : '');
+  const refMobileVal = existing ? (existing.ReferenceMobile || existing.reference_mobile || (existing.reference && existing.reference.mobile) || (existingRemarks.reference && existingRemarks.reference.mobile) || '') : (cand && cand.reference ? cand.reference.mobile : '');
 
   openModal(isEdit ? (bn?'কর্মী সম্পাদনা — রিক্রুটমেন্ট ফর্ম':'Edit Employee — Full Recruitment Form') : 'New Candidate Entry — Full Data Entry', `
     <p class="small-mute" style="margin-bottom:12px">${isEdit ? 'Update employee details across all sections using the comprehensive recruitment form. Changes sync directly to Supabase while preserving status.' : 'Fill the form in English — only the candidate name is also kept in Bangla (needed for official letters). On submit the candidate moves to "Data Entry" and 3 forms become printable.'}</p>
@@ -4156,9 +4250,6 @@ function openApplicantForm(empKey){
         <div class="field" id="naSpouseNameWrap" style="display:${marStat==='Married'?'':'none'}"><label>Spouse Name</label><input id="na_spouse" type="text" value="${escapeHtml(existing ? (existing.SpouseName||existing.spouse_name||existing.spouse||'') : (cand ? (cand.spouse||'') : ''))}"></div>
         <div class="field" id="naSpouseMobileWrap" style="display:${marStat==='Married'?'':'none'}"><label>Spouse Mobile</label><input id="na_spouseMobile" type="text" placeholder="01XXXXXXXXX" value="${escapeHtml(existing ? (existing.SpousePhoneNum||existing.spouse_phone||existing.spousePhone||'') : (cand ? (cand.spousePhone||'') : ''))}"></div>
       </div>
-      <div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--border,#e2e8f0);display:flex;justify-content:flex-end;align-items:center;gap:10px">
-        <button type="button" class="btn primary" id="btnSaveBasicInfo" onclick="saveBasicInfoAndContinue()">${isEdit ? 'Update &amp; Continue →' : 'Save &amp; Continue →'}</button>
-      </div>
     </div>
     <div id="tab-naAddr" class="tab-panel">
       <h4 style="font-size:13px;margin-bottom:8px">Present Address</h4>
@@ -4176,9 +4267,6 @@ function openApplicantForm(empKey){
         <div class="field"><label>Village / Area</label><input id="na_permV" type="text" list="na_permVList" placeholder="Type village name" value="${escapeHtml(existing ? (existing.perm_village||existing.PermVillage||(existing.permanentAddress&&existing.permanentAddress.village)||existing.village||existing.Village||'') : (cand ? (cand.perm_village||(cand.permanentAddress&&cand.permanentAddress.village)||'') : ''))}"><datalist id="na_permVList"></datalist></div>
         <div class="field"><label>Street / House / Road</label><input id="na_permstreet" type="text" placeholder="House 12, Road 5" value="${escapeHtml(existing ? (existing.perm_street||existing.PermStreet||(existing.permanentAddress&&existing.permanentAddress.street)||existing.street||existing.Street||'') : (cand ? (cand.perm_street||(cand.permanentAddress&&cand.permanentAddress.street)||'') : ''))}"></div>
       </div>
-      <div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--border,#e2e8f0);display:flex;justify-content:flex-end;align-items:center;gap:10px">
-        <button type="button" class="btn primary" id="btnSaveAddress" onclick="saveAddressAndContinue()">${isEdit ? 'Update &amp; Continue →' : 'Save &amp; Continue →'}</button>
-      </div>
     </div>
     <div id="tab-naEc" class="tab-panel">
       <h4 style="font-size:13px;margin-bottom:8px">Emergency Contact 1</h4>
@@ -4194,19 +4282,13 @@ function openApplicantForm(empKey){
         ${fld('ec2r','Relation','text','',existing ? (existing.ec_relation2||existing.ECRelation2||(existing.ec2&&existing.ec2.relation)||'') : (cand ? (cand.ec_relation2||(cand.ec2&&cand.ec2.relation)||'') : ''))}
         ${fld('ec2m','Mobile','text','01XXXXXXXXX',existing ? (existing.ec_phone2||existing.ECPhoneNumber2||(existing.ec2&&existing.ec2.mobile)||'') : (cand ? (cand.ec_phone2||(cand.ec2&&cand.ec2.mobile)||'') : ''))}
       </div>
-      <div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--border,#e2e8f0);display:flex;justify-content:flex-end;align-items:center;gap:10px">
-        <button type="button" class="btn primary" id="btnSaveEmergency" onclick="saveEmergencyAndContinue()">${isEdit ? 'Update &amp; Continue →' : 'Save &amp; Continue →'}</button>
-      </div>
     </div>
     <div id="tab-naRef" class="tab-panel">
       <div class="form-grid">
-        ${fld('rfn','Reference Name','text','','',existing ? (existing.ReferenceName||(existing.reference&&existing.reference.name)||'') : (cand && cand.reference ? cand.reference.name : ''))}
-        ${fld('rfd','Designation','text','','',existing ? (existing.ReferenceDesig||(existing.reference&&existing.reference.desig)||'') : (cand && cand.reference ? cand.reference.desig : ''))}
-        ${fld('rfo','Organization','text','','',existing ? (existing.ReferenceOrg||(existing.reference&&existing.reference.org)||'') : (cand && cand.reference ? cand.reference.org : ''))}
-        ${fld('rfm','Mobile','text','01XXXXXXXXX',existing ? (existing.ReferenceMobile||(existing.reference&&existing.reference.mobile)||'') : (cand && cand.reference ? cand.reference.mobile : ''))}
-      </div>
-      <div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--border,#e2e8f0);display:flex;justify-content:flex-end;align-items:center;gap:10px">
-        <button type="button" class="btn primary" id="btnSaveReferences" onclick="saveReferencesAndContinue()">${isEdit ? 'Update &amp; Continue →' : 'Save &amp; Continue →'}</button>
+        ${fld('rfn','Reference Name','text','',refNameVal)}
+        ${fld('rfd','Designation','text','',refDesigVal)}
+        ${fld('rfo','Organization','text','',refOrgVal)}
+        ${fld('rfm','Mobile','text','01XXXXXXXXX',refMobileVal)}
       </div>
     </div>
     <div id="tab-naJob" class="tab-panel">
@@ -4227,9 +4309,6 @@ function openApplicantForm(empKey){
         <div style="background:var(--bg-dim);border-radius:8px;padding:8px 10px"><div class="small-mute" style="font-size:10.5px">Others (10%)</div><div id="na_bOth" style="font-weight:700">—</div></div>
       </div>
       <p class="small-mute" style="margin-top:8px">${'Selecting a post auto-fills the gross salary; it is broken down 60/20/10/10.'}</p>
-      <div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--border,#e2e8f0);display:flex;justify-content:flex-end;align-items:center;gap:10px">
-        <button type="button" class="btn primary" id="btnSaveJobComplete" onclick="saveJobAndComplete()">${isEdit ? 'Update &amp; Complete Profile ✓' : 'Complete Profile ✓'}</button>
-      </div>
     </div>
     <div id="dupHint" class="small-mute" style="margin-top:8px"></div>
     <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:12px">
@@ -6592,7 +6671,15 @@ function renderTransferTable() {
     return true;
   }).sort((a,b)=>+b.id-+a.id || String(b.id||'').localeCompare(String(a.id||'')));
 
-  document.getElementById('trTableBody').innerHTML = rows.map(t=>{
+  const tbody = document.getElementById('trTableBody');
+  if (!tbody) return;
+
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="15" style="text-align:center; padding:40px 20px; color:var(--text-mute); font-size:0.95rem;">No matching records found.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(t=>{
     const e = findEmpByAction(t);
     const empId = e ? (e.id || e.EmployeeID || '') : (t.EmployeeID || '—');
     const trStatus = t.status || t.Status || 'Scheduled';
@@ -6606,7 +6693,8 @@ function renderTransferTable() {
       <td>${escapeHtml(fmtDate(t.TransferDate))}</td>
       <td><span class="pill ${pillClass}">${escapeHtml(trStatus)}</span></td>
       <td onclick="event.stopPropagation()"><button class="btn ghost sm" onclick="reprintTransfer(${jsQ(t.id)})">${ico('print')}</button></td>
-    </tr>`}).join('') || `<tr><td colspan="8" class="small-mute" style="text-align:center;padding:20px">${'No data found'}</td></tr>`;
+    </tr>`;
+  }).join('');
 }
 
 
@@ -6651,26 +6739,7 @@ function openTransferPopup(tid){
 }
 function markTransferJoined(tid){
   if(!guardEdit()) return;
-  const t = DATA.transfers.find(x=>String(x.id)===String(tid)); if(!t) return;
-  const bn = LANG==='bn';
-  const emp = findEmpByAction(t);
-  if(!emp){ toast(bn?'কর্মচারী পাওয়া যায়নি':'Employee not found','error'); return; }
-  if(emp.Status!=='Active'){ toast(bn?'নিষ্ক্রিয় কর্মচারীর ট্রান্সফার সম্পন্ন করা যাবে না — আগে পুনর্বহাল করুন':'Cannot complete transfer of inactive employee — reactivate first','error'); return; }
-  if(!confirm(bn?`"${t.FullName}" নতুন প্রজেক্ট "${t.NewProject}" এ যোগদান করেছেন — নিশ্চিত?\n\nএতে Employeetbl.ProjectName বদলে যাবে এবং ট্রান্সফার Complete হিসেবে চিহ্নিত হবে।`:`Confirm "${t.FullName}" joined "${t.NewProject}"?\n\nThis updates Employeetbl.ProjectName and marks the transfer Complete.`)) return;
-  emp.ProjectName = t.NewProject;   
-  t.Status='Completed'; t.status='Completed'; t._applied=true;
-  if(window.MGHRM && typeof window.MGHRM.update === 'function') {
-    window.MGHRM.update('employees', emp.id || emp.EmployeeID, { ProjectName: t.NewProject }).catch(console.error);
-    window.MGHRM.update('transfers', t.id, { Status: 'Completed', status: 'Completed' }).catch(console.error);
-  }
-  
-  if(typeof NOTIFICATIONS!=='undefined'){
-    const ni = NOTIFICATIONS.findIndex(n=>n.type==='transfer_join' && String(n.transferId)===String(tid));
-    if(ni>=0) NOTIFICATIONS.splice(ni,1);
-  }
-  logActivity('complete','transfers', tid, `Joined: ProjectName → ${t.NewProject}`);
-  toast(bn?'যোগদান নিশ্চিত হয়েছে — কর্মীর প্রজেক্ট আপডেট':'Joined — employee project updated','success');
-  persist(); closeModal(); renderTransfer();
+  window.confirmJoin(tid);
 }
 function revertTransferComplete(tid){
   if(!guardEdit()) return;
@@ -7260,7 +7329,15 @@ function renderDisciplinaryTable() {
   const countSpan = document.getElementById('dcCount');
   if (countSpan) countSpan.textContent = `${num(rows.length)} ${'records'}`;
   
-  document.getElementById('dcTableBody').innerHTML = rows.map((d,i)=>{
+  const tbody = document.getElementById('dcTableBody');
+  if (!tbody) return;
+
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="15" style="text-align:center; padding:40px 20px; color:var(--text-mute); font-size:0.95rem;">No matching records found.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map((d,i)=>{
     const e = findEmpByAction(d);
     const empId = e ? (e.id || e.EmployeeID || '') : (d.EmployeeID || d.employee_id || '—');
     const aid = d.ActionID || d.action_id || d.id;
@@ -7272,7 +7349,8 @@ function renderDisciplinaryTable() {
       <td>${escapeHtml(d.ActionType||d.action_type||'')}</td>
       <td>${escapeHtml(fmtDate(d.IssueDate||d.issue_date))}</td>
       <td onclick="event.stopPropagation()"><button class="btn ghost sm" onclick="reprintDisc(${jsQ(aid)})">${ico('print')}</button></td>
-    </tr>`}).join('') || `<tr><td colspan="7" class="small-mute" style="text-align:center;padding:20px">${'No disciplinary records'}</td></tr>`;
+    </tr>`;
+  }).join('');
 }
 
 window.openDisciplinaryPopup = openDisciplinaryPopup;
@@ -7525,7 +7603,7 @@ function renderLeave(){
           <table>
             <thead><tr><th style="width:50px">${'#'}</th><th>ID</th><th>${'Employee'}</th><th>${'Type'}</th><th>${'Days'}</th><th>${'Status'}</th><th></th></tr></thead>
             <tbody>
-              ${SAMPLE_LEAVES.slice().sort((a,b)=>+b.id-+a.id).map((l,i)=>{
+              ${(SAMPLE_LEAVES && SAMPLE_LEAVES.length > 0) ? SAMPLE_LEAVES.slice().sort((a,b)=>+b.id-+a.id).map((l,i)=>{
                 const lt = LEAVE_TYPES.find(x=>x.key===l.type) || {color:'#666', [LANG]: l.type};
                 const emp = findEmpByAction(l);
                 const empId = emp ? (emp.id || emp.EmployeeID || '') : (l.empId || '—');
@@ -7538,7 +7616,7 @@ function renderLeave(){
                   <td><span class="pill ${l.status==='Approved'?'approved':(l.status==='Rejected'?'danger':'pending')}">${escapeHtml(l.status||'')}</span></td>
                   <td onclick="event.stopPropagation()">${l.status==='Pending'?`<button class="btn success sm" onclick="approveLeave(${jsQ(l.id)})">${'Approve'}</button>`:''}</td>
                 </tr>`;
-              }).join('')}
+              }).join('') : `<tr><td colspan="15" style="text-align:center; padding:40px 20px; color:var(--text-mute); font-size:0.95rem;">No matching records found.</td></tr>`}
             </tbody>
           </table>
         </div>
@@ -7891,7 +7969,7 @@ window.promptReactivate = promptReactivate;
 window.confirmReactivate = confirmReactivate;
 window.deleteExit = deleteExit;
 async function submitExit(){
-  if(!guardEdit()) return;
+  if(typeof guardEdit === 'function' && !guardEdit()) return;
   const rid = document.getElementById('exEmp').value;
   const d   = document.getElementById('exDate').value;
   const r   = document.getElementById('exReason').value;
@@ -7901,64 +7979,108 @@ async function submitExit(){
   window.mtCustomConfirm("Employee Exit", "Are you sure you want to save this exit record?", "danger", async function() {
     if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
 
+    let e = (typeof assertActiveEmp === 'function' ? assertActiveEmp(rid) : null) || findEmp(rid);
+    if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeById === 'function') {
+      try { e = await window.MGHRM.fetchEmployeeById(rid); } catch(_) {}
+    }
+    if(!e){ 
+      if (btn) { btn.disabled = false; btn.innerHTML = 'Mark as Exited'; }
+      toast('Employee not found or inactive', 'error'); 
+      return; 
+    }
+
+    // 1. Snapshot original state
+    const origEmpStatus = e.Status;
+    const origEmpStatusLower = e.status;
+    const origExitDate = e.ExitDate || e.exit_date;
+    const origExitReason = e.ExitReason || e.exit_reason;
+
+    const newExitId = String(Date.now());
+    const issueVal = document.getElementById('exIssue')?.value || todayISO();
+    const exitRecord = {
+      ExitID: newExitId,
+      exit_id: newExitId,
+      employee_sys_id: e.id,
+      employee_id: String(e.EmployeeID || e.id || ''),
+      EmployeeID: String(e.EmployeeID || e.id || ''),
+      FullName: e.FullName || '',
+      full_name: e.FullName || '',
+      Designation: e.Designation || '',
+      designation: e.Designation || '',
+      CurrentProject: e.ProjectName || '',
+      current_project: e.ProjectName || '',
+      JoinDate: e.JoinDate || '',
+      join_date: e.JoinDate || '',
+      ExitReason: r,
+      exit_reason: r,
+      ExitDate: d,
+      exit_date: d,
+      IssueDate: issueVal,
+      issue_date: issueVal
+    };
+
+    // 2. Optimistic Mutation
+    if (!DATA.exits) DATA.exits = [];
+    DATA.exits.unshift(exitRecord);
+    e.Status = 'Inactive';
+    e.status = 'Inactive';
+    e.ExitDate = d;
+    e.exit_date = d;
+    e.ExitReason = r;
+    e.exit_reason = r;
+
+    // 3. Sync & Rollback Guard
     try {
-      let e = assertActiveEmp(rid);
-      if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeById === 'function') {
-        e = await window.MGHRM.fetchEmployeeById(rid);
-      }
-      if(!e){ throw new Error('Employee not found or inactive'); }
+      if (window.sb) {
+        const { error: exitErr } = await window.sb.from('exits').insert([{
+          exit_id: newExitId,
+          employee_sys_id: e.id,
+          employee_id: String(e.EmployeeID || e.id || ''),
+          full_name: e.FullName || '',
+          designation: e.Designation || '',
+          current_project: e.ProjectName || '',
+          join_date: e.JoinDate || '',
+          exit_reason: r,
+          exit_date: d,
+          issue_date: issueVal
+        }]);
+        if (exitErr) throw exitErr;
 
-      if (!window.sb) {
-        throw new Error('Database connection not established.');
-      }
-
-      const newExitId = String(Date.now());
-      const exitPayload = {
-        exit_id: newExitId,
-        employee_sys_id: e.id,
-        employee_id: String(e.EmployeeID || e.id || ''),
-        full_name: e.FullName || '',
-        designation: e.Designation || '',
-        current_project: e.ProjectName || '',
-        join_date: e.JoinDate || '',
-        exit_reason: r,
-        exit_date: d,
-        issue_date: document.getElementById('exIssue').value || ''
-      };
-
-      const { error: exitErr } = await window.sb.from('exits').insert([exitPayload]);
-      if (exitErr) throw exitErr;
-
-      const { error: empErr } = await window.sb.from('employees').update({
-        status: 'Inactive',
-        exit_date: d,
-        exit_reason: r
-      }).eq('id', e.id);
-      if (empErr) throw empErr;
-
-      if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
-        const freshData = await window.MGHRM.loadAll();
-        if (freshData) {
-            Object.keys(freshData).forEach(k => {
-              if (Array.isArray(freshData[k])) {
-                window.DATA[k] = freshData[k];
-              }
-            });
-          }
+        const { error: empErr } = await window.sb.from('employees').update({
+          status: 'Inactive',
+          exit_date: d,
+          exit_reason: r
+        }).eq('id', e.id);
+        if (empErr) throw empErr;
       }
 
-      logActivity('create','exits',newExitId,`${e.FullName} marked as Inactive (${r})`);
+      await persist();
+
+      if (typeof logActivity === 'function') logActivity('create','exits',newExitId,`${e.FullName} marked as Inactive (${r})`);
       toast(`${e.FullName} marked as Inactive`,'success');
-      closeModal();
+      if (typeof closeModal === 'function') closeModal();
+      if (typeof renderExit === 'function') renderExit();
+      if (typeof renderEmpTable === 'function') renderEmpTable();
       if (typeof refreshAll === 'function') refreshAll();
     } catch(err) {
-      console.error(err);
-      toast('Error: ' + err.message, 'error');
+      // Rollback to Snapshot
+      DATA.exits = DATA.exits.filter(x => String(x.ExitID || x.exit_id) !== newExitId);
+      e.Status = origEmpStatus;
+      e.status = origEmpStatusLower;
+      e.ExitDate = origExitDate;
+      e.exit_date = origExitDate;
+      e.ExitReason = origExitReason;
+      e.exit_reason = origExitReason;
+      console.error('Exit Processing Sync Error:', err);
+      toast('Sync failed. Changes reverted to prevent data corruption.', 'error');
+      if (typeof renderExit === 'function') renderExit();
+      if (typeof renderEmpTable === 'function') renderEmpTable();
     } finally {
-      if (btn) { btn.disabled = false; btn.innerHTML = 'Submit'; }
+      if (btn) { btn.disabled = false; btn.innerHTML = 'Mark as Exited'; }
     }
   });
 }
+window.submitExit = submitExit;
 function previewClearance(){
   const rid = document.getElementById('exEmp').value;
   if(!rid){ toast('Select employee first','error'); return; }
@@ -9151,24 +9273,66 @@ function applyScheduledTransfers(){
     }
   });
 }
-function confirmJoin(nid){
-  
-  if(!guardEdit()) return;
-  const n = NOTIFICATIONS.find(x=>x.id===nid); if(!n) return;
-  const t = DATA.transfers.find(x=>String(x.id)===String(n.transferId));
-  if(t){
-    const e = DATA.employees.find(x=>x.EmployeeID===t.EmployeeID || String(x.id)===String(t.employee_sys_id));
-    if(e && e.Status==='Active') e.ProjectName = t.NewProject;   
-    t.Status='Completed'; t.status='Completed';
-    if(window.MGHRM && typeof window.MGHRM.update === 'function') {
-      window.MGHRM.update('transfers', t.id, { Status: 'Completed', status: 'Completed' }).catch(console.error);
-      if(e) window.MGHRM.update('employees', e.id || e.EmployeeID, { ProjectName: t.NewProject }).catch(console.error);
+window.confirmJoin = async function(id) {
+  if (typeof guardEdit === 'function' && !guardEdit()) return;
+  window.mtCustomConfirm("Confirm Join", "Mark this transfer as completed and update employee's project?", "primary", async function() {
+    let n = (typeof NOTIFICATIONS !== 'undefined' && Array.isArray(NOTIFICATIONS)) 
+      ? NOTIFICATIONS.find(x => String(x.id) === String(id) || String(x.transferId) === String(id)) 
+      : null;
+    const transferId = n ? n.transferId : id;
+    const t = DATA.transfers.find(x => String(x.id) === String(transferId) || String(x.id) === String(id));
+    if(!t) return;
+    
+    // 1. Snapshot original state
+    const origTStatus = t.Status;
+    const origTstatus = t.status;
+    const origTApplied = t._applied;
+    const emp = findEmp(t.EmployeeID || t.employee_id || t.employee_sys_id) || (typeof findEmpByAction === 'function' ? findEmpByAction(t) : null);
+    let origEmpProject = null;
+    let origEmpProjectName = null;
+    
+    // 2. Optimistic Mutation
+    if (emp) {
+      origEmpProject = emp.ProjectName;
+      origEmpProjectName = emp.project_name;
+      emp.ProjectName = t.NewProject;
+      emp.project_name = t.NewProject;
     }
-  }
-  NOTIFICATIONS.splice(NOTIFICATIONS.indexOf(n),1);
-  toast('Joining confirmed — employee project updated to new project','success');
-  persist(); renderAll();
-}
+    t.Status = 'Completed';
+    t.status = 'Completed';
+    t._applied = true;
+    
+    // 3. Sync & Rollback Guard
+    try {
+      await persist();
+      if (typeof markNotifAsRead === 'function') {
+        markNotifAsRead('tj' + (t.id || id));
+        if (n) markNotifAsRead(n.id);
+      }
+      if (typeof closeModal === 'function') closeModal();
+      toast('Transfer completed & employee updated.', 'success');
+      if (typeof renderTransfer === 'function') renderTransfer();
+      if (typeof renderEmpTable === 'function') renderEmpTable();
+      if (typeof renderNotifications === 'function') renderNotifications();
+      if (typeof updateNotifBadge === 'function') updateNotifBadge();
+    } catch (err) {
+      // Rollback to Snapshot
+      t.Status = origTStatus;
+      t.status = origTstatus;
+      t._applied = origTApplied;
+      if (emp) {
+        emp.ProjectName = origEmpProject;
+        emp.project_name = origEmpProjectName;
+      }
+      console.error('Transfer Join Sync Error:', err);
+      toast('Sync failed. Changes reverted to prevent data corruption.', 'error');
+      if (typeof renderTransfer === 'function') renderTransfer();
+      if (typeof renderEmpTable === 'function') renderEmpTable();
+      if (typeof renderNotifications === 'function') renderNotifications();
+    }
+  });
+};
+var confirmJoin = window.confirmJoin;
 function denyJoin(nid){
   
   if(!guardEdit()) return;
@@ -11662,7 +11826,7 @@ function renderUniform(){
             <td class="num">${o.quantity||1}</td>
             <td>${o.condition_text||''}</td>
             <td><span class="pillbox ${o.status==='Issued'?'ok':o.status==='Returned'?'info':'over'}">${o.status||''}</span></td>
-          </tr>`).join('') : `<tr><td colspan="9" style="text-align:center;padding:18px" class="small-mute">No records found</td></tr>`}</tbody>
+          </tr>`).join('') : `<tr><td colspan="15" style="text-align:center; padding:40px 20px; color:var(--text-mute); font-size:0.95rem;">No matching records found.</td></tr>`}</tbody>
         </table>
       </div>
     </div>
@@ -12364,17 +12528,35 @@ function restoreState(){
     return true;
   }catch(e){ return false; }
 }
-function persist(){
-  if(READONLY) return;                                   /* another device holds the lock */
-  if(window.MGHRM && typeof window.MGHRM.pushAll === 'function'){
-    try { window.MGHRM.pushAll(); } catch(e) {}
+window.persist = async function() {
+  if (typeof READONLY !== 'undefined' && READONLY) return; /* another device holds the lock */
+  try {
+    localStorage.setItem('mg_hrm_backup_v3', JSON.stringify({ 
+      DATA: window.DATA || DATA, 
+      RECRUITMENT: window.RECRUITMENT || RECRUITMENT, 
+      NOTIFICATIONS: window.NOTIFICATIONS || NOTIFICATIONS, 
+      uniformOrders: (window.DATA || DATA).uniformOrders 
+    }));
+  } catch(e) {
+    console.warn('LocalStorage backup error:', e);
   }
-  /* LocalStorage purged for Direct Server Architecture */
-  if(odDir){                                             /* debounced write into the OneDrive folder */
+
+  if (window.MGHRM && typeof window.MGHRM.pushAll === 'function') {
+    try {
+      await window.MGHRM.pushAll(true);
+    } catch (err) {
+      console.error('Persist Sync Error:', err);
+      if (typeof toast === 'function') toast('Database sync failed. Please check connection.', 'error');
+      throw err; // Crucial: Bubble up to trigger rollbacks
+    }
+  }
+
+  if (typeof odDir !== 'undefined' && odDir) { /* debounced write into the OneDrive folder */
     clearTimeout(odWriteTimer);
     odWriteTimer = setTimeout(writeOneDriveNow, 1500);
   }
-}
+};
+var persist = window.persist;
 async function writeOneDriveNow(){
   if(!odDir || READONLY) return;
   try{
@@ -13094,16 +13276,16 @@ function buildAddressCascade(containerId, initial, onChange){
 
     /* chips preview */
     var chips = [];
-    if(dText) chips.push('<span class="ac-chip" style="background:var(--bg-dim,#f1f5f9);padding:3px 8px;border-radius:4px;font-size:12px;font-weight:600">'+escapeHtml(dText)+'</span>');
-    if(dsText) chips.push('<span class="ac-arrow" style="margin:0 4px;color:var(--text-muted)">›</span><span class="ac-chip" style="background:var(--bg-dim,#f1f5f9);padding:3px 8px;border-radius:4px;font-size:12px;font-weight:600">'+escapeHtml(dsText)+'</span>');
-    if(uText) chips.push('<span class="ac-arrow" style="margin:0 4px;color:var(--text-muted)">›</span><span class="ac-chip" style="background:var(--bg-dim,#f1f5f9);padding:3px 8px;border-radius:4px;font-size:12px;font-weight:600">'+escapeHtml(uText)+'</span>');
-    if(unText) chips.push('<span class="ac-arrow" style="margin:0 4px;color:var(--text-muted)">›</span><span class="ac-chip" style="background:var(--bg-dim,#f1f5f9);padding:3px 8px;border-radius:4px;font-size:12px;font-weight:600">'+escapeHtml(unText)+'</span>');
+    if(dText) chips.push('<span class="ac-chip" style="background:var(--primary-soft,#eef2ff);color:var(--primary,#3730a3);border:1px solid rgba(79,70,229,0.25);padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600">'+escapeHtml(dText)+'</span>');
+    if(dsText) chips.push('<span class="ac-arrow" style="margin:0 4px;color:var(--primary,#4f46e5);font-size:14px;font-weight:700">›</span><span class="ac-chip" style="background:var(--primary-soft,#eef2ff);color:var(--primary,#3730a3);border:1px solid rgba(79,70,229,0.25);padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600">'+escapeHtml(dsText)+'</span>');
+    if(uText) chips.push('<span class="ac-arrow" style="margin:0 4px;color:var(--primary,#4f46e5);font-size:14px;font-weight:700">›</span><span class="ac-chip" style="background:var(--primary-soft,#eef2ff);color:var(--primary,#3730a3);border:1px solid rgba(79,70,229,0.25);padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600">'+escapeHtml(uText)+'</span>');
+    if(unText) chips.push('<span class="ac-arrow" style="margin:0 4px;color:var(--primary,#4f46e5);font-size:14px;font-weight:700">›</span><span class="ac-chip" style="background:var(--primary-soft,#eef2ff);color:var(--primary,#3730a3);border:1px solid rgba(79,70,229,0.25);padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600">'+escapeHtml(unText)+'</span>');
 
     var chipsEl = host.querySelector('#'+containerId+'_chips');
     if(chipsEl){
       chipsEl.innerHTML = chips.length
         ? '<div class="ac-chip-line" style="display:flex;align-items:center;flex-wrap:wrap;gap:4px">'+chips.join('')+'</div>'
-        : '<div class="ac-chip-hint" style="font-size:11.5px;color:var(--text-muted)">'+(bn?'বিভাগ থেকে শুরু করুন — নির্বাচন এখানে চিপ হিসেবে দেখাবে':'Start from Division — selection will appear here as chips')+'</div>';
+        : '<div class="ac-chip-hint" style="font-size:11.5px;color:var(--text-mute, #64748b)">'+(bn?'বিভাগ থেকে শুরু করুন — নির্বাচন এখানে চিপ হিসেবে দেখাবে':'Start from Division — selection will appear here as chips')+'</div>';
     }
 
     if(onChange) onChange(state);
@@ -13474,9 +13656,10 @@ setInterval(()=>checkPendingToast(true), 180000);
   function hookPersist(){
     var orig = window.persist;
     if (typeof orig !== 'function' || orig.__sbHooked) return;
-    var wrapped = function () {
-      try { orig.apply(this, arguments); } catch (e) {}
-      try { G.pushAll(window.DATA); } catch (e) {}
+    var wrapped = async function () {
+      if (typeof orig === 'function') {
+        await orig.apply(this, arguments);
+      }
     };
     wrapped.__sbHooked = true;
     window.persist = wrapped;

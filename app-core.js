@@ -568,6 +568,18 @@
     if (row.id != null) {
       out.id = row.id;
       if (key === 'employees') {
+        try {
+          if (row.remarks && typeof row.remarks === 'string' && row.remarks.charAt(0) === '{') {
+            var parsed = JSON.parse(row.remarks);
+            if (parsed && typeof parsed === 'object' && parsed.reference) {
+              out.reference = parsed.reference;
+              if (parsed.reference.name && !out.ReferenceName) out.ReferenceName = parsed.reference.name;
+              if (parsed.reference.desig && !out.ReferenceDesig) out.ReferenceDesig = parsed.reference.desig;
+              if (parsed.reference.org && !out.ReferenceOrg) out.ReferenceOrg = parsed.reference.org;
+              if (parsed.reference.mobile && !out.ReferenceMobile) out.ReferenceMobile = parsed.reference.mobile;
+            }
+          }
+        } catch (e) {}
       }
     }
     if (row.employee_id && !out.EmployeeID) out.EmployeeID = row.employee_id;
@@ -877,11 +889,8 @@
     var client = sb || global.sb;
     if (!client) {
       console.warn('[Supabase] loadAll: Supabase client not initialized');
-      var emptyOut = {};
-      Object.keys(TABLE_MAP).forEach(function (k) {
-        emptyOut[k] = [];
-      });
-      return Promise.resolve(emptyOut);
+      var fallbackData = (typeof window !== 'undefined' && window.DATA) || global.DATA || {};
+      return Promise.resolve(fallbackData);
     }
     var keys = Object.keys(TABLE_MAP);
     return Promise.all(
@@ -892,7 +901,8 @@
           .then(function (r) {
             if (r.error) {
               console.warn('[Supabase] load ' + k, r.error.message);
-              return [k, []];
+              var fallback = (global.DATA && Array.isArray(global.DATA[k])) ? global.DATA[k] : [];
+              return [k, fallback];
             }
             return [
               k,
@@ -904,6 +914,11 @@
                 return rec;
               })
             ];
+          })
+          .catch(function (err) {
+            console.warn('[Supabase] fetch error for ' + k + ', falling back to cache:', err);
+            var fallback = (global.DATA && Array.isArray(global.DATA[k])) ? global.DATA[k] : [];
+            return [k, fallback];
           });
       })
     ).then(function (pairs) {
@@ -928,6 +943,12 @@
         }
       }
       return out;
+    }).catch(function (err) {
+      console.warn("Network offline, falling back to local cache.", err);
+      if (typeof global.toast === 'function') {
+        global.toast("You are offline. Showing cached data.", "warning");
+      }
+      return (typeof window !== 'undefined' && window.DATA) || global.DATA || {};
     });
   }
 
@@ -1567,6 +1588,68 @@
   }
   var fetchEmployeeByRecordId = fetchEmployeeById;
 
+  function fetchLeaves() {
+    var client = (typeof _client === 'function' ? _client() : null) || sb || global.sb;
+    if (!client) {
+      return Promise.resolve((global.DATA && global.DATA.leaves) || []);
+    }
+    return client
+      .from('leaves')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .then(function (r) {
+        if (r.error) {
+          console.warn('[Supabase Leaves Fetch Error]', r.error.message);
+          return (global.DATA && global.DATA.leaves) || [];
+        }
+        var leaves = (r.data || []).map(function (row) {
+          return fromDb('leaves', row);
+        });
+        if (global.DATA) {
+          global.DATA.leaves = leaves;
+        }
+        return leaves;
+      })
+      .catch(function (err) {
+        console.warn('Network offline, falling back to local cache for leaves.', err);
+        if (typeof global.toast === 'function') {
+          global.toast('You are offline. Showing cached data.', 'warning');
+        }
+        return (global.DATA && global.DATA.leaves) || [];
+      });
+  }
+
+  function fetchMeetingAttendance() {
+    var client = (typeof _client === 'function' ? _client() : null) || sb || global.sb;
+    if (!client) {
+      return Promise.resolve((global.DATA && global.DATA.meetingAttendance) || []);
+    }
+    return client
+      .from('meeting_attendance')
+      .select('*')
+      .then(function (r) {
+        if (r.error) {
+          console.warn('[Supabase Meeting Attendance Fetch Error]', r.error.message);
+          return (global.DATA && global.DATA.meetingAttendance) || [];
+        }
+        var attend = (r.data || []).map(function (row) {
+          return fromDb('meetingAttendance', row);
+        });
+        if (global.DATA) {
+          global.DATA.meetingAttendance = attend;
+          global.DATA.meeting_attendance = attend;
+        }
+        return attend;
+      })
+      .catch(function (err) {
+        console.warn('Network offline, falling back to local cache for meeting attendance.', err);
+        if (typeof global.toast === 'function') {
+          global.toast('You are offline. Showing cached data.', 'warning');
+        }
+        return (global.DATA && global.DATA.meetingAttendance) || [];
+      });
+  }
+
   function deduplicate(arr, pk) {
     var seen = {};
     var out = [];
@@ -1678,9 +1761,16 @@
     return h;
   }
 
-  function pushAll() {
+  function pushAll(immediate) {
     if (pushTimer) clearTimeout(pushTimer);
-    pushTimer = setTimeout(doPush, 1000);
+    if (immediate) {
+      return doPush();
+    }
+    return new Promise(function (resolve, reject) {
+      pushTimer = setTimeout(function () {
+        doPush().then(resolve).catch(reject);
+      }, 1000);
+    });
   }
 
   function doPush() {
@@ -1721,6 +1811,7 @@
       .catch(function (e) {
         console.error('❌ [Auto-Sync Error]:', e.message || e);
         if (global.toast) global.toast('Sync failed: ' + (e.message || e), 'error');
+        throw e;
       })
       .finally(function () {
         pushing = false;
@@ -1746,6 +1837,8 @@
     remove: remove,
     fetchEmployeeById: fetchEmployeeById,
     fetchEmployeeByRecordId: fetchEmployeeByRecordId,
+    fetchLeaves: fetchLeaves,
+    fetchMeetingAttendance: fetchMeetingAttendance,
     saveRecruitBasicInfo: saveRecruitBasicInfo,
     updateRecruitSection: updateRecruitSection,
     approveCandidate: approveCandidate,

@@ -7927,8 +7927,8 @@ async function confirmReactivate(empKey, exitId){
       if (empErr) throw empErr;
 
       if (exitId) {
-        DATA.exits = DATA.exits.filter(x => String(x.ExitID) !== String(exitId));
-        await window.sb.from('exits').delete().eq('exit_id', String(exitId));
+        DATA.exits = DATA.exits.filter(x => String(x.ExitID || x.id) !== String(exitId));
+        await window.sb.from('exits').delete().eq('id', String(exitId));
       }
     }
 
@@ -7955,7 +7955,7 @@ async function confirmReactivate(empKey, exitId){
 function deleteExit(eid){
   if(!guardEdit()) return;
   if(!confirm('Delete this exit record?')) return;
-  DATA.exits = DATA.exits.filter(x=>String(x.ExitID)!==String(eid));
+  DATA.exits = DATA.exits.filter(x=>String(x.ExitID || x.id)!==String(eid));
   if(window.MGHRM && typeof MGHRM.remove==='function') MGHRM.remove('exits', eid);
   logActivity('delete','exits',eid,'exit deleted');
   toast('Deleted','success');
@@ -7998,8 +7998,8 @@ async function submitExit(){
     const newExitId = String(Date.now());
     const issueVal = document.getElementById('exIssue')?.value || todayISO();
     const exitRecord = {
+      id: newExitId,
       ExitID: newExitId,
-      exit_id: newExitId,
       employee_sys_id: e.id,
       employee_id: String(e.EmployeeID || e.id || ''),
       EmployeeID: String(e.EmployeeID || e.id || ''),
@@ -8033,7 +8033,7 @@ async function submitExit(){
     try {
       if (window.sb) {
         const { error: exitErr } = await window.sb.from('exits').insert([{
-          exit_id: newExitId,
+          id: newExitId,
           employee_sys_id: e.id,
           employee_id: String(e.EmployeeID || e.id || ''),
           full_name: e.FullName || '',
@@ -8064,7 +8064,7 @@ async function submitExit(){
       if (typeof refreshAll === 'function') refreshAll();
     } catch(err) {
       // Rollback to Snapshot
-      DATA.exits = DATA.exits.filter(x => String(x.ExitID || x.exit_id) !== newExitId);
+      DATA.exits = DATA.exits.filter(x => String(x.ExitID || x.id) !== newExitId);
       e.Status = origEmpStatus;
       e.status = origEmpStatusLower;
       e.ExitDate = origExitDate;

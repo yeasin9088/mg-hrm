@@ -162,13 +162,12 @@
     exits: {
       table: 'exits',
       pk: 'id',
-      allowed: ['employee_sys_id',  
-        'id', 'exit_id', 'employee_id',
+      allowed: ['id', 'employee_sys_id', 'employee_id',
         'full_name', 'designation', 'current_project', 'join_date',
         'exit_reason', 'exit_date', 'issue_date', 'created_at'
        ],
-      map: { 'employee_sys_id': 'employee_sys_id', 
-        'id': 'id',
+      map: { 'id': 'id',
+        'employee_sys_id': 'employee_sys_id',
         'ExitID': 'id',
         'EmployeeID': 'employee_id',
         'FullName': 'full_name',

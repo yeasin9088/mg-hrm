@@ -220,16 +220,6 @@ body.lang-bn { font-family: var(--font-bn), var(--font-en); }
   font-size: 10px; padding: 2px 5px; background: var(--bg-dim);
   border-radius: 4px; color: var(--text-muted); font-family: inherit;
 }
-.lang-toggle {
-  display: inline-flex; background: white; border: 1px solid var(--border);
-  border-radius: 8px; overflow: hidden; box-shadow: var(--shadow-sm);
-}
-.lang-toggle button {
-  padding: 6px 12px; background: none; border: 0; cursor: pointer;
-  font-size: 12px; font-weight: 600; color: var(--text-muted);
-  font-family: inherit;
-}
-.lang-toggle button.active { background: var(--primary); color: white; }
 
 /* ============ KPI CARDS ============ */
 .kpi-grid {
@@ -1905,27 +1895,27 @@ input:focus, select:focus, textarea:focus {
   </main>
 </div>
 
-<div class="modal-back" id="modal" onclick="if(event.target===this)closeModal()">
+<div class="modal-back" id="modal" onclick="if(event.target===this)closeModal()" role="dialog" aria-modal="true" tabindex="-1">
   <div class="modal wide">
     <div class="modal-head">
       <h3 id="modalTitle">Detail</h3>
-      <button class="modal-close" onclick="closeModal()">×</button>
+      <button class="modal-close" onclick="closeModal()" aria-label="Close">×</button>
     </div>
     <div class="modal-body" id="modalBody"></div>
   </div>
 </div>
 
-<div class="modal-back" id="candidateProfileModal" onclick="if(event.target===this)closeModal('candidateProfileModal')">
+<div class="modal-back" id="candidateProfileModal" onclick="if(event.target===this)closeModal('candidateProfileModal')" role="dialog" aria-modal="true" tabindex="-1">
   <div class="modal wide" style="max-width:840px;max-height:92vh;display:flex;flex-direction:column">
     <div class="modal-head" style="display:flex;justify-content:space-between;align-items:center">
       <h3 id="candidateProfileTitle">Candidate Profile</h3>
-      <button class="modal-close" onclick="closeModal('candidateProfileModal')">×</button>
+      <button class="modal-close" onclick="closeModal('candidateProfileModal')" aria-label="Close">×</button>
     </div>
     <div class="modal-body" id="candidateProfileBody" style="overflow-y:auto;padding:18px"></div>
   </div>
 </div>
 
-<div class="modal-back" id="printModal" onclick="if(event.target===this)closeModal('printModal')">
+<div class="modal-back" id="printModal" onclick="if(event.target===this)closeModal('printModal')" role="dialog" aria-modal="true" tabindex="-1">
   <div class="modal wide">
     <div class="modal-head">
       <h3 data-i18n="print_preview">Document Preview</h3>
@@ -1953,7 +1943,7 @@ input:focus, select:focus, textarea:focus {
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
           Print / PDF
         </button>
-        <button type="button" class="modal-close" onclick="closeModal('printModal')">×</button>
+        <button type="button" class="modal-close" onclick="closeModal('printModal')" aria-label="Close">×</button>
       </div>
     </div>
     <div class="modal-body" id="printBody" style="background:#f0f2f5;padding:20px"></div>
@@ -1995,57 +1985,35 @@ const I18N = {
     nav_system:"System", nav_settings:"Settings",
     print_preview:"Document Preview",
     footer_note:"© Mahbub Group Security · MG HRM Suite · Auto-saves to server, this device & OneDrive folder (when linked)",
-  },
-  bn: {
-    tagline:"এইচআর ম্যানেজমেন্ট সিস্টেম",
-    nav_main:"প্রধান", nav_dashboard:"ড্যাশবোর্ড", nav_notifications:"নোটিফিকেশন",
-    nav_todo:"To-Do / Follow-up",
-    nav_workforce:"জনবল", nav_employees:"কর্মচারী", nav_recruitment:"নিয়োগ",
-    nav_parade:"প্যারেড স্টেট", nav_projects:"প্রজেক্ট", nav_meeting:"মিটিং হাজিরা",
-    nav_uniform:"ইউনিফর্ম ম্যানেজমেন্ট",
-    side_collapse:"সাইডে চাপান",
-    nav_actions:"কার্যক্রম", nav_transfer:"ট্রান্সফার", nav_disciplinary:"শৃঙ্খলাভঙ্গ",
-    nav_leave:"ছুটি", nav_exit:"চাকরি ত্যাগ",
-    nav_compensation:"বেতন-ভাতা", nav_salary:"বেতন", nav_increment:"ইনক্রিমেন্ট",
-    nav_reports:"রিপোর্ট", nav_reports_all:"সকল রিপোর্ট",
-    nav_system:"সিস্টেম", nav_settings:"সেটিংস",
-    print_preview:"নথি প্রিভিউ",
-    footer_note:"© মাহবুব গ্রুপ সিকিউরিটি · এমজি এইচআর সুইট · সার্ভার + এই ডিভাইস + OneDrive-এ স্বয়ংক্রিয় সেভ",
   }
 };
 const PAGE_META = {
-  dashboard:    {en:['Dashboard','Overview of workforce, activity and alerts'],                              bn:['ড্যাশবোর্ড','জনবল, কার্যক্রম ও সতর্কীকরণের সারসংক্ষেপ']},
-  notifications:{en:['Notifications','System alerts, reminders and actionable items'],                       bn:['নোটিফিকেশন','সিস্টেম সতর্কতা ও করণীয়']},
-  todo:         {en:['To-Do / Follow-up','Quick call notes and action tracking'],                            bn:['To-Do / Follow-up','কল নোট ও অ্যাকশন ট্র্যাকিং']},
-  employees:    {en:['Employees','All personnel records with 360° profiles'],                                bn:['কর্মচারী তালিকা','সম্পূর্ণ কর্মচারী তথ্য ও ৩৬০° প্রোফাইল']},
-  recruitment:  {en:['Recruitment Pipeline','Track applications from apply to onboarding'],                  bn:['নিয়োগ পাইপলাইন','আবেদন থেকে যোগদান পর্যন্ত ট্র্যাকিং']},
-  parade:       {en:['Parade State','Manpower demand vs actual across all projects'],                        bn:['প্যারেড স্টেট','সকল প্রজেক্টে চাহিদা বনাম বর্তমান জনবল']},
-  projects:     {en:['Client Projects','Duty points, admins and demand'],                                    bn:['ক্লায়েন্ট প্রজেক্ট','ডিউটি পয়েন্ট, অ্যাডমিন ও চাহিদা']},
-  meeting:      {en:['Meeting Attendance','Daily 9:30 AM security coordination meeting'],                    bn:['মিটিং হাজিরা','প্রতিদিন সকাল সাড়ে ৯টার সমন্বয় সভা']},
-  uniform:      {en:['Uniform Management','Track uniform orders from demand to delivery & billing'],         bn:['ইউনিফর্ম ম্যানেজমেন্ট','চাহিদা থেকে রিকুইজিশন, দর্জির কাজ, ডেলিভারি ও বিল পর্যন্ত ট্র্যাকিং']},
-  transfer:     {en:['Transfer Orders','Issue transfer orders and view scheduled transfers'],                bn:['ট্রান্সফার অর্ডার','ট্রান্সফার ইস্যু ও সময়সূচি ব্যবস্থাপনা']},
-  disciplinary: {en:['Disciplinary Actions','Show-cause, warnings, suspensions and terminations'],           bn:['শৃঙ্খলাভঙ্গের ব্যবস্থা','কারণ-দর্শানো, সতর্কীকরণ, সাময়িক বরখাস্ত ও চাকরিচ্যুতি']},
-  leave:        {en:['Leave Management','Balance tracking, applications and calendar'],                      bn:['ছুটি ব্যবস্থাপনা','ব্যালেন্স ট্র্যাকিং, আবেদন ও ক্যালেন্ডার']},
-  exit:         {en:['Employee Exit','Resignation, clearance and experience certificate'],                   bn:['চাকরি ত্যাগ','পদত্যাগ, ছাড়পত্র ও অভিজ্ঞতা সনদ']},
-  salary:       {en:['Salary','Structure and payslip (placeholder — to be implemented)'],                    bn:['বেতন','বেতন কাঠামো ও পে-স্লিপ (পরে বাস্তবায়ন)']},
-  increment:    {en:['Increment / Promotion','Career progression records'],                                  bn:['ইনক্রিমেন্ট / পদোন্নতি','পদোন্নতি ও বেতন বৃদ্ধির রেকর্ড']},
-  reports:      {en:['Reports Center','Monthly, project-wise and analytical reports'],                       bn:['রিপোর্ট কেন্দ্র','মাসিক, প্রজেক্ট-ভিত্তিক ও বিশ্লেষণী রিপোর্ট']},
-  settings:     {en:['Settings','Company profile, users, backup'],                                           bn:['সেটিংস','কোম্পানি প্রোফাইল, ব্যবহারকারী, ব্যাকআপ']},
+  dashboard:    {en:['Dashboard','Overview of workforce, activity and alerts']},
+  notifications:{en:['Notifications','System alerts, reminders and actionable items']},
+  todo:         {en:['To-Do / Follow-up','Quick call notes and action tracking']},
+  employees:    {en:['Employees','All personnel records with 360° profiles']},
+  recruitment:  {en:['Recruitment Pipeline','Track applications from apply to onboarding']},
+  parade:       {en:['Parade State','Manpower demand vs actual across all projects']},
+  projects:     {en:['Client Projects','Duty points, admins and demand']},
+  meeting:      {en:['Meeting Attendance','Daily 9:30 AM security coordination meeting']},
+  uniform:      {en:['Uniform Management','Track uniform orders from demand to delivery & billing']},
+  transfer:     {en:['Transfer Orders','Issue transfer orders and view scheduled transfers']},
+  disciplinary: {en:['Disciplinary Actions','Show-cause, warnings, suspensions and terminations']},
+  leave:        {en:['Leave Management','Balance tracking, applications and calendar']},
+  exit:         {en:['Employee Exit','Resignation, clearance and experience certificate']},
+  salary:       {en:['Salary','Structure and payslip (placeholder — to be implemented)']},
+  increment:    {en:['Increment / Promotion','Career progression records']},
+  reports:      {en:['Reports Center','Monthly, project-wise and analytical reports']},
+  settings:     {en:['Settings','Company profile, users, backup']},
 };
 
 const LANG = 'en';
-function t(k){ return (I18N[LANG]&&I18N[LANG][k])||I18N.en[k]||k; }
+function t(k){ return (I18N.en && I18N.en[k]) || k; }
 function applyI18n(){
   document.querySelectorAll('[data-i18n]').forEach(el=>el.textContent=t(el.dataset.i18n));
-  const meta = PAGE_META[currentPage]?.[LANG]||['',''];
+  const meta = PAGE_META[currentPage]?.en || ['',''];
   document.getElementById('pageTitle').textContent = meta[0];
   document.getElementById('pageSub').textContent   = meta[1];
-}
-function setLang(l){
-  LANG=l;
-  document.body.classList.toggle('lang-bn', l==='bn');
-  document.documentElement.lang=l;
-  applyI18n(); renderAll();
 }
 
 /* ============ Utils ============ */
@@ -2136,10 +2104,8 @@ function fmtDate(v){
 }
 function fmtDateLong(v){
   const d=parseDate(v); if(!d) return v||'';
-  const monthsBn=['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
   const monthsEn=['January','February','March','April','May','June','July','August','September','October','November','December'];
   const dd=d.getDate(), mo=d.getMonth(), yy=d.getFullYear();
-  if(LANG==='bn') return `${toBnDigits(dd)} ${monthsBn[mo]}, ${toBnDigits(yy)}`;
   return `${dd} ${monthsEn[mo]}, ${yy}`;
 }
 function fmtDateBnFormal(v){
@@ -2192,7 +2158,9 @@ function openModal(title, body, actions = '') {
   document.getElementById('modalTitle').innerHTML=title;
   const bodyEl = document.getElementById('modalBody');
   bodyEl.innerHTML = body + (actions ? `<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);flex-wrap:wrap">${actions}</div>` : '');
-  document.getElementById('modal').classList.add('open');
+  const modal = document.getElementById('modal');
+  modal.classList.add('open');
+  if (typeof modal !== 'undefined' && modal) modal.focus();
 }
 function closeModal(id='modal'){
   const el = document.getElementById(id);
@@ -2228,7 +2196,11 @@ function openPrint(html){
     doc.classList.remove('bw');
     setActiveBtn('colorOn','colorBW','colorOn');
   }
-  document.getElementById('printModal').classList.add('open');
+  const printModal = document.getElementById('printModal');
+  if (printModal) {
+    printModal.classList.add('open');
+    printModal.focus();
+  }
   
   requestAnimationFrame(()=>fitPreviewScale());
 }
@@ -2755,7 +2727,6 @@ function kpi(label,val,color,icon,delta,dc,nav){
   </div>`;
 }
 function monthlyTrend(){
-  const monthsBn=['জানু','ফেব্রু','মার্চ','এপ্রি','মে','জুন','জুলা','আগ','সেপ্ট','অক্টো','নভে','ডিসে'];
   const monthsEn=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const now = new Date();
   const buckets = [];
@@ -3400,7 +3371,6 @@ function openEmpDetail(recordId){
   const empLeaves = (DATA.leaves||[]).filter(l=>ematch(l)).sort((a,b)=>parseDate(b.start||b.startDate)-parseDate(a.start||a.startDate));
 
   const empKey = e.id || e.EmployeeID;
-  const bn = typeof LANG !== 'undefined' && LANG === 'bn';
   const officialId = e.EmployeeID || e.employee_id || '';
   const html = `
     <div class="emp-header">
@@ -3410,7 +3380,7 @@ function openEmpDetail(recordId){
         <div class="sub">${escapeHtml(desig(e.Designation||''))} · ${escapeHtml(projName(e.ProjectName||''))}</div>
         <div class="meta">
           <span>🆔 ${'System ID:'} <strong>${e.id ? escapeHtml(num(e.id)) : '—'}</strong></span>
-          <span>💳 ${'Official ID:'} ${officialId ? `<strong>${escapeHtml(num(officialId))}</strong> <button type="button" class="btn sm" style="padding:1px 6px;font-size:11px;margin-left:4px;vertical-align:middle;line-height:1.2" onclick="assignOfficialId('${escapeHtml(empKey)}')" title="${bn?'আইডি পরিবর্তন':'Edit Official ID'}">✏</button>` : `<span style="color:var(--text-muted);font-style:italic">${bn?'অপেক্ষমাণ':'Pending'}</span> <button type="button" class="btn sm" style="padding:1px 6px;font-size:11px;margin-left:4px;vertical-align:middle;line-height:1.2" onclick="assignOfficialId('${escapeHtml(empKey)}')">${bn?'নির্ধারণ':'Assign'}</button>`}</span>
+          <span>💳 ${'Official ID:'} ${officialId ? `<strong>${escapeHtml(num(officialId))}</strong> <button type="button" class="btn sm" style="padding:1px 6px;font-size:11px;margin-left:4px;vertical-align:middle;line-height:1.2" onclick="assignOfficialId('${escapeHtml(empKey)}')" title="Edit Official ID">✏</button>` : `<span style="color:var(--text-muted);font-style:italic">Pending</span> <button type="button" class="btn sm" style="padding:1px 6px;font-size:11px;margin-left:4px;vertical-align:middle;line-height:1.2" onclick="assignOfficialId('${escapeHtml(empKey)}')">Assign</button>`}</span>
           <span>📞 ${escapeHtml(num(e.PhoneNumber||''))}</span>
           <span>📅 ${'Joined:'} ${escapeHtml(fmtDate(e.JoinDate))}</span>
           <span class="pill ${e.Status==='Active'?'active':'inactive'}" style="text-transform:none">${escapeHtml(e.Status||'')}</span>
@@ -3534,27 +3504,26 @@ function empActionQuick(action, rid){
 function assignOfficialId(empKey){
   if(typeof guardEdit === 'function' && !guardEdit()) return;
   const emp = findEmp(empKey);
-  const bn = typeof LANG !== 'undefined' && LANG === 'bn';
   if(!emp){
-    toast(bn ? 'কর্মী পাওয়া যায়নি' : 'Employee not found', 'error');
+    toast('Employee not found', 'error');
     return;
   }
   const currentId = emp.EmployeeID || emp.employee_id || '';
   
   closeModal();
-  openModal(bn ? 'অফিসিয়াল এমপ্লয়ী আইডি' : 'Official Employee ID', `
+  openModal('Official Employee ID', `
     <div class="form-grid">
       <div class="field wide">
-        <label>${bn ? 'অফিসিয়াল এমপ্লয়ী আইডি (প্রজেক্ট কর্তৃক প্রদত্ত)' : 'Official Employee ID (issued by project)'}</label>
-        <input type="text" id="oidInput" value="${escapeHtml(currentId)}" placeholder="${bn ? 'ইস্যু না হওয়া পর্যন্ত ফাঁকা রাখুন' : 'Leave blank until issued'}" autocomplete="off" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border)">
+        <label>Official Employee ID (issued by project)</label>
+        <input type="text" id="oidInput" value="${escapeHtml(currentId)}" placeholder="Leave blank until issued" autocomplete="off" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border)">
         <p class="small-mute" style="margin-top:6px;color:var(--text-muted);font-size:12px;">
-          ${bn ? 'যোগদানের ৫-৭ দিন পর প্রজেক্ট কর্তৃক প্রদত্ত হয়। এখনও ইস্যু না হয়ে থাকলে ফাঁকা রাখুন।' : 'Issued by the project, usually 5–7 days after joining. Leave blank if not issued yet.'}
+          Issued by the project, usually 5–7 days after joining. Leave blank if not issued yet.
         </p>
       </div>
     </div>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
-      <button type="button" class="btn" onclick="closeModal();openEmpDetail(${jsQ(empKey)})">${bn ? 'বাতিল' : 'Cancel'}</button>
-      <button type="button" class="btn primary" id="btnSaveOid" onclick="saveOfficialId(${jsQ(empKey)})">${bn ? 'সংরক্ষণ করুন' : 'Save'}</button>
+      <button type="button" class="btn" onclick="closeModal();openEmpDetail(${jsQ(empKey)})">Cancel</button>
+      <button type="button" class="btn primary" id="btnSaveOid" onclick="saveOfficialId(${jsQ(empKey)})">Save</button>
     </div>
   `);
 }
@@ -3562,9 +3531,8 @@ function assignOfficialId(empKey){
 async function saveOfficialId(empKey){
   if(typeof guardEdit === 'function' && !guardEdit()) return;
   const emp = findEmp(empKey);
-  const bn = typeof LANG !== 'undefined' && LANG === 'bn';
   if(!emp){
-    toast(bn ? 'কর্মী পাওয়া যায়নি' : 'Employee not found', 'error');
+    toast('Employee not found', 'error');
     return;
   }
   const input = document.getElementById('oidInput');
@@ -3612,7 +3580,7 @@ async function saveOfficialId(empKey){
       logActivity('update', 'employees', emp.id || emp.EmployeeID || empKey, `Official Employee ID set to '${val}' for ${emp.FullName || ''}`);
     }
 
-    toast(bn ? 'অফিসিয়াল আইডি সংরক্ষিত হয়েছে' : 'Official Employee ID saved successfully', 'success');
+    toast('Official Employee ID saved successfully', 'success');
 
     if(typeof renderEmpTable === 'function') renderEmpTable();
     if(typeof renderEmployees === 'function') renderEmployees();
@@ -3623,7 +3591,7 @@ async function saveOfficialId(empKey){
     openEmpDetail(newEmpKey);
   } catch(err){
     console.error('[Assign Official ID Error]:', err);
-    toast((bn ? 'সংরক্ষণ ব্যর্থ হয়েছে: ' : 'Failed to save Official ID: ') + (err.message || err), 'error');
+    toast('Failed to save Official ID: ' + (err.message || err), 'error');
     if(btn) btn.disabled = false;
   }
 }
@@ -4215,6 +4183,7 @@ async function viewCandidateProfile(id){
   }
   if (modalEl) {
     modalEl.classList.add('open');
+    modalEl.focus();
   } else {
     openModal(r.name, html);
   }
@@ -4284,7 +4253,6 @@ const SALARY_DEFAULTS = {
 function salaryFor(d){ return (COMPANY.salaryMap && COMPANY.salaryMap[d]) || SALARY_DEFAULTS[d] || ''; }
 
 function openApplicantForm(empKey){
-  const bn = LANG === 'bn';
   const isEdit = !!empKey;
   window.currentEditEmployeeId = empKey || null;
   window.currentRecruitId = empKey || null;
@@ -4333,7 +4301,7 @@ function openApplicantForm(empKey){
   const refOrgVal = existing ? (existing.ReferenceOrg || existing.ReferenceOrganization || existing.reference_org || (existing.reference && existing.reference.org) || (existingRemarks.reference && existingRemarks.reference.org) || '') : (cand && cand.reference ? cand.reference.org : '');
   const refMobileVal = existing ? (existing.ReferenceMobile || existing.reference_mobile || (existing.reference && existing.reference.mobile) || (existingRemarks.reference && existingRemarks.reference.mobile) || '') : (cand && cand.reference ? cand.reference.mobile : '');
 
-  openModal(isEdit ? (bn?'কর্মী সম্পাদনা — রিক্রুটমেন্ট ফর্ম':'Edit Employee — Full Recruitment Form') : 'New Candidate Entry — Full Data Entry', `
+  openModal(isEdit ? 'Edit Employee — Full Recruitment Form' : 'New Candidate Entry — Full Data Entry', `
     <p class="small-mute" style="margin-bottom:12px">${isEdit ? 'Update employee details across all sections using the comprehensive recruitment form. Changes sync directly to Supabase while preserving status.' : 'Fill the form in English — only the candidate name is also kept in Bangla (needed for official letters). On submit the candidate moves to "Data Entry" and 3 forms become printable.'}</p>
     <input type="hidden" id="na_editKey" value="${escapeHtml(empKey || '')}">
     <div class="tabs" id="naTabs">
@@ -5621,7 +5589,7 @@ async function commitApplicant(a){
 function advanceApplicant(id){ return markStage(id,'next'); }
 function markStage(id, target){
   const stages=['DataEntry','DocsPrinted','Signed','Confirmed'];
-  const labels = {DataEntry:'ডেটা এন্ট্রি',DocsPrinted:'ফর্ম প্রিন্ট',Signed:'স্বাক্ষরিত',Confirmed:'নিশ্চিত'};
+  const labels = {DataEntry:'Data Entry',DocsPrinted:'Docs Printed',Signed:'Signed',Confirmed:'Confirmed'};
   const r = RECRUITMENT.find(x=>String(x.id)===String(id)); if(!r) return;
   if(target==='next'){
     const i = stages.indexOf(r.stage);
@@ -5754,25 +5722,24 @@ function openArchivePopup(archId){
   DATA.recruitmentArchive = DATA.recruitmentArchive || [];
   const a = DATA.recruitmentArchive.find(x=>String(x.ArchiveID)===String(archId));
   if(!a){ toast('Not found','error'); return; }
-  const bn = LANG==='bn';
   let snap = {}; try { snap = a.Snapshot?JSON.parse(a.Snapshot):{}; } catch(e){}
   const resultColor = a.Result==='Confirmed'?'success':(a.Result==='Rejected'?'danger':'info');
-  openModal(`${bn?'আর্কাইভ প্রার্থী':'Archived Candidate'} — ${a.CandidateName||''}`,
+  openModal(`Archived Candidate — ${a.CandidateName||''}`,
     `<div class="pop-detail">
-      <div class="pop-row"><div class="pop-hint">${bn?'নাম':'Name'}</div><div><strong>${a.CandidateName||''}</strong>${a.CandidateNameEn?`<br><span class="small-mute">${a.CandidateNameEn}</span>`:''}</div></div>
-      <div class="pop-row"><div class="pop-hint">${bn?'পদবি':'Designation'}</div><div>${a.Designation||''}</div></div>
-      <div class="pop-row"><div class="pop-hint">${bn?'প্রজেক্ট':'Project'}</div><div>${a.ProjectName||''}</div></div>
-      <div class="pop-row"><div class="pop-hint">${bn?'ফলাফল':'Result'}</div><div><span class="pill ${resultColor}">${a.Result||''}</span></div></div>
-      <div class="pop-row"><div class="pop-hint">${bn?'কর্মী আইডি':'Employee ID'}</div><div>${a.EmployeeID||'—'}</div></div>
-      <div class="pop-row"><div class="pop-hint">${bn?'তারিখ':'Date'}</div><div>${fmtDate(a.ActionDate)}</div></div>
-      ${a.Reason?`<div class="pop-row"><div class="pop-hint">${bn?'কারণ':'Reason'}</div><div>${a.Reason}</div></div>`:''}
-      ${a.Note?`<div class="pop-row"><div class="pop-hint">${bn?'নোট':'Note'}</div><div>${a.Note}</div></div>`:''}
-      ${snap.phone?`<div class="pop-row"><div class="pop-hint">${bn?'মোবাইল':'Mobile'}</div><div>${num(snap.phone)}</div></div>`:''}
+      <div class="pop-row"><div class="pop-hint">Name</div><div><strong>${a.CandidateName||''}</strong>${a.CandidateNameEn?`<br><span class="small-mute">${a.CandidateNameEn}</span>`:''}</div></div>
+      <div class="pop-row"><div class="pop-hint">Designation</div><div>${a.Designation||''}</div></div>
+      <div class="pop-row"><div class="pop-hint">Project</div><div>${a.ProjectName||''}</div></div>
+      <div class="pop-row"><div class="pop-hint">Result</div><div><span class="pill ${resultColor}">${a.Result||''}</span></div></div>
+      <div class="pop-row"><div class="pop-hint">Employee ID</div><div>${a.EmployeeID||'—'}</div></div>
+      <div class="pop-row"><div class="pop-hint">Date</div><div>${fmtDate(a.ActionDate)}</div></div>
+      ${a.Reason?`<div class="pop-row"><div class="pop-hint">Reason</div><div>${a.Reason}</div></div>`:''}
+      ${a.Note?`<div class="pop-row"><div class="pop-hint">Note</div><div>${a.Note}</div></div>`:''}
+      ${snap.phone?`<div class="pop-row"><div class="pop-hint">Mobile</div><div>${num(snap.phone)}</div></div>`:''}
       ${snap.nid?`<div class="pop-row"><div class="pop-hint">NID</div><div>${num(snap.nid)}</div></div>`:''}
     </div>`,
-    `${a.Result==='Rejected'?`<button class="btn primary" onclick="restoreArchivedCandidate(${jsQ(a.ArchiveID)})">${bn?'↺ পাইপলাইনে ফেরান':'↺ Restore to pipeline'}</button>`:''}
-     <button class="btn" style="background:#dc2626;color:#fff" onclick="deleteArchivedCandidate(${jsQ(a.ArchiveID)})">${bn?'স্থায়ীভাবে মুছুন':'Delete permanently'}</button>
-     <button class="btn ghost" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>`);
+    `${a.Result==='Rejected'?`<button class="btn primary" onclick="restoreArchivedCandidate(${jsQ(a.ArchiveID)})">↺ Restore to pipeline</button>`:''}
+     <button class="btn" style="background:#dc2626;color:#fff" onclick="deleteArchivedCandidate(${jsQ(a.ArchiveID)})">Delete permanently</button>
+     <button class="btn ghost" onclick="closeModal()">Close</button>`);
 }
 function restoreArchivedCandidate(archId){
   if(!guardEdit()) return;
@@ -6210,11 +6177,10 @@ function projStaffCount(name){
 }
 
 function renderProjectsTableRows(projects) {
-  const bn = LANG === 'bn';
   if (!projects || projects.length === 0) {
     return `<tr>
       <td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">
-        ${bn ? 'কোনো প্রজেক্ট পাওয়া যায়নি' : 'No projects found'}
+        No projects found
       </td>
     </tr>`;
   }
@@ -6235,27 +6201,26 @@ function renderProjectsTableRows(projects) {
       <td style="font-size:11px;color:var(--text-muted);max-width:280px">${addr}</td>
       <td><span class="chip">${num(c)}</span></td>
       <td>${closedRow
-        ? `<span class="chip" style="background:#fee2e2;color:#991b1b">${bn ? 'বন্ধ' : 'Closed'}</span>`
-        : `<span class="chip" style="background:#dcfce7;color:#166534">${bn ? 'সক্রিয়' : 'Active'}</span>`}</td>
+        ? `<span class="chip" style="background:#fee2e2;color:#991b1b">Closed</span>`
+        : `<span class="chip" style="background:#dcfce7;color:#166534">Active</span>`}</td>
     </tr>`;
   }).join('');
 }
 
 function updateProjectsTableUI() {
-  const bn = LANG === 'bn';
   const total = (DATA.projects || []).length;
   const active = (DATA.projects || []).filter(isProjectActive).length;
   const closed = total - active;
 
   const activeChip = document.getElementById('projActiveCountChip');
   if (activeChip) {
-    activeChip.textContent = `${bn ? 'সক্রিয়' : 'Active'}: ${num(active)}`;
+    activeChip.textContent = `Active: ${num(active)}`;
   }
   const closedChip = document.getElementById('projClosedCountChip');
   if (closedChip) {
     if (closed > 0) {
       closedChip.style.display = '';
-      closedChip.textContent = `${bn ? 'বন্ধ' : 'Closed'}: ${num(closed)}`;
+      closedChip.textContent = `Closed: ${num(closed)}`;
     } else {
       closedChip.style.display = 'none';
     }
@@ -6351,7 +6316,6 @@ window.ensureProjectsRealtime = ensureProjectsRealtime;
 async function renderProjects(){
   const page = document.getElementById('page-projects');
   if (!page) return;
-  const bn = LANG === 'bn';
   const total = (DATA.projects || []).length;
   const active = (DATA.projects || []).filter(isProjectActive).length;
   const closed = total - active;
@@ -6359,32 +6323,32 @@ async function renderProjects(){
   page.innerHTML = `
     <div class="card">
       <div class="card-header">
-        <h3>${bn ? 'ক্লায়েন্ট প্রজেক্ট / ডিউটি পয়েন্ট' : 'Client Projects / Duty Points'}
-          <span class="chip" id="projActiveCountChip" style="margin-left:8px">${bn ? 'সক্রিয়' : 'Active'}: ${num(active)}</span>
-          <span class="chip" id="projClosedCountChip" style="background:#fee2e2;color:#991b1b;margin-left:4px;${closed ? '' : 'display:none'}">${bn ? 'বন্ধ' : 'Closed'}: ${num(closed)}</span>
+        <h3>Client Projects / Duty Points
+          <span class="chip" id="projActiveCountChip" style="margin-left:8px">Active: ${num(active)}</span>
+          <span class="chip" id="projClosedCountChip" style="background:#fee2e2;color:#991b1b;margin-left:4px;${closed ? '' : 'display:none'}">Closed: ${num(closed)}</span>
         </h3>
-        <button class="btn primary sm" onclick="openProjectForm()">${ico('plus')} ${bn ? 'নতুন প্রজেক্ট যোগ' : 'Add New Project'}</button>
+        <button class="btn primary sm" onclick="openProjectForm()">${ico('plus')} Add New Project</button>
       </div>
       <div class="table-wrap">
         <table>
           <thead><tr>
-            <th>ID</th><th>${bn ? 'প্রজেক্ট' : 'Project'}</th>
-            <th>${bn ? 'অ্যাডমিন' : 'Admin'}</th><th>${bn ? 'ফোন' : 'Phone'}</th>
-            <th>${bn ? 'ঠিকানা' : 'Address'}</th>
-            <th>${bn ? 'জনবল' : 'Staff'}</th>
-            <th>${bn ? 'অবস্থা' : 'Status'}</th>
+            <th>ID</th><th>Project</th>
+            <th>Admin</th><th>Phone</th>
+            <th>Address</th>
+            <th>Staff</th>
+            <th>Status</th>
           </tr></thead>
           <tbody id="projectsTableBody">
             ${total > 0
               ? renderProjectsTableRows(DATA.projects)
               : `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">
                    <span class="spin" style="display:inline-block;width:16px;height:16px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;margin-right:8px;vertical-align:middle;animation:spin .8s linear infinite"></span>
-                   ${bn ? 'সার্ভার থেকে প্রজেক্ট লোড হচ্ছে…' : 'Loading projects from Supabase…'}
+                   Loading projects from Supabase…
                  </td></tr>`}
           </tbody>
         </table>
       </div>
-      <p class="small-mute" style="margin-top:10px;padding:0 6px">${bn ? '💡 যেকোনো সারিতে ক্লিক করে বিস্তারিত দেখুন / সম্পাদনা করুন / বন্ধ করুন' : '💡 Click any row to view / edit / close'}</p>
+      <p class="small-mute" style="margin-top:10px;padding:0 6px">💡 Click any row to view / edit / close</p>
     </div>
   `;
 
@@ -6401,51 +6365,50 @@ window.renderProjects = renderProjects;
 /* ---------- Add / Edit Project form ---------- */
 function openProjectForm(pid){
   if(!guardEdit()) return;
-  const bn = LANG==='bn';
   const p = pid!=null ? DATA.projects.find(x=>String(x['Project ID'])===String(pid) || x.ProjectName===pid) : {};
   const isEdit = !!p && !!p.ProjectName;
   const val = k => (p&&p[k])?String(p[k]).replace(/"/g,'&quot;'):'';
   openModal({
-    title: isEdit ? (bn?'প্রজেক্ট সম্পাদনা':'Edit Project') : (bn?'নতুন প্রজেক্ট':'Add New Project'),
+    title: isEdit ? 'Edit Project' : 'Add New Project',
     body: `
       <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:12px">
-        <div class="field"><label>${bn?'প্রজেক্ট আইডি':'Project ID'} ${isEdit?'':'<span class="small-mute">(auto)</span>'}</label>
+        <div class="field"><label>Project ID ${isEdit?'':'<span class="small-mute">(auto)</span>'}</label>
           <input id="pf_id" type="text" value="${val('Project ID')||(isEdit?'':String(Math.max(0,...DATA.projects.map(x=>+x['Project ID']||0))+1))}" ${isEdit?'readonly':''}></div>
-        <div class="field"><label>${bn?'অবস্থা':'Status'}</label>
+        <div class="field"><label>Status</label>
           <select id="pf_status">
-            <option value="Active"${p.Status!=='Closed'?' selected':''}>${bn?'সক্রিয়':'Active'}</option>
-            <option value="Closed"${p.Status==='Closed'?' selected':''}>${bn?'বন্ধ':'Closed'}</option>
+            <option value="Active"${p.Status!=='Closed'?' selected':''}>Active</option>
+            <option value="Closed"${p.Status==='Closed'?' selected':''}>Closed</option>
           </select></div>
         <div class="field wide"><label>Project Name (English) *</label>
           <input id="pf_name" type="text" value="${val('ProjectName')}" placeholder="e.g. ABC Textile Mills Ltd"></div>
-        <div class="field wide"><label>${bn?'প্রজেক্টের নাম (বাংলা)':'Project Name (Bangla)'}</label>
-          <input id="pf_nameBn" type="text" value="${val('ProjectNameBangla')}" placeholder="${bn?'যেমন: এবিসি টেক্সটাইল মিলস লিঃ':'e.g. ABC Textile Mills Ltd'}"></div>
-        <div class="field"><label>${bn?'অ্যাডমিন নাম':'Admin Name'}</label>
+        <div class="field wide"><label>Project Name (Bangla)</label>
+          <input id="pf_nameBn" type="text" value="${val('ProjectNameBangla')}" placeholder="e.g. এবিসি টেক্সটাইল মিলস লিঃ"></div>
+        <div class="field"><label>Admin Name</label>
           <input id="pf_admin" type="text" value="${val('Admin Name')}"></div>
-        <div class="field"><label>${bn?'অ্যাডমিন ফোন':'Admin Phone'}</label>
+        <div class="field"><label>Admin Phone</label>
           <input id="pf_phone" type="text" value="${val('Admin Phone Num')}" placeholder="01XXXXXXXXX"></div>
-        <div class="field wide"><label>${bn?'ঠিকানা (English)':'Address (English)'}</label>
+        <div class="field wide"><label>Address (English)</label>
           <input id="pf_addr" type="text" value="${val('Address')}"></div>
-        <div class="field wide"><label>${bn?'ঠিকানা (বাংলা)':'Address (Bangla)'}</label>
+        <div class="field wide"><label>Address (Bangla)</label>
           <input id="pf_addrBn" type="text" value="${val('AddressBangla')}"></div>
         <div class="field wide" style="grid-column:1/-1">
-          <label style="color:var(--purple);font-weight:600">${bn?'📍 ঠিকানা (Cascade)':'📍 Address (Cascade)'}</label>
+          <label style="color:var(--purple);font-weight:600">📍 Address (Cascade)</label>
           <div id="pf_addrCascade" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-top:4px"></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
-            <div><label style="font-size:11px">${bn?'গ্রাম':'Village'}</label>
-              <input id="pf_village" list="pf_villageList" type="text" value="${val('Village')}" placeholder="${bn?'টাইপ করুন':'Type village'}">
+            <div><label style="font-size:11px">Village</label>
+              <input id="pf_village" list="pf_villageList" type="text" value="${val('Village')}" placeholder="Type village">
               <datalist id="pf_villageList"></datalist></div>
-            <div><label style="font-size:11px">${bn?'বাসা/হোল্ডিং/রাস্তা':'House / Holding / Street'}</label>
+            <div><label style="font-size:11px">House / Holding / Street</label>
               <input id="pf_street" type="text" value="${val('Street')}"></div>
           </div>
         </div>
-        <div class="field"><label>${bn?'শুরুর তারিখ':'Start Date'}</label>
+        <div class="field"><label>Start Date</label>
           <input id="pf_start" type="date" value="${val('StartDate')}"></div>
       </div>
     `,
     actions: `
-      <button class="btn" onclick="closeModal()">${bn?'বাতিল':'Cancel'}</button>
-      <button class="btn primary" onclick="saveProject(${isEdit?`'${String(p['Project ID']).replace(/'/g,"\\'")}'`:'null'})">${isEdit?(bn?'পরিবর্তন সংরক্ষণ':'Save Changes'):(bn?'যোগ করুন':'Add Project')}</button>
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" onclick="saveProject(${isEdit?`'${String(p['Project ID']).replace(/'/g,"\\'")}'`:'null'})">${isEdit?'Save Changes':'Add Project'}</button>
     `
   });
   setTimeout(function(){ buildAddressCascade('pf_addrCascade', {divisionId:p.DivisionID||'',districtId:p.DistrictID||'',upazilaId:p.UpazilaID||'',unionId:p.UnionID||''}, function(state){
@@ -6453,9 +6416,8 @@ function openProjectForm(pid){
   }); }, 30);
 }
 function saveProject(existingId){
-  const bn = LANG==='bn';
   const name = document.getElementById('pf_name').value.trim();
-  if(!name){ toast(bn?'Project Name আবশ্যক':'Project Name is required','error'); return; }
+  if(!name){ toast('Project Name is required','error'); return; }
   const rec = {
     'Project ID': document.getElementById('pf_id').value.trim(),
     ProjectName: name,
@@ -6489,12 +6451,12 @@ function saveProject(existingId){
     }
   } else {
     if(DATA.projects.some(x=>x.ProjectName===name || x.project_name===name)){
-      toast(bn?'এই নামের প্রজেক্ট আগে থেকেই আছে':'A project with this name already exists','error'); return;
+      toast('A project with this name already exists','error'); return;
     }
     DATA.projects.push(normProject(rec));
   }
   closeModal(); persist(); renderProjects(); renderAll();
-  toast(existingId?(bn?'প্রজেক্ট আপডেট হয়েছে':'Project updated'):(bn?'নতুন প্রজেক্ট যোগ হয়েছে':'New project added'),'success');
+  toast(existingId?'Project updated':'New project added','success');
 
   // Push changes to Supabase
   const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null) || window.sb;
@@ -6531,7 +6493,6 @@ function saveProject(existingId){
 
 /* ---------- Click-to-popup: project details ---------- */
 function openProjectPopup(pid){
-  const bn = LANG==='bn';
   const p = DATA.projects.find(x=>String(x['Project ID'])===String(pid) || String(x.id)===String(pid) || x.ProjectName===pid || x.project_name===pid);
   if(!p) return;
   const pName = p.ProjectName || p.project_name;
@@ -6543,41 +6504,42 @@ function openProjectPopup(pid){
     body: `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;font-size:13px;margin-bottom:14px">
         <div><b>ID:</b> ${num(projId)}</div>
-        <div><b>${bn?'অবস্থা':'Status'}:</b> ${closed
-          ? `<span class="chip" style="background:#fee2e2;color:#991b1b">${bn?'বন্ধ':'Closed'}</span>`
-          : `<span class="chip" style="background:#dcfce7;color:#166534">${bn?'সক্রিয়':'Active'}</span>`}</div>
-        <div><b>${bn?'অ্যাডমিন':'Admin'}:</b> ${p['Admin Name']||p.admin_name||'—'}</div>
-        <div><b>${bn?'ফোন':'Phone'}:</b> ${num(p['Admin Phone Num']||p.admin_phone||'—')}</div>
-        <div style="grid-column:1/-1"><b>${bn?'ঠিকানা':'Address'}:</b> ${p.Address||p.address||p.AddressBangla||p.address_bn||'—'}</div>
-        <div><b>${bn?'বিভাগ':'Division'}:</b> ${bdDivName(p.DivisionID)||p.Division||p.division||'—'}</div>
-        <div><b>${bn?'জেলা':'District'}:</b> ${bdDistName(p.DistrictID)||p.District||p.district||'—'}</div>
-        <div><b>${bn?'উপজেলা':'Upazila'}:</b> ${bdUpzName(p.UpazilaID)||p.Thana||p.thana||'—'}</div>
-        <div><b>${bn?'ইউনিয়ন':'Union'}:</b> ${bdUnionName(p.UnionID)||'—'}</div>
-        ${p.Village||p.village?`<div><b>${bn?'গ্রাম':'Village'}:</b> ${p.Village||p.village}</div>`:''}
-        <div><b>${bn?'শুরু':'Start'}:</b> ${(p.StartDate||p.start_date)?fmtDate(p.StartDate||p.start_date):'—'}</div>
-        <div><b>${bn?'বর্তমান জনবল':'Active Staff'}:</b> <span class="chip">${num(staff.length)}</span></div>
+        <div><b>Status:</b> ${closed
+          ? `<span class="chip" style="background:#fee2e2;color:#991b1b">Closed</span>`
+          : `<span class="chip" style="background:#dcfce7;color:#166534">Active</span>`}</div>
+        <div><b>Admin:</b> ${p['Admin Name']||p.admin_name||'—'}</div>
+        <div><b>Phone:</b> ${num(p['Admin Phone Num']||p.admin_phone||'—')}</div>
+        <div style="grid-column:1/-1"><b>Address:</b> ${p.Address||p.address||p.AddressBangla||p.address_bn||'—'}</div>
+        <div><b>Division:</b> ${bdDivName(p.DivisionID)||p.Division||p.division||'—'}</div>
+        <div><b>District:</b> ${bdDistName(p.DistrictID)||p.District||p.district||'—'}</div>
+        <div><b>Upazila:</b> ${bdUpzName(p.UpazilaID)||p.Thana||p.thana||'—'}</div>
+        <div><b>Union:</b> ${bdUnionName(p.UnionID)||'—'}</div>
+        ${p.Village||p.village?`<div><b>Village:</b> ${p.Village||p.village}</div>`:''}
+        <div><b>Start:</b> ${(p.StartDate||p.start_date)?fmtDate(p.StartDate||p.start_date):'—'}</div>
+        <div><b>Active Staff:</b> <span class="chip">${num(staff.length)}</span></div>
       </div>
       ${staff.length ? `
-        <h4 style="margin:8px 0 6px;font-size:13px">${bn?'কর্মরত কর্মী':'Deployed Staff'} (${num(staff.length)})</h4>
+        <h4 style="margin:8px 0 6px;font-size:13px">Deployed Staff (${num(staff.length)})</h4>
         <div style="max-height:220px;overflow:auto;border:1px solid var(--border);border-radius:8px">
           <table style="width:100%;font-size:12px;margin:0"><thead style="position:sticky;top:0;background:var(--bg-dim)"><tr>
-            <th style="padding:6px 8px">${bn?'আইডি':'ID'}</th><th style="padding:6px 8px">${bn?'নাম':'Name'}</th><th style="padding:6px 8px">${bn?'পদবি':'Designation'}</th>
+            <th style="padding:6px 8px">ID</th><th style="padding:6px 8px">Name</th><th style="padding:6px 8px">Designation</th>
           </tr></thead><tbody>
           ${staff.map(e=>`<tr><td style="padding:5px 8px">${num(e.EmployeeID||'')}</td><td style="padding:5px 8px">${e.FullName||''}</td><td style="padding:5px 8px">${desig(e.Designation||'')}</td></tr>`).join('')}
           </tbody></table>
-        </div>` : `<p class="small-mute" style="margin:10px 0">${bn?'কোনো কর্মী কর্মরত নেই':'No staff currently deployed'}</p>`}
+        </div>` : `<p class="small-mute" style="margin:10px 0">No staff currently deployed</p>`}
     `,
     actions: `
-      <button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>
-      <button class="btn" onclick="closeModal();openProjectForm('${String(projId).replace(/'/g,"\\'")}')">${ico('edit')||''} ${bn?'সম্পাদনা':'Edit'}</button>
+      <button class="btn" onclick="closeModal()">Close</button>
+      <button class="btn" onclick="closeModal();openProjectForm('${String(projId).replace(/'/g,"\\'")}')">${ico('edit')||''} Edit Project</button>
+      <button class="btn" onclick="printProjectProfile('${String(projId).replace(/'/g,"\\'")}')">${ico('print')||''} Print Profile</button>
+      <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteProject('${String(projId).replace(/'/g,"\\'")}')">Delete Project</button>
       ${closed
-        ? `<button class="btn" onclick="reopenProject('${String(projId).replace(/'/g,"\\'")}')" style="background:#dcfce7;color:#166534">${bn?'পুনরায় চালু':'Re-open'}</button>`
-        : `<button class="btn danger" onclick="askCloseProject('${String(projId).replace(/'/g,"\\'")}')">${bn?'বন্ধ হিসেবে চিহ্নিত':'Mark as Closed'}</button>`}
+        ? `<button class="btn" onclick="reopenProject('${String(projId).replace(/'/g,"\\'")}')" style="background:#dcfce7;color:#166534">Reopen Project</button>`
+        : `<button class="btn danger" onclick="askCloseProject('${String(projId).replace(/'/g,"\\'")}')">Close Project</button>`}
     `
   });
 }
 function askCloseProject(pid){
-  const bn = LANG==='bn';
   const p = DATA.projects.find(x=>String(x['Project ID'])===String(pid) || String(x.id)===String(pid) || x.ProjectName===pid || x.project_name===pid); if(!p) return;
   const pName = p.ProjectName || p.project_name;
   const staff = DATA.employees.filter(e=>(e.ProjectName===pName || e.project_name===pName) && (e.Status==='Active' || e.status==='Active'));
@@ -6586,28 +6548,27 @@ function askCloseProject(pid){
     return;
   }
   openModal({
-    title: `⚠️ ${bn?'সতর্কতা — প্রজেক্ট বন্ধ':'Warning — Close Project'}`,
+    title: `⚠️ Warning — Close Project`,
     body: `
       <div style="background:#fef3c7;border-left:5px solid #d97706;border-radius:10px;padding:16px 18px;margin-bottom:12px">
-        <p style="margin:0 0 10px;font-size:14px;line-height:1.7"><b>${pName}</b> — ${bn?'এই প্রজেক্টে বর্তমানে':'currently has'} <b style="color:#d97706;font-size:16px">${num(staff.length)}</b> ${bn?'জন কর্মী কর্মরত আছেন।':'active employees.'}</p>
-        <p style="margin:0;font-size:13.5px;line-height:1.7">${bn?'এখন প্রজেক্টটি বন্ধ করলে <b>এই মুহূর্ত থেকে</b> সবাই <b>Inactive</b> হিসেবে চিহ্নিত হবেন। এই কাজ সহজে ফেরানো যাবে না।':'If you close now, all of them will be marked <b>Inactive</b> from this moment onward. This action is hard to undo.'}</p>
+        <p style="margin:0 0 10px;font-size:14px;line-height:1.7"><b>${pName}</b> — currently has <b style="color:#d97706;font-size:16px">${num(staff.length)}</b> active employees.</p>
+        <p style="margin:0;font-size:13.5px;line-height:1.7">If you close now, all of them will be marked <b>Inactive</b> from this moment onward. This action is hard to undo.</p>
       </div>
       <div style="max-height:200px;overflow:auto;border:1px solid var(--border);border-radius:8px">
         <table style="width:100%;font-size:12px;margin:0"><thead style="position:sticky;top:0;background:var(--bg-dim)"><tr>
-          <th style="padding:6px 8px">${bn?'আইডি':'ID'}</th><th style="padding:6px 8px">${bn?'নাম':'Name'}</th><th style="padding:6px 8px">${bn?'পদবি':'Designation'}</th>
+          <th style="padding:6px 8px">ID</th><th style="padding:6px 8px">Name</th><th style="padding:6px 8px">Designation</th>
         </tr></thead><tbody>
         ${staff.map(e=>`<tr><td style="padding:5px 8px">${num(e.EmployeeID||'')}</td><td style="padding:5px 8px">${e.FullName||''}</td><td style="padding:5px 8px">${desig(e.Designation||'')}</td></tr>`).join('')}
         </tbody></table>
       </div>
     `,
     actions: `
-      <button class="btn" onclick="closeModal()">${bn?'বাতিল':'Cancel'}</button>
-      <button class="btn danger" onclick="doCloseProject('${String(pid).replace(/'/g,"\\'")}',true)">${bn?'হ্যাঁ, বন্ধ করুন এবং সবাইকে Inactive করুন':'Yes, Close & Deactivate All'}</button>
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn danger" onclick="doCloseProject('${String(pid).replace(/'/g,"\\'")}',true)">Yes, Close & Deactivate All</button>
     `
   });
 }
 async function doCloseProject(pid, deactivate){
-  const bn = LANG==='bn';
   const p = DATA.projects.find(x=>String(x['Project ID'])===String(pid) || String(x.id)===String(pid) || x.ProjectName===pid || x.project_name===pid); if(!p) return;
   const pName = p.ProjectName || p.project_name;
   const today = todayISO();
@@ -6667,18 +6628,17 @@ async function doCloseProject(pid, deactivate){
       renderProjects();
       renderAll();
       toast(deactivate
-        ? (bn?`প্রজেক্ট বন্ধ — ${num(count)} জন কর্মী Inactive হয়েছেন`:`Project closed — ${count} employees deactivated`)
-        : (bn?'প্রজেক্ট বন্ধ হয়েছে':'Project closed'), 'success');
+        ? `Project closed — ${count} employees deactivated`
+        : 'Project closed', 'success');
 
     } catch (err) {
       console.error(err);
       toast('Error closing project: ' + err.message, 'error');
-      if(btn) { btn.disabled = false; btn.innerHTML = bn?'হ্যাঁ, বন্ধ করুন এবং সবাইকে Inactive করুন':'Yes, Close & Deactivate All'; }
+      if(btn) { btn.disabled = false; btn.innerHTML = 'Yes, Close & Deactivate All'; }
     }
   })();
 }
 async function reopenProject(pid){
-  const bn = LANG==='bn';
   const p = DATA.projects.find(x=>String(x['Project ID'])===String(pid) || String(x.id)===String(pid) || x.ProjectName===pid || x.project_name===pid); if(!p) return;
   const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null) || window.sb;
   
@@ -6706,14 +6666,78 @@ async function reopenProject(pid){
       
       closeModal();
       renderProjects();
-      toast(bn?'প্রজেক্ট পুনরায় চালু হয়েছে':'Project re-opened','success');
+      toast('Project re-opened','success');
     } catch (err) {
       console.error(err);
       toast('Error reopening project: ' + err.message, 'error');
-      if(btn) { btn.disabled = false; btn.innerHTML = bn?'পুনরায় চালু':'Re-open'; }
+      if(btn) { btn.disabled = false; btn.innerHTML = 'Re-open'; }
     }
   })();
 }
+
+async function deleteProject(pid){
+  if(typeof guardEdit === 'function' && !guardEdit()) return;
+  const p = DATA.projects.find(x=>String(x['Project ID'])===String(pid) || String(x.id)===String(pid) || x.ProjectName===pid || x.project_name===pid); if(!p) return;
+  const pName = p.ProjectName || p.project_name;
+  if(!confirm(`Are you sure you want to delete project "${pName}"?`)) return;
+  const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null) || window.sb;
+  try {
+    const targetId = p.id || p['Project ID'];
+    if(sbClient){
+      const { error } = await sbClient.from('projects').delete().eq('id', targetId);
+      if(error) throw error;
+    }
+    DATA.projects = DATA.projects.filter(x => String(x['Project ID'])!==String(targetId) && String(x.id)!==String(targetId));
+    closeModal();
+    if(typeof renderProjects === 'function') renderProjects();
+    toast('Project deleted successfully', 'success');
+  } catch(err){
+    console.error(err);
+    toast('Failed to delete project: ' + err.message, 'error');
+  }
+}
+window.deleteProject = deleteProject;
+
+function printProjectProfile(pid){
+  const p = DATA.projects.find(x=>String(x['Project ID'])===String(pid) || String(x.id)===String(pid) || x.ProjectName===pid || x.project_name===pid);
+  if(!p) return;
+  const pName = p.ProjectName || p.project_name;
+  const staff = DATA.employees.filter(e=>(e.ProjectName===pName || e.project_name===pName) && (e.Status==='Active' || e.status==='Active'));
+  const html = `<div class="print-doc">
+    ${letterhead()}
+    <div class="subject" style="text-align:center;text-decoration:underline">Project Profile — ${pName}</div>
+    <table class="form-table" style="margin-top:14px">
+      <tr><th style="width:25%">Project ID</th><td>${num(p['Project ID']||p.id||'')}</td><th style="width:25%">Status</th><td>${isProjectActive(p)?'Active':'Closed'}</td></tr>
+      <tr><th>Project Name</th><td>${pName}</td><th>Bangla Name</th><td>${p.ProjectNameBangla||'—'}</td></tr>
+      <tr><th>Admin Name</th><td>${p['Admin Name']||p.admin_name||'—'}</td><th>Admin Phone</th><td>${num(p['Admin Phone Num']||p.admin_phone||'—')}</td></tr>
+      <tr><th>Address</th><td colspan="3">${p.Address||p.address||p.AddressBangla||p.address_bn||'—'}</td></tr>
+      <tr><th>Division / District</th><td>${bdDivName(p.DivisionID)||'—'} / ${bdDistName(p.DistrictID)||'—'}</td><th>Upazila / Union</th><td>${bdUpzName(p.UpazilaID)||'—'} / ${bdUnionName(p.UnionID)||'—'}</td></tr>
+      <tr><th>Start Date</th><td>${p.StartDate?fmtDate(p.StartDate):'—'}</td><th>Total Deployed Staff</th><td>${num(staff.length)}</td></tr>
+    </table>
+    <h4 style="margin:20px 0 8px;font-size:14px">Deployed Staff Members (${num(staff.length)})</h4>
+    <table class="form-table" style="margin-top:8px">
+      <thead><tr>
+        <th style="width:10%">SL</th>
+        <th style="width:15%">Employee ID</th>
+        <th style="width:35%">Full Name</th>
+        <th style="width:20%">Designation</th>
+        <th style="width:20%">Phone</th>
+      </tr></thead>
+      <tbody>
+        ${staff.length ? staff.map((e,idx)=>`<tr>
+          <td>${idx+1}</td>
+          <td>${num(e.EmployeeID||'')}</td>
+          <td>${e.FullName||''}</td>
+          <td>${desig(e.Designation||'')}</td>
+          <td>${num(e.Phone||e.Mobile||'—')}</td>
+        </tr>`).join('') : '<tr><td colspan="5" style="text-align:center">No staff currently deployed</td></tr>'}
+      </tbody>
+    </table>
+  </div>`;
+  if(typeof openPrint === 'function') openPrint(html);
+}
+window.printProjectProfile = printProjectProfile;
+window.banglaProjectProfilePrint = printProjectProfile;
 
 /* ============ TRANSFER ============ */
 function renderTransfer(){
@@ -6831,42 +6855,37 @@ function renderTransferTable() {
 
 function openTransferPopup(tid){
   const t = DATA.transfers.find(x=>String(x.id)===String(tid)); if(!t) return;
-  const bn = LANG==='bn';
   const memo = 'MG/SEC/TR/'+String(t.id).padStart(4,'0');
   
   const status = t.status || t.Status || 'Scheduled';
   const isCancelled = status==='Cancelled';
   const isCompleted = status==='Completed';
   const pillCls = isCancelled ? 'inactive' : isCompleted ? 'completed' : (status==='Awaiting Confirmation' || status==='Join Pending' ? 'warning' : 'scheduled');
-  const pillTxt = bn ? ({
-    'Cancelled':'বাতিল', 'Completed':'সম্পন্ন (জয়েন করেছেন)',
-    'Awaiting Confirmation':'যোগদানের অপেক্ষায়', 'Join Pending':'যোগদানের অপেক্ষায় (Join Pending)', 'Scheduled':'নির্ধারিত', 'Recorded':'রেকর্ডকৃত'
-  })[status] || status : status;
-  const statusPill = `<span class="pill ${escapeHtml(pillCls)}">${escapeHtml(pillTxt)}</span>`;
+  const statusPill = `<span class="pill ${escapeHtml(pillCls)}">${escapeHtml(status)}</span>`;
   const emp = findEmpByAction(t);
   const empActive = emp && emp.Status==='Active';
-  openModal(bn?`ট্রান্সফার #${escapeHtml(num(t.id))}`:`Transfer #${escapeHtml(t.id)}`,
+  openModal(`Transfer #${escapeHtml(t.id)}`,
     `<div class="pop-detail">
-      <div class="pop-row"><span>${bn?'স্মারক নং':'Memo No.'}</span><b>${escapeHtml(memo)}</b></div>
-      <div class="pop-row"><span>${bn?'কর্মচারী':'Employee'}</span><b>${escapeHtml(t.FullName||'')} <span class="small-mute">(#${escapeHtml(num(t.EmployeeID||''))})</span></b></div>
-      <div class="pop-row"><span>${bn?'পদবি':'Designation'}</span><b>${escapeHtml(t.Designation||'')}</b></div>
-      <div class="pop-row"><span>${bn?'হতে':'From'}</span><b>${escapeHtml(projName(t.CurrentProject))}</b></div>
-      <div class="pop-row"><span>${bn?'-এ':'To'}</span><b style="color:var(--purple)">${escapeHtml(projName(t.NewProject))}</b></div>
-      <div class="pop-row"><span>${bn?'ট্রান্সফার তারিখ':'Transfer Date'}</span><b>${escapeHtml(fmtDate(t.TransferDate))}</b></div>
-      <div class="pop-row"><span>${bn?'ইস্যু তারিখ':'Issue Date'}</span><b>${escapeHtml(fmtDate(t['Issues Date']||t.IssueDate||''))}</b></div>
-      <div class="pop-row"><span>${bn?'অবস্থা':'Status'}</span>${statusPill}</div>
-      ${emp?`<div class="pop-row"><span>${bn?'বর্তমান প্রজেক্ট (Employeetbl)':'Current Project (Employeetbl)'}</span><b>${escapeHtml(projName(emp.ProjectName))}</b></div>`:''}
-      ${t.Notes?`<div class="pop-row"><span>${bn?'নোট':'Notes'}</span><b>${escapeHtml(t.Notes).replace(/\n/g, '<br>')}</b></div>`:''}
+      <div class="pop-row"><span>Memo No.</span><b>${escapeHtml(memo)}</b></div>
+      <div class="pop-row"><span>Employee</span><b>${escapeHtml(t.FullName||'')} <span class="small-mute">(#${escapeHtml(num(t.EmployeeID||''))})</span></b></div>
+      <div class="pop-row"><span>Designation</span><b>${escapeHtml(t.Designation||'')}</b></div>
+      <div class="pop-row"><span>From</span><b>${escapeHtml(projName(t.CurrentProject))}</b></div>
+      <div class="pop-row"><span>To</span><b style="color:var(--purple)">${escapeHtml(projName(t.NewProject))}</b></div>
+      <div class="pop-row"><span>Transfer Date</span><b>${escapeHtml(fmtDate(t.TransferDate))}</b></div>
+      <div class="pop-row"><span>Issue Date</span><b>${escapeHtml(fmtDate(t['Issues Date']||t.IssueDate||''))}</b></div>
+      <div class="pop-row"><span>Status</span>${statusPill}</div>
+      ${emp?`<div class="pop-row"><span>Current Project (Employeetbl)</span><b>${escapeHtml(projName(emp.ProjectName))}</b></div>`:''}
+      ${t.Notes?`<div class="pop-row"><span>Notes</span><b>${escapeHtml(t.Notes).replace(/\n/g, '<br>')}</b></div>`:''}
     </div>
-    <div class="pop-hint">${bn?'💡 "যোগদান নিশ্চিত" চাপলে Employeetbl.ProjectName আপডেট হবে ও status "সম্পন্ন" হবে। "বাতিল" চাপলে শুধু হিস্ট্রি রেকর্ড "Cancelled" হবে; Employeetbl অপরিবর্তিত।':'💡 "Confirm Joined" updates Employeetbl.ProjectName and marks Completed. "Cancel" only marks the history record — Employeetbl is not touched.'}</div>`,
-    `<button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>
-     <button class="btn" onclick="reprintTransfer(${jsQ(t.id)})">${ico('print')} ${bn?'পুনঃপ্রিন্ট':'Reprint'}</button>
-     ${!isCancelled && !isCompleted && empActive ? `<button class="btn success" onclick="markTransferJoined(${jsQ(t.id)})">${bn?'✓ যোগদান নিশ্চিত (Complete)':'✓ Confirm Joined (Complete)'}</button>` : ''}
-     ${isCompleted && !isCancelled ? `<button class="btn" onclick="revertTransferComplete(${jsQ(t.id)})" title="${bn?'ভুল করে Complete হয়ে গেলে ফেরত আনুন':'Revert if marked complete by mistake'}">↺ ${bn?'Complete পূর্বাবস্থায়':'Undo Complete'}</button>` : ''}
-     ${!isCancelled?`<button class="btn" style="background:var(--warning);color:#fff" onclick="cancelTransferOrder(${jsQ(t.id)})">${bn?'✗ বাতিল করুন':'✗ Cancel Order'}</button>`:''}
-     ${isCancelled?`<button class="btn" onclick="restoreTransferOrder(${jsQ(t.id)})">${bn?'↺ পুনরুদ্ধার':'↺ Restore'}</button>`:''}
-     <button class="btn" onclick="editTransferNewProject(${jsQ(t.id)})">${bn?'গন্তব্য বদলান':'Change Destination'}</button>
-     <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteTransferRecord(${jsQ(t.id)})">${bn?'🗑 রেকর্ড ডিলিট':'🗑 Delete Record'}</button>`);
+    <div class="pop-hint">💡 "Confirm Joined" updates Employeetbl.ProjectName and marks Completed. "Cancel" only marks the history record — Employeetbl is not touched.</div>`,
+    `<button class="btn" onclick="closeModal()">Close</button>
+     <button class="btn" onclick="reprintTransfer(${jsQ(t.id)})">${ico('print')} Reprint</button>
+     ${!isCancelled && !isCompleted && empActive ? `<button class="btn success" onclick="markTransferJoined(${jsQ(t.id)})">✓ Confirm Joined (Complete)</button>` : ''}
+     ${isCompleted && !isCancelled ? `<button class="btn" onclick="revertTransferComplete(${jsQ(t.id)})" title="Revert if marked complete by mistake">↺ Undo Complete</button>` : ''}
+     ${!isCancelled?`<button class="btn" style="background:var(--warning);color:#fff" onclick="cancelTransferOrder(${jsQ(t.id)})">✗ Cancel Order</button>`:''}
+     ${isCancelled?`<button class="btn" onclick="restoreTransferOrder(${jsQ(t.id)})">↺ Restore</button>`:''}
+     <button class="btn" onclick="editTransferNewProject(${jsQ(t.id)})">Change Destination</button>
+     <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteTransferRecord(${jsQ(t.id)})">🗑 Delete Record</button>`);
 }
 function markTransferJoined(tid){
   if(!guardEdit()) return;
@@ -6875,14 +6894,13 @@ function markTransferJoined(tid){
 function revertTransferComplete(tid){
   if(!guardEdit()) return;
   const t = DATA.transfers.find(x=>String(x.id)===String(tid)); if(!t) return;
-  const bn = LANG==='bn';
-  if(!confirm(bn?'এই ট্রান্সফার "Scheduled" এ ফেরাবেন? Employeetbl.ProjectName এই ফাংশনে আর অটো বদলাবে না — প্রয়োজন হলে Employees ট্যাবে ম্যানুয়ালি ঠিক করুন।':'Revert this transfer to "Scheduled"? Employeetbl.ProjectName is NOT auto-reverted — edit manually in Employees tab if needed.')) return;
+  if(!confirm('Revert this transfer to "Scheduled"? Employeetbl.ProjectName is NOT auto-reverted — edit manually in Employees tab if needed.')) return;
   t.Status='Scheduled'; t.status='Scheduled'; delete t._applied;
   if(window.MGHRM && typeof window.MGHRM.update === 'function') {
     window.MGHRM.update('transfers', t.id, { Status: 'Scheduled', status: 'Scheduled' }).catch(console.error);
   }
   logActivity('update','transfers', tid, 'Complete → Scheduled (undo)');
-  toast(bn?'পূর্বাবস্থায় ফেরানো হয়েছে — Employeetbl অপরিবর্তিত':'Reverted — Employeetbl unchanged','warning');
+  toast('Reverted — Employeetbl unchanged','warning');
   persist(); closeModal(); renderTransfer();
 }
 function restoreTransferOrder(tid){
@@ -6923,13 +6941,12 @@ function cancelTransferOrder(tid){
 function editTransferNewProject(tid){
   if(!guardEdit()) return;
   const t = DATA.transfers.find(x=>String(x.id)===String(tid)); if(!t) return;
-  const bn = LANG==='bn';
   const opts = DATA.projects.map(p=>`<option value="${p.ProjectName}"${p.ProjectName===t.NewProject?' selected':''}>${p.ProjectName}</option>`).join('');
-  openModal(bn?'গন্তব্য প্রজেক্ট বদলান':'Change Destination Project',
-    `<div class="field"><label>${bn?'নতুন গন্তব্য':'New Destination'}</label><select id="_np">${opts}</select></div>
-     <p class="small-mute" style="margin-top:8px">${bn?'শুধু হিস্টরি রেকর্ড আপডেট হবে; Employee.ProjectName-এ প্রভাব নেই।':'Only the history record updates; Employee.ProjectName is not touched.'}</p>`,
-    `<button class="btn" onclick="closeModal()">${bn?'বাতিল':'Cancel'}</button>
-     <button class="btn primary" onclick="(function(){var v=document.getElementById('_np').value; var t=DATA.transfers.find(x=>String(x.id)===String(${JSON.stringify(String(tid))})); if(t){t.NewProject=v; if(window.MGHRM&&typeof window.MGHRM.update==='function'){window.MGHRM.update('transfers',t.id,{NewProject:v}).catch(console.error);} logActivity('update','transfers',${JSON.stringify(String(tid))}, 'destination changed to '+v); persist(); closeModal(); renderTransfer(); toast('${bn?'গন্তব্য বদলে গেছে':'Destination updated'}','success');}})()">${bn?'সেভ':'Save'}</button>`);
+  openModal('Change Destination Project',
+    `<div class="field"><label>New Destination</label><select id="_np">${opts}</select></div>
+     <p class="small-mute" style="margin-top:8px">Only the history record updates; Employee.ProjectName is not touched.</p>`,
+    `<button class="btn" onclick="closeModal()">Cancel</button>
+     <button class="btn primary" onclick="(function(){var v=document.getElementById('_np').value; var t=DATA.transfers.find(x=>String(x.id)===String(${JSON.stringify(String(tid))})); if(t){t.NewProject=v; if(window.MGHRM&&typeof window.MGHRM.update==='function'){window.MGHRM.update('transfers',t.id,{NewProject:v}).catch(console.error);} logActivity('update','transfers',${JSON.stringify(String(tid))}, 'destination changed to '+v); persist(); closeModal(); renderTransfer(); toast('Destination updated','success');}})()">Save</button>`);
 }
 
 const EMP_PICKER_CB = {
@@ -7406,10 +7423,10 @@ function bangleTransferOrder({emp,np,td,iss,notes,refNo}){
 /* ============ DISCIPLINARY ============ */
 
 const DC_TEMPLATES = {
-  'ShowCause':   { label:{en:'Show Cause Notice', bn:'শোকজ নোটিশ'},        subject:'শোকজ নোটিশ' },
-  'Warning':     { label:{en:'Warning Letter', bn:'সতর্কীকরণ পত্র'},        subject:'সতর্কীকরণ পত্র' },
-  'Suspension':  { label:{en:'Suspension Order', bn:'সাময়িক বরখাস্ত আদেশ'}, subject:'সাময়িক বরখাস্ত আদেশ' },
-  'Termination': { label:{en:'Termination Letter', bn:'চাকরিচ্যুতি পত্র'},  subject:'চাকরিচ্যুতির আদেশ' },
+  'ShowCause':   { label:{en:'Show-Cause Notice', bn:'Show-Cause Notice'},        subject:'শোকজ নোটিশ' },
+  'Warning':     { label:{en:'Warning Letter', bn:'Warning Letter'},        subject:'সতর্কীকরণ পত্র' },
+  'Suspension':  { label:{en:'Suspension Order', bn:'Suspension Order'}, subject:'সাময়িক বরখাস্ত আদেশ' },
+  'Termination': { label:{en:'Termination Order', bn:'Termination Order'},  subject:'চাকরিচ্যুতির আদেশ' },
 };
 
 function renderDisciplinary(){
@@ -7420,7 +7437,7 @@ function renderDisciplinary(){
         <div class="form-grid">
           <div class="field"><label>${'Employee'} *</label><select id="dcEmp" onchange="dcFillEmp()"></select><div id="dcEmpInfo"></div></div>
           <div class="field"><label>${'Action Type'} *</label><select id="dcType">
-            ${Object.entries(DC_TEMPLATES).map(([k,v])=>`<option value="${k}">${v.label[LANG]||v.label.en}</option>`).join('')}
+            ${Object.entries(DC_TEMPLATES).map(([k,v])=>`<option value="${k}">${v.label.en}</option>`).join('')}
           </select></div>
           <div class="field"><label>${'Memo No.'} *</label><input id="dcRef" type="text" value="${refNo('MG/SEC/DC')}"></div>
           <div class="field"><label>${'Incident Date'}</label><input id="dcIncident" type="date"></div>
@@ -7514,30 +7531,29 @@ window.renderDisciplinaryTable = renderDisciplinaryTable;
 function openDisciplinaryPopup(aid, isEditing = false){
   const d = DATA.disciplinary.find(x=>String(x.ActionID||x.action_id||x.id)===String(aid)); if(!d) return;
   const actualAid = d.ActionID || d.action_id || d.id;
-  const bn = LANG==='bn';
 
   const descContent = isEditing
-    ? `<div class="field wide" style="margin-top:12px"><label>${bn?'চিঠির বডি (সম্পাদনযোগ্য)':'Letter body (editable)'}</label><textarea id="_dcDescEdit" rows="10" style="width:100%">${escapeHtml(d.Description||d.description||'')}</textarea></div>
-       <p class="small-mute" style="margin-top:6px">${bn?'শুধু লেখা সম্পাদনযোগ্য; স্মারক নং ও ইস্যু তারিখ অপরিবর্তিত থাকবে।':'Only the letter body is editable; ref no. and dates stay unchanged.'}</p>`
-    : `<div class="field wide" style="margin-top:12px"><label>${bn?'চিঠির বডি':'Letter body'}</label><div style="background:var(--bg,#f8fafc);border:1px solid var(--border);border-radius:6px;padding:12px;max-height:220px;overflow-y:auto;white-space:pre-wrap;font-family:inherit;font-size:13px">${escapeHtml(d.Description||d.description||'—')}</div></div>`;
+    ? `<div class="field wide" style="margin-top:12px"><label>Letter body (editable)</label><textarea id="_dcDescEdit" rows="10" style="width:100%">${escapeHtml(d.Description||d.description||'')}</textarea></div>
+       <p class="small-mute" style="margin-top:6px">Only the letter body is editable; ref no. and dates stay unchanged.</p>`
+    : `<div class="field wide" style="margin-top:12px"><label>Letter body</label><div style="background:var(--bg,#f8fafc);border:1px solid var(--border);border-radius:6px;padding:12px;max-height:220px;overflow-y:auto;white-space:pre-wrap;font-family:inherit;font-size:13px">${escapeHtml(d.Description||d.description||'—')}</div></div>`;
 
   const actionsHtml = isEditing
-    ? `<button class="btn" onclick="openDisciplinaryPopup(${jsQ(actualAid)}, false)">${bn?'বাতিল':'Cancel'}</button>
-       <button class="btn success" style="background:var(--success);color:#fff;font-weight:700" onclick="saveDisciplinaryEdit(${jsQ(actualAid)})">💾 ${bn?'সেভ করুন':'Save Changes'}</button>`
-    : `<button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>
-       <button class="btn primary" onclick="previewDisciplinaryPrint(${jsQ(actualAid)})">${ico('print')} ${bn?'প্রিন্ট':'Print'}</button>
-       <button class="btn" onclick="openDisciplinaryPopup(${jsQ(actualAid)}, true)">✏️ ${bn?'এডিট টেক্সট':'Edit Text'}</button>
-       <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteDisciplinary(${jsQ(actualAid)})">${bn?'ডিলিট':'Delete'}</button>`;
+    ? `<button class="btn" onclick="openDisciplinaryPopup(${jsQ(actualAid)}, false)">Cancel</button>
+       <button class="btn success" style="background:var(--success);color:#fff;font-weight:700" onclick="saveDisciplinaryEdit(${jsQ(actualAid)})">💾 Save Changes</button>`
+    : `<button class="btn" onclick="closeModal()">Close</button>
+       <button class="btn primary" onclick="previewDisciplinaryPrint(${jsQ(actualAid)})">${ico('print')} Print / View Letter</button>
+       <button class="btn" onclick="openDisciplinaryPopup(${jsQ(actualAid)}, true)">✏️ Edit Text</button>
+       <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteDisciplinary(${jsQ(actualAid)})">Delete</button>`;
 
-  openModal(bn?`শৃঙ্খলা অ্যাকশন — ${escapeHtml(d.RefNo||d.ref_no||'')}`:`Disciplinary — ${escapeHtml(d.RefNo||d.ref_no||'')}`,
+  openModal(`Disciplinary Action Details — ${escapeHtml(d.RefNo||d.ref_no||'')}`,
     `<div class="pop-detail">
-      <div class="pop-row"><span>${bn?'স্মারক নং':'Ref No.'}</span><b>${escapeHtml(d.RefNo||d.ref_no||'')}</b></div>
-      <div class="pop-row"><span>${bn?'কর্মচারী':'Employee'}</span><b>${escapeHtml(d.FullName||d.full_name||'')} <span class="small-mute">(#${escapeHtml(num(d.EmployeeID||d.employee_id||''))})</span></b></div>
-      <div class="pop-row"><span>${bn?'পদবি':'Designation'}</span><b>${escapeHtml(d.Designation||d.designation||'')}</b></div>
-      <div class="pop-row"><span>${bn?'প্রজেক্ট':'Project'}</span><b>${escapeHtml(projName(d.ProjectName||d.project_name))}</b></div>
-      <div class="pop-row"><span>${bn?'অ্যাকশন':'Action'}</span><b>${escapeHtml(d.ActionType||d.action_type||'')}</b></div>
-      <div class="pop-row"><span>${bn?'ঘটনার তারিখ':'Incident Date'}</span><b>${escapeHtml(fmtDate(d.IncidentDate||d.incident_date))}</b></div>
-      <div class="pop-row"><span>${bn?'ইস্যু তারিখ':'Issue Date'}</span><b>${escapeHtml(fmtDate(d.IssueDate||d.issue_date))}</b></div>
+      <div class="pop-row"><span>Ref No.</span><b>${escapeHtml(d.RefNo||d.ref_no||'')}</b></div>
+      <div class="pop-row"><span>Employee</span><b>${escapeHtml(d.FullName||d.full_name||'')} <span class="small-mute">(#${escapeHtml(num(d.EmployeeID||d.employee_id||''))})</span></b></div>
+      <div class="pop-row"><span>Designation</span><b>${escapeHtml(d.Designation||d.designation||'')}</b></div>
+      <div class="pop-row"><span>Project</span><b>${escapeHtml(projName(d.ProjectName||d.project_name))}</b></div>
+      <div class="pop-row"><span>Action</span><b>${escapeHtml(d.ActionType||d.action_type||'')}</b></div>
+      <div class="pop-row"><span>Incident Date</span><b>${escapeHtml(fmtDate(d.IncidentDate||d.incident_date))}</b></div>
+      <div class="pop-row"><span>Issue Date</span><b>${escapeHtml(fmtDate(d.IssueDate||d.issue_date))}</b></div>
     </div>
     ${descContent}`,
     actionsHtml);
@@ -7727,7 +7743,7 @@ function renderLeave(){
       ${LEAVE_TYPES.map(lt=>{
         const used = SAMPLE_LEAVES.filter(x=>x.type===lt.key).reduce((s,x)=>s+x.days,0);
         return `<div class="kpi"><div class="kpi-icon" style="background:${lt.color}22;color:${lt.color}">${ico('calendar')}</div>
-          <div class="kpi-label">${lt[LANG]}</div>
+          <div class="kpi-label">${lt.en}</div>
           <div class="kpi-value">${num(lt.days)}</div>
           <div class="kpi-delta">${'Annual allocation · '} ${num(used)} ${'used (this month)'}</div>
         </div>`;
@@ -7739,7 +7755,7 @@ function renderLeave(){
       <div class="card-body">
         <div class="form-grid">
           <div class="field"><label>${'Employee'} *</label><select id="lvEmp" onchange="lvFillEmp()"></select><div id="lvEmpInfo"></div></div>
-          <div class="field"><label>${'Leave Type'} *</label><select id="lvType">${LEAVE_TYPES.map(l=>`<option value="${l.key}">${l[LANG]}</option>`).join('')}</select></div>
+          <div class="field"><label>${'Leave Type'} *</label><select id="lvType">${LEAVE_TYPES.map(l=>`<option value="${l.key}">${l.en}</option>`).join('')}</select></div>
           <div class="field"><label>${'Start Date'} *</label><input id="lvStart" type="date"></div>
           <div class="field"><label>${'End Date'} *</label><input id="lvEnd" type="date"></div>
           <div class="field wide"><label>${'Reason'} *</label><textarea id="lvReason" rows="2"></textarea></div>
@@ -7758,14 +7774,14 @@ function renderLeave(){
             <thead><tr><th style="width:50px">${'#'}</th><th>ID</th><th>${'Employee'}</th><th>${'Type'}</th><th>${'Days'}</th><th>${'Status'}</th><th></th></tr></thead>
             <tbody>
               ${(SAMPLE_LEAVES && SAMPLE_LEAVES.length > 0) ? SAMPLE_LEAVES.slice().sort((a,b)=>+b.id-+a.id).map((l,i)=>{
-                const lt = LEAVE_TYPES.find(x=>x.key===l.type) || {color:'#666', [LANG]: l.type};
+                const lt = LEAVE_TYPES.find(x=>x.key===l.type) || {color:'#666', en: l.type};
                 const emp = findEmpByAction(l);
                 const empId = emp ? (emp.id || emp.EmployeeID || '') : (l.empId || '—');
                 return `<tr class="row-click" onclick="openLeavePopup(${jsQ(l.id)})" style="cursor:pointer">
                   <td>${escapeHtml(num(l.id))}</td>
                   <td><span class="chip" style="font-size:11px;font-weight:600">${escapeHtml(num(empId))}</span></td>
                   <td><strong>${escapeHtml(l.name||'')}</strong><br><span class="small-mute">${escapeHtml(fmtDate(l.start))} — ${escapeHtml(fmtDate(l.end))}</span></td>
-                  <td><span class="chip" style="color:${lt.color}">${escapeHtml(lt[LANG])}</span></td>
+                  <td><span class="chip" style="color:${lt.color}">${escapeHtml(lt.en)}</span></td>
                   <td>${escapeHtml(num(l.days))}</td>
                   <td><span class="pill ${l.status==='Approved'?'approved':(l.status==='Rejected'?'danger':'pending')}">${escapeHtml(l.status||'')}</span></td>
                   <td onclick="event.stopPropagation()">${l.status==='Pending'?`<button class="btn success sm" onclick="approveLeave(${jsQ(l.id)})">${'Approve'}</button>`:''}</td>
@@ -7791,9 +7807,7 @@ function renderLeaveCalendar(){
   const first = new Date(now.getFullYear(),now.getMonth(),1);
   const startDay = first.getDay();
   const daysInMonth = new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
-  const headsEn = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const headsBn = ['রবি','সোম','মঙ্গল','বুধ','বৃহঃ','শুক্র','শনি'];
-  const heads = headsEn;
+  const heads = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   let html = `<div class="cal-grid">`;
   heads.forEach(h=>html+=`<div class="cal-head">${h}</div>`);
   for(let i=0;i<startDay;i++) html+=`<div class="cal-cell other"></div>`;
@@ -7887,22 +7901,21 @@ function approveLeave(id){
 function openLeavePopup(id){
   const l = SAMPLE_LEAVES.find(x=>String(x.id)===String(id));
   if(!l){ toast('Not found','error'); return; }
-  const bn = LANG==='bn';
-  const lt = LEAVE_TYPES.find(x=>x.key===l.type) || {bn:l.type,en:l.type,color:'#666'};
+  const lt = LEAVE_TYPES.find(x=>x.key===l.type) || {en:l.type,color:'#666'};
   const statusColor = l.status==='Approved'?'approved':(l.status==='Rejected'?'danger':'pending');
-  openModal(`${bn?'ছুটির আবেদন':'Leave Application'} — ${escapeHtml(l.name||'')}`,
+  openModal(`Leave Application — ${escapeHtml(l.name||'')}`,
     `<div class="pop-detail">
-      <div class="pop-row"><div class="pop-hint">${bn?'কর্মচারী':'Employee'}</div><div><strong>${escapeHtml(l.name||'')}</strong></div></div>
-      <div class="pop-row"><div class="pop-hint">${bn?'ধরন':'Type'}</div><div><span class="chip" style="color:${lt.color}">${escapeHtml(lt[LANG])}</span></div></div>
-      <div class="pop-row"><div class="pop-hint">${bn?'সময়কাল':'Period'}</div><div>${escapeHtml(fmtDate(l.start))} — ${escapeHtml(fmtDate(l.end))} <span class="chip">${escapeHtml(num(l.days))} ${bn?'দিন':'days'}</span></div></div>
-      <div class="pop-row"><div class="pop-hint">${bn?'অবস্থা':'Status'}</div><div><span class="pill ${statusColor}">${escapeHtml(l.status||'')}</span></div></div>
-      <div class="pop-row"><div class="pop-hint">${bn?'কারণ':'Reason'}</div><div><textarea id="lvEditReason" rows="3" style="width:100%">${escapeHtml(l.reason||'')}</textarea></div></div>
+      <div class="pop-row"><div class="pop-hint">Employee</div><div><strong>${escapeHtml(l.name||'')}</strong></div></div>
+      <div class="pop-row"><div class="pop-hint">Type</div><div><span class="chip" style="color:${lt.color}">${escapeHtml(lt.en || l.type)}</span></div></div>
+      <div class="pop-row"><div class="pop-hint">Period</div><div>${escapeHtml(fmtDate(l.start))} — ${escapeHtml(fmtDate(l.end))} <span class="chip">${escapeHtml(num(l.days))} days</span></div></div>
+      <div class="pop-row"><div class="pop-hint">Status</div><div><span class="pill ${statusColor}">${escapeHtml(l.status||'')}</span></div></div>
+      <div class="pop-row"><div class="pop-hint">Reason</div><div><textarea id="lvEditReason" rows="3" style="width:100%">${escapeHtml(l.reason||'')}</textarea></div></div>
     </div>`,
-    `<button class="btn primary" onclick="saveLeaveEdit(${jsQ(l.id)})">${bn?'কারণ সেভ':'Save reason'}</button>
-     ${l.status==='Pending'?`<button class="btn success" onclick="approveLeave(${jsQ(l.id)});closeModal()">${bn?'অনুমোদন':'Approve'}</button>
-       <button class="btn" style="background:#f59e0b;color:#fff" onclick="rejectLeave(${jsQ(l.id)})">${bn?'বাতিল':'Reject'}</button>`:''}
-     <button class="btn" style="background:#dc2626;color:#fff" onclick="deleteLeave(${jsQ(l.id)})">${bn?'ডিলিট':'Delete'}</button>
-     <button class="btn ghost" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>`);
+    `<button class="btn primary" onclick="saveLeaveEdit(${jsQ(l.id)})">Save reason</button>
+     ${l.status==='Pending'?`<button class="btn success" onclick="approveLeave(${jsQ(l.id)});closeModal()">Approve</button>
+       <button class="btn" style="background:#f59e0b;color:#fff" onclick="rejectLeave(${jsQ(l.id)})">Reject</button>`:''}
+     <button class="btn" style="background:#dc2626;color:#fff" onclick="deleteLeave(${jsQ(l.id)})">Delete</button>
+     <button class="btn ghost" onclick="closeModal()">Close</button>`);
 }
 function saveLeaveEdit(id){
   if(!guardEdit()) return;
@@ -8009,50 +8022,48 @@ function exFillEmp(){
 
 function openExitPopup(eid){
   const x = DATA.exits.find(r=>String(r.ExitID)===String(eid)); if(!x) return;
-  const bn = LANG==='bn';
   const emp = findEmpByAction(x);
   const empKey = emp ? (emp.id || emp.EmployeeID ) : (x.EmployeeID || '');
   const empDisplayId = emp ? (emp.EmployeeID || emp.id ) : (x.EmployeeID || '');
-  openModal(bn?`চাকরি ত্যাগ — ${escapeHtml(x.FullName)}`:`Exit — ${escapeHtml(x.FullName)}`,
+  openModal(`Exit — ${escapeHtml(x.FullName)}`,
     `<div class="pop-detail">
-      <div class="pop-row"><span>${bn?'কর্মচারী':'Employee'}</span><b>${escapeHtml(x.FullName||'')} <span class="small-mute">(#${escapeHtml(num(empDisplayId))})</span></b></div>
-      <div class="pop-row"><span>${bn?'পদবি':'Designation'}</span><b>${escapeHtml(x.Designation||'')}</b></div>
-      <div class="pop-row"><span>${bn?'প্রজেক্ট':'Project'}</span><b>${escapeHtml(projName(x.CurrentProject))}</b></div>
-      <div class="pop-row"><span>${bn?'যোগদানের তারিখ':'Join Date'}</span><b>${escapeHtml(fmtDate(x.JoinDate))}</b></div>
-      <div class="pop-row"><span>${bn?'ত্যাগের তারিখ':'Exit Date'}</span><b>${escapeHtml(fmtDate(x.ExitDate))}</b></div>
-      <div class="pop-row"><span>${bn?'ইস্যু তারিখ':'Issue Date'}</span><b>${escapeHtml(fmtDate(x.IssueDate))}</b></div>
-      <div class="pop-row"><span>${bn?'কারণ':'Reason'}</span><b>${escapeHtml(x.ExitReason||x.ExitType||'—').replace(/\n/g, '<br>')}</b></div>
-      <div class="pop-row"><span>${bn?'বর্তমান স্ট্যাটাস':'Current Status'}</span><b>${escapeHtml(emp?emp.Status:'—')}</b></div>
+      <div class="pop-row"><span>Employee</span><b>${escapeHtml(x.FullName||'')} <span class="small-mute">(#${escapeHtml(num(empDisplayId))})</span></b></div>
+      <div class="pop-row"><span>Designation</span><b>${escapeHtml(x.Designation||'')}</b></div>
+      <div class="pop-row"><span>Project</span><b>${escapeHtml(projName(x.CurrentProject))}</b></div>
+      <div class="pop-row"><span>Join Date</span><b>${escapeHtml(fmtDate(x.JoinDate))}</b></div>
+      <div class="pop-row"><span>Exit Date</span><b>${escapeHtml(fmtDate(x.ExitDate))}</b></div>
+      <div class="pop-row"><span>Issue Date</span><b>${escapeHtml(fmtDate(x.IssueDate))}</b></div>
+      <div class="pop-row"><span>Reason</span><b>${escapeHtml(x.ExitReason||x.ExitType||'—').replace(/\n/g, '<br>')}</b></div>
+      <div class="pop-row"><span>Current Status</span><b>${escapeHtml(emp?emp.Status:'—')}</b></div>
     </div>
-    <div class="pop-hint">${bn?'⚠ কর্মচারীর বর্তমান অবস্থা Employeetbl-এর Status থেকে আসে; এই পপআপ থেকে সংশোধন করতে চাইলে "পুনর্বহাল" চাপুন।':'⚠ Employee current status comes from Employeetbl.Status; use "Reactivate" to restore.'}</div>`,
-    `${emp?`<button class="btn primary" onclick="promptReactivate(${jsQ(empKey)}, ${jsQ(x.ExitID)})">${bn?'পুনর্বহাল':'Reactivate'}</button>`:''}
-     ${emp?`<button class="btn" onclick="closeModal();openEmpDetail(${jsQ(empKey)})">${bn?'এডিট':'Edit'}</button>`:''}
-     <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteExit(${jsQ(x.ExitID)})">${bn?'ডিলিট':'Delete'}</button>
-     <button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>`);
+    <div class="pop-hint">⚠ Employee current status comes from Employeetbl.Status; use "Reactivate" to restore.</div>`,
+    `${emp?`<button class="btn primary" onclick="promptReactivate(${jsQ(empKey)}, ${jsQ(x.ExitID)})">Reactivate</button>`:''}
+     ${emp?`<button class="btn" onclick="closeModal();openEmpDetail(${jsQ(empKey)})">Edit</button>`:''}
+     <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteExit(${jsQ(x.ExitID)})">Delete</button>
+     <button class="btn" onclick="closeModal()">Close</button>`);
 }
 function promptReactivate(empKey, exitId){
   if(!guardEdit()) return;
   const emp = findEmp(empKey);
   if(!emp) return;
-  const bn = LANG==='bn';
   const activeProjs = activeProjects().sort((a,b)=>a.ProjectName.localeCompare(b.ProjectName));
-  openModal(bn ? 'প্রজেক্ট নির্বাচন করুন (পুনর্বহাল)' : 'Select Project for Reactivation', `
+  openModal('Select Project for Reactivation', `
     <div class="form-grid">
       <div class="field wide">
-        <label>${bn?'পুনর্বহালের জন্য নতুন প্রজেক্ট':'Select Project for Reactivated Employee'} *</label>
+        <label>Select Project for Reactivated Employee *</label>
         <select id="reactivateProj" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border)">
-          <option value="">— ${bn?'প্রজেক্ট নির্বাচন করুন':'Select project'} —</option>
+          <option value="">— Select project —</option>
           ${activeProjs.map(p=>`<option value="${p.ProjectName}"${p.ProjectName===emp.ProjectName?' selected':''}>${p.ProjectName}</option>`).join('')}
         </select>
       </div>
       <div class="form-group" style="margin-top: 15px;">
-        <label>${bn?'নতুন যোগদানের তারিখ':'New Join Date'} *</label>
+        <label>New Join Date *</label>
         <input type="date" id="reactivateJoinDate" class="form-control" value="${new Date().toISOString().split('T')[0]}" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border)">
       </div>
     </div>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
-      <button class="btn" onclick="openExitPopup(${jsQ(exitId)})">${bn?'বাতিল':'Cancel'}</button>
-      <button class="btn primary" onclick="confirmReactivate(${jsQ(empKey)}, ${jsQ(exitId)})">${bn?'নিশ্চিত করুন':'Confirm Reactivation'}</button>
+      <button class="btn" onclick="openExitPopup(${jsQ(exitId)})">Cancel</button>
+      <button class="btn primary" onclick="confirmReactivate(${jsQ(empKey)}, ${jsQ(exitId)})">Confirm Reactivation</button>
     </div>
   `);
 }
@@ -8449,27 +8460,26 @@ async function submitIncrement(){
 
 function openCareerPopup(cid){
   const c = DATA.career.find(r=>String(r.ChangeID)===String(cid)); if(!c) return;
-  const bn = LANG==='bn';
   const emp = findEmpByAction(c);
   const empDisplayId = emp ? (emp.EmployeeID || emp.id ) : (c.EmployeeID || '');
-  openModal(bn?`ক্যারিয়ার পরিবর্তন — ${c.FullName}`:`Career Change — ${c.FullName}`,
+  openModal(`Career Change — ${c.FullName}`,
     `<div class="pop-detail">
-      <div class="pop-row"><span>${bn?'কর্মচারী':'Employee'}</span><b>${c.FullName} <span class="small-mute">(#${num(empDisplayId)})</span></b></div>
-      <div class="pop-row"><span>${bn?'প্রজেক্ট':'Project'}</span><b>${projName(c.ProjectName)}</b></div>
-      <div class="pop-row"><span>${bn?'ধরন':'Change Type'}</span><b><span class="chip">${c.ChangeType||''}</span></b></div>
-      <div class="pop-row"><span>${bn?'কার্যকর তারিখ':'Effective Date'}</span><b>${fmtDate(c.EffectiveDate)}</b></div>
-      <div class="pop-row"><span>${bn?'পূর্ব পদবি':'Previous Designation'}</span><b>${c.CurrentDesignation||'—'}</b></div>
-      <div class="pop-row"><span>${bn?'নতুন পদবি':'New Designation'}</span><b style="color:var(--purple)">${c.NewDesignation||'—'}</b></div>
-      <div class="pop-row"><span>${bn?'পূর্ব বেতন':'Previous Salary'}</span><b>${c.PreviousSalary?money(c.PreviousSalary):'—'}</b></div>
-      <div class="pop-row"><span>${bn?'নতুন বেতন':'New Salary'}</span><b style="color:var(--success)">${c.NewSalary?money(c.NewSalary):'—'}</b></div>
-      <div class="pop-row"><span>${bn?'ইনক্রিমেন্ট':'Increment'}</span><b>${c.IncrementAmount?money(c.IncrementAmount):'—'}</b></div>
-      ${c.Notes?`<div class="pop-row"><span>${bn?'নোট':'Notes'}</span><b>${c.Notes}</b></div>`:''}
-      ${emp?`<div class="pop-row"><span>${bn?'বর্তমান পদবি/বেতন (Employees)':'Current in Employees'}</span><b>${emp.Designation||'—'} · ${emp.Salary?money(emp.Salary):'—'}</b></div>`:''}
+      <div class="pop-row"><span>Employee</span><b>${c.FullName} <span class="small-mute">(#${num(empDisplayId)})</span></b></div>
+      <div class="pop-row"><span>Project</span><b>${projName(c.ProjectName)}</b></div>
+      <div class="pop-row"><span>Change Type</span><b><span class="chip">${c.ChangeType||''}</span></b></div>
+      <div class="pop-row"><span>Effective Date</span><b>${fmtDate(c.EffectiveDate)}</b></div>
+      <div class="pop-row"><span>Previous Designation</span><b>${c.CurrentDesignation||'—'}</b></div>
+      <div class="pop-row"><span>New Designation</span><b style="color:var(--purple)">${c.NewDesignation||'—'}</b></div>
+      <div class="pop-row"><span>Previous Salary</span><b>${c.PreviousSalary?money(c.PreviousSalary):'—'}</b></div>
+      <div class="pop-row"><span>New Salary</span><b style="color:var(--success)">${c.NewSalary?money(c.NewSalary):'—'}</b></div>
+      <div class="pop-row"><span>Increment</span><b>${c.IncrementAmount?money(c.IncrementAmount):'—'}</b></div>
+      ${c.Notes?`<div class="pop-row"><span>Notes</span><b>${c.Notes}</b></div>`:''}
+      ${emp?`<div class="pop-row"><span>Current in Employees</span><b>${emp.Designation||'—'} · ${emp.Salary?money(emp.Salary):'—'}</b></div>`:''}
     </div>
-    <div class="pop-hint">${bn?'💡 রিভার্ট করলে পূর্ব পদবি ও বেতন কর্মচারীর প্রোফাইলে ফিরে যাবে (এই রেকর্ড ডিলিট হবে)।':'💡 Revert restores previous designation and salary in the employee profile and deletes this record.'}</div>`,
-    `<button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>
-     ${emp?`<button class="btn" style="background:var(--warning);color:#fff" onclick="revertCareer(${jsQ(c.ChangeID)})">${bn?'রিভার্ট':'Revert'}</button>`:''}
-     <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteCareer(${jsQ(c.ChangeID)})">${bn?'রেকর্ড ডিলিট':'Delete'}</button>`);
+    <div class="pop-hint">💡 Revert restores previous designation and salary in the employee profile and deletes this record.</div>`,
+    `<button class="btn" onclick="closeModal()">Close</button>
+     ${emp?`<button class="btn" style="background:var(--warning);color:#fff" onclick="revertCareer(${jsQ(c.ChangeID)})">Revert</button>`:''}
+     <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteCareer(${jsQ(c.ChangeID)})">Delete</button>`);
 }
 function revertCareer(cid){
   if(!guardEdit()) return;
@@ -8544,20 +8554,20 @@ function renderSalary(){
 /* ============ REPORTS ============ */
 function renderReports(){
   const reports = [
-    {key:'newJoins',    icon:'trend',    color:'g', title_en:'Monthly New Joins',      title_bn:'মাসিক নতুন যোগদান',        desc_en:'All new employees who joined this month', desc_bn:'এই মাসে যোগদান করা সকল কর্মচারী'},
-    {key:'exits',       icon:'x',        color:'r', title_en:'Monthly Exits',          title_bn:'মাসিক চাকরি ত্যাগ',         desc_en:'All exits during selected month',        desc_bn:'নির্বাচিত মাসে সকল চাকরি ত্যাগ'},
-    {key:'transfers',   icon:'refresh',  color:'b', title_en:'Monthly Transfers',      title_bn:'মাসিক ট্রান্সফার',          desc_en:'All transfers during selected month',    desc_bn:'নির্বাচিত মাসে সকল ট্রান্সফার'},
-    {key:'disciplinary',icon:'warn',     color:'y', title_en:'Monthly Disciplinary',   title_bn:'মাসিক শৃঙ্খলাভঙ্গের ব্যবস্থা',desc_en:'All disciplinary actions this month',    desc_bn:'এই মাসে গৃহীত সকল ব্যবস্থা'},
-    {key:'parade',      icon:'users',    color:'p', title_en:'Parade State',           title_bn:'প্যারেড স্টেট',              desc_en:'Manpower demand vs actual',              desc_bn:'জনবল চাহিদা বনাম বর্তমান'},
-    {key:'staffList',   icon:'file',     color:'b', title_en:'Project Staff List',     title_bn:'প্রজেক্টওয়াইজ কর্মী তালিকা',desc_en:'Employees per project',                  desc_bn:'প্রজেক্ট অনুযায়ী কর্মচারী'},
-    {key:'turnover',    icon:'trend',    color:'r', title_en:'Turnover Analysis',      title_bn:'টার্নওভার বিশ্লেষণ',        desc_en:'Which project loses most staff',         desc_bn:'কোন প্রজেক্টে সবচেয়ে বেশি ত্যাগ'},
-    {key:'birthdays',   icon:'calendar', color:'p', title_en:'Birthdays & Anniversaries', title_bn:'জন্মদিন ও বর্ষপূর্তি',  desc_en:'Birthdays and work anniversaries this month', desc_bn:'এই মাসের জন্মদিন ও কর্মবর্ষপূর্তি'},
-    {key:'dataGaps',    icon:'warn',     color:'y', title_en:'Data Gap Alerts',        title_bn:'ডেটা-ঘাটতি সতর্কতা',       desc_en:'Missing NID / mobile / photo',            desc_bn:'NID / মোবাইল / ছবি অনুপস্থিত'},
-    {key:'contractExp', icon:'file',     color:'r', title_en:'Contract Expiry',        title_bn:'চুক্তি সমাপ্তি',            desc_en:'Contracts ending within 60 days',         desc_bn:'৬০ দিনের মধ্যে চুক্তি সমাপ্তি'},
-    {key:'salarySlip',  icon:'file',     color:'g', title_en:'Salary Slip',            title_bn:'বেতন স্লিপ',                desc_en:'Print individual A4 salary slip',         desc_bn:'কর্মচারীর A4 বেতন স্লিপ প্রিন্ট'},
-    {key:'analytics',   icon:'trend',    color:'b', title_en:'Analytics Dashboard',    title_bn:'অ্যানালিটিক্স ড্যাশবোর্ড',   desc_en:'Project·designation·6-month trends',     desc_bn:'প্রজেক্ট · পদবি · ৬-মাসের ট্রেন্ড'},
-    {key:'activityLog', icon:'file',     color:'b', title_en:'Activity Log',           title_bn:'অ্যাক্টিভিটি লগ',           desc_en:'Last 500 audit trail events',            desc_bn:'সর্বশেষ ৫০০টি অডিট ট্রেইল ইভেন্ট'},
-];
+    {key:'newJoins',    icon:'trend',    color:'g', title:'Monthly New Joins',      desc:'All new employees who joined this month'},
+    {key:'exits',       icon:'x',        color:'r', title:'Monthly Exits',          desc:'All exits during selected month'},
+    {key:'transfers',   icon:'refresh',  color:'b', title:'Monthly Transfers',      desc:'All transfers during selected month'},
+    {key:'disciplinary',icon:'warn',     color:'y', title:'Monthly Disciplinary',   desc:'All disciplinary actions this month'},
+    {key:'parade',      icon:'users',    color:'p', title:'Parade State',           desc:'Manpower demand vs actual'},
+    {key:'staffList',   icon:'file',     color:'b', title:'Project Staff List',     desc:'Employees per project'},
+    {key:'turnover',    icon:'trend',    color:'r', title:'Turnover Analysis',      desc:'Which project loses most staff'},
+    {key:'birthdays',   icon:'calendar', color:'p', title:'Birthdays & Anniversaries', desc:'Birthdays and work anniversaries this month'},
+    {key:'dataGaps',    icon:'warn',     color:'y', title:'Data Gap Alerts',        desc:'Missing NID / mobile / photo'},
+    {key:'contractExp', icon:'file',     color:'r', title:'Contract Expiry',        desc:'Contracts ending within 60 days'},
+    {key:'salarySlip',  icon:'file',     color:'g', title:'Salary Slip',            desc:'Print individual A4 salary slip'},
+    {key:'analytics',   icon:'trend',    color:'b', title:'Analytics Dashboard',    desc:'Project·designation·6-month trends'},
+    {key:'activityLog', icon:'file',     color:'b', title:'Activity Log',           desc:'Last 500 audit trail events'},
+  ];
   document.getElementById('page-reports').innerHTML = `
     <div class="card">
       <div class="card-header">
@@ -8571,8 +8581,8 @@ function renderReports(){
           ${reports.map(r=>`
             <div class="qa" onclick="showReport('${r.key}')" data-report="${r.key}">
               <div class="qa-icon" style="background:var(--${r.color==='r'?'danger':r.color==='g'?'success':r.color==='y'?'warning':r.color==='p'?'purple':'primary'}-soft);color:var(--${r.color==='r'?'danger':r.color==='g'?'success':r.color==='y'?'warning':r.color==='p'?'purple':'primary'})">${ico(r.icon)}</div>
-              <h5>${r.title_en}</h5>
-              <p>${r.desc_en}</p>
+              <h5>${r.title}</h5>
+              <p>${r.desc}</p>
             </div>
           `).join('')}
         </div>
@@ -8583,7 +8593,6 @@ function renderReports(){
   showReport('newJoins');
 }
 function monthOptions(){
-  const monthsBn=['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
   const monthsEn=['January','February','March','April','May','June','July','August','September','October','November','December'];
   const now = new Date();
   let html = '';
@@ -8715,10 +8724,10 @@ function showReport(kind){
     const missPhoto = activeE.filter(e=>!e.Photo && !e.PhotoURL);
     const missDOB = activeE.filter(e=>!e.DOB);
     const rows = [
-      {k:'NID', bn:'জাতীয় পরিচয়পত্র', list: missNID, color:'#dc2626'},
-      {k:'Mobile', bn:'মোবাইল নম্বর', list: missPhone, color:'#dc2626'},
-      {k:'Photo', bn:'ছবি', list: missPhoto, color:'#f59e0b'},
-      {k:'DOB', bn:'জন্ম তারিখ', list: missDOB, color:'#f59e0b'},
+      {k:'NID', list: missNID, color:'#dc2626'},
+      {k:'Mobile', list: missPhone, color:'#dc2626'},
+      {k:'Photo', list: missPhoto, color:'#f59e0b'},
+      {k:'DOB', list: missDOB, color:'#f59e0b'},
     ];
     out = `<div class="card"><div class="card-header"><h3>${'Data Gap Alerts'}</h3>
       <div class="btn-row"><button class="btn sm" onclick="printReport()">${ico('print')} Print</button></div></div>
@@ -8753,17 +8762,17 @@ function showReport(kind){
       </div></div>`;
   } else if(kind==='salarySlip'){
     
-    const monthsBn=['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
-    out = `<div class="card"><div class="card-header"><h3>${'Salary Slip'}</h3></div>
+    const monthsEn=['January','February','March','April','May','June','July','August','September','October','November','December'];
+    out = `<div class="card"><div class="card-header"><h3>Salary Slip</h3></div>
       <div class="card-body">
         <div class="form-grid">
-          <div class="field"><label>${'Employee'} *</label><select id="ssEmp">${DATA.employees.filter(e=>e.Status==='Active').map(e=>`<option value="${e.id || e.EmployeeID }">${e.FullName} — ${num(e.EmployeeID || e.id )} — ${projName(e.ProjectName)}</option>`).join('')}</select></div>
-          <div class="field"><label>${'Month'} *</label><select id="ssMonth">${monthsBn.map((m,i)=>{const mo=String(i+1).padStart(2,'0');const d=new Date();const val=`${d.getFullYear()}-${mo}`;return `<option value="${val}" ${i===new Date().getMonth()?'selected':''}>${new Date(0,i,1).toLocaleString('en',{month:'long'})} ${d.getFullYear()}</option>`}).join('')}</select></div>
-          <div class="field"><label>${'Other Allowance (৳)'}</label><input id="ssOther" type="number" value="0"></div>
-          <div class="field"><label>${'Deduction (৳)'}</label><input id="ssDeduct" type="number" value="0"></div>
+          <div class="field"><label>Employee *</label><select id="ssEmp">${DATA.employees.filter(e=>e.Status==='Active').map(e=>`<option value="${e.id || e.EmployeeID }">${e.FullName} — ${num(e.EmployeeID || e.id )} — ${projName(e.ProjectName)}</option>`).join('')}</select></div>
+          <div class="field"><label>Month *</label><select id="ssMonth">${monthsEn.map((m,i)=>{const mo=String(i+1).padStart(2,'0');const d=new Date();const val=`${d.getFullYear()}-${mo}`;return `<option value="${val}" ${i===new Date().getMonth()?'selected':''}>${m} ${d.getFullYear()}</option>`}).join('')}</select></div>
+          <div class="field"><label>Other Allowance (৳)</label><input id="ssOther" type="number" value="0"></div>
+          <div class="field"><label>Deduction (৳)</label><input id="ssDeduct" type="number" value="0"></div>
         </div>
         <div class="btn-row" style="margin-top:14px">
-          <button class="btn primary" onclick="printSalarySlip()">${ico('print')} ${'Print Slip (A4)'}</button>
+          <button class="btn primary" onclick="printSalarySlip()">${ico('print')} Print Slip (A4)</button>
         </div>
       </div></div>`;
   } else if(kind==='analytics'){
@@ -8861,7 +8870,6 @@ function printSalarySlip(){
   const deduct = +(document.getElementById('ssDeduct')?.value||0);
   const e = findEmp(rid);
   if(!e){ toast('Select an employee','error'); return; }
-  const monthsBn=['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
   const monthsEn=['January','February','March','April','May','June','July','August','September','October','November','December'];
   const [yr,mo] = (monthVal||todayISO().slice(0,7)).split('-').map(Number);
   const monthName = (monthsEn)[mo-1] + ' ' + (yr);
@@ -8871,31 +8879,30 @@ function printSalarySlip(){
   const otherFix = (+e.Salary||0) - basic - houseRent - medical;
   const gross = basic + houseRent + medical + otherFix + other;
   const net = gross - deduct;
-  const bn = LANG==='bn';
   const html = `<div class="print-doc compact">
     ${letterhead()}
-    <div class="subject" style="text-align:center;text-decoration:underline">${bn?'বেতন স্লিপ':'Salary Slip'} — ${monthName}</div>
+    <div class="subject" style="text-align:center;text-decoration:underline">Salary Slip — ${monthName}</div>
     <table class="form-table" style="margin-top:14px">
-      <tr><th style="width:30%">${bn?'কর্মচারী আইডি':'Employee ID'}</th><td>${num(e.EmployeeID||'')}</td><th style="width:20%">${bn?'যোগদান':'Join Date'}</th><td>${fmtDate(e.JoinDate)}</td></tr>
-      <tr><th>${bn?'নাম':'Name'}</th><td colspan="3">${e.FullName||''}${e.FullNameBn?' ('+e.FullNameBn+')':''}</td></tr>
-      <tr><th>${bn?'পদবি':'Designation'}</th><td>${desig(e.Designation)}</td><th>${bn?'প্রজেক্ট':'Project'}</th><td>${projName(e.ProjectName)}</td></tr>
+      <tr><th style="width:30%">Employee ID</th><td>${num(e.EmployeeID||'')}</td><th style="width:20%">Join Date</th><td>${fmtDate(e.JoinDate)}</td></tr>
+      <tr><th>Name</th><td colspan="3">${e.FullName||''}${e.FullNameBn?' ('+e.FullNameBn+')':''}</td></tr>
+      <tr><th>Designation</th><td>${desig(e.Designation)}</td><th>Project</th><td>${projName(e.ProjectName)}</td></tr>
     </table>
     <table class="form-table" style="margin-top:14px">
-      <thead><tr><th style="width:60%">${bn?'বিবরণ':'Description'}</th><th style="text-align:right">${bn?'পরিমাণ (৳)':'Amount (৳)'}</th></tr></thead>
+      <thead><tr><th style="width:60%">Description</th><th style="text-align:right">Amount (৳)</th></tr></thead>
       <tbody>
-        <tr><td>${bn?'মূল বেতন':'Basic Salary'}</td><td style="text-align:right">${num(basic)}</td></tr>
-        <tr><td>${bn?'বাসা ভাড়া ভাতা':'House Rent Allowance'}</td><td style="text-align:right">${num(houseRent)}</td></tr>
-        <tr><td>${bn?'চিকিৎসা ভাতা':'Medical Allowance'}</td><td style="text-align:right">${num(medical)}</td></tr>
-        <tr><td>${bn?'অন্যান্য ভাতা':'Other Allowance'}</td><td style="text-align:right">${num(otherFix+other)}</td></tr>
-        <tr style="background:#f0f9ff;font-weight:700"><td>${bn?'মোট আয়':'Gross Earnings'}</td><td style="text-align:right">${num(gross)}</td></tr>
-        <tr><td>${bn?'কর্তন':'Deduction'}</td><td style="text-align:right">${num(deduct)}</td></tr>
-        <tr style="background:#f0fdf4;font-weight:700;font-size:13pt"><td>${bn?'নিট প্রদেয়':'Net Payable'}</td><td style="text-align:right">${num(net)} ৳</td></tr>
+        <tr><td>Basic Salary</td><td style="text-align:right">${num(basic)}</td></tr>
+        <tr><td>House Rent Allowance</td><td style="text-align:right">${num(houseRent)}</td></tr>
+        <tr><td>Medical Allowance</td><td style="text-align:right">${num(medical)}</td></tr>
+        <tr><td>Other Allowance</td><td style="text-align:right">${num(otherFix+other)}</td></tr>
+        <tr style="background:#f0f9ff;font-weight:700"><td>Gross Earnings</td><td style="text-align:right">${num(gross)}</td></tr>
+        <tr><td>Deduction</td><td style="text-align:right">${num(deduct)}</td></tr>
+        <tr style="background:#f0fdf4;font-weight:700;font-size:13pt"><td>Net Payable</td><td style="text-align:right">${num(net)} ৳</td></tr>
       </tbody>
     </table>
     <div class="sign-block triple" style="margin-top:40px">
-      <div><div style="border-top:1px solid #000;padding-top:5px;text-align:center">${bn?'কর্মচারীর স্বাক্ষর':'Employee Signature'}</div></div>
-      <div><div style="border-top:1px solid #000;padding-top:5px;text-align:center">${bn?'অ্যাকাউন্টস':'Accounts'}</div></div>
-      <div><div style="border-top:1px solid #000;padding-top:5px;text-align:center">${bn?'ব্যবস্থাপনা পরিচালক':'Managing Director'}</div></div>
+      <div><div style="border-top:1px solid #000;padding-top:5px;text-align:center">Employee Signature</div></div>
+      <div><div style="border-top:1px solid #000;padding-top:5px;text-align:center">Accounts</div></div>
+      <div><div style="border-top:1px solid #000;padding-top:5px;text-align:center">Managing Director</div></div>
     </div>
   </div>`;
   logActivity('print','salary_slip', e.id || e.EmployeeID , e.FullName+' '+monthName);
@@ -9563,19 +9570,19 @@ function buildNotifications(){
   });
 }
 const NOTIF_META = {
-  sc:            { icon:'warn',  tag_bn:'শোকজ ফলো-আপ',   tag_en:'Show-cause' },
-  rec:           { icon:'users', tag_bn:'নিয়োগ',         tag_en:'Recruitment' },
-  prob:          { icon:'cake',  tag_bn:'শিক্ষানবিশ',     tag_en:'Probation' },
-  transfer_join: { icon:'refresh', tag_bn:'বদলি যোগদান',  tag_en:'Transfer Join' },
-  rehire:        { icon:'check', tag_bn:'পুনর্নিয়োগ',    tag_en:'Re-hire' },
+  sc:            { icon:'warn',  tag:'Show-cause' },
+  rec:           { icon:'users', tag:'Recruitment' },
+  prob:          { icon:'cake',  tag:'Probation' },
+  transfer_join: { icon:'refresh', tag:'Transfer Join' },
+  rehire:        { icon:'check', tag:'Re-hire' },
 };
 function notifCardHTML(n, compact){
-  const meta = NOTIF_META[n.type] || { icon:'bell', tag_bn:'সাধারণ', tag_en:'General' };
+  const meta = NOTIF_META[n.type] || { icon:'bell', tag:'General' };
   return `<div class="notif-card ${n.severity||'info'}" ${compact?'style="padding:11px 13px;margin-bottom:8px"':''}>
     <div class="nc-ico">${ico(meta.icon)}</div>
     <div style="flex:1;min-width:0">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-        <h5>${escapeHtml(n.title || '')}</h5><span class="nc-tag">${meta.tag_en}</span>
+        <h5>${escapeHtml(n.title || '')}</h5><span class="nc-tag">${meta.tag}</span>
       </div>
       <p>${escapeHtml(n.detail || '')}</p>
       <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${notifActions(n)}</div>
@@ -11498,7 +11505,7 @@ function renderMeeting(){
       <div class="card-header">
         <div>
           <h3>${'Project-wise Attendance — This Month'}</h3>
-          <span class="sub">${'Monthly Attendance Register (হাজিরা খাতা) · Green ✓ = Present · Red ✗ = Absent · Grey = Off / Friday'}</span>
+          <span class="sub">${'Monthly Attendance Register · Green ✓ = Present · Red ✗ = Absent · Grey = Off / Friday'}</span>
         </div>
       </div>
       <div class="table-wrap" style="overflow-x: auto; max-height: 500px; overflow-y: auto;">
@@ -11550,7 +11557,6 @@ function updateMeetingBadge(){
 
 let PROJ_HIST_MONTH = null;
 function openProjMeetingHistory(proj, monthShift){
-  const bn = LANG==='bn';
   if(monthShift===undefined){
     PROJ_HIST_MONTH = new Date(MT_MONTH.getFullYear(), MT_MONTH.getMonth(), 1);
   } else if(monthShift!==0){
@@ -11558,8 +11564,7 @@ function openProjMeetingHistory(proj, monthShift){
   }
   const y = PROJ_HIST_MONTH.getFullYear(), m = PROJ_HIST_MONTH.getMonth();
   const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const monthNamesBn = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
-  const monthLabel = (bn?monthNamesBn:monthNames)[m]+' '+num(y);
+  const monthLabel = monthNames[m]+' '+num(y);
   const daysInMonth = new Date(y, m+1, 0).getDate();
   const today = todayISO();
   const rows = [];
@@ -11570,11 +11575,11 @@ function openProjMeetingHistory(proj, monthShift){
     const fri = mtIsFriday(iso);
     const future = iso > today;
     let status, cls;
-    if(future){ status = bn?'ভবিষ্যৎ':'Future'; cls='future'; futureCount++; }
-    else if(fri){ status = bn?'শুক্রবার':'Friday'; cls='off'; friCount++; }
-    else if(rec && rec.off){ status = bn?'বন্ধ':'Off'; cls='off'; offCount++; }
-    else if(rec && rec.present && rec.present[proj]){ status = bn?'উপস্থিত':'Present'; cls='present'; presentCount++; }
-    else { status = bn?'অনুপস্থিত':'Absent'; cls='absent'; absentCount++; }
+    if(future){ status = 'Future'; cls='future'; futureCount++; }
+    else if(fri){ status = 'Friday'; cls='off'; friCount++; }
+    else if(rec && rec.off){ status = 'Off'; cls='off'; offCount++; }
+    else if(rec && rec.present && rec.present[proj]){ status = 'Present'; cls='present'; presentCount++; }
+    else { status = 'Absent'; cls='absent'; absentCount++; }
     const rawNote = (rec && rec.notes && rec.notes[proj]) || (rec && rec.off ? rec.note : '') || '';
     const note = Array.isArray(rawNote) ? rawNote.join(' | ') : rawNote;
     rows.push({iso, d, fri, status, cls, note});
@@ -11585,37 +11590,35 @@ function openProjMeetingHistory(proj, monthShift){
   for(let i=-6; i<=1; i++){
     const dt = new Date(y, m+i, 1);
     const val = dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');
-    monthOpts.push(`<option value="${val}"${i===0?' selected':''}>${(bn?monthNamesBn:monthNames)[dt.getMonth()]} ${num(dt.getFullYear())}</option>`);
+    monthOpts.push(`<option value="${val}"${i===0?' selected':''}>${monthNames[dt.getMonth()]} ${num(dt.getFullYear())}</option>`);
   }
-  openModal(bn?`মিটিং হাজিরা হিস্ট্রি — ${projName(proj)}`:`Meeting Attendance History — ${projName(proj)}`,
+  openModal(`Meeting Attendance History — ${projName(proj)}`,
     `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
        <button class="btn ghost sm" onclick="openProjMeetingHistory('${proj.replace(/'/g,"\\'")}',-1)">‹</button>
        <select onchange="(function(v){var p=v.split('-');PROJ_HIST_MONTH=new Date(+p[0],+p[1]-1,1);openProjMeetingHistory('${proj.replace(/'/g,"\\'")}',0);})(this.value)" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px">${monthOpts.join('')}</select>
        <button class="btn ghost sm" onclick="openProjMeetingHistory('${proj.replace(/'/g,"\\'")}',1)">›</button>
        <div style="flex:1"></div>
-       <span class="chip" style="background:#dcfce7;color:#166534">${bn?'উপস্থিত':'Present'}: ${num(presentCount)}</span>
-       <span class="chip" style="background:#fee2e2;color:#991b1b">${bn?'অনুপস্থিত':'Absent'}: ${num(absentCount)}</span>
-       <span class="chip">${bn?'হার':'Rate'}: <strong>${num(rate)}%</strong></span>
+       <span class="chip" style="background:#dcfce7;color:#166534">Present: ${num(presentCount)}</span>
+       <span class="chip" style="background:#fee2e2;color:#991b1b">Absent: ${num(absentCount)}</span>
+       <span class="chip">Rate: <strong>${num(rate)}%</strong></span>
      </div>
      <div class="table-wrap" style="max-height:400px;overflow:auto">
        <table>
-         <thead><tr><th style="width:60px">#</th><th>${bn?'তারিখ':'Date'}</th><th>${bn?'দিন':'Day'}</th><th>${bn?'অবস্থা':'Status'}</th><th>${bn?'নোট':'Note'}</th></tr></thead>
+         <thead><tr><th style="width:60px">#</th><th>Date</th><th>Day</th><th>Status</th><th>Note</th></tr></thead>
          <tbody>
            ${rows.map(r=>{
              const dt = new Date(r.iso);
              const dayName = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()];
-             const dayNameBn = ['রবি','সোম','মঙ্গল','বুধ','বৃহস্পতি','শুক্র','শনি'][dt.getDay()];
              const bgc = r.cls==='present'?'#dcfce7':r.cls==='absent'?'#fee2e2':r.cls==='off'?'#f1f5f9':'#f9fafb';
-             return `<tr style="background:${bgc}"><td>${num(r.d)}</td><td>${fmtDate(r.iso)}</td><td>${bn?dayNameBn:dayName}</td><td><strong>${r.status}</strong></td><td class="small-mute">${(r.note||'').replace(/</g,'&lt;')}</td></tr>`;
+             return `<tr style="background:${bgc}"><td>${num(r.d)}</td><td>${fmtDate(r.iso)}</td><td>${dayName}</td><td><strong>${r.status}</strong></td><td class="small-mute">${(r.note||'').replace(/</g,'&lt;')}</td></tr>`;
            }).join('')}
          </tbody>
        </table>
      </div>`,
-    `<button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>
-     <button class="btn primary" onclick="printProjMeetingHistory('${proj.replace(/'/g,"\\'")}','${y}-${String(m+1).padStart(2,'0')}')">${ico('print')} ${bn?'প্রিন্ট':'Print'}</button>`);
+    `<button class="btn" onclick="closeModal()">Close</button>
+     <button class="btn primary" onclick="printProjMeetingHistory('${proj.replace(/'/g,"\\'")}','${y}-${String(m+1).padStart(2,'0')}')">${ico('print')} Print</button>`);
 }
 function printProjMeetingHistory(proj, ymo){
-  const bn = LANG==='bn';
   const [ys, ms] = ymo.split('-'); const y=+ys, m=+ms-1;
   const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const daysInMonth = new Date(y, m+1, 0).getDate();
@@ -12912,24 +12915,12 @@ window.cycleTodo = window.mtToggleTodoStatus;
 
 
 const TRANSLATIONS = {}; 
-async function gTranslateBn(text){
-  const key = (text||'').trim().toLowerCase();
-  if(!key) return '';
-  if(/[\u0980-\u09FF]/.test(key)) return text.trim();       /* already Bangla */
-  if(TRANSLATIONS[key]) return TRANSLATIONS[key];
-  try{
-    const url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=bn&dt=t&q=' + encodeURIComponent(text.trim());
-    const res = await fetch(url);
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const j = await res.json();
-    const out = (j[0]||[]).map(s=>s[0]).join('').trim();
-    if(!out) throw new Error('empty');
-    TRANSLATIONS[key] = out; persist();
-    return out;
-  }catch(err){
-    toast('⚠ Google Translate unreachable — used the built-in dictionary, please verify','warning');
-    return nameBnOf(text);
-  }
+async function gTranslateBn(text) {
+  const key = (text || '').trim().toLowerCase();
+  if (!key) return '';
+  if (/[\u0980-\u09FF]/.test(key)) return text.trim();
+  if (TRANSLATIONS && TRANSLATIONS[key]) return TRANSLATIONS[key];
+  return text.trim(); // Safe fallback, no network exfiltration
 }
 async function translateField(srcId, dstId, btn){
   const src = document.getElementById(srcId), dst = document.getElementById(dstId);
@@ -13181,13 +13172,13 @@ function showDuplicateModal(dups, applicant, onForceNew){
   const rows = dups.map(d=>{
     const e = d.emp, empId = e.id || e.EmployeeID ;
     const ex = lastExitOf(empId);
-    const statusBn = e.Status==='Active' ? '<span class="pill active">বর্তমানে কর্মরত</span>' : '<span class="pill inactive">চাকরি ত্যাগ করেছেন</span>';
+    const statusPill = e.Status==='Active' ? '<span class="pill active">Currently Active</span>' : '<span class="pill inactive">Exited</span>';
     const hist = ex ? `${'Joined'}: ${fmtDate(ex.JoinDate||e.JoinDate)} → ${'Left'}: ${fmtDate(ex.ExitDate||e.ExitDate)}` : '';
     return `<div style="border:1px solid var(--border-strong);border-radius:8px;padding:12px;margin-bottom:10px;background:var(--bg-dim)">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
         <div><strong>#${num(e.EmployeeID || empId)} ${e.FullName}</strong> — ${desig(e.Designation||'')} · ${projName(e.ProjectName||'')}<br>
         <span class="small-mute">${'Matched by'}: ${d.why.join(', ')}${hist?' · '+hist:''}</span></div>
-        ${statusBn}
+        ${statusPill}
       </div>
       ${e.Status!=='Active' ? `<div style="margin-top:8px"><button class="btn success sm" onclick="rehireEmployee('${empId}', window.__pendingApplicant)">↻ ${'Re-hire this person'}</button></div>` : ''}
     </div>`;
@@ -13463,14 +13454,13 @@ window.doSyncNow = function(){
     });
     window.__syncDiff = { pulled: d, rows: rows, totals: {add:totalAdd, change:totalChange, del:totalDelete, worstPct:worstPct} };
     
-    var bn = (typeof LANG!=='undefined' && LANG==='bn');
     var tbl = '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>'+
-      '<th style="text-align:left;padding:4px;border-bottom:1px solid #ccc">'+(bn?'টেবিল':'Table')+'</th>'+
-      '<th style="padding:4px;border-bottom:1px solid #ccc">'+(bn?'লোকাল':'Local')+'</th>'+
-      '<th style="padding:4px;border-bottom:1px solid #ccc">'+(bn?'সার্ভার':'Server')+'</th>'+
-      '<th style="padding:4px;border-bottom:1px solid #ccc;color:#0a7">'+(bn?'যোগ':'Add')+'</th>'+
-      '<th style="padding:4px;border-bottom:1px solid #ccc;color:#c80">'+(bn?'বদল':'Change')+'</th>'+
-      '<th style="padding:4px;border-bottom:1px solid #ccc;color:#c00">'+(bn?'মুছবে':'Delete')+'</th>'+
+      '<th style="text-align:left;padding:4px;border-bottom:1px solid #ccc">Table</th>'+
+      '<th style="padding:4px;border-bottom:1px solid #ccc">Local</th>'+
+      '<th style="padding:4px;border-bottom:1px solid #ccc">Server</th>'+
+      '<th style="padding:4px;border-bottom:1px solid #ccc;color:#0a7">Add</th>'+
+      '<th style="padding:4px;border-bottom:1px solid #ccc;color:#c80">Change</th>'+
+      '<th style="padding:4px;border-bottom:1px solid #ccc;color:#c00">Delete</th>'+
       '</tr></thead><tbody>' +
       rows.map(function(r){
         var delCol = r.delPct>=20 ? 'background:#fee;color:#c00;font-weight:700' : (r.del>0?'color:#c00':'');
@@ -13484,19 +13474,19 @@ window.doSyncNow = function(){
         '</tr>';
       }).join('') + '</tbody></table>';
     var warn = worstPct>=20 ?
-      '<div style="background:#fee;border:1px solid #c00;color:#900;padding:10px;border-radius:6px;margin:10px 0"><b>⚠ '+(bn?'সাবধান!':'DANGER!')+'</b> '+(bn?'কমপক্ষে একটি টেবিলে ২০%+ ডেটা মুছে যাচ্ছে। নিশ্চিত না হয়ে "Cancel" চাপুন।':'At least one table will lose 20%+ rows. Cancel unless you are certain.')+'</div>' : '';
+      '<div style="background:#fee;border:1px solid #c00;color:#900;padding:10px;border-radius:6px;margin:10px 0"><b>⚠ DANGER!</b> At least one table will lose 20%+ rows. Cancel unless you are certain.</div>' : '';
     if(typeof openModal!=='function'){
-      alert((bn?'সিঙ্ক প্রিভিউ:':'Sync preview:')+' add='+totalAdd+' change='+totalChange+' delete='+totalDelete+'\n'+(worstPct>=20?'DANGER: '+worstPct+'% delete!':''));
-      if(!confirm(bn?'প্রয়োগ করবেন?':'Apply changes?')){ if(btn){btn.disabled=false;btn.style.opacity=1;btn.innerHTML='↻ Sync';} return; }
+      alert('Sync preview: add='+totalAdd+' change='+totalChange+' delete='+totalDelete+'\n'+(worstPct>=20?'DANGER: '+worstPct+'% delete!':''));
+      if(!confirm('Apply changes?')){ if(btn){btn.disabled=false;btn.style.opacity=1;btn.innerHTML='↻ Sync';} return; }
       window.__applySyncDiff();
       return;
     }
     openModal({
-      title: bn?'সিঙ্ক প্রিভিউ (কিছু প্রয়োগ হয়নি)':'Sync Preview (nothing applied yet)',
-      body: warn + tbl + '<p style="font-size:12px;color:#666;margin-top:8px">'+(bn?'সার্ভার থেকে টানা হয়েছে। "Apply" চাপলে উপরের পরিবর্তনগুলো লোকালে বসবে; "Cancel" চাপলে কিছু হবে না।':'Pulled from server. "Apply" applies these changes locally; "Cancel" discards them.')+'</p>',
+      title: 'Sync Preview (nothing applied yet)',
+      body: warn + tbl + '<p style="font-size:12px;color:#666;margin-top:8px">Pulled from server. "Apply" applies these changes locally; "Cancel" discards them.</p>',
       actions:
-        '<button class="btn" onclick="closeModal();(function(b){if(b){b.disabled=false;b.style.opacity=1;b.innerHTML=\'\u21bb Sync\';}})(document.getElementById(\'syncBtn\'))">'+(bn?'বাতিল':'Cancel')+'</button>' +
-        '<button class="btn primary" onclick="closeModal();window.__applySyncDiff()">'+(bn?'প্রয়োগ করুন':'Apply')+'</button>'
+        '<button class="btn" onclick="closeModal();(function(b){if(b){b.disabled=false;b.style.opacity=1;b.innerHTML=\'\u21bb Sync\';}})(document.getElementById(\'syncBtn\'))">Cancel</button>' +
+        '<button class="btn primary" onclick="closeModal();window.__applySyncDiff()">Apply</button>'
     });
   }).catch(function(e){
     if(typeof toast==='function') toast('Sync failed: '+(e.message||e), 'error');
@@ -13518,7 +13508,7 @@ window.__applySyncDiff = function(){
   });
   window.__syncDiff=null;
   if(typeof renderAll==='function') renderAll();
-  if(typeof toast==='function') toast((typeof LANG!=='undefined' && 'Synced — ')+n+(typeof LANG!=='undefined' && ' tables'),'success');
+  if(typeof toast==='function') toast('Synced — ' + n + ' tables', 'success');
   if(btn){ btn.disabled=false; btn.style.opacity=1; btn.innerHTML='↻ Sync'; }
 };
 
@@ -13618,7 +13608,6 @@ window.openBackupMenu = function(){
 
 function buildAddressCascade(containerId, initial, onChange){
   var host = document.getElementById(containerId); if(!host) return;
-  var bn = (typeof LANG!=='undefined' && LANG==='bn');
   initial = initial || {};
 
   var targetDiv = (initial.division || initial.Division || initial.div || '').trim();
@@ -13642,29 +13631,29 @@ function buildAddressCascade(containerId, initial, onChange){
   host.classList.add('addr-cascade-modern');
   host.innerHTML =
     '<div class="ac-progress" aria-hidden="true">'+
-      '<div class="ac-step" data-lvl="1"><span class="ac-dot">1</span><span class="ac-lbl">'+(bn?'বিভাগ':'Division')+'</span></div>'+
+      '<div class="ac-step" data-lvl="1"><span class="ac-dot">1</span><span class="ac-lbl">Division</span></div>'+
       '<div class="ac-line"></div>'+
-      '<div class="ac-step" data-lvl="2"><span class="ac-dot">2</span><span class="ac-lbl">'+(bn?'জেলা':'District')+'</span></div>'+
+      '<div class="ac-step" data-lvl="2"><span class="ac-dot">2</span><span class="ac-lbl">District</span></div>'+
       '<div class="ac-line"></div>'+
-      '<div class="ac-step" data-lvl="3"><span class="ac-dot">3</span><span class="ac-lbl">'+(bn?'উপজেলা':'Upazila')+'</span></div>'+
+      '<div class="ac-step" data-lvl="3"><span class="ac-dot">3</span><span class="ac-lbl">Upazila</span></div>'+
       '<div class="ac-line"></div>'+
-      '<div class="ac-step" data-lvl="4"><span class="ac-dot">4</span><span class="ac-lbl">'+(bn?'ইউনিয়ন':'Union')+'</span></div>'+
+      '<div class="ac-step" data-lvl="4"><span class="ac-dot">4</span><span class="ac-lbl">Union</span></div>'+
     '</div>'+
     '<div class="ac-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:10px">'+
-      '<div class="ac-field" data-lvl="1"><label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:var(--text)">'+(bn?'বিভাগ':'Division')+' *</label>'+
-        '<select class="select" id="'+containerId+'_div" style="width:100%;height:38px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px"><option value="">'+(bn?'— বিভাগ নির্বাচন করুন —':'— Select Division —')+'</option></select>'+
+      '<div class="ac-field" data-lvl="1"><label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:var(--text)">Division *</label>'+
+        '<select class="select" id="'+containerId+'_div" style="width:100%;height:38px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px"><option value="">— Select Division —</option></select>'+
         '<input type="hidden" id="'+containerId+'_div_txt">'+
       '</div>'+
-      '<div class="ac-field" data-lvl="2"><label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:var(--text)">'+(bn?'জেলা':'District')+' *</label>'+
-        '<select class="select" id="'+containerId+'_dist" disabled style="width:100%;height:38px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px"><option value="">'+(bn?'— আগে বিভাগ বেছে নিন —':'— Select division first —')+'</option></select>'+
+      '<div class="ac-field" data-lvl="2"><label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:var(--text)">District *</label>'+
+        '<select class="select" id="'+containerId+'_dist" disabled style="width:100%;height:38px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px"><option value="">— Select division first —</option></select>'+
         '<input type="hidden" id="'+containerId+'_dist_txt">'+
       '</div>'+
-      '<div class="ac-field" data-lvl="3"><label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:var(--text)">'+(bn?'উপজেলা/থানা':'Upazila/Thana')+'</label>'+
-        '<select class="select" id="'+containerId+'_upz" disabled style="width:100%;height:38px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px"><option value="">'+(bn?'— আগে জেলা বেছে নিন —':'— Select district first —')+'</option></select>'+
+      '<div class="ac-field" data-lvl="3"><label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:var(--text)">Upazila/Thana</label>'+
+        '<select class="select" id="'+containerId+'_upz" disabled style="width:100%;height:38px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px"><option value="">— Select district first —</option></select>'+
         '<input type="hidden" id="'+containerId+'_upz_txt">'+
       '</div>'+
-      '<div class="ac-field" data-lvl="4"><label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:var(--text)">'+(bn?'ইউনিয়ন':'Union')+'</label>'+
-        '<select class="select" id="'+containerId+'_uni" disabled style="width:100%;height:38px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px"><option value="">'+(bn?'— আগে উপজেলা বেছে নিন —':'— Select upazila first —')+'</option></select>'+
+      '<div class="ac-field" data-lvl="4"><label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:var(--text)">Union</label>'+
+        '<select class="select" id="'+containerId+'_uni" disabled style="width:100%;height:38px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px"><option value="">— Select upazila first —</option></select>'+
         '<input type="hidden" id="'+containerId+'_uni_txt">'+
       '</div>'+
     '</div>'+
@@ -13680,7 +13669,7 @@ function buildAddressCascade(containerId, initial, onChange){
   var upzTxt = host.querySelector('#'+containerId+'_upz_txt');
   var uniTxt = host.querySelector('#'+containerId+'_uni_txt');
 
-  function labelOf(x){ return bn ? (x.bn||x.en) : (x.en||x.bn); }
+  function labelOf(x){ return x.en || x.bn || ''; }
 
   function getOptText(sel){
     if(!sel || sel.selectedIndex < 0) return '';
@@ -13734,7 +13723,7 @@ function buildAddressCascade(containerId, initial, onChange){
     if(chipsEl){
       chipsEl.innerHTML = chips.length
         ? '<div class="ac-chip-line" style="display:flex;align-items:center;flex-wrap:wrap;gap:4px">'+chips.join('')+'</div>'
-        : '<div class="ac-chip-hint" style="font-size:11.5px;color:var(--text-mute, #64748b)">'+(bn?'বিভাগ থেকে শুরু করুন — নির্বাচন এখানে চিপ হিসেবে দেখাবে':'Start from Division — selection will appear here as chips')+'</div>';
+        : '<div class="ac-chip-hint" style="font-size:11.5px;color:var(--text-mute, #64748b)">Start from Division — selection will appear here as chips</div>';
     }
 
     if(onChange) onChange(state);
@@ -13762,7 +13751,7 @@ function buildAddressCascade(containerId, initial, onChange){
 
   function populateDivisions(){
     var divs = (window.BDGEO && window.BDGEO.divisions) || [];
-    divSelect.innerHTML = '<option value="">'+(bn?'— বিভাগ নির্বাচন করুন —':'— Select Division —')+'</option>' +
+    divSelect.innerHTML = '<option value="">— Select Division —</option>' +
       divs.map(function(d){
         return '<option value="'+d.id+'" data-en="'+escapeHtml(d.en)+'" data-bn="'+escapeHtml(d.bn)+'">'+escapeHtml(labelOf(d))+'</option>';
       }).join('');
@@ -13770,12 +13759,12 @@ function buildAddressCascade(containerId, initial, onChange){
 
   function populateDistricts(divId){
     if(!divId){
-      distSelect.innerHTML = '<option value="">'+(bn?'— আগে বিভাগ বেছে নিন —':'— Select division first —')+'</option>';
+      distSelect.innerHTML = '<option value="">— Select division first —</option>';
       distSelect.disabled = true;
       return;
     }
     var dists = (typeof bdDistricts === 'function' ? bdDistricts(divId) : ((window.BDGEO && window.BDGEO.districts && window.BDGEO.districts[divId]) || [])) || [];
-    distSelect.innerHTML = '<option value="">'+(bn?'— জেলা নির্বাচন করুন —':'— Select District —')+'</option>' +
+    distSelect.innerHTML = '<option value="">— Select District —</option>' +
       dists.map(function(d){
         return '<option value="'+d.id+'" data-en="'+escapeHtml(d.en)+'" data-bn="'+escapeHtml(d.bn)+'">'+escapeHtml(labelOf(d))+'</option>';
       }).join('');
@@ -13784,12 +13773,12 @@ function buildAddressCascade(containerId, initial, onChange){
 
   function populateUpazilas(distId){
     if(!distId){
-      upzSelect.innerHTML = '<option value="">'+(bn?'— আগে জেলা বেছে নিন —':'— Select district first —')+'</option>';
+      upzSelect.innerHTML = '<option value="">— Select district first —</option>';
       upzSelect.disabled = true;
       return;
     }
     var upzs = (typeof bdUpazilas === 'function' ? bdUpazilas(distId) : ((window.BDGEO && window.BDGEO.upazilas && window.BDGEO.upazilas[distId]) || [])) || [];
-    upzSelect.innerHTML = '<option value="">'+(bn?'— উপজেলা/থানা নির্বাচন করুন —':'— Select Upazila/Thana —')+'</option>' +
+    upzSelect.innerHTML = '<option value="">— Select Upazila/Thana —</option>' +
       upzs.map(function(u){
         return '<option value="'+u.id+'" data-en="'+escapeHtml(u.en)+'" data-bn="'+escapeHtml(u.bn)+'">'+escapeHtml(labelOf(u))+'</option>';
       }).join('');
@@ -13798,12 +13787,12 @@ function buildAddressCascade(containerId, initial, onChange){
 
   function populateUnions(upzId){
     if(!upzId){
-      uniSelect.innerHTML = '<option value="">'+(bn?'— আগে উপজেলা বেছে নিন —':'— Select upazila first —')+'</option>';
+      uniSelect.innerHTML = '<option value="">— Select upazila first —</option>';
       uniSelect.disabled = true;
       return;
     }
     var unis = (typeof bdUnions === 'function' ? bdUnions(upzId) : ((window.BDGEO && window.BDGEO.unions && window.BDGEO.unions[upzId]) || [])) || [];
-    uniSelect.innerHTML = '<option value="">'+(bn?'— ইউনিয়ন নির্বাচন করুন —':'— Select Union —')+'</option>' +
+    uniSelect.innerHTML = '<option value="">— Select Union —</option>' +
       unis.map(function(un){
         return '<option value="'+un.id+'" data-en="'+escapeHtml(un.en)+'" data-bn="'+escapeHtml(un.bn)+'">'+escapeHtml(labelOf(un))+'</option>';
       }).join('');
@@ -13841,7 +13830,7 @@ function buildAddressCascade(containerId, initial, onChange){
       if(!geoLoadAttempted && typeof loadBDGeo === 'function'){
         geoLoadAttempted = true;
         if(divSelect){
-          divSelect.innerHTML = '<option value="" disabled selected>'+(bn?'— লোড হচ্ছে... —':'— Loading… —')+'</option>';
+          divSelect.innerHTML = '<option value="" disabled selected>— Loading… —</option>';
           divSelect.disabled = true;
         }
         loadBDGeo().then(function(){
@@ -13851,7 +13840,7 @@ function buildAddressCascade(containerId, initial, onChange){
           } else {
             if(divSelect){
               divSelect.disabled = false;
-              divSelect.innerHTML = '<option value="" disabled selected>'+(bn?'ঠিকানার তথ্য লোড করা যায়নি — পেজটি রিফ্রেশ করুন':'Address data could not be loaded — try refreshing')+'</option>';
+              divSelect.innerHTML = '<option value="" disabled selected>Address data could not be loaded — try refreshing</option>';
             }
           }
         });
@@ -13859,7 +13848,7 @@ function buildAddressCascade(containerId, initial, onChange){
       }
       if(divSelect){
         divSelect.disabled = false;
-        divSelect.innerHTML = '<option value="" disabled selected>'+(bn?'ঠিকানার তথ্য লোড করা যায়নি — পেজটি রিফ্রেশ করুন':'Address data could not be loaded — try refreshing')+'</option>';
+        divSelect.innerHTML = '<option value="" disabled selected>Address data could not be loaded — try refreshing</option>';
       }
       return;
     }

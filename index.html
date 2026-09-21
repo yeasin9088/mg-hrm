@@ -9778,12 +9778,13 @@ function mtEnsure(iso){
       window.MGHRM.reconstructMeetings();
     }
   }
-  if(!DATA.meetings[iso]) DATA.meetings[iso] = { off:false, note:'', present:{}, absent:{}, notes:{}, representatives:{}, submitted:false, meetingNote:'' };
+  if(!DATA.meetings[iso]) DATA.meetings[iso] = { off:false, note:'', present:{}, absent:{}, notes:{}, representatives:{}, submitted:false, meetingNote:'', presentOrder:[] };
   const d = DATA.meetings[iso];
   if(!d.present) d.present = {};
   if(!d.absent) d.absent = {};
   if(!d.notes) d.notes = {};                /* project-wise notes */
   if(!d.representatives) d.representatives = {}; /* project-wise representatives */
+  if(!Array.isArray(d.presentOrder)) d.presentOrder = [];
   if(typeof d.submitted!=='boolean') d.submitted = false;
   if(typeof d.meetingNote!=='string') d.meetingNote = '';
   return d;
@@ -9901,11 +9902,14 @@ function mtToggleProject(iso, proj){
   const d = mtEnsure(iso);
   if(d.submitted && !d.unlocked){ toast('Attendance already submitted for today','error'); return; }
   if(d.off){ toast('This day is marked off — unmark it first','error'); return; }
+  if(!Array.isArray(d.presentOrder)) d.presentOrder = [];
   if(d.present[proj]){
     delete d.present[proj];
+    d.presentOrder = d.presentOrder.filter(p => p !== proj);
   } else {
     d.present[proj] = true;
     delete d.absent[proj];
+    if (!d.presentOrder.includes(proj)) d.presentOrder.push(proj);
   }
   persist();
   const tile = document.querySelector('.mt-tile[data-proj="'+CSS.escape(proj)+'"]');
@@ -10046,12 +10050,15 @@ function mtSetStatus(iso, proj, status){
   const d = mtEnsure(iso);
   if(d.submitted && !d.unlocked){ toast('Attendance already submitted for today','error'); return; }
   if(d.off){ toast('This day is marked off — unmark it first','error'); return; }
+  if(!Array.isArray(d.presentOrder)) d.presentOrder = [];
   if(status === 'present'){
     d.present[proj] = true;
     delete d.absent[proj];
+    if (!d.presentOrder.includes(proj)) d.presentOrder.push(proj);
   } else if(status === 'absent'){
     d.absent[proj] = true;
     delete d.present[proj];
+    d.presentOrder = d.presentOrder.filter(p => p !== proj);
   }
   persist();
   
@@ -10226,15 +10233,8 @@ async function mtSubmitDay(iso, event){
       // Loop through pendingNotes asynchronously
       if (pendingNotes.length > 0) {
         for(let i = 0; i < pendingNotes.length; i++) {
-          const pct = 10 + Math.round(((i + 1) / pendingNotes.length) * 30);
-          if (typeof window.mtUpdateLoader === 'function') {
-            window.mtUpdateLoader('Syncing To-Do List', `Sending note ${i + 1} of ${pendingNotes.length}`, pct);
-          }
-          
           pendingNotes[i].id = Date.now() + (i * 10000) + Math.floor(Math.random() * 9999);
           DATA.todos.unshift(pendingNotes[i]);
-          persist(); // Trigger storage/sync
-          await new Promise(r => setTimeout(r, 100)); // DB rate limit safety
         }
       }
 
@@ -10255,38 +10255,52 @@ async function mtSubmitDay(iso, event){
           ? projNotes.join(' | ') 
           : (typeof projNotes === 'string' ? projNotes.trim() : '');
 
+        const isPresent = !!(d.present && d.present[proj]);
+        const sortIndex = d.presentOrder ? d.presentOrder.indexOf(proj) : -1;
+        const sort_order = (isPresent && sortIndex !== -1) ? sortIndex : 999;
+
         return {
           meeting_id: meetingDbId,
           employee_id: String(rep.id || rep.EmployeeID || rep.employee_id || ''),
           full_name: rep.FullName || rep.fullName || rep.name || '',
           designation: rep.Designation || rep.designation || '',
           project_name: proj,
-          status: d.present[proj] ? 'Present' : (d.absent[proj] ? 'Absent' : 'Absent'),
-          remarks: remarksStr
+          status: isPresent ? 'Present' : 'Absent',
+          remarks: remarksStr,
+          sort_order: sort_order
         };
       });
 
-      // Loop through attendance records asynchronously
-      for(let i = 0; i < attendanceRecords.length; i++) {
-        const pct = 40 + Math.round(((i + 1) / (attendanceRecords.length || 1)) * 60);
-        if (typeof window.mtUpdateLoader === 'function') {
-          window.mtUpdateLoader('Saving Attendance', `Loading data to server: ${i + 1} / ${attendanceRecords.length}`, pct);
+      if (typeof window.mtUpdateLoader === 'function') {
+        window.mtUpdateLoader('Saving Attendance', 'Uploading attendance records to server...', 60);
+      }
+
+      // Pre-insert cleanup to avoid duplicate rows on resubmission / editing
+      try {
+        const { data: existingMeetings } = await window.sb.from('meetings').select('id, meeting_id').eq('meeting_date', iso);
+        const meetingIdsToDelete = Array.from(new Set([
+          meetingDbId,
+          meetingId,
+          ...(existingMeetings || []).map(m => m.meeting_id).filter(Boolean),
+          ...(existingMeetings || []).map(m => String(m.id)).filter(Boolean)
+        ])).filter(Boolean);
+        if (meetingIdsToDelete.length > 0) {
+          await window.sb.from('meeting_attendance').delete().in('meeting_id', meetingIdsToDelete);
         }
-        
-        const attItem = attendanceRecords[i];
-        const { error: attErr } = await window.sb.from('meeting_attendance').insert([attItem]);
-        if (attErr) throw attErr;
-
-        await new Promise(r => setTimeout(r, 100)); // DB rate limit safety
+      } catch (cleanErr) {
+        console.warn('[Meeting Attendance Pre-Insert Cleanup Warning]', cleanErr);
       }
 
-      // Keep memory in sync
-      if (window.DATA) {
-        if (!Array.isArray(window.DATA.meetingAttendance)) window.DATA.meetingAttendance = [];
-        window.DATA.meetingAttendance = window.DATA.meetingAttendance.filter(r => r.meeting_id !== meetingDbId);
-        attendanceRecords.forEach(a => window.DATA.meetingAttendance.push(a));
-        window.DATA.meeting_attendance = window.DATA.meetingAttendance;
-      }
+      // 1. Bulk insert without client-generated IDs
+      const { data: savedRecords, error: attErr } = await window.sb.from('meeting_attendance').insert(attendanceRecords).select();
+      if (attErr) throw attErr;
+
+      // 2. Safely merge returned DB records into local state
+      if (!Array.isArray(window.DATA.meetingAttendance)) window.DATA.meetingAttendance = [];
+      window.DATA.meetingAttendance = window.DATA.meetingAttendance.filter(r => r.meeting_id !== meetingDbId);
+      const finalRecords = (Array.isArray(savedRecords) && savedRecords.length > 0) ? savedRecords : attendanceRecords;
+      finalRecords.forEach(a => window.DATA.meetingAttendance.push(a));
+      window.DATA.meeting_attendance = window.DATA.meetingAttendance;
 
       if (typeof window.mtUpdateLoader === 'function') {
         window.mtUpdateLoader('Completed', 'All data successfully saved', 100);
@@ -10294,6 +10308,7 @@ async function mtSubmitDay(iso, event){
       await new Promise(r => setTimeout(r, 100));
       if (loader) loader.style.display = 'none';
 
+      // 3. Update day record status
       d.submitted = true;
       d.isEditing = false;
       d.wasSubmitted = true;
@@ -10307,7 +10322,8 @@ async function mtSubmitDay(iso, event){
       delete DATA.meetings[iso].unlocked;
       window.mtOriginalState = {};
 
-      persist(); 
+      // 4. Safely trigger persist (no race conditions)
+      await persist(); 
       renderMeeting(); 
       if(typeof renderTodo==='function') renderTodo();
       if(typeof updateTodoBadge==='function') updateTodoBadge();
@@ -10527,11 +10543,32 @@ window.mtEditDay = function(iso) {
   d.unlocked = true; // Bypass time-lock
   d.off = false; // Remove postponed state
   delete d.offReason;
+  if (!window.MT_STARTED_MEETINGS) window.MT_STARTED_MEETINGS = {};
+  window.MT_STARTED_MEETINGS[targetIso] = true;
+  if (window.MT_VIEW_SUMMARY_DATES) window.MT_VIEW_SUMMARY_DATES[targetIso] = false;
   persist();
   renderMeeting();
   if (typeof window.mtCheckDirty === 'function') {
     window.mtCheckDirty(targetIso);
   }
+};
+
+window.mtStartMeeting = function(iso) {
+  const targetIso = iso || (typeof MT_SELECTED_DATE !== 'undefined' ? MT_SELECTED_DATE : todayISO());
+  if (!window.MT_STARTED_MEETINGS) window.MT_STARTED_MEETINGS = {};
+  window.MT_STARTED_MEETINGS[targetIso] = true;
+  const d = mtEnsure(targetIso);
+  d.started = true;
+  persist();
+  renderMeeting();
+  toast('Meeting started. Recording attendance...', 'info');
+};
+
+window.mtToggleViewSummary = function(iso) {
+  const targetIso = iso || (typeof MT_SELECTED_DATE !== 'undefined' ? MT_SELECTED_DATE : todayISO());
+  if (!window.MT_VIEW_SUMMARY_DATES) window.MT_VIEW_SUMMARY_DATES = {};
+  window.MT_VIEW_SUMMARY_DATES[targetIso] = !window.MT_VIEW_SUMMARY_DATES[targetIso];
+  renderMeeting();
 };
 
 window.mtCancelEditDay = function(iso) {
@@ -10618,16 +10655,47 @@ function mtGetProjectScore(projName, currentYear, currentMonth){
 }
 window.mtGetProjectScore = mtGetProjectScore;
 
-function mtRenderSummaryView(today, rec, projNames) {
+function mtRenderSummaryView(today, rec, projNames, isEmbedded) {
   const d = rec || {};
   const presentCount = Object.keys(d.present || {}).length;
   const absentCount = Object.keys(d.absent || {}).length;
 
   // Filter projects with attendance data (present or absent) for that day
   const recordedProjs = (projNames || []).filter(p => (d.present && d.present[p]) || (d.absent && d.absent[p]));
-  const rowsToRender = recordedProjs.length > 0 ? recordedProjs : (projNames || []);
+  const rowsToRender = (recordedProjs.length > 0 ? recordedProjs : (projNames || [])).slice();
 
-  const rowsHtml = rowsToRender.map(p => {
+  // Retrieve any DB sort_order for this meeting
+  const dbAttList = (window.DATA && (window.DATA.meetingAttendance || window.DATA.meeting_attendance)) || [];
+  const projDbOrder = {};
+  dbAttList.forEach(r => {
+    if (r.project_name && (r.sort_order !== undefined && r.sort_order !== null)) {
+      projDbOrder[r.project_name] = Number(r.sort_order);
+    }
+  });
+
+  const getSortOrder = (p) => {
+    if (projDbOrder[p] !== undefined) return projDbOrder[p];
+    const isP = !!(d.present && d.present[p]);
+    if (isP) {
+      if (Array.isArray(d.presentOrder)) {
+        const idx = d.presentOrder.indexOf(p);
+        if (idx !== -1) return idx;
+      }
+      return 500;
+    }
+    return 999;
+  };
+
+  rowsToRender.sort((a, b) => {
+    const orderA = getSortOrder(a);
+    const orderB = getSortOrder(b);
+    if (orderA !== orderB) {
+      return orderA - orderB;
+    }
+    return a.localeCompare(b);
+  });
+
+  const rowsHtml = rowsToRender.map((p, idx) => {
     const isP = !!(d.present && d.present[p]);
     const isA = !!(d.absent && d.absent[p]);
 
@@ -10668,6 +10736,7 @@ function mtRenderSummaryView(today, rec, projNames) {
       : '<span style="color:var(--text-muted);font-style:italic;">—</span>';
 
     return `<tr style="border-bottom: 1px solid var(--border); transition: background-color 0.15s ease;">
+      <td style="padding: 10px 14px; font-size: 12px; color: var(--text-muted); text-align: center; width: 40px;">${idx + 1}</td>
       <td style="padding: 10px 14px; font-weight: 600; font-size: 13px; color: var(--text);">${projName(p)}</td>
       <td style="padding: 10px 14px; font-size: 12.5px;">${repDisplay}</td>
       <td style="padding: 10px 14px; text-align: center;">${statusHtml}</td>
@@ -10675,7 +10744,7 @@ function mtRenderSummaryView(today, rec, projNames) {
     </tr>`;
   }).join('');
 
-  const emptyRow = `<tr><td colspan="4" style="text-align:center;padding:24px;font-size:13px;color:var(--text-muted);">No attendance records found for this date.</td></tr>`;
+  const emptyRow = `<tr><td colspan="5" style="text-align:center;padding:24px;font-size:13px;color:var(--text-muted);">No attendance records found for this date.</td></tr>`;
 
   const meetingNoteHtml = d.meetingNote ? `
     <div style="margin-top: 16px; padding: 12px 16px; background: var(--bg-dim, #f8fafc); border: 1px solid var(--border); border-radius: 8px; font-size: 13px; color: var(--text);">
@@ -10683,29 +10752,33 @@ function mtRenderSummaryView(today, rec, projNames) {
     </div>
   ` : '';
 
-  return `
-    <div id="mtSummaryView" class="card" style="padding: 20px; background: var(--surface, #ffffff); border: 1px solid var(--border); border-radius: 10px; margin: 10px 0; box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05));">
-      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--border);">
-        <div>
-          <h4 style="margin: 0 0 6px 0; font-size: 16px; font-weight: 700; color: var(--text); letter-spacing: -0.2px;">Meeting Summary — ${MT_SELECTED_DATE}</h4>
-          <div style="font-size: 13px; color: var(--text-2); display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
-            <span><strong>Present:</strong> <span style="color: var(--success, #059669); font-weight: 700;">${presentCount}</span></span>
-            <span><strong>Absent:</strong> <span style="color: var(--danger, #dc2626); font-weight: 700;">${absentCount}</span></span>
-            <span><strong>Total Recorded:</strong> <span style="font-weight: 700;">${recordedProjs.length}</span></span>
-          </div>
-        </div>
-        <div style="display: flex; gap: 8px; align-items: center;">
-          <button type="button" class="btn primary outline" onclick="mtEditDay('${today}')" style="font-weight: 600; padding: 6px 14px; font-size: 13px; transition: all 0.2s ease;">Edit Attendance</button>
-          <button type="button" class="btn primary" onclick="printDailySummary('${today}')" style="font-weight: 600; padding: 6px 14px; font-size: 13px; transition: all 0.2s ease;">Print Summary</button>
+  const headerHtml = isEmbedded ? '' : `
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--border);">
+      <div>
+        <h4 style="margin: 0 0 6px 0; font-size: 16px; font-weight: 700; color: var(--text); letter-spacing: -0.2px;">Meeting Summary — ${MT_SELECTED_DATE}</h4>
+        <div style="font-size: 13px; color: var(--text-2); display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+          <span><strong>Present:</strong> <span style="color: var(--success, #059669); font-weight: 700;">${presentCount}</span></span>
+          <span><strong>Absent:</strong> <span style="color: var(--danger, #dc2626); font-weight: 700;">${absentCount}</span></span>
+          <span><strong>Total Recorded:</strong> <span style="font-weight: 700;">${recordedProjs.length}</span></span>
         </div>
       </div>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <button type="button" class="btn primary outline" onclick="mtEditDay('${today}')" style="font-weight: 600; padding: 6px 14px; font-size: 13px; transition: all 0.2s ease;">Edit Attendance</button>
+        <button type="button" class="btn primary" onclick="printDailySummary('${today}')" style="font-weight: 600; padding: 6px 14px; font-size: 13px; transition: all 0.2s ease;">Print Summary</button>
+      </div>
+    </div>
+  `;
 
+  return `
+    <div id="mtSummaryView" class="${isEmbedded ? '' : 'card'}" style="${isEmbedded ? '' : 'padding: 20px; background: var(--surface, #ffffff); border: 1px solid var(--border); border-radius: 10px; margin: 10px 0; box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05));'}">
+      ${headerHtml}
       <div style="overflow-x: auto; border: 1px solid var(--border); border-radius: 8px;">
         <table class="table modern" style="width: 100%; border-collapse: collapse; margin: 0; text-align: left;">
           <thead>
             <tr style="background: var(--surface-2, #f8fafc); border-bottom: 1px solid var(--border);">
-              <th style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: var(--text-2); width: 26%;">Project Name</th>
-              <th style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: var(--text-2); width: 26%;">Representative</th>
+              <th style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: var(--text-2); width: 40px; text-align: center;">#</th>
+              <th style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: var(--text-2); width: 24%;">Project Name</th>
+              <th style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: var(--text-2); width: 24%;">Representative</th>
               <th style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: var(--text-2); width: 14%; text-align: center;">Status</th>
               <th style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: var(--text-2); width: 34%;">Notes</th>
             </tr>
@@ -10721,6 +10794,146 @@ function mtRenderSummaryView(today, rec, projNames) {
   `;
 }
 window.mtRenderSummaryView = mtRenderSummaryView;
+
+function mtRenderSubmittedActionPanel(today, rec, projNames) {
+  const d = rec || {};
+  const presentCount = Object.keys(d.present || {}).length;
+  const absentCount = Object.keys(d.absent || {}).length;
+  const recordedProjs = (projNames || []).filter(p => (d.present && d.present[p]) || (d.absent && d.absent[p]));
+  const totalRecorded = recordedProjs.length || (presentCount + absentCount);
+  const submittedTime = d.submittedAt ? new Date(d.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+  const isSummaryOpen = !!(window.MT_VIEW_SUMMARY_DATES && window.MT_VIEW_SUMMARY_DATES[today]);
+
+  return `
+    <div id="mtSubmittedActionPanel" style="padding: 24px; background: var(--surface, #ffffff); border: 1px solid var(--border); border-radius: 10px; margin: 4px 0 10px 0; box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05));">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border);">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+            <span class="badge success" style="padding: 3px 10px; font-size: 11px; font-weight: 700; border-radius: 12px; background: var(--success-soft, #ecfdf5); color: var(--success, #059669); border: 1px solid rgba(16,185,129,0.3);">
+              ${ico('check', 12)} Attendance Submitted
+            </span>
+            ${submittedTime ? `<span style="font-size: 12px; color: var(--text-muted);">at ${submittedTime}</span>` : ''}
+          </div>
+          <h4 style="margin: 0; font-size: 16px; font-weight: 700; color: var(--text);">Daily Session Completed — ${today}</h4>
+        </div>
+        
+        <div style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap;">
+          <div style="font-size: 13px; color: var(--text-2); display: flex; gap: 12px; align-items: center; background: var(--bg-dim, #f8fafc); padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border);">
+            <span>Present: <strong style="color: var(--success, #059669);">${presentCount}</strong></span>
+            <span>Absent: <strong style="color: var(--danger, #dc2626);">${absentCount}</strong></span>
+            <span>Total: <strong>${totalRecorded}</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <button type="button" class="btn primary ${isSummaryOpen ? 'outline' : ''}" onclick="mtToggleViewSummary('${today}')" style="font-weight: 600; padding: 9px 18px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px;">
+          ${ico('eye', 14)} ${isSummaryOpen ? 'Hide Attendance Summary' : 'View Attendance Summary'}
+        </button>
+        <button type="button" class="btn ghost" onclick="mtEditDay('${today}')" style="font-weight: 600; padding: 9px 18px; font-size: 13px; border: 1px solid var(--border); display: inline-flex; align-items: center; gap: 6px;">
+          ${ico('edit', 14)} Edit Attendance
+        </button>
+        <button type="button" class="btn primary" onclick="printDailySummary('${today}')" style="font-weight: 600; padding: 9px 18px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px;">
+          ${ico('print', 14)} Print Summary
+        </button>
+      </div>
+
+      ${isSummaryOpen ? `
+        <div style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 16px;">
+          ${mtRenderSummaryView(today, rec, projNames, true)}
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+window.mtRenderSubmittedActionPanel = mtRenderSubmittedActionPanel;
+
+function mtRenderCountdownView(today) {
+  return `
+    <div id="mtCountdownCard" style="padding: 36px 20px; text-align: center; background: var(--surface, #ffffff); border: 1px solid var(--border); border-radius: 12px; margin: 6px 0 12px 0; box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05));">
+      <div style="display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 50%; background: var(--primary-soft, #eff6ff); color: var(--primary, #2563eb); margin-bottom: 14px;">
+        ${ico('clock', 28)}
+      </div>
+      <h3 style="margin: 0 0 6px 0; font-size: 18px; font-weight: 700; color: var(--text);">Morning Coordination Meeting</h3>
+      <p style="margin: 0 0 20px 0; font-size: 13.5px; color: var(--text-2);">Attendance opens at <strong>09:30 AM</strong> today (${fmtDateLong(today)})</p>
+      
+      <div style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 22px;">
+        <div style="background: var(--bg-dim, #f8fafc); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; min-width: 68px;">
+          <div id="mtCdHours" style="font-size: 26px; font-weight: 800; color: var(--primary, #2563eb); line-height: 1;">00</div>
+          <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; color: var(--text-muted, #64748b); margin-top: 4px;">Hours</div>
+        </div>
+        <div style="font-size: 20px; font-weight: 700; color: var(--text-muted);">:</div>
+        <div style="background: var(--bg-dim, #f8fafc); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; min-width: 68px;">
+          <div id="mtCdMins" style="font-size: 26px; font-weight: 800; color: var(--primary, #2563eb); line-height: 1;">00</div>
+          <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; color: var(--text-muted, #64748b); margin-top: 4px;">Minutes</div>
+        </div>
+        <div style="font-size: 20px; font-weight: 700; color: var(--text-muted);">:</div>
+        <div style="background: var(--bg-dim, #f8fafc); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; min-width: 68px;">
+          <div id="mtCdSecs" style="font-size: 26px; font-weight: 800; color: var(--primary, #2563eb); line-height: 1;">00</div>
+          <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; color: var(--text-muted, #64748b); margin-top: 4px;">Seconds</div>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: center; gap: 10px; align-items: center;">
+        <button type="button" class="btn primary outline sm" onclick="mtStartMeeting('${today}')" style="font-size: 12.5px; padding: 7px 18px; font-weight: 600;">
+          ${ico('play', 13)} Start Meeting Early
+        </button>
+      </div>
+    </div>
+  `;
+}
+window.mtRenderCountdownView = mtRenderCountdownView;
+
+function mtInitCountdownTimer(today) {
+  if (window.mtCountdownInterval) {
+    clearInterval(window.mtCountdownInterval);
+    window.mtCountdownInterval = null;
+  }
+  const updateTimer = () => {
+    const hEl = document.getElementById('mtCdHours');
+    const mEl = document.getElementById('mtCdMins');
+    const sEl = document.getElementById('mtCdSecs');
+    if (!hEl || !mEl || !sEl) return;
+    
+    const now = new Date();
+    const target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 30, 0);
+    const diff = target.getTime() - now.getTime();
+    if (diff <= 0) {
+      if (window.mtCountdownInterval) {
+        clearInterval(window.mtCountdownInterval);
+        window.mtCountdownInterval = null;
+      }
+      renderMeeting();
+      return;
+    }
+    const hrs = Math.floor(diff / (1000 * 60 * 60));
+    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const secs = Math.floor((diff % (1000 * 60)) / 1000);
+    hEl.textContent = String(hrs).padStart(2, '0');
+    mEl.textContent = String(mins).padStart(2, '0');
+    sEl.textContent = String(secs).padStart(2, '0');
+  };
+  updateTimer();
+  window.mtCountdownInterval = setInterval(updateTimer, 1000);
+}
+window.mtInitCountdownTimer = mtInitCountdownTimer;
+
+function mtRenderStartPromptView(today) {
+  return `
+    <div id="mtStartPromptCard" style="padding: 36px 20px; text-align: center; background: var(--surface, #ffffff); border: 1px solid var(--border); border-radius: 12px; margin: 6px 0 12px 0; box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05));">
+      <div style="display: inline-flex; align-items: center; justify-content: center; width: 60px; height: 60px; border-radius: 50%; background: var(--success-soft, #ecfdf5); color: var(--success, #059669); margin-bottom: 16px;">
+        ${ico('calendar', 30)}
+      </div>
+      <h3 style="margin: 0 0 8px 0; font-size: 19px; font-weight: 700; color: var(--text);">Ready to Conduct Meeting</h3>
+      <p style="margin: 0 0 24px 0; font-size: 13.5px; color: var(--text-2);">Session time active (9:30 – 10:30 AM). Click below to open the attendance board and record representative participation.</p>
+      
+      <button type="button" class="btn primary" onclick="mtStartMeeting('${today}')" style="font-size: 14.5px; font-weight: 700; padding: 11px 28px; border-radius: 8px; box-shadow: 0 4px 12px rgba(37,99,235,0.25);">
+        ${ico('play', 15)} Start Meeting Now
+      </button>
+    </div>
+  `;
+}
+window.mtRenderStartPromptView = mtRenderStartPromptView;
 
 function mtRenderPostponedView(today, rec, isFri, isAutoPostponed) {
   const currentReason = (rec && (rec.offReason || rec.note)) || (isFri ? 'Friday — Weekly Holiday' : 'Meeting Postponed');
@@ -10836,6 +11049,7 @@ function renderMeeting(){
   const isToday = MT_SELECTED_DATE === todayISO();
   const isPastDate = MT_SELECTED_DATE < todayISO();
   const isAfter11AM = now.getHours() >= 11;
+  const isBefore930AM = now.getHours() < 9 || (now.getHours() === 9 && now.getMinutes() < 30);
 
   // Lock condition: Not submitted AND (it's a past date OR it's today after 11:00 AM)
   const isAutoPostponed = !d.submitted && !d.unlocked && (isPastDate || (isToday && isAfter11AM));
@@ -10848,6 +11062,18 @@ function renderMeeting(){
     d.off = false;
     delete d.offReason;
   }
+
+  const isMeetingActive = !!(
+    d.isEditing ||
+    d.unlocked ||
+    d.started ||
+    (window.MT_STARTED_MEETINGS && window.MT_STARTED_MEETINGS[today]) ||
+    Object.keys(d.present || {}).length > 0 ||
+    Object.keys(d.absent || {}).length > 0
+  );
+
+  const isCountdownState = isToday && !isMeetingActive && !d.submitted && !d.off && isBefore930AM;
+  const isStartPromptState = isToday && !isMeetingActive && !d.submitted && !d.off && !isBefore930AM && !isAfter11AM;
 
   const rec = d;
   const isFri = mtIsFriday(today);
@@ -11014,8 +11240,12 @@ function renderMeeting(){
         <div class="card-body">
           ${isOff ? `
             ${mtRenderPostponedView(today, rec, isFri, isAutoPostponed)}
-          ` : (rec && rec.submitted) ? `
-            ${mtRenderSummaryView(today, rec, projNames)}
+          ` : (rec && rec.submitted && !rec.isEditing) ? `
+            ${mtRenderSubmittedActionPanel(today, rec, projNames)}
+          ` : isCountdownState ? `
+            ${mtRenderCountdownView(today)}
+          ` : isStartPromptState ? `
+            ${mtRenderStartPromptView(today)}
           ` : `
             <p class="small-mute" style="margin-bottom:10px">${'Click a project to expand card details. Mark attendance or take notes inside.'}</p>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px" id="mtTiles">
@@ -11130,6 +11360,12 @@ function renderMeeting(){
     </div>
   `;
   updateMeetingBadge();
+  if (isCountdownState) {
+    mtInitCountdownTimer(today);
+  } else if (window.mtCountdownInterval) {
+    clearInterval(window.mtCountdownInterval);
+    window.mtCountdownInterval = null;
+  }
   if (typeof window.mtCheckDirty === 'function') {
     window.mtCheckDirty(today);
   }
@@ -11501,7 +11737,38 @@ function printDailySummary(iso) {
   const presentList = projNames.filter(p => d.present && d.present[p]);
   const absentList = projNames.filter(p => d.absent && d.absent[p]);
   const recordedProjs = projNames.filter(p => (d.present && d.present[p]) || (d.absent && d.absent[p]));
-  const rowsToRender = recordedProjs.length > 0 ? recordedProjs : projNames;
+  const rowsToRender = (recordedProjs.length > 0 ? recordedProjs : projNames).slice();
+
+  // Retrieve DB sort_order
+  const dbAttList = (window.DATA && (window.DATA.meetingAttendance || window.DATA.meeting_attendance)) || [];
+  const projDbOrder = {};
+  dbAttList.forEach(r => {
+    if (r.project_name && (r.sort_order !== undefined && r.sort_order !== null)) {
+      projDbOrder[r.project_name] = Number(r.sort_order);
+    }
+  });
+
+  const getSortOrder = (p) => {
+    if (projDbOrder[p] !== undefined) return projDbOrder[p];
+    const isP = !!(d.present && d.present[p]);
+    if (isP) {
+      if (Array.isArray(d.presentOrder)) {
+        const idx = d.presentOrder.indexOf(p);
+        if (idx !== -1) return idx;
+      }
+      return 500;
+    }
+    return 999;
+  };
+
+  rowsToRender.sort((a, b) => {
+    const orderA = getSortOrder(a);
+    const orderB = getSortOrder(b);
+    if (orderA !== orderB) {
+      return orderA - orderB;
+    }
+    return a.localeCompare(b);
+  });
 
   let rowsHtml = '';
   rowsToRender.forEach((p, idx) => {

@@ -321,7 +321,7 @@
       pk: 'id',
       allowed: ['employee_sys_id',  
         'id', 'meeting_id', 'employee_id', 'full_name',
-        'designation', 'project_name', 'status', 'remarks'
+        'designation', 'project_name', 'status', 'remarks', 'sort_order', 'created_at'
        ],
       map: { 'employee_sys_id': 'employee_sys_id', 
         'MeetingID': 'meeting_id',
@@ -330,7 +330,8 @@
         'Designation': 'designation',
         'ProjectName': 'project_name',
         'Status': 'status',
-        'Remarks': 'remarks'
+        'Remarks': 'remarks',
+        'sort_order': 'sort_order'
        }
     },
 

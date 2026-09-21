@@ -10380,15 +10380,29 @@ async function mtSubmitDay(iso, event){
       });
 
       DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
-      if (!DATA.todos._isCrudProxied && window.MGHRM && typeof window.MGHRM.bindDirectCrudProxy === 'function') {
-        window.MGHRM.bindDirectCrudProxy(DATA.todos, 'todos');
-      }
 
       // Loop through pendingNotes asynchronously
       if (pendingNotes.length > 0) {
         for(let i = 0; i < pendingNotes.length; i++) {
           pendingNotes[i].id = Date.now() + (i * 10000) + Math.floor(Math.random() * 9999);
           DATA.todos.unshift(pendingNotes[i]);
+          if (window.appData && typeof window.appData.insert === 'function') {
+            try {
+              await window.appData.insert('todos', pendingNotes[i]);
+            } catch (err) {
+              console.error('Error persisting todo:', err);
+            }
+          } else if (window.sb) {
+            try {
+              const dbRecord = (window.MGHRM && typeof window.MGHRM.toDb === 'function')
+                ? window.MGHRM.toDb('todos', pendingNotes[i])
+                : pendingNotes[i];
+              const { error } = await window.sb.from('todos').insert([dbRecord]);
+              if (error) throw error;
+            } catch (err) {
+              console.error('Error persisting todo:', err);
+            }
+          }
         }
       }
 

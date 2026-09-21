@@ -1092,92 +1092,6 @@
     if (typeof global.refreshAll === 'function') global.refreshAll();
   }
 
-  /* ---------- Auto-Sync Proxy for Legacy UI ---------- */
-  var _isRealtimeEvent = false;
-
-  function bindDirectCrudProxy(data, bucket) {
-    if (!data || !Array.isArray(data) || data._isCrudProxied) return;
-    data._isCrudProxied = true;
-    var originalPush = data.push;
-    var originalUnshift = data.unshift;
-    var originalSplice = data.splice;
-
-    data.push = function () {
-      var args = Array.prototype.slice.call(arguments);
-      var res = originalPush.apply(this, args);
-      if (!_isRealtimeEvent) {
-        args.forEach(function (item) {
-          insert(bucket, item);
-        });
-      }
-      return res;
-    };
-
-    data.unshift = function () {
-      var args = Array.prototype.slice.call(arguments);
-      var res = originalUnshift.apply(this, args);
-      if (!_isRealtimeEvent) {
-        args.forEach(function (item) {
-          insert(bucket, item);
-        });
-      }
-      return res;
-    };
-
-    data.splice = function () {
-      var args = Array.prototype.slice.call(arguments);
-      var start = args[0];
-      var deleteCount = args[1];
-      var itemsToAdd = args.slice(2);
-      var removedItems = [];
-
-      if (deleteCount > 0) {
-        for (var i = 0; i < deleteCount; i++) {
-          if (this[start + i]) removedItems.push(this[start + i]);
-        }
-      }
-
-      var res = originalSplice.apply(this, args);
-
-      if (!_isRealtimeEvent) {
-        removedItems.forEach(function (item) {
-          var pkName = TABLE_MAP[bucket].pk;
-          var localPkField = null;
-          for (var c in TABLE_MAP[bucket].map || {}) {
-            if (TABLE_MAP[bucket].map[c] === pkName) {
-              localPkField = c;
-              break;
-            }
-          }
-          var pkValue = item[localPkField] || item[pkName] || item.id;
-          if (pkValue) remove(bucket, pkName, pkValue);
-        });
-
-        itemsToAdd.forEach(function (item) {
-          insert(bucket, item);
-        });
-      }
-      return res;
-    };
-  }
-
-  var originalLoadAll = loadAll;
-  loadAll = function () {
-    return originalLoadAll().then(function (out) {
-      for (var bucket in out) {
-        bindDirectCrudProxy(out[bucket], bucket);
-      }
-      return out;
-    });
-  };
-
-  var originalHandleRealtime = handleRealtimeEvent;
-  handleRealtimeEvent = function (payload) {
-    _isRealtimeEvent = true;
-    originalHandleRealtime(payload);
-    _isRealtimeEvent = false;
-  };
-
   /* ---------- Direct Server CRUD ---------- */
   function insert(bucket, jsObject) {
     if (!ready || !sb) return Promise.resolve(null);
@@ -1849,7 +1763,6 @@
     TABLE_MAP: TABLE_MAP,
     toDb: toDb,
     fromDb: fromDb,
-    bindDirectCrudProxy: bindDirectCrudProxy,
     _client: raw,
     _view: sqlView,
     client: sb,
@@ -1859,7 +1772,6 @@
 
   // Expose appData as alias to MGHRM data layer
   global.appData = global.MGHRM;
-  global.bindDirectCrudProxy = bindDirectCrudProxy;
 
   // Immediate eager auto-initialization if config is present
   try {

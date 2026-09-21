@@ -7781,11 +7781,11 @@ function deleteLeave(id){
 
 /* ============ EXIT ============ */
 function renderExit(){
-  const rows = DATA.exits.slice().sort((a,b)=>{
-    const da = a.ExitDate || a.exit_date || '';
-    const db = b.ExitDate || b.exit_date || '';
-    if (da && db) return db.localeCompare(da);
-    return (+b.ExitID || +b.id || 0) - (+a.ExitID || +a.id || 0);
+  const rows = DATA.exits.slice().sort((a, b) => {
+    const timeA = new Date(a.created_at || a.IssueDate || a.issue_date || a.ExitDate || a.exit_date || 0).getTime();
+    const timeB = new Date(b.created_at || b.IssueDate || b.issue_date || b.ExitDate || b.exit_date || 0).getTime();
+    if (timeA !== timeB) return timeB - timeA;
+    return (+b.id || +b.ExitID || 0) - (+a.id || +a.ExitID || 0);
   });
   document.getElementById('page-exit').innerHTML = `
     <div class="card">
@@ -7995,56 +7995,42 @@ async function submitExit(){
     const origExitDate = e.ExitDate || e.exit_date;
     const origExitReason = e.ExitReason || e.exit_reason;
 
-    const newExitId = String(Date.now());
     const issueVal = document.getElementById('exIssue')?.value || todayISO();
-    const exitRecord = {
-      id: newExitId,
-      ExitID: newExitId,
+    const payloadWithoutId = {
       employee_sys_id: e.id,
       employee_id: String(e.EmployeeID || e.id || ''),
-      EmployeeID: String(e.EmployeeID || e.id || ''),
-      FullName: e.FullName || '',
       full_name: e.FullName || '',
-      Designation: e.Designation || '',
       designation: e.Designation || '',
-      CurrentProject: e.ProjectName || '',
       current_project: e.ProjectName || '',
-      JoinDate: e.JoinDate || '',
       join_date: e.JoinDate || '',
-      ExitReason: r,
       exit_reason: r,
-      ExitDate: d,
       exit_date: d,
-      IssueDate: issueVal,
       issue_date: issueVal
     };
 
-    // 2. Optimistic Mutation
-    if (!DATA.exits) DATA.exits = [];
-    DATA.exits.unshift(exitRecord);
-    e.Status = 'Inactive';
-    e.status = 'Inactive';
-    e.ExitDate = d;
-    e.exit_date = d;
-    e.ExitReason = r;
-    e.exit_reason = r;
+    let savedExitRecord = null;
 
-    // 3. Sync & Rollback Guard
     try {
       if (window.sb) {
-        const { error: exitErr } = await window.sb.from('exits').insert([{
-          id: newExitId,
-          employee_sys_id: e.id,
-          employee_id: String(e.EmployeeID || e.id || ''),
-          full_name: e.FullName || '',
-          designation: e.Designation || '',
-          current_project: e.ProjectName || '',
-          join_date: e.JoinDate || '',
-          exit_reason: r,
-          exit_date: d,
-          issue_date: issueVal
-        }]);
-        if (exitErr) throw exitErr;
+        // 1. Insert without ID to let Supabase auto-increment
+        const { data: insertedData, error: insertErr } = await window.sb.from('exits').insert([payloadWithoutId]).select();
+        if (insertErr) throw insertErr;
+
+        savedExitRecord = insertedData && insertedData[0] ? insertedData[0] : null;
+        if (!savedExitRecord) {
+          throw new Error('Failed to retrieve inserted exit record');
+        }
+
+        // Normalize UI aliases
+        savedExitRecord.ExitID = String(savedExitRecord.id);
+        savedExitRecord.EmployeeID = savedExitRecord.employee_id || String(e.EmployeeID || e.id || '');
+        savedExitRecord.FullName = savedExitRecord.full_name || e.FullName || '';
+        savedExitRecord.Designation = savedExitRecord.designation || e.Designation || '';
+        savedExitRecord.CurrentProject = savedExitRecord.current_project || e.ProjectName || '';
+        savedExitRecord.JoinDate = savedExitRecord.join_date || e.JoinDate || '';
+        savedExitRecord.ExitDate = savedExitRecord.exit_date || d;
+        savedExitRecord.ExitReason = savedExitRecord.exit_reason || r;
+        savedExitRecord.IssueDate = savedExitRecord.issue_date || issueVal;
 
         const { error: empErr } = await window.sb.from('employees').update({
           status: 'Inactive',
@@ -8052,11 +8038,40 @@ async function submitExit(){
           exit_reason: r
         }).eq('id', e.id);
         if (empErr) throw empErr;
+      } else {
+        const localId = Date.now();
+        savedExitRecord = Object.assign({
+          id: localId,
+          ExitID: String(localId),
+          EmployeeID: String(e.EmployeeID || e.id || ''),
+          FullName: e.FullName || '',
+          Designation: e.Designation || '',
+          CurrentProject: e.ProjectName || '',
+          JoinDate: e.JoinDate || '',
+          ExitDate: d,
+          ExitReason: r,
+          IssueDate: issueVal,
+          created_at: new Date().toISOString()
+        }, payloadWithoutId);
       }
 
+      // 2. Update local state with the fully formed DB record
+      if (!DATA.exits) DATA.exits = [];
+      DATA.exits.unshift(savedExitRecord);
+
+      // 3. Update employee status
+      e.Status = 'Inactive';
+      e.status = 'Inactive';
+      e.ExitDate = d;
+      e.exit_date = d;
+      e.ExitReason = r;
+      e.exit_reason = r;
+
+      // 4. Finally, sync other changes safely (no race condition)
       await persist();
 
-      if (typeof logActivity === 'function') logActivity('create','exits',newExitId,`${e.FullName} marked as Inactive (${r})`);
+      const recordIdStr = String(savedExitRecord.id || savedExitRecord.ExitID);
+      if (typeof logActivity === 'function') logActivity('create','exits',recordIdStr,`${e.FullName} marked as Inactive (${r})`);
       toast(`${e.FullName} marked as Inactive`,'success');
       if (typeof closeModal === 'function') closeModal();
       if (typeof renderExit === 'function') renderExit();
@@ -8064,7 +8079,9 @@ async function submitExit(){
       if (typeof refreshAll === 'function') refreshAll();
     } catch(err) {
       // Rollback to Snapshot
-      DATA.exits = DATA.exits.filter(x => String(x.ExitID || x.id) !== newExitId);
+      if (savedExitRecord) {
+        DATA.exits = DATA.exits.filter(x => String(x.id || x.ExitID) !== String(savedExitRecord.id || savedExitRecord.ExitID));
+      }
       e.Status = origEmpStatus;
       e.status = origEmpStatusLower;
       e.ExitDate = origExitDate;
@@ -8072,7 +8089,7 @@ async function submitExit(){
       e.ExitReason = origExitReason;
       e.exit_reason = origExitReason;
       console.error('Exit Processing Sync Error:', err);
-      toast('Sync failed. Changes reverted to prevent data corruption.', 'error');
+      toast('Sync failed: ' + (err.message || err), 'error');
       if (typeof renderExit === 'function') renderExit();
       if (typeof renderEmpTable === 'function') renderEmpTable();
     } finally {

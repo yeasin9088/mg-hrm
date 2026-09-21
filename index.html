@@ -6601,19 +6601,21 @@ function renderTransfer(){
     <div class="card">
       <div class="card-header"><h3>${'New Transfer Order'}</h3></div>
       <div class="card-body">
-        <div class="form-grid">
-          <div class="field"><label>${'Select Employee'} *</label><select id="trEmp" onchange="trFillEmp()"></select><div id="trEmpBadge"></div></div>
-          <div class="field"><label>${'Current Project'}</label><input id="trCurr" type="text" readonly></div>
-          <div class="field"><label>${'New Project'} *</label><select id="trNew"></select></div>
-          <div class="field"><label>${'Transfer Date'} *</label><input id="trDate" type="date"></div>
-          <div class="field"><label>${'Issue Date'}</label><input id="trIssue" type="date" value="${todayISO()}"></div>
-          <div class="field"><label>${'Memo No.'}</label><input id="trRef" type="text" value="${refNo('MG/SEC/TR')}"></div>
-          <div class="field wide"><label>${'Notes / Extra Instructions'}</label><textarea id="trNotes" rows="2"></textarea></div>
-        </div>
-        <div style="margin-top:14px" class="btn-row">
-          <button class="btn primary" id="btnSubmitTransfer" onclick="submitTransfer()">${'Submit'}</button>
-          <button class="btn" onclick="previewTransferOrder()">${ico('print')} ${'Bangla Order Letter'}</button>
-        </div>
+        <form id="formTransfer" onsubmit="event.preventDefault(); submitTransfer();">
+          <div class="form-grid">
+            <div class="field"><label>${'Select Employee'} *</label><select id="trEmp" onchange="trFillEmp()"></select><div id="trEmpBadge"></div></div>
+            <div class="field"><label>${'Current Project'}</label><input id="trCurr" type="text" readonly></div>
+            <div class="field"><label>${'New Project'} *</label><select id="trNew"></select></div>
+            <div class="field"><label>${'Transfer Date'} *</label><input id="trDate" type="date"></div>
+            <div class="field"><label>${'Issue Date'}</label><input id="trIssue" type="date" value="${todayISO()}"></div>
+            <div class="field"><label>${'Memo No.'}</label><input id="trRef" type="text" value="${refNo('MG/SEC/TR')}"></div>
+            <div class="field wide"><label>${'Notes / Extra Instructions'}</label><textarea id="trNotes" rows="2"></textarea></div>
+          </div>
+          <div style="margin-top:14px" class="btn-row">
+            <button type="submit" class="btn primary" id="btnSubmitTransfer">${'Submit'}</button>
+            <button type="button" class="btn" onclick="previewTransferOrder()">${ico('print')} ${'Bangla Order Letter'}</button>
+          </div>
+        </form>
         <div id="trHint" class="small-mute" style="margin-top:8px"></div>
       </div>
     </div>
@@ -7070,11 +7072,11 @@ function trFillEmp(){
 }
 async function submitTransfer(){
   if(!guardEdit()) return;
-  const rid = document.getElementById('trEmp').value;
-  const np = document.getElementById('trNew').value;
-  const td = document.getElementById('trDate').value;
-  const iss = document.getElementById('trIssue').value;
-  const notes = document.getElementById('trNotes').value;
+  const rid = document.getElementById('trEmp')?.value;
+  const np = document.getElementById('trNew')?.value;
+  const td = document.getElementById('trDate')?.value;
+  const iss = document.getElementById('trIssue')?.value;
+  const notes = document.getElementById('trNotes')?.value;
   if(!rid||!np||!td){ toast('Fill Employee, New Project, and Date', 'error'); return; }
 
   const btn = document.getElementById('btnSubmitTransfer') || (typeof event !== 'undefined' && event && event.target ? event.target : null);
@@ -7119,26 +7121,55 @@ async function submitTransfer(){
       
       const { data: insertedTr, error: trErr } = await window.sb.from('transfers').insert([payload]).select();
       if (trErr) throw trErr;
-      const insertedId = (insertedTr && insertedTr[0] && insertedTr[0].id) ? insertedTr[0].id : '';
+
+      const savedRecord = (insertedTr && insertedTr[0]) ? insertedTr[0] : null;
+      const insertedId = savedRecord ? savedRecord.id : '';
+
+      // 1. Update Local State (prepended / unshifted)
+      const mappedTransfer = (window.MGHRM && typeof window.MGHRM.fromDb === 'function' && savedRecord)
+        ? window.MGHRM.fromDb('transfers', savedRecord)
+        : {
+            id: insertedId,
+            employee_sys_id: e.id,
+            EmployeeID: String(e.EmployeeID || e.id || ''),
+            EmployeeIDBangla: String(e.EmployeeIDBangla || ''),
+            FullName: e.FullName || '',
+            FullNameBangla: e.FullNameBn || e.FullNameBangla || '',
+            Designation: e.Designation || '',
+            DesignationBangla: e.DesignationBangla || e.DesignationBn || '',
+            CurrentProject: e.ProjectName || '',
+            CurrentProjectBangla: e.ProjectNameBangla || e.ProjectNameBn || '',
+            NewProject: np,
+            NewProjectBangla: npBn,
+            TransferDate: td,
+            TransferDateBangla: td ? toBnDigits(td) : '',
+            'Issues Date': iss || '',
+            'Issues DateBangla': iss ? toBnDigits(iss) : '',
+            Notes: notes || '',
+            Status: isFuture ? 'Scheduled' : 'Completed',
+            status: isFuture ? 'Scheduled' : 'Completed'
+          };
+
+      if (!Array.isArray(DATA.transfers)) {
+        DATA.transfers = [];
+      }
+      DATA.transfers = [mappedTransfer, ...DATA.transfers.filter(t => String(t.id) !== String(insertedId))];
 
       if (!isFuture) {
         const { error: empErr } = await window.sb.from('employees').update({
           project_name: np
         }).eq('id', e.id);
         if (empErr) throw empErr;
+
+        e.ProjectName = np;
+        if (npBn) e.ProjectNameBangla = npBn;
       }
 
-      if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
-        const freshData = await window.MGHRM.loadAll();
-        if (freshData) {
-            Object.keys(freshData).forEach(k => {
-              if (Array.isArray(freshData[k])) {
-                window.DATA[k] = freshData[k];
-              }
-            });
-          }
+      // 2. Full Module Re-render (resets form, generates new memo, clears validation styles & updates table)
+      if (typeof renderTransfer === 'function') {
+        renderTransfer();
       }
-      
+
       logActivity('create', 'transfers', insertedId, `Transfer for ${e.FullName} to ${np}`);
       toast(isFuture 
         ? 'Scheduled — employee project NOT changed (edit on Employees tab)'

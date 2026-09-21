@@ -7922,6 +7922,10 @@ function promptReactivate(empKey, exitId){
           ${activeProjs.map(p=>`<option value="${p.ProjectName}"${p.ProjectName===emp.ProjectName?' selected':''}>${p.ProjectName}</option>`).join('')}
         </select>
       </div>
+      <div class="form-group" style="margin-top: 15px;">
+        <label>${bn?'নতুন যোগদানের তারিখ':'New Join Date'} *</label>
+        <input type="date" id="reactivateJoinDate" class="form-control" value="${new Date().toISOString().split('T')[0]}" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border)">
+      </div>
     </div>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
       <button class="btn" onclick="openExitPopup(${jsQ(exitId)})">${bn?'বাতিল':'Cancel'}</button>
@@ -7934,7 +7938,9 @@ async function confirmReactivate(empKey, exitId){
   if(!guardEdit()) return;
   const sel = document.getElementById('reactivateProj');
   const newProj = sel ? sel.value : '';
+  const newJoinDate = document.getElementById('reactivateJoinDate')?.value || new Date().toISOString().split('T')[0];
   if(!newProj){ toast('Please select a project', 'error'); return; }
+  if(!newJoinDate){ toast('Please select a new join date', 'error'); return; }
 
   const emp = findEmp(empKey);
   if(!emp) { toast('Employee not found', 'error'); return; }
@@ -7942,7 +7948,10 @@ async function confirmReactivate(empKey, exitId){
   try {
     emp.Status = 'Active';
     emp.ProjectName = newProj;
-    emp.CurrentProject = newProj;
+    emp.JoinDate = newJoinDate;
+    if (typeof toBnDigits === 'function') {
+      emp.JoinDateBangla = toBnDigits(newJoinDate);
+    }
     delete emp.ExitDate;
     delete emp.ExitReason;
 
@@ -7950,7 +7959,7 @@ async function confirmReactivate(empKey, exitId){
       const { error: empErr } = await window.sb.from('employees').update({
         status: 'Active',
         project_name: newProj,
-        current_project: newProj,
+        join_date: newJoinDate,
         exit_date: null,
         exit_reason: null
       }).eq('id', emp.id || emp.EmployeeID);
@@ -8086,9 +8095,8 @@ async function submitExit(){
         }, payloadWithoutId);
       }
 
-      // 2. Update local state with the fully formed DB record
-      if (!DATA.exits) DATA.exits = [];
-      DATA.exits.unshift(savedExitRecord);
+      // 2. Update local state with direct array reassignment (bypasses proxy auto-insert trap)
+      window.DATA.exits = [savedExitRecord, ...(window.DATA.exits || [])];
 
       // 3. Update employee status
       e.Status = 'Inactive';

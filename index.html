@@ -8,6 +8,17 @@
 <meta property="og:title" content="MG Security HRM Suite">
 <meta property="og:description" content="Human resource management suite for MG Security - employee records, parade state, uniforms, transfers, and leaves.">
 <script>
+function escapeHtml(unsafe){
+  if(unsafe == null) return '';
+  return String(unsafe)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+window.escapeHtml = escapeHtml;
+
 var NOTIFICATIONS = [];
 var VERIFY_MODE = false;
 var VERIFY_TICKS = new Set();
@@ -2668,11 +2679,11 @@ async function renderDashboard(){
       <div class="card-body">
         <div class="timeline">
           ${activityFeed().slice(0,12).map(a=>`
-            <div class="tl-item ${a.severity||''}">
+            <div class="tl-item ${escapeHtml(a.severity||'')}">
               <div class="tl-dot"></div>
-              <h5>${a.label} · <span style="color:var(--primary)">${a.name}</span></h5>
-              <div class="date">${fmtDateLong(a.date)}</div>
-              <p>${a.details||''}</p>
+              <h5>${escapeHtml(a.label)} · <span style="color:var(--primary)">${escapeHtml(a.name)}</span></h5>
+              <div class="date">${escapeHtml(fmtDateLong(a.date))}</div>
+              <p>${escapeHtml(a.details||'')}</p>
             </div>
           `).join('')}
         </div>
@@ -6713,7 +6724,7 @@ function openTransferPopup(tid){
     'Cancelled':'বাতিল', 'Completed':'সম্পন্ন (জয়েন করেছেন)',
     'Awaiting Confirmation':'যোগদানের অপেক্ষায়', 'Join Pending':'যোগদানের অপেক্ষায় (Join Pending)', 'Scheduled':'নির্ধারিত', 'Recorded':'রেকর্ডকৃত'
   })[status] || status : status;
-  const statusPill = `<span class="pill ${pillCls}">${escapeHtml(pillTxt)}</span>`;
+  const statusPill = `<span class="pill ${escapeHtml(pillCls)}">${escapeHtml(pillTxt)}</span>`;
   const emp = findEmpByAction(t);
   const empActive = emp && emp.Status==='Active';
   openModal(bn?`ট্রান্সফার #${escapeHtml(num(t.id))}`:`Transfer #${escapeHtml(t.id)}`,
@@ -6727,7 +6738,7 @@ function openTransferPopup(tid){
       <div class="pop-row"><span>${bn?'ইস্যু তারিখ':'Issue Date'}</span><b>${escapeHtml(fmtDate(t['Issues Date']||t.IssueDate||''))}</b></div>
       <div class="pop-row"><span>${bn?'অবস্থা':'Status'}</span>${statusPill}</div>
       ${emp?`<div class="pop-row"><span>${bn?'বর্তমান প্রজেক্ট (Employeetbl)':'Current Project (Employeetbl)'}</span><b>${escapeHtml(projName(emp.ProjectName))}</b></div>`:''}
-      ${t.Notes?`<div class="pop-row"><span>${bn?'নোট':'Notes'}</span><b>${escapeHtml(t.Notes)}</b></div>`:''}
+      ${t.Notes?`<div class="pop-row"><span>${bn?'নোট':'Notes'}</span><b>${escapeHtml(t.Notes).replace(/\n/g, '<br>')}</b></div>`:''}
     </div>
     <div class="pop-hint">${bn?'💡 "যোগদান নিশ্চিত" চাপলে Employeetbl.ProjectName আপডেট হবে ও status "সম্পন্ন" হবে। "বাতিল" চাপলে শুধু হিস্ট্রি রেকর্ড "Cancelled" হবে; Employeetbl অপরিবর্তিত।':'💡 "Confirm Joined" updates Employeetbl.ProjectName and marks Completed. "Cancel" only marks the history record — Employeetbl is not touched.'}</div>`,
     `<button class="btn" onclick="closeModal()">${bn?'বন্ধ':'Close'}</button>
@@ -7243,27 +7254,27 @@ function bangleTransferOrder({emp,np,td,iss,notes,refNo}){
   const idLn = empIdLine(emp); /* official ID only — empty when not on record */
   return `<div class="print-doc compact">
     ${letterhead()}
-    <div class="ref-line"><span>স্মারক নং: ${refNo||'—'}</span><span>তারিখ: ${fmtDateBnFormal(iss||todayISO())}</span></div>
+    <div class="ref-line"><span>স্মারক নং: ${escapeHtml(refNo||'—')}</span><span>তারিখ: ${escapeHtml(fmtDateBnFormal(iss||todayISO()))}</span></div>
     <div class="subject"><strong>বদলির আদেশ</strong></div>
     <div class="to-line">প্রাপক,</div>
     <div style="font-size:11.5pt;line-height:1.6;margin-bottom:10px">
-      ${empNameBn(emp)}<br>
-      ${idLn?idLn+'<br>':''}
-      পদবি: ${desigBn}<br>
-      ${cpBn}
+      ${escapeHtml(empNameBn(emp))}<br>
+      ${idLn?escapeHtml(idLn)+'<br>':''}
+      পদবি: ${escapeHtml(desigBn)}<br>
+      ${escapeHtml(cpBn)}
     </div>
     <div class="body-text">
-      <p>প্রতিষ্ঠানের প্রয়োজনে এবং নিরাপত্তা বিভাগের কার্যক্রমের ধারাবাহিকতা বজায় রাখার স্বার্থে আপনাকে <strong>${cpBn}</strong> হতে <strong>${npBn}</strong> এ বদলি করা হলো।</p>
-      <p>আপনাকে নির্দেশ দেওয়া যাচ্ছে যে, আপনি <strong>${fmtDateBnFormal(td)}</strong> তারিখে উক্ত প্রজেক্টে যোগদান করবেন এবং যোগদানের পর সংশ্লিষ্ট প্রজেক্টের প্রশাসনিক ও নিরাপত্তা কর্তৃপক্ষকে যথাযথভাবে অবহিত করবেন।</p>
+      <p>প্রতিষ্ঠানের প্রয়োজনে এবং নিরাপত্তা বিভাগের কার্যক্রমের ধারাবাহিকতা বজায় রাখার স্বার্থে আপনাকে <strong>${escapeHtml(cpBn)}</strong> হতে <strong>${escapeHtml(npBn)}</strong> এ বদলি করা হলো।</p>
+      <p>আপনাকে নির্দেশ দেওয়া যাচ্ছে যে, আপনি <strong>${escapeHtml(fmtDateBnFormal(td))}</strong> তারিখে উক্ত প্রজেক্টে যোগদান করবেন এবং যোগদানের পর সংশ্লিষ্ট প্রজেক্টের প্রশাসনিক ও নিরাপত্তা কর্তৃপক্ষকে যথাযথভাবে অবহিত করবেন।</p>
       <p>নতুন কর্মস্থলে আপনার পদবি, বেতন-ভাতা এবং অন্যান্য সকল সুযোগ-সুবিধা পূর্বের ন্যায় অপরিবর্তিত থাকবে। বর্তমান কর্মস্থলের যাবতীয় দায়িত্ব যথাযথভাবে হস্তান্তরপূর্বক নতুন কর্মস্থলে যোগদান করবেন।</p>
-      ${notes?`<p>${notes}</p>`:''}
+      ${notes?`<p>${escapeHtml(notes).replace(/\n/g, '<br>')}</p>`:''}
       <p>উক্ত আদেশ অবিলম্বে কার্যকর হবে।</p>
     </div>
     <div class="sig-flow">
       <div style="font-size:11.5pt">
         <p>আদেশক্রমে,</p>
         <div style="margin-top:64px;border-top:1px solid #000;width:220px;padding-top:3px;font-size:10.5pt;line-height:1.4">
-          ${COMPANY.securityMgr}<br>${COMPANY.securityMgrTitle}<br>${COMPANY.nameBn}
+          ${escapeHtml(COMPANY.securityMgr)}<br>${escapeHtml(COMPANY.securityMgrTitle)}<br>${escapeHtml(COMPANY.nameBn)}
         </div>
       </div>
       <div class="distribution">
@@ -7452,7 +7463,7 @@ function dcFillEmp() {
   const e = findEmp(rid);
   const infoEl = document.getElementById('dcEmpInfo');
   if (infoEl) {
-    infoEl.innerHTML = e ? `<span class="chip success" style="margin-top:6px;display:inline-block">✓ ${e.FullName} · ${e.Designation || ''} · Project: ${e.ProjectName || 'Unassigned'}</span>` : '';
+    infoEl.innerHTML = e ? `<span class="chip success" style="margin-top:6px;display:inline-block">✓ ${escapeHtml(e.FullName)} · ${escapeHtml(e.Designation || '')} · Project: ${escapeHtml(e.ProjectName || 'Unassigned')}</span>` : '';
   }
 }
 async function submitDisciplinary(){
@@ -7552,24 +7563,23 @@ function previewDisciplinary(){
   }));
 }
 function banglaDisciplinaryLetter({emp, templateKey, ref, incident, issue, desc}){
-  const tpl = DC_TEMPLATES[templateKey];
-  const desigBn = DESIG_BN[emp.Designation]||emp.Designation;
-  const projBn = projectBn(emp.ProjectName)||emp.ProjectName;
+  const tpl = DC_TEMPLATES[templateKey] || { subject: '' };
+  const desigBn = DESIG_BN[emp.Designation]||emp.Designation||'';
+  const projBn = projectBn(emp.ProjectName)||emp.ProjectName||'';
   
-  
-  const descPart = desc ? desc.split(/\n\s*\n+/).map(p=>`<p>${p.trim().replace(/\n/g,'<br>')}</p>`).join('') : '<p>—</p>';
-  const shortSubject = tpl.subject.replace('বিষয়ঃ ','');
+  const descPart = desc ? desc.split(/\n\s*\n+/).map(p=>`<p>${escapeHtml(p.trim()).replace(/\n/g,'<br>')}</p>`).join('') : '<p>—</p>';
+  const shortSubject = (tpl.subject || '').replace('বিষয়ঃ ','');
   const idLn = empIdLine(emp); /* official ID only — empty when not on record */
   return `<div class="print-doc compact">
     ${letterhead()}
-    <div class="ref-line"><span>স্মারক নং: ${ref||'—'}</span><span>তারিখ: ${fmtDateBnFormal(issue||todayISO())}</span></div>
-    <div class="subject"><strong>${shortSubject}</strong></div>
+    <div class="ref-line"><span>স্মারক নং: ${escapeHtml(ref||'—')}</span><span>তারিখ: ${escapeHtml(fmtDateBnFormal(issue||todayISO()))}</span></div>
+    <div class="subject"><strong>${escapeHtml(shortSubject)}</strong></div>
     <div class="to-line">প্রাপক,</div>
     <div style="font-size:11.5pt;line-height:1.6;margin-bottom:10px">
-      ${empNameBn(emp)}<br>
-      ${idLn?idLn+'<br>':''}
-      পদবি: ${desigBn}<br>
-      ${projBn}
+      ${escapeHtml(empNameBn(emp))}<br>
+      ${idLn ? escapeHtml(idLn)+'<br>' : ''}
+      পদবি: ${escapeHtml(desigBn)}<br>
+      ${escapeHtml(projBn)}
     </div>
     <div class="body-text tight-p">
       ${descPart}
@@ -7578,7 +7588,7 @@ function banglaDisciplinaryLetter({emp, templateKey, ref, incident, issue, desc}
       <div style="font-size:11.5pt">
         <p>আদেশক্রমে,</p>
         <div style="margin-top:64px;border-top:1px solid #000;width:220px;padding-top:3px;font-size:10.5pt;line-height:1.4">
-          ${COMPANY.securityMgr}<br>${COMPANY.securityMgrTitle}<br>${COMPANY.nameBn}
+          ${escapeHtml(COMPANY.securityMgr)}<br>${escapeHtml(COMPANY.securityMgrTitle)}<br>${escapeHtml(COMPANY.nameBn)}
         </div>
       </div>
       <div class="distribution">
@@ -7691,7 +7701,7 @@ function lvFillEmp() {
   const e = findEmp(rid);
   const infoEl = document.getElementById('lvEmpInfo');
   if (infoEl) {
-    infoEl.innerHTML = e ? `<span class="chip success" style="margin-top:6px;display:inline-block">✓ ${e.FullName} · ${e.Designation || ''} · Project: ${e.ProjectName || 'Unassigned'}</span>` : '';
+    infoEl.innerHTML = e ? `<span class="chip success" style="margin-top:6px;display:inline-block">✓ ${escapeHtml(e.FullName)} · ${escapeHtml(e.Designation || '')} · Project: ${escapeHtml(e.ProjectName || 'Unassigned')}</span>` : '';
   }
 }
 async function submitLeave(){
@@ -7898,7 +7908,7 @@ function openExitPopup(eid){
       <div class="pop-row"><span>${bn?'যোগদানের তারিখ':'Join Date'}</span><b>${escapeHtml(fmtDate(x.JoinDate))}</b></div>
       <div class="pop-row"><span>${bn?'ত্যাগের তারিখ':'Exit Date'}</span><b>${escapeHtml(fmtDate(x.ExitDate))}</b></div>
       <div class="pop-row"><span>${bn?'ইস্যু তারিখ':'Issue Date'}</span><b>${escapeHtml(fmtDate(x.IssueDate))}</b></div>
-      <div class="pop-row"><span>${bn?'কারণ':'Reason'}</span><b>${escapeHtml(x.ExitReason||x.ExitType||'—')}</b></div>
+      <div class="pop-row"><span>${bn?'কারণ':'Reason'}</span><b>${escapeHtml(x.ExitReason||x.ExitType||'—').replace(/\n/g, '<br>')}</b></div>
       <div class="pop-row"><span>${bn?'বর্তমান স্ট্যাটাস':'Current Status'}</span><b>${escapeHtml(emp?emp.Status:'—')}</b></div>
     </div>
     <div class="pop-hint">${bn?'⚠ কর্মচারীর বর্তমান অবস্থা Employeetbl-এর Status থেকে আসে; এই পপআপ থেকে সংশোধন করতে চাইলে "পুনর্বহাল" চাপুন।':'⚠ Employee current status comes from Employeetbl.Status; use "Reactivate" to restore.'}</div>`,

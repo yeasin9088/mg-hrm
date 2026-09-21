@@ -6744,8 +6744,8 @@ function renderTransfer(){
       <div class="card-header">
         <h3>${'Recent Transfers'}</h3>
         <div class="search-row" style="margin-left:auto; display:flex; gap:10px;">
-          <input type="text" id="trIdSearch" placeholder="${'ID only...'}" oninput="renderTransferTable()" style="width:120px;">
-          <input type="text" id="trSearch" placeholder="${'Search...'}" oninput="renderTransferTable()" style="width:180px;">
+          <input type="text" id="trIdSearch" placeholder="${'ID only...'}" oninput="debouncedRenderTransferTable()" style="width:120px;">
+          <input type="text" id="trSearch" placeholder="${'Search...'}" oninput="debouncedRenderTransferTable()" style="width:180px;">
         </div>
       </div>
       <div class="table-wrap">
@@ -6774,6 +6774,15 @@ function renderTransfer(){
 
   renderTransferTable();
 }
+
+let trSearchDebounceTimer;
+function debouncedRenderTransferTable() {
+  clearTimeout(trSearchDebounceTimer);
+  trSearchDebounceTimer = setTimeout(() => {
+    if (typeof renderTransferTable === 'function') renderTransferTable();
+  }, 250);
+}
+window.debouncedRenderTransferTable = debouncedRenderTransferTable;
 
 function renderTransferTable() {
   const q = (document.getElementById('trSearch')?.value || '').toLowerCase();
@@ -7239,10 +7248,10 @@ async function submitTransfer(){
         status: isFuture ? 'Scheduled' : 'Completed'
       };
       
-      const { data: insertedTr, error: trErr } = await window.sb.from('transfers').insert([payload]).select();
+      const { data: insertedTr, error: trErr } = await window.sb.rpc('commit_transfer', { p_transfer: payload, p_apply_now: !isFuture });
       if (trErr) throw trErr;
 
-      const savedRecord = (insertedTr && insertedTr[0]) ? insertedTr[0] : null;
+      const savedRecord = (Array.isArray(insertedTr) ? insertedTr[0] : insertedTr) || null;
       const insertedId = savedRecord ? savedRecord.id : '';
 
       // 1. Update Local State (prepended / unshifted)
@@ -7276,11 +7285,6 @@ async function submitTransfer(){
       DATA.transfers = [mappedTransfer, ...DATA.transfers.filter(t => String(t.id) !== String(insertedId))];
 
       if (!isFuture) {
-        const { error: empErr } = await window.sb.from('employees').update({
-          project_name: np
-        }).eq('id', e.id);
-        if (empErr) throw empErr;
-
         e.ProjectName = np;
         if (npBn) e.ProjectNameBangla = npBn;
       }
@@ -8171,11 +8175,10 @@ async function submitExit(){
 
     try {
       if (window.sb) {
-        // 1. Insert without ID to let Supabase auto-increment
-        const { data: insertedData, error: insertErr } = await window.sb.from('exits').insert([payloadWithoutId]).select();
+        const { data: insertedData, error: insertErr } = await window.sb.rpc('commit_exit', { p_exit: payloadWithoutId });
         if (insertErr) throw insertErr;
 
-        savedExitRecord = insertedData && insertedData[0] ? insertedData[0] : null;
+        savedExitRecord = (Array.isArray(insertedData) ? insertedData[0] : insertedData) || null;
         if (!savedExitRecord) {
           throw new Error('Failed to retrieve inserted exit record');
         }
@@ -8190,13 +8193,6 @@ async function submitExit(){
         savedExitRecord.ExitDate = savedExitRecord.exit_date || d;
         savedExitRecord.ExitReason = savedExitRecord.exit_reason || r;
         savedExitRecord.IssueDate = savedExitRecord.issue_date || issueVal;
-
-        const { error: empErr } = await window.sb.from('employees').update({
-          status: 'Inactive',
-          exit_date: d,
-          exit_reason: r
-        }).eq('id', e.id);
-        if (empErr) throw empErr;
       } else {
         const localId = Date.now();
         savedExitRecord = Object.assign({
@@ -10635,8 +10631,6 @@ async function mtUpdateDay(iso) {
           };
           await window.sb.from('meeting_attendance').insert([newAtt]);
         }
-
-        await new Promise(r => setTimeout(r, 100)); // DB rate limit safety
       }
     }
 
@@ -13394,13 +13388,13 @@ function rememberVillage(unionId, village){
   if(!arr.some(function(v){return v.toLowerCase()===lc;})) { arr.push(village); window.__villagesMem[unionId] = arr; saveVillages(); }
 }
 function getVillages(unionId){ return (window.__villagesMem[unionId]||[]).slice().sort(); }
-function bdDistricts(divId){ return (window.BDGEO && window.BDGEO.districts[divId]) || []; }
-function bdUpazilas(distId){ return (window.BDGEO && window.BDGEO.upazilas[distId]) || []; }
-function bdUnions(upzId){ return (window.BDGEO && window.BDGEO.unions[upzId]) || []; }
-function bdDivName(id){ if(!window.BDGEO) return ''; var d = window.BDGEO.divisions.find(function(x){return x.id==id;}); return d? (d.en):''; }
-function bdDistName(id){ if(!window.BDGEO) return ''; for(var k in window.BDGEO.districts){var arr=window.BDGEO.districts[k]; var f=arr.find(function(x){return x.id==id;}); if(f) return f.en;} return ''; }
-function bdUpzName(id){ if(!window.BDGEO) return ''; for(var k in window.BDGEO.upazilas){var arr=window.BDGEO.upazilas[k]; var f=arr.find(function(x){return x.id==id;}); if(f) return f.en;} return ''; }
-function bdUnionName(id){ if(!window.BDGEO) return ''; for(var k in window.BDGEO.unions){var arr=window.BDGEO.unions[k]; var f=arr.find(function(x){return x.id==id;}); if(f) return f.en;} return ''; }
+function bdDistricts(divId){ return (window.BDGEO && window.BDGEO.districts && window.BDGEO.districts[divId]) || []; }
+function bdUpazilas(distId){ return (window.BDGEO && window.BDGEO.upazilas && window.BDGEO.upazilas[distId]) || []; }
+function bdUnions(upzId){ return (window.BDGEO && window.BDGEO.unions && window.BDGEO.unions[upzId]) || []; }
+function bdDivName(id){ if(!window.BDGEO || !window.BDGEO.divisions) return ''; var d = window.BDGEO.divisions.find(function(x){return x.id==id;}); return d? (d.en):''; }
+function bdDistName(id){ if(!window.BDGEO || !window.BDGEO.districts) return ''; for(var k in window.BDGEO.districts){var arr=window.BDGEO.districts[k]; var f=arr.find(function(x){return x.id==id;}); if(f) return f.en;} return ''; }
+function bdUpzName(id){ if(!window.BDGEO || !window.BDGEO.upazilas) return ''; for(var k in window.BDGEO.upazilas){var arr=window.BDGEO.upazilas[k]; var f=arr.find(function(x){return x.id==id;}); if(f) return f.en;} return ''; }
+function bdUnionName(id){ if(!window.BDGEO || !window.BDGEO.unions) return ''; for(var k in window.BDGEO.unions){var arr=window.BDGEO.unions[k]; var f=arr.find(function(x){return x.id==id;}); if(f) return f.en;} return ''; }
 function composeAddress(e){
   var parts = [];
   if(e.Village) parts.push(e.Village);
@@ -13410,10 +13404,13 @@ function composeAddress(e){
   var dv = bdDivName(e.DivisionID); if(dv) parts.push(dv);
   return parts.join(', ');
 }
+var _bdGeoPromise = null;
 function loadBDGeo(){
-  return fetch('./bd-geo.json').then(function(r){ return r.json(); }).then(function(d){ window.BDGEO = d; console.log('[BDGEO] loaded:', d.divisions.length,'divs,', Object.values(d.unions).reduce(function(a,b){return a+b.length;},0),'unions'); }).catch(function(e){ console.warn('BDGEO load failed', e); });
+  if(_bdGeoPromise) return _bdGeoPromise;
+  _bdGeoPromise = fetch('./bd-geo.json').then(function(r){ return r.json(); }).then(function(d){ window.BDGEO = d; console.log('[BDGEO] loaded:', d.divisions.length,'divs,', Object.values(d.unions).reduce(function(a,b){return a+b.length;},0),'unions'); return d; }).catch(function(e){ _bdGeoPromise = null; console.warn('BDGEO load failed', e); });
+  return _bdGeoPromise;
 }
-loadBDGeo();
+window.loadBDGeo = loadBDGeo;
 
 /* ---- Phase 2 Pro: Sync / Backup / Restore ---- */
 
@@ -13824,11 +13821,35 @@ function buildAddressCascade(containerId, initial, onChange){
     updateVisualsAndState();
   });
 
+  var geoLoadAttempted = false;
   function init(){
     if(!window.BDGEO || !window.BDGEO.divisions){
-      setTimeout(init, 200);
+      if(!geoLoadAttempted && typeof loadBDGeo === 'function'){
+        geoLoadAttempted = true;
+        if(divSelect){
+          divSelect.innerHTML = '<option value="" disabled selected>'+(bn?'— লোড হচ্ছে... —':'— Loading… —')+'</option>';
+          divSelect.disabled = true;
+        }
+        loadBDGeo().then(function(){
+          if(window.BDGEO && window.BDGEO.divisions){
+            if(divSelect) divSelect.disabled = false;
+            init();
+          } else {
+            if(divSelect){
+              divSelect.disabled = false;
+              divSelect.innerHTML = '<option value="" disabled selected>'+(bn?'ঠিকানার তথ্য লোড করা যায়নি — পেজটি রিফ্রেশ করুন':'Address data could not be loaded — try refreshing')+'</option>';
+            }
+          }
+        });
+        return;
+      }
+      if(divSelect){
+        divSelect.disabled = false;
+        divSelect.innerHTML = '<option value="" disabled selected>'+(bn?'ঠিকানার তথ্য লোড করা যায়নি — পেজটি রিফ্রেশ করুন':'Address data could not be loaded — try refreshing')+'</option>';
+      }
       return;
     }
+    if(divSelect) divSelect.disabled = false;
     populateDivisions();
 
     // Cascading Pre-filling: iterate options and set selected = true matching text or ID
@@ -14156,11 +14177,45 @@ setInterval(()=>checkPendingToast(true), 180000);
     }
   }
 
+  let _realtimeRefreshTimer = null;
+  let _realtimeRefreshPending = false;
+  let _visibilityListenerAttached = false;
+
+  function scheduleRefreshAll() {
+    _realtimeRefreshPending = true;
+    if (_realtimeRefreshTimer) {
+      clearTimeout(_realtimeRefreshTimer);
+    }
+    _realtimeRefreshTimer = setTimeout(function () {
+      _realtimeRefreshTimer = null;
+      if (document.hidden) {
+        return;
+      }
+      _realtimeRefreshPending = false;
+      if (typeof refreshAll === 'function') refreshAll();
+    }, 300);
+
+    if (!_visibilityListenerAttached && typeof document !== 'undefined' && document.addEventListener) {
+      _visibilityListenerAttached = true;
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden && _realtimeRefreshPending) {
+          if (_realtimeRefreshTimer) {
+            clearTimeout(_realtimeRefreshTimer);
+            _realtimeRefreshTimer = null;
+          }
+          _realtimeRefreshPending = false;
+          if (typeof refreshAll === 'function') refreshAll();
+        }
+      });
+    }
+  }
+
   function handleRealtimeEvent(payload) {
-    if (payload && payload.table === 'projects' && typeof handleProjectRealtimeUpdate === 'function') {
+    if (!payload || payload.table === 'activity_log') return;
+    if (payload.table === 'projects' && typeof handleProjectRealtimeUpdate === 'function') {
       handleProjectRealtimeUpdate(payload);
     }
-    if (payload && payload.table === 'employees' && typeof handleEmployeeRealtimeUpdate === 'function') {
+    if (payload.table === 'employees' && typeof handleEmployeeRealtimeUpdate === 'function') {
       handleEmployeeRealtimeUpdate(payload);
     }
     if (G && typeof G.handleRealtimeEvent === 'function') {
@@ -14206,8 +14261,9 @@ setInterval(()=>checkPendingToast(true), 180000);
       if (idx !== -1) dataArr.splice(idx, 1);
     }
 
-    // Instantly reflect changes in UI
-    if (typeof refreshAll === 'function') refreshAll();
+    // Coalesced UI refresh
+    if (typeof scheduleRefreshAll === 'function') scheduleRefreshAll();
+    else if (typeof refreshAll === 'function') refreshAll();
   }
 
   function startApp(){

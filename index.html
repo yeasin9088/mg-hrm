@@ -3400,6 +3400,8 @@ function openEmpDetail(recordId){
   const empLeaves = (DATA.leaves||[]).filter(l=>ematch(l)).sort((a,b)=>parseDate(b.start||b.startDate)-parseDate(a.start||a.startDate));
 
   const empKey = e.id || e.EmployeeID;
+  const bn = typeof LANG !== 'undefined' && LANG === 'bn';
+  const officialId = e.EmployeeID || e.employee_id || '';
   const html = `
     <div class="emp-header">
       <div class="emp-avatar" style="width:80px;height:80px;font-size:26px">${escapeHtml(initials(e.FullName))}</div>
@@ -3408,7 +3410,7 @@ function openEmpDetail(recordId){
         <div class="sub">${escapeHtml(desig(e.Designation||''))} · ${escapeHtml(projName(e.ProjectName||''))}</div>
         <div class="meta">
           <span>🆔 ${'System ID:'} <strong>${e.id ? escapeHtml(num(e.id)) : '—'}</strong></span>
-          ${e.EmployeeID ? `<span>💳 ${'Official ID:'} <strong>${escapeHtml(num(e.EmployeeID))}</strong></span>` : ''}
+          <span>💳 ${'Official ID:'} ${officialId ? `<strong>${escapeHtml(num(officialId))}</strong> <button type="button" class="btn sm" style="padding:1px 6px;font-size:11px;margin-left:4px;vertical-align:middle;line-height:1.2" onclick="assignOfficialId('${escapeHtml(empKey)}')" title="${bn?'আইডি পরিবর্তন':'Edit Official ID'}">✏</button>` : `<span style="color:var(--text-muted);font-style:italic">${bn?'অপেক্ষমাণ':'Pending'}</span> <button type="button" class="btn sm" style="padding:1px 6px;font-size:11px;margin-left:4px;vertical-align:middle;line-height:1.2" onclick="assignOfficialId('${escapeHtml(empKey)}')">${bn?'নির্ধারণ':'Assign'}</button>`}</span>
           <span>📞 ${escapeHtml(num(e.PhoneNumber||''))}</span>
           <span>📅 ${'Joined:'} ${escapeHtml(fmtDate(e.JoinDate))}</span>
           <span class="pill ${e.Status==='Active'?'active':'inactive'}" style="text-transform:none">${escapeHtml(e.Status||'')}</span>
@@ -3528,6 +3530,106 @@ function empActionQuick(action, rid){
   const pickId = { transfer:'trEmp', disciplinary:'dcEmp', leave:'lvEmp', exit:'exEmp' }[action];
   setTimeout(()=>{ if(pickId) setEmpPicker(pickId, rid); },100);
 }
+
+function assignOfficialId(empKey){
+  if(typeof guardEdit === 'function' && !guardEdit()) return;
+  const emp = findEmp(empKey);
+  const bn = typeof LANG !== 'undefined' && LANG === 'bn';
+  if(!emp){
+    toast(bn ? 'কর্মী পাওয়া যায়নি' : 'Employee not found', 'error');
+    return;
+  }
+  const currentId = emp.EmployeeID || emp.employee_id || '';
+  
+  closeModal();
+  openModal(bn ? 'অফিসিয়াল এমপ্লয়ী আইডি' : 'Official Employee ID', `
+    <div class="form-grid">
+      <div class="field wide">
+        <label>${bn ? 'অফিসিয়াল এমপ্লয়ী আইডি (প্রজেক্ট কর্তৃক প্রদত্ত)' : 'Official Employee ID (issued by project)'}</label>
+        <input type="text" id="oidInput" value="${escapeHtml(currentId)}" placeholder="${bn ? 'ইস্যু না হওয়া পর্যন্ত ফাঁকা রাখুন' : 'Leave blank until issued'}" autocomplete="off" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border)">
+        <p class="small-mute" style="margin-top:6px;color:var(--text-muted);font-size:12px;">
+          ${bn ? 'যোগদানের ৫-৭ দিন পর প্রজেক্ট কর্তৃক প্রদত্ত হয়। এখনও ইস্যু না হয়ে থাকলে ফাঁকা রাখুন।' : 'Issued by the project, usually 5–7 days after joining. Leave blank if not issued yet.'}
+        </p>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+      <button type="button" class="btn" onclick="closeModal();openEmpDetail(${jsQ(empKey)})">${bn ? 'বাতিল' : 'Cancel'}</button>
+      <button type="button" class="btn primary" id="btnSaveOid" onclick="saveOfficialId(${jsQ(empKey)})">${bn ? 'সংরক্ষণ করুন' : 'Save'}</button>
+    </div>
+  `);
+}
+
+async function saveOfficialId(empKey){
+  if(typeof guardEdit === 'function' && !guardEdit()) return;
+  const emp = findEmp(empKey);
+  const bn = typeof LANG !== 'undefined' && LANG === 'bn';
+  if(!emp){
+    toast(bn ? 'কর্মী পাওয়া যায়নি' : 'Employee not found', 'error');
+    return;
+  }
+  const input = document.getElementById('oidInput');
+  const val = input ? input.value.trim() : '';
+  const btn = document.getElementById('btnSaveOid');
+  if(btn) btn.disabled = true;
+
+  try {
+    const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
+                  || (window.MGHRM && window.MGHRM.sb)
+                  || window.sb
+                  || (typeof sb !== 'undefined' ? sb : null);
+
+    if(sbClient){
+      let query = sbClient.from('employees').update({ employee_id: val });
+      if(emp.id != null && emp.id !== ''){
+        if(/^\d+$/.test(String(emp.id))){
+          query = query.eq('id', Number(emp.id));
+        } else {
+          query = query.eq('id', emp.id);
+        }
+      } else if(emp.EmployeeID){
+        query = query.eq('employee_id', emp.EmployeeID);
+      } else if(/^\d+$/.test(String(empKey))){
+        query = query.eq('id', Number(empKey));
+      } else {
+        query = query.eq('employee_id', empKey);
+      }
+      const { error } = await query;
+      if(error) throw error;
+    }
+
+    if(window.MGHRM && typeof window.MGHRM.update === 'function'){
+      await window.MGHRM.update('employees', emp.id || emp.EmployeeID || empKey, { employee_id: val, EmployeeID: val }).catch(console.error);
+    }
+
+    emp.EmployeeID = val;
+    emp.employee_id = val;
+    if(typeof toBnDigits === 'function'){
+      emp.EmployeeIDBangla = val ? toBnDigits(val) : '';
+    }
+
+    persist();
+    if(typeof logActivity === 'function'){
+      logActivity('update', 'employees', emp.id || emp.EmployeeID || empKey, `Official Employee ID set to '${val}' for ${emp.FullName || ''}`);
+    }
+
+    toast(bn ? 'অফিসিয়াল আইডি সংরক্ষিত হয়েছে' : 'Official Employee ID saved successfully', 'success');
+
+    if(typeof renderEmpTable === 'function') renderEmpTable();
+    if(typeof renderEmployees === 'function') renderEmployees();
+    if(typeof renderDashboard === 'function') renderDashboard();
+
+    closeModal();
+    const newEmpKey = emp.id != null ? emp.id : (emp.EmployeeID || empKey);
+    openEmpDetail(newEmpKey);
+  } catch(err){
+    console.error('[Assign Official ID Error]:', err);
+    toast((bn ? 'সংরক্ষণ ব্যর্থ হয়েছে: ' : 'Failed to save Official ID: ') + (err.message || err), 'error');
+    if(btn) btn.disabled = false;
+  }
+}
+
+window.assignOfficialId = assignOfficialId;
+window.saveOfficialId = saveOfficialId;
 
 function exportEmployees(){
   const rows = DATA.employees;

@@ -3588,7 +3588,7 @@ function renderPendingRecruitment(){
         <div>
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
             <div style="display: flex; gap: 12px; align-items: center;">
-              <div class="emp-avatar" style="width: 40px; height: 40px; font-size: 14px; background: var(--bg-dim, #f1f5f9); color: var(--primary, #4f46e5); font-weight: 700; border-radius: 50%; display: grid; place-items: center;">${initials(name)}</div>
+              <div class="emp-avatar" style="width: 40px; height: 40px; font-size: 14px; background: var(--bg-dim, #f1f5f9); color: var(--primary, #4f46e5); font-weight: 700; border-radius: 50%; display: grid; place-items: center;">${escapeHtml(initials(name))}</div>
               <div>
                 <h4 style="font-size: 15px; font-weight: 600; margin: 0; color: var(--text, #1e293b);">${escapeHtml(name)}</h4>
                 <span class="small-mute" style="font-size: 12px; color: var(--text-muted, #64748b);">${escapeHtml(desig(desigName))}</span>
@@ -4243,6 +4243,7 @@ function openApplicantForm(empKey){
     </div>
     <div id="tab-naBasic" class="tab-panel active">
       <div class="form-grid">
+        <div class="field"><label>Official Employee ID (issued by project)</label><input id="na_empId" type="text" placeholder="Leave blank until issued" value="${escapeHtml(existing ? (existing.EmployeeID||existing.employee_id||'') : (cand ? (cand.empId||'') : ''))}"></div>
         <div class="field"><label>Name (English) *</label><input id="na_nameEn" type="text" placeholder="Md ..." value="${escapeHtml(existing ? (existing.FullName||existing.full_name||'') : (cand ? (cand.nameEn||cand.name||'') : ''))}" onchange="dupHintLive()">${translateBtnHTML('na_nameEn','na_name')}</div>
         <div class="field"><label>Name (Bangla) *</label><input id="na_name" type="text" placeholder="Md ... (translate button or manual)" value="${escapeHtml(existing ? (existing.FullNameBn||existing.full_name_bn||existing.name||'') : (cand ? (cand.name||'') : ''))}"></div>
         <div class="field"><label>Applied Post *</label><select id="na_desig" onchange="naDesigSalary()">${desigOpts}</select></div>
@@ -4480,7 +4481,7 @@ async function saveBasicInfoAndContinue(){
 
     const grossSalary = +(g('gross')) || (typeof salaryFor === 'function' && salaryFor(desig) ? +salaryFor(desig) : 0);
     const existingEmp = targetRecruitId ? (typeof findEmp === 'function' ? findEmp(targetRecruitId) : null) : null;
-    const empCode = (existingEmp && (existingEmp.EmployeeID || existingEmp.employee_id)) || 'MGS' + String(Date.now()).slice(-4);
+    const empCode = g('empId') || (existingEmp && (existingEmp.EmployeeID || existingEmp.employee_id)) || '';
 
     let existingExtra = {};
     if(existingEmp && existingEmp.Remarks && existingEmp.Remarks.startsWith('{')){
@@ -4489,6 +4490,7 @@ async function saveBasicInfoAndContinue(){
 
     const mergedRemarks = Object.assign({}, existingExtra, {
       stage: existingExtra.stage || 'DataEntry',
+      empId: empCode,
       bloodGroup: bloodGroup,
       nameEn: nameEn,
       name: name,
@@ -5262,7 +5264,11 @@ async function commitApplicantUpdate(editKey, a){
   const pa = a.permanentAddress || {};
   const pr = a.presentAddress || {};
 
+  const existingEmp = findEmp(editKey);
+  const empCode = (a && a.empId != null) ? a.empId.trim() : ((existingEmp && (existingEmp.EmployeeID || existingEmp.employee_id)) || '');
+
   const dbPayload = {
+    employee_id: empCode,
     full_name: a.nameEn,
     full_name_bn: a.name,
     father_name: a.father,
@@ -5298,6 +5304,7 @@ async function commitApplicantUpdate(editKey, a){
   const cand = RECRUITMENT.find(x => String(x.id) === String(editKey));
   if (cand) {
     Object.assign(cand, {
+      empId: a.empId || cand.empId || '',
       nameEn: a.nameEn,
       name: a.name,
       father: a.father,
@@ -5328,7 +5335,6 @@ async function commitApplicantUpdate(editKey, a){
 
   if (sbClient) {
     try {
-      const existingEmp = findEmp(editKey);
       let query = sbClient.from('employees').update(dbPayload);
       if (existingEmp && existingEmp.id) {
         query = query.eq('id', existingEmp.id);
@@ -5374,6 +5380,7 @@ function collectApplicantData(g){
   const bdD = window.bdDistName||function(){return '';};
   const bdU = window.bdUpzName||function(){return '';};
   return {
+    empId: g('empId') || '',
     name:g('name'), nameEn:g('nameEn'), father:g('father'), mother:g('mother'), dob:g('dob'), nid:g('nid'), phone:g('phone'),
     education:g('education'), religion:g('religion')||'Islam', bloodGroup:g('bloodGroup'),
     height:g('height'), weight:g('weight'), maritalStatus:g('maritalStatus'),
@@ -5444,7 +5451,7 @@ window.syncRecruitmentFromEmployees = syncRecruitmentFromEmployees;
 
 async function commitApplicant(a){
   if(!guardEdit()) return;
-  const newEmpId = 'MGS' + String(Date.now()).slice(-4);
+  const newEmpId = (a && a.empId) ? a.empId.trim() : '';
   const pa = a.permanentAddress || {};
   const pr = a.presentAddress || {};
 
@@ -9470,9 +9477,9 @@ function notifCardHTML(n, compact){
     <div class="nc-ico">${ico(meta.icon)}</div>
     <div style="flex:1;min-width:0">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-        <h5>${n.title}</h5><span class="nc-tag">${meta.tag_en}</span>
+        <h5>${escapeHtml(n.title || '')}</h5><span class="nc-tag">${meta.tag_en}</span>
       </div>
-      <p>${n.detail}</p>
+      <p>${escapeHtml(n.detail || '')}</p>
       <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${notifActions(n)}</div>
     </div>
   </div>`;
@@ -9523,10 +9530,10 @@ window.renderNotifications = function() {
              <div style="color:var(--primary); padding-top:2px; transform:scale(1.1);">${typeof ico==='function'?ico(meta.icon):''}</div>
              <div style="flex:1; min-width:0;">
                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                     <h5 style="margin:0; font-size:1.05rem; color:var(--text-main); font-weight:${!n.isRead?'700':'500'}; letter-spacing:-0.2px;">${n.title}</h5>
+                     <h5 style="margin:0; font-size:1.05rem; color:var(--text-main); font-weight:${!n.isRead?'700':'500'}; letter-spacing:-0.2px;">${escapeHtml(n.title || '')}</h5>
                      <span style="font-size:0.85rem; color:var(--text-mute); font-weight:500;">${timeAgo(n.createdAt)}</span>
                  </div>
-                 <p style="margin:0; font-size:0.95rem; color:var(--text-mute); line-height:1.5;">${n.detail}</p>
+                 <p style="margin:0; font-size:0.95rem; color:var(--text-mute); line-height:1.5;">${escapeHtml(n.detail || '')}</p>
                  ${actionsHtml ? `<div style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;">${actionsHtml}</div>` : ''}
              </div>
              ${dot}
@@ -9600,10 +9607,10 @@ function renderNotifDropdown(){
                 <div style="color:var(--primary); padding-top:2px;">${typeof ico==='function'?ico(meta.icon):''}</div>
                 <div style="flex:1; min-width:0;">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
-                        <h5 style="margin:0; font-size:0.9rem; color:var(--text-main); font-weight:${!n.isRead?'700':'500'}; line-height:1.3;">${n.title}</h5>
+                        <h5 style="margin:0; font-size:0.9rem; color:var(--text-main); font-weight:${!n.isRead?'700':'500'}; line-height:1.3;">${escapeHtml(n.title || '')}</h5>
                         <span style="font-size:0.75rem; color:var(--text-mute); white-space:nowrap; margin-left:auto;">${timeAgo(n.createdAt)}</span>
                     </div>
-                    <p style="margin:6px 0 0 0; font-size:0.82rem; color:var(--text-mute); line-height:1.4;">${n.detail}</p>
+                    <p style="margin:6px 0 0 0; font-size:0.82rem; color:var(--text-mute); line-height:1.4;">${escapeHtml(n.detail || '')}</p>
                     ${actionsHtml ? `<div style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap;">${actionsHtml}</div>` : ''}
                 </div>
                 ${dot}
@@ -13887,7 +13894,8 @@ setInterval(()=>checkPendingToast(true), 180000);
       <button class="gate-btn" id="authGo">Login</button>
     </div>
     <div class="gate-foot" id="authFoot">
-      No account? <b id="authSwitch">Create new account</b>
+      Access is issued by the HR Administrator.<br>
+      <span style="font-size:12px">Forgot your password? Contact the HR Admin.</span>
     </div>
   </div>
 </div>
@@ -14316,8 +14324,7 @@ setInterval(()=>checkPendingToast(true), 180000);
       el('setupUrl').value = ''; el('setupKey').value = '';
       msg('setupMsg','Previous credentials cleared. Enter new ones.','info');
     }
-    if (t.id === 'authGo') { signupMode ? doSignup() : doLogin(); }
-    if (t.id === 'authSwitch') switchMode(!signupMode);
+    if (t.id === 'authGo') { doLogin(); }
   });
   document.addEventListener('keydown', function(e){
     if (e.key !== 'Enter') return;

@@ -12213,7 +12213,7 @@ window.mtSetTodoFilter = function(filter) {
   renderTodo();
 };
 
-window.mtQuickAddTodo = function(event) {
+window.mtQuickAddTodo = async function(event) {
   if (event.key !== 'Enter') return;
   if (event.preventDefault) event.preventDefault();
   const input = document.getElementById('tdQuickNote');
@@ -12240,19 +12240,8 @@ window.mtQuickAddTodo = function(event) {
   DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
   DATA.todos.unshift(task);
 
-  // Synchronize to Supabase immediately
-  if (window.appData && typeof window.appData.insert === 'function') {
-    window.appData.insert('todos', task).catch(function(err){
-      console.error('Error inserting quick-add todo to Supabase:', err);
-    });
-  } else if (window.sb) {
-    window.sb.from('todos').insert([task]).catch(function(err){
-      console.error('Error inserting quick-add todo directly:', err);
-    });
-  }
-
-  persist();
   renderTodo();
+  if (typeof updateTodoBadge === 'function') updateTodoBadge();
 
   const freshInput = document.getElementById('tdQuickNote');
   if (freshInput) {
@@ -12262,6 +12251,13 @@ window.mtQuickAddTodo = function(event) {
   const freshProj = document.getElementById('tdQuickProj');
   if (freshProj && project) {
     freshProj.value = project;
+  }
+
+  try {
+    await persist();
+    toast('Task added successfully', 'success');
+  } catch (err) {
+    console.error('Error persisting todo:', err);
   }
 };
 

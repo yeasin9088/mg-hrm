@@ -10420,9 +10420,8 @@ async function mtSubmitDay(iso, event){
         : Array.from(new Set([...presentProjs, ...absentProjs]));
 
       const attendanceRecords = targetProjs.map(proj => {
-        const activeEmps = (window.DATA.employees || []).filter(e => e.Status === 'Active' && e.ProjectName === proj);
         const savedRep = d.representatives && d.representatives[proj];
-        const rep = savedRep || activeEmps.find(e => (e.Designation||'').toLowerCase().includes('supervisor') || (e.Designation||'').toLowerCase().includes('incharge')) || activeEmps[0] || {};
+        const rep = savedRep ? (typeof savedRep === 'object' ? savedRep : (window.DATA.employees || []).find(e => e.id == savedRep || e.EmployeeID == savedRep) || {}) : {};
         
         const projNotes = (d.notes && d.notes[proj]) || [];
         const remarksStr = Array.isArray(projNotes) 
@@ -10435,6 +10434,7 @@ async function mtSubmitDay(iso, event){
 
         return {
           meeting_id: meetingDbId,
+          meeting_date: iso,
           employee_id: String(rep.id || rep.EmployeeID || rep.employee_id || ''),
           full_name: rep.FullName || rep.fullName || rep.name || '',
           designation: rep.Designation || rep.designation || '',
@@ -10597,10 +10597,11 @@ async function mtUpdateDay(iso) {
       const origNotes = Array.isArray(orig.notes && orig.notes[proj]) ? orig.notes[proj].join(' | ') : String((orig.notes && orig.notes[proj]) || '').trim();
 
       const isChanged = (currStatus !== origStatus) || (String(currRepVal) !== String(origRepVal)) || (currNotes !== origNotes);
+      const sortIndex = d.presentOrder ? d.presentOrder.indexOf(proj) : -1;
+      const sort_order = (currStatus === 'Present' && sortIndex !== -1) ? sortIndex : 999;
 
       if (isChanged) {
-        const activeEmps = (window.DATA.employees || []).filter(e => e.Status === 'Active' && e.ProjectName === proj);
-        const repObj = currRep || activeEmps.find(e => (e.Designation||'').toLowerCase().includes('supervisor') || (e.Designation||'').toLowerCase().includes('incharge')) || activeEmps[0] || {};
+        const repObj = currRep ? (typeof currRep === 'object' ? currRep : (window.DATA.employees || []).find(e => e.id == currRep || e.EmployeeID == currRep) || {}) : {};
         
         changedRecords.push({
           project_name: proj,
@@ -10608,7 +10609,9 @@ async function mtUpdateDay(iso) {
           remarks: currNotes,
           employee_id: String(repObj.id || repObj.EmployeeID || repObj.employee_id || ''),
           full_name: repObj.FullName || repObj.fullName || repObj.name || '',
-          designation: repObj.Designation || repObj.designation || ''
+          designation: repObj.Designation || repObj.designation || '',
+          sort_order: sort_order,
+          meeting_date: targetIso
         });
       }
     }
@@ -10635,7 +10638,8 @@ async function mtUpdateDay(iso) {
               remarks: chg.remarks,
               employee_id: chg.employee_id,
               full_name: chg.full_name,
-              designation: chg.designation
+              designation: chg.designation,
+              sort_order: chg.sort_order
             })
             .eq('id', matchedDbRow.id);
           if (updErr) console.warn('[Patch attendance row error]', updErr);
@@ -10647,7 +10651,9 @@ async function mtUpdateDay(iso) {
             designation: chg.designation,
             project_name: chg.project_name,
             status: chg.status,
-            remarks: chg.remarks
+            remarks: chg.remarks,
+            sort_order: chg.sort_order,
+            meeting_date: chg.meeting_date
           };
           await window.sb.from('meeting_attendance').insert([newAtt]);
         }

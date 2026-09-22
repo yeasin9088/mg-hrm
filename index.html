@@ -2936,6 +2936,7 @@ async function fetchEmployeesDirectly() {
     const { data, error } = await sbClient
       .from('employees')
       .select('*')
+      .is('deleted_at', null)
       .order('id', { ascending: true });
 
     if (error) {
@@ -3014,8 +3015,8 @@ function handleEmployeeRealtimeUpdate(payload) {
 
   if (!Array.isArray(DATA.employees)) DATA.employees = [];
 
-  if (eventType === 'DELETE') {
-    const delId = oldRow && (oldRow.id != null ? oldRow.id : (oldRow.employee_id));
+  if (eventType === 'DELETE' || (newRow && newRow.deleted_at != null)) {
+    const delId = (oldRow && (oldRow.id != null ? oldRow.id : oldRow.employee_id)) || (newRow && (newRow.id != null ? newRow.id : newRow.employee_id));
     DATA.employees = DATA.employees.filter(e => String(e.id) !== String(delId) && String(e.EmployeeID) !== String(delId));
   } else if (eventType === 'INSERT') {
     const norm = normEmployee(newRow);
@@ -3066,7 +3067,11 @@ async function deleteEmployeeDirectly(empKey) {
   const e = findEmp(empKey);
   if (!e) return;
 
-  if (!confirm(`Are you sure you want to permanently delete employee "${e.FullName}" (ID: ${e.id || e.EmployeeID}) from the database?`)) {
+  const empDisplayName = e.FullName || e.full_name || e.EmployeeName || '';
+  const empDisplayId = e.id || e.EmployeeID || e.employee_id || '';
+  const confirmMsg = `আপনি কি নিশ্চিত যে কর্মী "${empDisplayName}" (আইডি: ${empDisplayId})-এর রেকর্ডটি আর্কাইভ করতে চান?\n\nএই রেকর্ডটি ডাটাবেস থেকে স্থায়ীভাবে মুছে ফেলা হবে না এবং কর্মীর সমস্ত অতীত হিস্ট্রি ও সম্পর্কিত তথ্য সংরক্ষিত থাকবে।`;
+
+  if (!confirm(confirmMsg)) {
     return;
   }
 
@@ -3076,13 +3081,37 @@ async function deleteEmployeeDirectly(empKey) {
                 || (typeof sb !== 'undefined' ? sb : null);
 
   if (!sbClient) {
-    toast('Error: Database connection not ready', 'error');
+    toast('ডাটাবেস সংযোগ প্রস্তুত নয়। দয়া করে সংযোগ পরীক্ষা করুন।', 'error');
     return;
+  }
+
+  function getArchiveErrorMessage(err) {
+    const msg = ((err && err.message) || String(err || '')).toLowerCase();
+    const code = (err && err.code) || '';
+    if (code === '42501' || msg.includes('permission') || msg.includes('row-level security') || msg.includes('policy') || msg.includes('unauthorized') || msg.includes('forbidden')) {
+      return 'আপনার এই কর্মীর রেকর্ড আর্কাইভ বা ডিলিট করার অনুমতি নেই (Permission Denied)।';
+    }
+    if (code === '23503' || msg.includes('foreign key') || msg.includes('violates foreign key constraint') || msg.includes('referential integrity')) {
+      return 'সম্পর্কিত অন্যান্য ডাটা বিদ্যমান থাকায় এই রেকর্ডটি আর্কাইভ করা সম্ভব হচ্ছে না (Foreign Key Constraint)।';
+    }
+    if (msg.includes('fetch') || msg.includes('network') || msg.includes('failed to fetch') || msg.includes('offline') || msg.includes('timeout') || msg.includes('connection')) {
+      return 'ইন্টারনেট সংযোগের সমস্যা বা নেটওয়ার্ক বিচ্ছিন্ন হওয়ার কারণে রেকর্ডটি আর্কাইভ করা যায়নি। সংযোগ পরীক্ষা করুন।';
+    }
+    return 'কর্মী আর্কাইভ করতে সমস্যা হয়েছে: ' + ((err && err.message) || err);
   }
 
   try {
     const targetId = e.id;
-    let query = sbClient.from('employees').delete();
+    const payload = {
+      deleted_at: new Date().toISOString()
+    };
+    const currentUser = (window.MGHRM && typeof window.MGHRM.currentUser === 'function' ? window.MGHRM.currentUser() : null)
+                     || (window.appData && typeof window.appData.currentUser === 'function' ? window.appData.currentUser() : null);
+    if (currentUser && currentUser.id) {
+      payload.deleted_by = currentUser.id;
+    }
+
+    let query = sbClient.from('employees').update(payload);
     if (targetId) {
       query = query.eq('id', targetId);
     } else if (e.EmployeeID) {
@@ -3093,20 +3122,20 @@ async function deleteEmployeeDirectly(empKey) {
 
     const { error } = await query;
     if (error) {
-      console.error('[Employees] Delete error:', error);
-      toast('Failed to delete employee: ' + (error.message || error), 'error');
+      console.error('[Employees] Archive error:', error);
+      toast(getArchiveErrorMessage(error), 'error');
       return;
     }
 
     closeModal();
-    toast(`Employee "${e.FullName}" deleted successfully`, 'success');
+    toast(`কর্মী "${empDisplayName}" সফলভাবে আর্কাইভ করা হয়েছে`, 'success');
     DATA.employees = DATA.employees.filter(x => String(x.id) !== String(e.id) && String(x.EmployeeID) !== String(e.EmployeeID));
     await fetchEmployeesDirectly();
     renderEmpTable();
     if (typeof updateNotifBadge === 'function') updateNotifBadge();
   } catch (err) {
-    console.error('[Employees] Error deleting employee:', err);
-    toast('Error: ' + (err.message || err), 'error');
+    console.error('[Employees] Error archiving employee:', err);
+    toast(getArchiveErrorMessage(err), 'error');
   }
 }
 window.deleteEmployeeDirectly = deleteEmployeeDirectly;
@@ -12744,14 +12773,17 @@ window.delTodo = function(id) {
     DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
     DATA.todos = DATA.todos.filter(function(x){ return String(x.id) !== String(id); });
     
-    // Remove from Supabase immediately
+    // Remove from Supabase immediately (soft delete)
     if (window.appData && typeof window.appData.remove === 'function') {
       window.appData.remove('todos', id).catch(function(err){
         console.error('Error removing todo from Supabase:', err);
       });
     } else if (window.sb) {
-      window.sb.from('todos').delete().eq('id', id).catch(function(err){
-        console.error('Error deleting todo directly:', err);
+      var todoPayload = { deleted_at: new Date().toISOString() };
+      var u = (window.appData && typeof window.appData.currentUser === 'function' ? window.appData.currentUser() : null);
+      if (u && u.id) todoPayload.deleted_by = u.id;
+      window.sb.from('todos').update(todoPayload).eq('id', id).catch(function(err){
+        console.error('Error archiving todo directly:', err);
       });
     }
 

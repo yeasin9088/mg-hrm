@@ -893,11 +893,14 @@
       return Promise.resolve(fallbackData);
     }
     var keys = Object.keys(TABLE_MAP);
+    var skipDeletedAtBuckets = ['divisions', 'districts', 'thana', 'desigBangla'];
     return Promise.all(
       keys.map(function (k) {
-        return client
-          .from(TABLE_MAP[k].table)
-          .select('*')
+        var query = client.from(TABLE_MAP[k].table).select('*');
+        if (skipDeletedAtBuckets.indexOf(k) === -1) {
+          query = query.is('deleted_at', null);
+        }
+        return query
           .then(function (r) {
             if (r.error) {
               console.warn('[Supabase] load ' + k, r.error.message);
@@ -1062,6 +1065,21 @@
         return String(x.id) === String(deletedId);
       });
       if (idx !== -1) dataArr.splice(idx, 1);
+    } else if (payload.new && payload.new.deleted_at != null) {
+      // Soft-deleted record: remove from local state
+      var softDeletedId = payload.new[pk] != null ? payload.new[pk] : (payload.old ? (payload.old[pk] != null ? payload.old[pk] : payload.old.id) : (payload.new ? payload.new.id : null));
+      var localPkField = null;
+      for (var c in TABLE_MAP[bucket].map || {}) {
+        if (TABLE_MAP[bucket].map[c] === pk) {
+          localPkField = c;
+          break;
+        }
+      }
+      var sIdx = dataArr.findIndex(function (x) {
+        var xId = (localPkField && x[localPkField] != null) ? x[localPkField] : (x[pk] != null ? x[pk] : x.id);
+        return String(xId) === String(softDeletedId) || (x.id != null && String(x.id) === String(softDeletedId));
+      });
+      if (sIdx !== -1) dataArr.splice(sIdx, 1);
     } else {
       var jsRecord = fromDb(bucket, payload.new);
       var localPkField = null;
@@ -1146,9 +1164,16 @@
     var table = TABLE_MAP[bucket].table;
     var dbPkColumn = (TABLE_MAP[bucket].map && TABLE_MAP[bucket].map[primaryKeyName]) || primaryKeyName;
 
+    var payload = {
+      deleted_at: new Date().toISOString()
+    };
+    if (user && user.id) {
+      payload.deleted_by = user.id;
+    }
+
     return sb
       .from(table)
-      .delete()
+      .update(payload)
       .eq(dbPkColumn, primaryKeyValue)
       .then(function (r) {
         if (r.error) {

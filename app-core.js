@@ -761,14 +761,21 @@
     global.sb = sb;
   }
 
+  function _client() { return sb || global.sb || null; }
+
   function connect(config) {
-    cfg = config || {};
-    if (!cfg.url || !cfg.anonKey) {
+    var nextCfg = config || {};
+    if (!nextCfg.url || !nextCfg.anonKey) {
       return Promise.reject(new Error('Supabase URL or anon key missing'));
     }
     if (!global.supabase || !global.supabase.createClient) {
       return Promise.reject(new Error('supabase-js not loaded — check internet connection'));
     }
+    if (sb && cfg && cfg.url === nextCfg.url && cfg.anonKey === nextCfg.anonKey) {
+      ready = true;
+      return Promise.resolve(true);
+    }
+    cfg = nextCfg;
     sb = global.supabase.createClient(cfg.url, cfg.anonKey, {
       auth: { persistSession: true, autoRefreshToken: true, storageKey: 'mghrm_auth' }
     });
@@ -914,7 +921,9 @@
             return [
               k,
               (r.data || []).map(function (row) {
-                var rec = fromDb(k, row);
+                var rec = (k === 'employees' && typeof global.normEmployee === 'function')
+                  ? global.normEmployee(row)
+                  : fromDb(k, row);
                 if (k === 'projects' && typeof global.normProject === 'function') {
                   rec = global.normProject(rec);
                 }
@@ -966,6 +975,16 @@
   /* ---------- Real-Time WebSockets ---------- */
   var _activeRealtimeChannel = null;
   var _realtimeSubscribed = false;
+  var lastSelfWriteAt = {};   /* table -> timestamp of our last successful upsert */
+
+  var _refreshTimer = null;
+  function scheduleRefresh() {
+    if (_refreshTimer) clearTimeout(_refreshTimer);
+    _refreshTimer = setTimeout(function () {
+      _refreshTimer = null;
+      if (typeof global.refreshAll === 'function') { try { global.refreshAll(); } catch (e) {} }
+    }, 400);
+  }
 
   function subscribeRealtime() {
     var client = (typeof _client === 'function' ? _client() : null) || sb || global.sb;
@@ -1038,6 +1057,11 @@
   }
 
   function handleRealtimeEvent(payload) {
+    var tbl = payload && payload.table;
+    if (tbl && lastSelfWriteAt[tbl] && (Date.now() - lastSelfWriteAt[tbl]) < 2500) {
+      return;   /* our own write echoing back - we already have this state */
+    }
+
     if (payload && payload.table === 'projects' && typeof global.handleProjectRealtimeUpdate === 'function') {
       global.handleProjectRealtimeUpdate(payload);
       return;
@@ -1115,7 +1139,7 @@
       try { global.updateTodoBadge(); } catch (e) {}
     }
 
-    if (typeof global.refreshAll === 'function') global.refreshAll();
+    scheduleRefresh();
   }
 
   /* ---------- Direct Server CRUD ---------- */
@@ -1722,10 +1746,10 @@
 
   /* Snapshot the server state. Called by loadAll() right after the tables are fetched. */
   function captureBaseline(dataObj) {
-    var next = {};
+    if (!dataObj) return;
     Object.keys(TABLE_MAP).forEach(function (k) {
-      var arr = dataObj ? dataObj[k] : null;
-      if (!Array.isArray(arr)) return;
+      var arr = dataObj[k];
+      if (!Array.isArray(arr)) return;          /* not supplied -> keep what we have */
       var m = {};
       arr.forEach(function (r) {
         var db = toDb(k, r);
@@ -1733,9 +1757,8 @@
         if (key === null) return;
         m[key] = hashOf(db);
       });
-      next[k] = m;
+      memoryRecords[k] = m;
     });
-    memoryRecords = next;
   }
 
   /* Return only the rows whose content differs from the last known server state. */
@@ -1807,6 +1830,14 @@
           Object.keys(changed.hashes).forEach(function (key) {
             memoryRecords[k][key] = changed.hashes[key];
           });
+          lastSelfWriteAt[m.table] = Date.now();
+          setTimeout(function () {
+            try {
+              var cur = {};
+              var src2 = global.DATA || {};
+              if (Array.isArray(src2[k])) { cur[k] = src2[k]; captureBaseline(cur); }
+            } catch (e) {}
+          }, 3000);
         });
       jobs.push(p);
     });
@@ -1849,9 +1880,14 @@
     currentUser: currentUser,
     myProfile: myProfile,
     loadAll: loadAll,
+    captureBaseline: captureBaseline,
     reconstructMeetings: reconstructMeetingsData,
     subscribeRealtime: subscribeRealtime,
     handleRealtimeEvent: handleRealtimeEvent,
+    isSelfEcho: function (table) {
+      return !!(table && lastSelfWriteAt[table] && (Date.now() - lastSelfWriteAt[table]) < 2500);
+    },
+    scheduleRefresh: scheduleRefresh,
     insert: insert,
     update: update,
     remove: remove,
@@ -1869,7 +1905,7 @@
     TABLE_MAP: TABLE_MAP,
     toDb: toDb,
     fromDb: fromDb,
-    _client: raw,
+    _client: _client,
     _view: sqlView,
     client: sb,
     sb: sb,

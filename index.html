@@ -2947,6 +2947,9 @@ async function fetchEmployeesDirectly() {
     if (Array.isArray(data)) {
       console.log('[Employees] Direct Supabase fetch retrieved ' + data.length + ' records');
       DATA.employees = data.map(normEmployee);
+      if (window.MGHRM && typeof window.MGHRM.captureBaseline === 'function') {
+        window.MGHRM.captureBaseline({ employees: DATA.employees });
+      }
       if (typeof syncRecruitmentFromEmployees === 'function') {
         syncRecruitmentFromEmployees();
       }
@@ -2970,6 +2973,9 @@ async function fetchLeaves() {
     if (error) throw error;
     if (Array.isArray(data)) {
       DATA.leaves = data.map(r => (window.MGHRM && typeof window.MGHRM.fromDb === 'function') ? window.MGHRM.fromDb('leaves', r) : r);
+      if (window.MGHRM && typeof window.MGHRM.captureBaseline === 'function') {
+        window.MGHRM.captureBaseline({ leaves: DATA.leaves });
+      }
       return DATA.leaves;
     }
   } catch (err) {
@@ -2995,6 +3001,9 @@ async function fetchMeetingAttendance() {
       const parsed = data.map(r => (window.MGHRM && typeof window.MGHRM.fromDb === 'function') ? window.MGHRM.fromDb('meetingAttendance', r) : r);
       DATA.meetingAttendance = parsed;
       DATA.meeting_attendance = parsed;
+      if (window.MGHRM && typeof window.MGHRM.captureBaseline === 'function') {
+        window.MGHRM.captureBaseline({ meetingAttendance: DATA.meetingAttendance });
+      }
       return DATA.meetingAttendance;
     }
   } catch (err) {
@@ -3009,6 +3018,9 @@ window.fetchMeetingAttendanceDirectly = fetchMeetingAttendance;
 
 function handleEmployeeRealtimeUpdate(payload) {
   if (!payload || payload.table !== 'employees') return;
+  if (window.MGHRM && typeof window.MGHRM.isSelfEcho === 'function' && window.MGHRM.isSelfEcho(payload.table)) {
+    return;
+  }
   const eventType = payload.eventType;
   const newRow = payload.new;
   const oldRow = payload.old;
@@ -3045,10 +3057,12 @@ function handleEmployeeRealtimeUpdate(payload) {
     projFilter.value = currVal;
   }
 
-  if (currentPage === 'employees') {
-    renderEmpTable();
+  if (window.MGHRM && typeof window.MGHRM.scheduleRefresh === 'function') {
+    window.MGHRM.scheduleRefresh();
+  } else {
+    if (currentPage === 'employees') renderEmpTable();
+    if (typeof updateNotifBadge === 'function') updateNotifBadge();
   }
-  if (typeof updateNotifBadge === 'function') updateNotifBadge();
 }
 window.handleEmployeeRealtimeUpdate = handleEmployeeRealtimeUpdate;
 
@@ -6287,6 +6301,9 @@ async function fetchProjectsDirectly() {
     if (Array.isArray(data)) {
       console.log('[Projects] Direct Supabase fetch retrieved ' + data.length + ' records');
       DATA.projects = data.map(normProject);
+      if (window.MGHRM && typeof window.MGHRM.captureBaseline === 'function') {
+        window.MGHRM.captureBaseline({ projects: DATA.projects });
+      }
       return DATA.projects;
     }
   } catch (err) {

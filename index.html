@@ -6878,18 +6878,14 @@ function openTransferPopup(tid){
       ${t.Notes?`<div class="pop-row"><span>Notes</span><b>${escapeHtml(t.Notes).replace(/\n/g, '<br>')}</b></div>`:''}
     </div>
     <div class="pop-hint">💡 "Confirm Joined" updates Employeetbl.ProjectName and marks Completed. "Cancel" only marks the history record — Employeetbl is not touched.</div>`,
-    `<button class="btn" onclick="closeModal()">Close</button>
-     <button class="btn" onclick="reprintTransfer(${jsQ(t.id)})">${ico('print')} Reprint</button>
-     ${!isCancelled && !isCompleted && empActive ? `<button class="btn success" onclick="markTransferJoined(${jsQ(t.id)})">✓ Confirm Joined (Complete)</button>` : ''}
-     ${isCompleted && !isCancelled ? `<button class="btn" onclick="revertTransferComplete(${jsQ(t.id)})" title="Revert if marked complete by mistake">↺ Undo Complete</button>` : ''}
-     ${!isCancelled?`<button class="btn" style="background:var(--warning);color:#fff" onclick="cancelTransferOrder(${jsQ(t.id)})">✗ Cancel Order</button>`:''}
-     ${isCancelled?`<button class="btn" onclick="restoreTransferOrder(${jsQ(t.id)})">↺ Restore</button>`:''}
-     <button class="btn" onclick="editTransferNewProject(${jsQ(t.id)})">Change Destination</button>
-     <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteTransferRecord(${jsQ(t.id)})">🗑 Delete Record</button>`);
-}
-function markTransferJoined(tid){
-  if(!guardEdit()) return;
-  window.confirmJoin(tid);
+    `<div style="position: sticky; bottom: -20px; background: var(--surface, #fff); padding: 12px 0; border-top: 1px solid var(--border, #eee); display: flex; gap: 8px; flex-wrap: wrap; z-index: 10;">
+      <button class="btn" onclick="closeModal()">Close</button>
+      <button class="btn" onclick="reprintTransfer(${jsQ(t.id)})">${ico('print')} Reprint</button>
+      ${!isCancelled ? `<button class="btn danger" onclick="cancelTransferOrder(${jsQ(t.id)})">✗ Cancel Order</button>` : ''}
+      ${isCancelled ? `<button class="btn" onclick="restoreTransferOrder(${jsQ(t.id)})">↺ Restore</button>` : ''}
+      ${!isCancelled ? `<button class="btn primary" onclick="editTransferOrder(${jsQ(t.id)})">Edit Transfer Order</button>` : ''}
+      <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteTransferRecord(${jsQ(t.id)})">🗑 Delete Record</button>
+    </div>`);
 }
 function revertTransferComplete(tid){
   if(!guardEdit()) return;
@@ -6928,25 +6924,57 @@ function deleteTransferRecord(tid){
 }
 function cancelTransferOrder(tid){
   if(!guardEdit()) return;
-  if(!confirm('Cancel this transfer? The record stays in history as "Cancelled".')) return;
+  if(!confirm('Are you sure you want to cancel this transfer order?')) return;
   const t = DATA.transfers.find(x=>String(x.id)===String(tid)); if(!t) return;
-  t.Status='Cancelled'; t.status='Cancelled';
+  
+  const wasCompleted = (t.Status === 'Completed' || t.status === 'Completed');
+  t.Status = 'Cancelled'; t.status = 'Cancelled';
+  
+  if (wasCompleted) {
+    const emp = findEmp(t.EmployeeID || t.employee_id || t.employee_sys_id);
+    if (emp) {
+      emp.ProjectName = t.CurrentProject || t.current_project;
+      emp.project_name = t.current_project || t.CurrentProject;
+      if(window.MGHRM && typeof window.MGHRM.update === 'function') {
+        window.MGHRM.update('employees', emp.id, { project_name: emp.project_name }).catch(console.error);
+      }
+    }
+  }
+  
   if(window.MGHRM && typeof window.MGHRM.update === 'function') {
     window.MGHRM.update('transfers', t.id, { Status: 'Cancelled', status: 'Cancelled' }).catch(console.error);
   }
   logActivity('cancel','transfers', tid, `Transfer #${tid} cancelled`);
-  toast('Transfer cancelled — Employee.ProjectName unchanged','success');
+  toast(wasCompleted ? 'Transfer cancelled & Employee Project Reverted' : 'Scheduled Transfer cancelled', 'success');
   persist(); closeModal(); renderTransfer();
 }
-function editTransferNewProject(tid){
+function editTransferOrder(tid){
   if(!guardEdit()) return;
   const t = DATA.transfers.find(x=>String(x.id)===String(tid)); if(!t) return;
   const opts = DATA.projects.map(p=>`<option value="${p.ProjectName}"${p.ProjectName===t.NewProject?' selected':''}>${p.ProjectName}</option>`).join('');
-  openModal('Change Destination Project',
-    `<div class="field"><label>New Destination</label><select id="_np">${opts}</select></div>
-     <p class="small-mute" style="margin-top:8px">Only the history record updates; Employee.ProjectName is not touched.</p>`,
-    `<button class="btn" onclick="closeModal()">Cancel</button>
-     <button class="btn primary" onclick="(function(){var v=document.getElementById('_np').value; var t=DATA.transfers.find(x=>String(x.id)===String(${JSON.stringify(String(tid))})); if(t){t.NewProject=v; if(window.MGHRM&&typeof window.MGHRM.update==='function'){window.MGHRM.update('transfers',t.id,{NewProject:v}).catch(console.error);} logActivity('update','transfers',${JSON.stringify(String(tid))}, 'destination changed to '+v); persist(); closeModal(); renderTransfer(); toast('Destination updated','success');}})()">Save</button>`);
+  openModal('Edit Transfer Order',
+    `<div class="field"><label>New Project</label><select id="_np">${opts}</select></div>
+     <div class="field"><label>Transfer Date</label><input type="date" id="_td" value="${t.TransferDate || ''}"></div>
+     <div class="field"><label>Issue Date</label><input type="date" id="_id" value="${t.IssuesDate || ''}"></div>`,
+    `<div style="display:flex;gap:8px;">
+       <button class="btn" onclick="closeModal()">Cancel</button>
+       <button class="btn primary" onclick="(function(){
+          var np=document.getElementById('_np').value;
+          var td=document.getElementById('_td').value;
+          var id=document.getElementById('_id').value;
+          var tr=DATA.transfers.find(x=>String(x.id)===String(${JSON.stringify(String(tid))}));
+          if(tr){
+            tr.NewProject=np; tr.new_project=np;
+            tr.TransferDate=td; tr.transfer_date=td;
+            tr.IssuesDate=id; tr.issues_date=id;
+            if(window.MGHRM&&typeof window.MGHRM.update==='function'){
+              window.MGHRM.update('transfers',tr.id,{new_project:np, transfer_date:td, issues_date:id}).catch(console.error);
+            }
+            logActivity('update','transfers',${JSON.stringify(String(tid))}, 'Transfer order updated');
+            persist(); closeModal(); renderTransfer(); toast('Transfer order updated','success');
+          }
+       })()">Save Changes</button>
+     </div>`);
 }
 
 const EMP_PICKER_CB = {
@@ -9434,82 +9462,31 @@ window.markAllNotifsAsRead = function() {
 };
 
 function applyScheduledTransfers(){
-  
   const today = todayISO();
   DATA.transfers.forEach(t=>{
     const st = t.status || t.Status;
     if(st==='Cancelled' || t._applied) return;
-    if(t.TransferDate && t.TransferDate<=today && st!=='Completed'){
-      t._applied = true; t.Status = 'Awaiting Confirmation'; t.status = 'Awaiting Confirmation';
-      NOTIFICATIONS.unshift({
-        id:'tj'+t.id, type:'transfer_join', transferId:t.id, severity:'warning',
-        createdAt: Date.now(), isRead: false,
-        title:`${t.FullName} — Confirm Joining`,
-        detail:`Scheduled transfer on ${fmtDate(t.TransferDate)} from ${projName(t.CurrentProject)} to ${projName(t.NewProject)}. Did they join the new project? Clicking "Joined" updates their project; clicking "Cancel order" cancels the transfer.`
-      });
+
+    if(t.TransferDate && t.TransferDate <= today && st !== 'Completed'){
+      t._applied = true;
+      t.Status = 'Completed';
+      t.status = 'Completed';
+
+      const emp = findEmp(t.EmployeeID || t.employee_id || t.employee_sys_id);
+      if (emp) {
+        emp.ProjectName = t.NewProject || t.new_project;
+        emp.project_name = t.new_project || t.NewProject;
+        if(window.MGHRM && typeof window.MGHRM.update === 'function') {
+          window.MGHRM.update('employees', emp.id, { project_name: emp.project_name }).catch(console.error);
+        }
+      }
+
+      if(window.MGHRM && typeof window.MGHRM.update === 'function') {
+        window.MGHRM.update('transfers', t.id, { Status: 'Completed', status: 'Completed', _applied: true }).catch(console.error);
+      }
     }
   });
 }
-window.confirmJoin = async function(id) {
-  if (typeof guardEdit === 'function' && !guardEdit()) return;
-  window.mtCustomConfirm("Confirm Join", "Mark this transfer as completed and update employee's project?", "primary", async function() {
-    let n = (typeof NOTIFICATIONS !== 'undefined' && Array.isArray(NOTIFICATIONS)) 
-      ? NOTIFICATIONS.find(x => String(x.id) === String(id) || String(x.transferId) === String(id)) 
-      : null;
-    const transferId = n ? n.transferId : id;
-    const t = DATA.transfers.find(x => String(x.id) === String(transferId) || String(x.id) === String(id));
-    if(!t) return;
-    
-    // 1. Snapshot original state
-    const origTStatus = t.Status;
-    const origTstatus = t.status;
-    const origTApplied = t._applied;
-    const emp = findEmp(t.EmployeeID || t.employee_id || t.employee_sys_id) || (typeof findEmpByAction === 'function' ? findEmpByAction(t) : null);
-    let origEmpProject = null;
-    let origEmpProjectName = null;
-    
-    // 2. Optimistic Mutation
-    if (emp) {
-      origEmpProject = emp.ProjectName;
-      origEmpProjectName = emp.project_name;
-      emp.ProjectName = t.NewProject;
-      emp.project_name = t.NewProject;
-    }
-    t.Status = 'Completed';
-    t.status = 'Completed';
-    t._applied = true;
-    
-    // 3. Sync & Rollback Guard
-    try {
-      await persist();
-      if (typeof markNotifAsRead === 'function') {
-        markNotifAsRead('tj' + (t.id || id));
-        if (n) markNotifAsRead(n.id);
-      }
-      if (typeof closeModal === 'function') closeModal();
-      toast('Transfer completed & employee updated.', 'success');
-      if (typeof renderTransfer === 'function') renderTransfer();
-      if (typeof renderEmpTable === 'function') renderEmpTable();
-      if (typeof renderNotifications === 'function') renderNotifications();
-      if (typeof updateNotifBadge === 'function') updateNotifBadge();
-    } catch (err) {
-      // Rollback to Snapshot
-      t.Status = origTStatus;
-      t.status = origTstatus;
-      t._applied = origTApplied;
-      if (emp) {
-        emp.ProjectName = origEmpProject;
-        emp.project_name = origEmpProjectName;
-      }
-      console.error('Transfer Join Sync Error:', err);
-      toast('Sync failed. Changes reverted to prevent data corruption.', 'error');
-      if (typeof renderTransfer === 'function') renderTransfer();
-      if (typeof renderEmpTable === 'function') renderEmpTable();
-      if (typeof renderNotifications === 'function') renderNotifications();
-    }
-  });
-};
-var confirmJoin = window.confirmJoin;
 function denyJoin(nid){
   
   if(!guardEdit()) return;

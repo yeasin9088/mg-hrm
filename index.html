@@ -621,6 +621,11 @@ tbody tr.clickable { cursor: pointer; }
 .print-doc table.form-table th { background: #f0f0f0; font-weight: 700; }
 .print-doc .section-title { font-weight: 700; font-size: 12pt; margin: 10px 0 6px; padding: 3px 0; border-bottom: 1.5px solid #000; }
 
+.dc-print-body { font-size:11pt; line-height:1.75; text-align:justify; }
+.dc-print-body ul, .dc-print-body ol { margin:0 0 8pt; padding-left:20pt; }
+.dc-print-body blockquote { margin:0 0 8pt; padding-left:10pt; border-left:3pt solid #999; }
+.dc-print-body h2, .dc-print-body h3 { font-size:12pt; font-weight:700; margin:6pt 0; }
+
 /* ============ PRINT SYSTEM v3 ============
    Rock-solid: what you see in Print Preview is EXACTLY what prints.
    No blank pages. Complete isolation of print-doc from the rest of the app. */
@@ -1635,6 +1640,130 @@ body.sidebar-open {
   .trp-route{flex-direction:column;align-items:stretch;gap:8px}
   .trp-arrow{transform:rotate(90deg);margin:0 auto}
   .trp-foot .btn{flex:1 1 calc(50% - 4px);justify-content:center}
+}
+
+/* ============================================================
+   RICH TEXT EDITOR (rte) — Disciplinary letter body
+   ============================================================ */
+.rte-wrap { border:1px solid var(--border); border-radius:12px; overflow:hidden; background:var(--card);
+  transition:border-color .15s, box-shadow .15s; }
+.rte-wrap:focus-within { border-color:var(--primary); box-shadow:0 0 0 3px var(--primary-soft); }
+
+.rte-bar { display:flex; flex-wrap:wrap; align-items:center; gap:2px; padding:7px 9px;
+  background:linear-gradient(180deg,#fafbff,#f1f2fb); border-bottom:1px solid var(--border); }
+.rte-group { display:flex; align-items:center; gap:2px; }
+.rte-sep { width:1px; height:20px; background:var(--border-strong); margin:0 5px; opacity:.55; }
+
+.rte-btn { min-width:31px; height:31px; padding:0 7px; display:inline-grid; place-items:center;
+  border:1px solid transparent; background:transparent; color:var(--text-2); border-radius:8px;
+  font-size:13.5px; font-family:inherit; cursor:pointer; line-height:1;
+  transition:background .12s, color .12s, border-color .12s, transform .12s, box-shadow .12s; }
+.rte-btn:hover { background:var(--primary-soft); color:var(--primary); border-color:#dcd8fb; }
+.rte-btn:active { transform:scale(.93); }
+.rte-btn.on { background:var(--primary); color:#fff; border-color:var(--primary);
+  box-shadow:0 2px 7px rgba(79,70,229,.32); }
+.rte-btn svg { width:16px; height:16px; display:block; }
+
+.rte-sel { height:31px; border:1px solid var(--border); background:var(--card); color:var(--text-2);
+  border-radius:8px; font-size:12px; font-family:inherit; padding:0 7px; cursor:pointer;
+  transition:border-color .15s, box-shadow .15s; }
+.rte-sel:focus { outline:none; border-color:var(--primary); box-shadow:0 0 0 3px var(--primary-soft); }
+
+.rte-area { min-height:270px; max-height:58vh; overflow-y:auto; padding:16px 18px;
+  font-family:inherit; font-size:14px; line-height:1.95; color:var(--text); outline:none;
+  word-break:break-word; }
+.rte-area.is-empty:before { content:attr(data-ph); color:var(--text-muted); pointer-events:none; }
+.rte-area p, .rte-area div { margin:0 0 10px; }
+.rte-area p:last-child, .rte-area div:last-child { margin-bottom:0; }
+.rte-area ul, .rte-area ol { margin:0 0 10px; padding-left:26px; }
+.rte-area li { margin:3px 0; }
+.rte-area h2 { font-size:18.5px; font-weight:700; margin:6px 0 9px; letter-spacing:-.2px; }
+.rte-area h3 { font-size:15.5px; font-weight:700; margin:6px 0 9px; letter-spacing:-.1px; }
+.rte-area blockquote { margin:0 0 10px; padding:7px 14px; border-left:3px solid var(--primary);
+  background:var(--bg-dim); border-radius:0 8px 8px 0; color:var(--text-2); }
+.rte-area a { color:var(--primary); text-decoration:underline; }
+.rte-area hr { border:0; border-top:1px solid var(--border-strong); margin:12px 0; }
+
+.rte-foot { display:flex; align-items:center; gap:14px; padding:6px 13px;
+  border-top:1px solid var(--border); background:var(--bg-dim); font-size:11px; color:var(--text-muted); }
+.rte-foot .rte-count { margin-left:auto; font-variant-numeric:tabular-nums; }
+
+@media (max-width:640px){
+  .rte-area { min-height:210px; padding:12px 13px; font-size:13.5px; }
+  .rte-bar  { gap:1px; padding:6px; }
+  .rte-btn  { min-width:28px; height:28px; padding:0 5px; font-size:12.5px; }
+  .rte-sep  { margin:0 3px; }
+}
+
+/* ============================================================
+   MODERN DISCIPLINARY FORM SHELL
+   ============================================================ */
+.dc-shell { border:1px solid var(--border); border-radius:14px; overflow:hidden; background:var(--card); }
+.dc-form-head { display:flex; align-items:center; gap:13px; padding:17px 20px; color:#fff;
+  background:linear-gradient(135deg,#4f46e5 0%,#6d28d9 55%,#9333ea 100%); }
+.dc-form-head .dch-ico { width:42px; height:42px; flex:0 0 auto; border-radius:12px; font-size:20px;
+  display:grid; place-items:center; background:rgba(255,255,255,.18);
+  border:1px solid rgba(255,255,255,.24); }
+.dc-form-head h3 { font-size:15.5px; font-weight:700; letter-spacing:-.2px; margin:0; color:#fff; }
+.dc-form-head p  { font-size:11.5px; opacity:.85; margin:3px 0 0; line-height:1.45; }
+
+.dc-step { display:flex; align-items:center; gap:8px; font-size:11px; font-weight:800;
+  text-transform:uppercase; letter-spacing:.75px; color:var(--primary); margin:0 0 11px; }
+.dc-step .n { width:21px; height:21px; flex:0 0 auto; border-radius:50%;
+  background:var(--primary-soft); color:var(--primary);
+  display:grid; place-items:center; font-size:11px; font-weight:800; }
+.dc-step .ln { flex:1; height:1px; background:var(--border); }
+.dc-req { color:#dc2626; font-weight:800; }
+
+.dc-body-view { background:var(--bg-dim); border:1px solid var(--border); border-radius:10px;
+  padding:14px 16px; max-height:260px; overflow-y:auto; font-size:13.5px; line-height:1.9; }
+.dc-body-view div { margin:0 0 1em; }
+.dc-body-view div:last-child { margin-bottom:0; }
+
+.dc-preview { margin-top:12px; padding:16px 18px; border:1px dashed var(--primary);
+  border-radius:12px; background:var(--primary-soft); font-size:13.5px; line-height:1.9; }
+.dc-preview .dc-pv-lab { font-size:10.5px; font-weight:800; text-transform:uppercase;
+  letter-spacing:.7px; color:var(--primary); margin-bottom:9px; }
+
+/* ============================================================
+   TABLE TOOLBAR / FILTER BAR
+   ============================================================ */
+.tbl-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px;
+  padding:12px 16px; border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg,#fbfcff,var(--card)); }
+.tbl-toolbar .tt-who { position:relative; display:inline-flex; align-items:center; }
+.tbl-toolbar .tt-who svg { position:absolute; left:9px; width:14px; height:14px;
+  color:var(--text-muted); pointer-events:none; }
+.tbl-toolbar input[type=text], .tbl-toolbar input[type=search],
+.tbl-toolbar input[type=date], .tbl-toolbar select {
+  height:34px; border:1px solid var(--border); border-radius:9px; background:var(--card);
+  color:var(--text); font-family:inherit; font-size:12.5px; padding:0 10px;
+  transition:border-color .15s, box-shadow .15s; }
+.tbl-toolbar .tt-who input { padding-left:29px; min-width:205px; }
+.tbl-toolbar input:focus, .tbl-toolbar select:focus { outline:none;
+  border-color:var(--primary); box-shadow:0 0 0 3px var(--primary-soft); }
+.tbl-toolbar .tt-lab { font-size:10.5px; font-weight:800; text-transform:uppercase;
+  letter-spacing:.55px; color:var(--text-muted); }
+.tbl-toolbar .tt-clear { height:34px; padding:0 13px; border-radius:9px;
+  border:1px dashed var(--border-strong); background:transparent; color:var(--text-muted);
+  font-family:inherit; font-size:12.5px; cursor:pointer; transition:all .13s; }
+.tbl-toolbar .tt-clear:hover { color:var(--primary); border-color:var(--primary);
+  background:var(--primary-soft); border-style:solid; }
+.tbl-toolbar .tt-count { margin-left:auto; font-size:12px; color:var(--text-muted); white-space:nowrap; }
+.tbl-toolbar .tt-count b { color:var(--text); font-weight:700; font-variant-numeric:tabular-nums; }
+
+.tt-chipbar { display:flex; flex-wrap:wrap; gap:6px; padding:0 16px 10px; }
+.tt-chipbar:empty { padding:0; }
+.tt-chip { display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:600;
+  padding:3px 10px; border-radius:999px; background:var(--primary-soft); color:var(--primary); }
+.tt-chip button { border:0; background:transparent; color:inherit; cursor:pointer;
+  font-size:13px; line-height:1; padding:0; }
+
+@media (max-width:640px){
+  .tbl-toolbar { gap:7px; padding:11px 12px; }
+  .tbl-toolbar .tt-who { flex:1 1 100%; }
+  .tbl-toolbar .tt-who input { min-width:0; width:100%; }
+  .tbl-toolbar .tt-count { margin-left:0; }
 }
 
 .row-click:hover { background:linear-gradient(90deg, rgba(79,70,229,0.06) 0%, transparent 100%) !important; }
@@ -6836,6 +6965,105 @@ window.printProjectProfile = printProjectProfile;
 window.banglaProjectProfilePrint = printProjectProfile;
 
 /* ============ TRANSFER ============ */
+
+/* ---------- Transfer: filter state ---------- */
+window.TR_F = window.TR_F || { q:'', id:'', status:'', project:'', from:'', to:'' };
+let trFilterTimer = null;
+
+const TR_FIELD_IDS = { q:'trSearch', id:'trIdSearch', status:'trStatusFilter',
+                       project:'trProjectFilter', from:'trFrom', to:'trTo' };
+
+function trSetFilter(k, v, isText){
+  window.TR_F[k] = v || '';
+  const el = document.getElementById(TR_FIELD_IDS[k]);
+  if (el && el.value !== window.TR_F[k]) el.value = window.TR_F[k];
+  if (isText){
+    clearTimeout(trFilterTimer);
+    trFilterTimer = setTimeout(renderTransferTable, 220);
+  } else {
+    renderTransferTable();
+  }
+}
+
+function trClearFilters(){
+  window.TR_F = { q:'', id:'', status:'', project:'', from:'', to:'' };
+  Object.keys(TR_FIELD_IDS).forEach(function(k){
+    const el = document.getElementById(TR_FIELD_IDS[k]);
+    if (el) el.value = '';
+  });
+  renderTransferTable();
+}
+
+function trStatusOptions(){
+  const set = new Set(['Scheduled', 'Awaiting Confirmation', 'Join Pending', 'Completed', 'Cancelled']);
+  DATA.transfers.forEach(function(t){
+    const s = t.status || t.Status;
+    if (s) set.add(s);
+  });
+  return Array.from(set);
+}
+
+function trProjectOptions(){
+  const set = new Set();
+  DATA.transfers.forEach(function(t){
+    if (t.NewProject) set.add(String(t.NewProject));
+  });
+  return Array.from(set).sort();
+}
+
+function trFilteredRows(){
+  const F = window.TR_F;
+  const q   = (F.q  || '').toLowerCase();
+  const idq = (F.id || '').toLowerCase();
+
+  return DATA.transfers.filter(function(t){
+    const e = findEmpByAction(t);
+    const empId = e ? (e.id || e.EmployeeID || '') : (t.EmployeeID || '');
+
+    if (idq){
+      if (String(t.EmployeeID || '').toLowerCase() !== idq
+          && String(empId).toLowerCase() !== idq) return false;
+    }
+    if (F.status && String(t.status || t.Status || '') !== F.status) return false;
+    if (F.project && String(t.NewProject || '') !== F.project) return false;
+
+    const td = String(t.TransferDate || '').slice(0, 10);
+    if (F.from && (!td || td < F.from)) return false;
+    if (F.to   && (!td || td > F.to))   return false;
+
+    if (q){
+      const hay = (t.id || '') + ' ' + (t.FullName || '') + ' ' + (t.EmployeeID || '') + ' '
+        + empId + ' ' + (t.CurrentProject || '') + ' ' + (t.NewProject || '') + ' '
+        + (t.status || t.Status || '');
+      if (hay.toLowerCase().indexOf(q) === -1) return false;
+    }
+    return true;
+  }).sort(function(a, b){
+    return (+b.id - +a.id) || String(b.id || '').localeCompare(String(a.id || ''));
+  });
+}
+
+function trRenderChips(){
+  const el = document.getElementById('trChips');
+  if (!el) return;
+  const F = window.TR_F;
+  const chips = [];
+  if (F.q)       chips.push(['q',       'Search: ' + F.q]);
+  if (F.id)      chips.push(['id',      'ID: ' + F.id]);
+  if (F.status)  chips.push(['status',  'Status: ' + F.status]);
+  if (F.project) chips.push(['project', 'To: ' + F.project]);
+  if (F.from)    chips.push(['from',    'Date from: ' + F.from]);
+  if (F.to)      chips.push(['to',      'Date to: ' + F.to]);
+  if (!chips.length){ el.innerHTML = ''; return; }
+
+  el.innerHTML = chips.map(function(c){
+    return '<span class="tt-chip">' + escapeHtml(c[1])
+      + '<button type="button" title="Remove filter" onclick="trSetFilter(\'' + c[0] + '\',\'\',false)">✕</button></span>';
+  }).join('')
+  + '<span class="tt-chip" style="background:#fee2e2;color:#b91c1c">All filters'
+  + '<button type="button" onclick="trClearFilters()">✕</button></span>';
+}
+
 function renderTransfer(){
   document.getElementById('page-transfer').innerHTML = `
     <div class="card">
@@ -6860,17 +7088,42 @@ function renderTransfer(){
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-header">
-        <h3>${'Recent Transfers'}</h3>
-        <div class="search-row" style="margin-left:auto; display:flex; gap:10px;">
-          <input type="text" id="trIdSearch" placeholder="${'ID only...'}" oninput="debouncedRenderTransferTable()" style="width:120px;">
-          <input type="text" id="trSearch" placeholder="${'Search...'}" oninput="debouncedRenderTransferTable()" style="width:180px;">
-        </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="card-header" style="padding:14px 16px 0;border-bottom:0"><h3>${'Recent Transfers'}</h3></div>
+
+      <div class="tbl-toolbar">
+        <span class="tt-who">${RTE_SVG.search}
+          <input type="text" id="trSearch" placeholder="${'Search name, project, memo…'}"
+                 value="${escapeHtml(window.TR_F.q)}" oninput="trSetFilter('q', this.value, true)"></span>
+        <span class="tt-who">${RTE_SVG.search}
+          <input type="text" id="trIdSearch" placeholder="${'Exact employee ID'}"
+                 value="${escapeHtml(window.TR_F.id)}" oninput="trSetFilter('id', this.value, true)"
+                 style="min-width:150px"></span>
+        <span class="tt-lab">${'Status'}</span>
+        <select id="trStatusFilter" onchange="trSetFilter('status', this.value)">
+          <option value="">${'All'}</option>
+          ${trStatusOptions().map(s => `<option value="${escapeHtml(s)}"${window.TR_F.status === s ? ' selected' : ''}>${escapeHtml(s)}</option>`).join('')}
+        </select>
+        <span class="tt-lab">${'To project'}</span>
+        <select id="trProjectFilter" onchange="trSetFilter('project', this.value)">
+          <option value="">${'All'}</option>
+          ${trProjectOptions().map(p => `<option value="${escapeHtml(p)}"${window.TR_F.project === p ? ' selected' : ''}>${escapeHtml(p)}</option>`).join('')}
+        </select>
+        <span class="tt-lab">${'Transfer date'}</span>
+        <input type="date" id="trFrom" value="${escapeHtml(window.TR_F.from)}" onchange="trSetFilter('from', this.value)">
+        <span class="tt-lab">${'to'}</span>
+        <input type="date" id="trTo" value="${escapeHtml(window.TR_F.to)}" onchange="trSetFilter('to', this.value)">
+        <button type="button" class="tt-clear" onclick="trClearFilters()">✕ ${'Clear'}</button>
+        <span class="tt-count"><b id="trCount">0</b> ${'records'}</span>
       </div>
+      <div class="tt-chipbar" id="trChips"></div>
+
       <div class="table-wrap">
         <table>
-          <thead><tr><th>#</th><th>ID</th><th>${'Name'}</th><th>${'From'}</th><th>${'To'}</th><th>${'Date'}</th><th>${'Status'}</th><th></th></tr></thead>
+          <thead><tr>
+            <th>#</th><th>ID</th><th>${'Name'}</th><th>${'From'}</th><th>${'To'}</th>
+            <th>${'Date'}</th><th>${'Status'}</th><th style="width:64px"></th>
+          </tr></thead>
           <tbody id="trTableBody"></tbody>
         </table>
       </div>
@@ -6891,49 +7144,48 @@ function debouncedRenderTransferTable() {
 }
 window.debouncedRenderTransferTable = debouncedRenderTransferTable;
 
-function renderTransferTable() {
-  const q = (document.getElementById('trSearch')?.value || '').toLowerCase();
-  const idq = (document.getElementById('trIdSearch')?.value || '').toLowerCase();
-  const rows = DATA.transfers.filter(t => {
-    const e = findEmpByAction(t);
-    const empId = e ? (e.id || e.EmployeeID || '') : (t.EmployeeID || '');
-    
-    if (idq) {
-      if (String(t.EmployeeID||'').toLowerCase() !== idq && String(empId).toLowerCase() !== idq) return false;
-    }
-    
-    if (q) {
-      const hay = `${t.id||''} ${t.FullName||''} ${t.EmployeeID||''} ${empId} ${t.CurrentProject||''} ${t.NewProject||''}`.toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
-    return true;
-  }).sort((a,b)=>+b.id-+a.id || String(b.id||'').localeCompare(String(a.id||'')));
+function renderTransferTable(){
+  const rows = trFilteredRows();
+
+  const countEl = document.getElementById('trCount');
+  if (countEl) countEl.textContent = num(rows.length);
 
   const tbody = document.getElementById('trTableBody');
-  if (!tbody) return;
-
-  if (rows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="15" style="text-align:center; padding:40px 20px; color:var(--text-mute); font-size:0.95rem;">No matching records found.</td></tr>`;
-    return;
+  if (tbody){
+    if (!rows.length){
+      const F = window.TR_F;
+      const hasFilter = !!(F.q || F.id || F.status || F.project || F.from || F.to);
+      tbody.innerHTML = tblEmptyRow(8, hasFilter
+        ? 'No transfers match the current filters.'
+        : 'No transfer records yet.');
+    } else {
+      tbody.innerHTML = rows.map(function(t){
+        const e = findEmpByAction(t);
+        const empId = e ? (e.id || e.EmployeeID || '') : (t.EmployeeID || '—');
+        const trStatus = t.status || t.Status || 'Scheduled';
+        const pillClass = trStatus === 'Cancelled' ? 'inactive'
+          : trStatus === 'Completed' ? 'completed'
+          : (trStatus === 'Awaiting Confirmation' || trStatus === 'Join Pending') ? 'warning' : 'scheduled';
+        return `<tr class="row-click" onclick="openTransferPopup(${jsQ(t.id)})" style="cursor:pointer">
+          <td>${escapeHtml(num(t.id))}</td>
+          <td><span class="chip" style="font-size:11px;font-weight:600">${escapeHtml(num(empId))}</span></td>
+          <td><strong>${escapeHtml(t.FullName || '')}</strong></td>
+          <td>${escapeHtml(projName(t.CurrentProject))}</td>
+          <td>${escapeHtml(projName(t.NewProject))}</td>
+          <td>${escapeHtml(fmtDate(t.TransferDate))}</td>
+          <td><span class="pill ${pillClass}">${escapeHtml(trStatus)}</span></td>
+          <td onclick="event.stopPropagation()"><button class="btn ghost sm" type="button"
+              onclick="reprintTransfer(${jsQ(t.id)})">${ico('print')}</button></td>
+        </tr>`;
+      }).join('');
+    }
   }
 
-  tbody.innerHTML = rows.map(t=>{
-    const e = findEmpByAction(t);
-    const empId = e ? (e.id || e.EmployeeID || '') : (t.EmployeeID || '—');
-    const trStatus = t.status || t.Status || 'Scheduled';
-    const pillClass = trStatus === 'Cancelled' ? 'inactive' : trStatus === 'Completed' ? 'completed' : (trStatus === 'Awaiting Confirmation' || trStatus === 'Join Pending' ? 'warning' : 'scheduled');
-    return `<tr class="row-click" onclick="openTransferPopup(${jsQ(t.id)})" style="cursor:pointer">
-      <td>${escapeHtml(num(t.id))}</td>
-      <td><span class="chip" style="font-size:11px;font-weight:600">${escapeHtml(num(empId))}</span></td>
-      <td><strong>${escapeHtml(t.FullName||'')}</strong></td>
-      <td>${escapeHtml(projName(t.CurrentProject))}</td>
-      <td>${escapeHtml(projName(t.NewProject))}</td>
-      <td>${escapeHtml(fmtDate(t.TransferDate))}</td>
-      <td><span class="pill ${pillClass}">${escapeHtml(trStatus)}</span></td>
-      <td onclick="event.stopPropagation()"><button class="btn ghost sm" onclick="reprintTransfer(${jsQ(t.id)})">${ico('print')}</button></td>
-    </tr>`;
-  }).join('');
+  trRenderChips();
 }
+
+window.trSetFilter = trSetFilter;
+window.trClearFilters = trClearFilters;
 
 
 function isoDateInput(v){
@@ -7638,6 +7890,289 @@ function bangleTransferOrder({emp,np,td,iss,notes,refNo}){
   </div>`;
 }
 
+/* ============================================================
+   SHARED RICH TEXT EDITOR (rte)  (Step 11)
+   Zero dependencies — contenteditable + execCommand
+   ============================================================ */
+
+const RTE_SVG = {
+  ul:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>',
+  ol:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 6h11M10 12h11M10 18h11M4 4.5h1.4v4M4 12h2.2l-2.2 3.2h2.2M4 17.4h2.2v3.1H4"/></svg>',
+  left:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h12M3 18h15"/></svg>',
+  center:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M6 12h12M5 18h14"/></svg>',
+  right:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M9 12h12M6 18h15"/></svg>',
+  justify: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>',
+  outdent: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h11M10 12h11M10 18h11M8 9l-4 3 4 3"/></svg>',
+  indent:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h11M10 12h11M10 18h11M4 9l4 3-4 3"/></svg>',
+  undo:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-4"/></svg>',
+  redo:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h4"/></svg>',
+  clear:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12h10l1-12"/></svg>',
+  search:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>'
+};
+
+/* Saved selections per editor — lets toolbar buttons act without losing the caret */
+const RTE_SEL = {};
+
+function rteSaveSel(id){
+  const el = document.getElementById(id);
+  if (!el) return;
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount && el.contains(sel.anchorNode)) {
+    RTE_SEL[id] = sel.getRangeAt(0).cloneRange();
+  }
+}
+
+function rteRestoreSel(id){
+  const el = document.getElementById(id);
+  if (!el) return;
+  try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); }
+  const r = RTE_SEL[id];
+  if (r) {
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(r);
+  }
+}
+
+/* Build the toolbar markup for one editor element */
+function rteToolbar(id){
+  function btn(cmd, label, title, cls){
+    return '<button type="button" class="rte-btn' + (cls ? ' ' + cls : '') + '"'
+      + ' data-cmd="' + cmd + '" title="' + title + '"'
+      + ' onmousedown="rteSaveSel(\'' + id + '\')"'
+      + ' onclick="rteCmd(\'' + id + '\',\'' + cmd + '\',null)">' + label + '</button>';
+  }
+  return '<div class="rte-bar">'
+    + '<div class="rte-group">'
+    +   '<select class="rte-sel" title="Paragraph style"'
+    +     ' onmousedown="rteSaveSel(\'' + id + '\')"'
+    +     ' onchange="rteBlock(\'' + id + '\', this.value); this.selectedIndex=0;">'
+    +     '<option value="">Style…</option>'
+    +     '<option value="p">Normal text</option>'
+    +     '<option value="h3">Heading</option>'
+    +     '<option value="h2">Sub-heading</option>'
+    +     '<option value="blockquote">Quote</option>'
+    +   '</select>'
+    + '</div>'
+    + '<span class="rte-sep"></span>'
+    + '<div class="rte-group">'
+    +   btn('bold',          '<b>B</b>', 'Bold (Ctrl+B)')
+    +   btn('italic',        '<i>I</i>', 'Italic (Ctrl+I)')
+    +   btn('underline',     '<u>U</u>', 'Underline (Ctrl+U)')
+    +   btn('strikeThrough', '<s>S</s>', 'Strike-through')
+    + '</div>'
+    + '<span class="rte-sep"></span>'
+    + '<div class="rte-group">'
+    +   btn('insertUnorderedList', RTE_SVG.ul, 'Bullet list')
+    +   btn('insertOrderedList',   RTE_SVG.ol, 'Numbered list')
+    + '</div>'
+    + '<span class="rte-sep"></span>'
+    + '<div class="rte-group">'
+    +   btn('justifyLeft',   RTE_SVG.left,    'Align left')
+    +   btn('justifyCenter', RTE_SVG.center,  'Align center')
+    +   btn('justifyRight',  RTE_SVG.right,   'Align right')
+    +   btn('justifyFull',   RTE_SVG.justify, 'Justify')
+    + '</div>'
+    + '<span class="rte-sep"></span>'
+    + '<div class="rte-group">'
+    +   btn('outdent', RTE_SVG.outdent, 'Decrease indent')
+    +   btn('indent',  RTE_SVG.indent,  'Increase indent')
+    + '</div>'
+    + '<span class="rte-sep"></span>'
+    + '<div class="rte-group">'
+    +   btn('undo',         RTE_SVG.undo,  'Undo (Ctrl+Z)')
+    +   btn('redo',         RTE_SVG.redo,  'Redo (Ctrl+Y)')
+    +   btn('removeFormat', RTE_SVG.clear, 'Clear formatting')
+    + '</div>'
+    + '</div>';
+}
+
+function rteFindWrap(id){
+  const el = document.getElementById(id);
+  return el ? el.closest('.rte-wrap') : null;
+}
+
+/* Execute a formatting command */
+function rteCmd(id, cmd, val){
+  const el = document.getElementById(id);
+  if (!el) return;
+  rteRestoreSel(id);
+  try { document.execCommand('styleWithCSS', false, true); } catch (e) {}
+  try {
+    document.execCommand(cmd, false, (val === undefined ? null : val));
+  } catch (e) {
+    console.warn('[rte] command failed:', cmd, e);
+  }
+  rteSaveSel(id);
+  rteToolbarState(id);
+  rteSync(id);
+}
+
+function rteBlock(id, tag){
+  if (!tag) return;
+  rteRestoreSel(id);
+  try { document.execCommand('formatBlock', false, tag); }
+  catch (e) {
+    try { document.execCommand('formatBlock', false, '<' + tag + '>'); } catch (e2) {}
+  }
+  rteToolbarState(id);
+  rteSync(id);
+}
+
+/* Reflect active formatting on the toolbar buttons */
+function rteToolbarState(id){
+  const wrap = rteFindWrap(id);
+  if (!wrap) return;
+  const bar = wrap.querySelector('.rte-bar');
+  if (!bar) return;
+  ['bold','italic','underline','strikeThrough',
+   'insertUnorderedList','insertOrderedList',
+   'justifyLeft','justifyCenter','justifyRight','justifyFull'].forEach(function(c){
+    const b = bar.querySelector('.rte-btn[data-cmd="' + c + '"]');
+    if (!b) return;
+    let on = false;
+    try { on = document.queryCommandState(c); } catch (e) {}
+    b.classList.toggle('on', !!on);
+  });
+}
+
+/* Keep the hidden store field + the word counter in sync */
+function rteSync(id){
+  const el = document.getElementById(id);
+  if (!el) return;
+  const wrap = rteFindWrap(id);
+  if (!wrap) return;
+  const store = wrap.querySelector('.rte-store');
+  if (store) store.value = el.innerHTML;
+  const txt = (el.innerText || '').replace(/\u00a0/g, ' ');
+  el.classList.toggle('is-empty', !txt.trim());
+  const c = wrap.querySelector('.rte-count');
+  if (c) {
+    const t = txt.trim();
+    const words = t ? t.split(/\s+/).length : 0;
+    c.textContent = words + ' words · ' + t.length + ' characters';
+  }
+}
+
+/* Read the editor back as sanitized HTML ('' when empty) */
+function rteGet(id){
+  const el = document.getElementById(id);
+  if (!el) return '';
+  if (!(el.innerText || '').trim()) return '';
+  return dcSanitize(el.innerHTML);
+}
+
+/* Programmatically load HTML into the editor */
+function rteSet(id, html){
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = html || '';
+  rteToolbarState(id);
+  rteSync(id);
+}
+
+/* ------------------------------------------------------------
+   Sanitizer — allow-list only. Runs on SAVE and on DISPLAY.
+   ------------------------------------------------------------ */
+const DC_ALLOW_TAGS = ['B','STRONG','I','EM','U','S','STRIKE','DEL','BR','DIV','P','SPAN',
+                       'UL','OL','LI','H1','H2','H3','BLOCKQUOTE','A','HR'];
+const DC_ALLOW_STYLE = ['text-align','font-weight','font-style','text-decoration',
+                        'margin-left','padding-left','margin','font-size','color'];
+const DC_DROP_TAGS  = ['SCRIPT','STYLE','IFRAME','OBJECT','EMBED','LINK','META',
+                       'FORM','INPUT','TEXTAREA','BUTTON','SELECT','SVG'];
+
+function dcSanitize(html){
+  const box = document.createElement('div');
+  box.innerHTML = String(html == null ? '' : html);
+
+  (function walk(node){
+    Array.from(node.childNodes).forEach(function(ch){
+      if (ch.nodeType === 8) { ch.remove(); return; }          // comments
+      if (ch.nodeType !== 1) return;                           // text — leave as is
+
+      const tag = ch.tagName.toUpperCase();
+      if (DC_DROP_TAGS.indexOf(tag) !== -1) { ch.remove(); return; }
+
+      walk(ch);
+
+      if (DC_ALLOW_TAGS.indexOf(tag) === -1) {                 // unwrap unknown tag
+        const frag = document.createDocumentFragment();
+        while (ch.firstChild) frag.appendChild(ch.firstChild);
+        ch.replaceWith(frag);
+        return;
+      }
+
+      Array.from(ch.attributes).forEach(function(a){
+        const n = a.name.toLowerCase();
+        if (n.indexOf('on') === 0) { ch.removeAttribute(a.name); return; }
+        if (n === 'style') {
+          const keep = String(a.value || '').split(';')
+            .map(function(s){ return s.trim(); })
+            .filter(Boolean)
+            .filter(function(d){
+              return DC_ALLOW_STYLE.indexOf(d.split(':')[0].trim().toLowerCase()) !== -1;
+            });
+          if (keep.length) ch.setAttribute('style', keep.join('; '));
+          else ch.removeAttribute('style');
+          return;
+        }
+        if (n === 'href') {
+          if (/^\s*(javascript|data|vbscript):/i.test(a.value || '')) {
+            ch.removeAttribute(a.name);
+          } else {
+            ch.setAttribute('target', '_blank');
+            ch.setAttribute('rel', 'noopener noreferrer');
+          }
+          return;
+        }
+        if (['target','rel','colspan','rowspan'].indexOf(n) === -1) ch.removeAttribute(a.name);
+      });
+    });
+  })(box);
+
+  return box.innerHTML.replace(/(<br\s*\/?>\s*){4,}/gi, '<br><br><br>');
+}
+
+/* ------------------------------------------------------------
+   One renderer for BOTH storage formats
+   ------------------------------------------------------------ */
+function dcBodyIsHtml(v){
+  return typeof v === 'string'
+    && /<(\/?)(b|strong|i|em|u|s|strike|div|p|br|ul|ol|li|h[1-3]|blockquote|span|a|hr)\b/i.test(v);
+}
+
+/* Legacy plain text is rendered EXACTLY as before (blank line = paragraph gap).
+   New HTML records are sanitized and rendered as HTML. */
+function dcBodyHtml(v){
+  const s = String(v == null ? '' : v);
+  if (!s.trim()) return '<span class="small-mute">—</span>';
+  if (dcBodyIsHtml(s)) return dcSanitize(s).replace(/\n+/g, '');
+  const paras = s.replace(/\r\n?/g, '\n').split(/\n{2,}/)
+    .map(function(p){ return p.trim(); })
+    .filter(Boolean);
+  if (!paras.length) return '<span class="small-mute">—</span>';
+  return paras.map(function(p){
+    return '<div style="margin:0 0 1em">' + escapeHtml(p).replace(/\n/g, '<br>') + '</div>';
+  }).join('');
+}
+
+/* Shared empty-state row helper for the three tables */
+function tblEmptyRow(colspan, msg){
+  return '<tr><td colspan="' + colspan + '" style="text-align:center;padding:44px 20px;'
+    + 'color:var(--text-mute);font-size:0.95rem;">' + (msg || 'No matching records found.') + '</td></tr>';
+}
+
+window.rteSaveSel = rteSaveSel;
+window.rteCmd = rteCmd;
+window.rteBlock = rteBlock;
+window.rteSync = rteSync;
+window.rteGet = rteGet;
+window.rteSet = rteSet;
+window.rteToolbarState = rteToolbarState;
+window.dcSanitize = dcSanitize;
+window.dcBodyHtml = dcBodyHtml;
+window.tblEmptyRow = tblEmptyRow;
+
 /* ============ DISCIPLINARY ============ */
 
 const DC_TEMPLATES = {
@@ -7647,113 +8182,289 @@ const DC_TEMPLATES = {
   'Termination': { label:{en:'Termination Order', bn:'Termination Order'},  subject:'চাকরিচ্যুতির আদেশ' },
 };
 
+/* ---------- Disciplinary: filter state ---------- */
+window.DC_F = window.DC_F || { q:'', id:'', type:'', from:'', to:'' };
+let dcFilterTimer = null;
+
+const DC_FIELD_IDS = { q:'dcSearch', id:'dcIdSearch', type:'dcTypeFilter', from:'dcFrom', to:'dcTo' };
+
+function dcSetFilter(k, v, isText){
+  window.DC_F[k] = v || '';
+  const el = document.getElementById(DC_FIELD_IDS[k]);
+  if (el && el.value !== window.DC_F[k]) el.value = window.DC_F[k];
+  if (isText){
+    clearTimeout(dcFilterTimer);
+    dcFilterTimer = setTimeout(renderDisciplinaryTable, 220);
+  } else {
+    renderDisciplinaryTable();
+  }
+}
+
+function dcClearFilters(){
+  window.DC_F = { q:'', id:'', type:'', from:'', to:'' };
+  Object.keys(DC_FIELD_IDS).forEach(function(k){
+    const el = document.getElementById(DC_FIELD_IDS[k]);
+    if (el) el.value = '';
+  });
+  renderDisciplinaryTable();
+}
+
+function dcTypeOptions(){
+  const set = new Set(Object.keys(DC_TEMPLATES).map(function(k){ return DC_TEMPLATES[k].label.en; }));
+  DATA.disciplinary.forEach(function(d){
+    const t = d.ActionType || d.action_type;
+    if (t) set.add(t);
+  });
+  return Array.from(set).sort();
+}
+
+function dcFilteredRows(){
+  const F = window.DC_F;
+  const q   = (F.q  || '').toLowerCase();
+  const idq = (F.id || '').toLowerCase();
+
+  return DATA.disciplinary.filter(function(d){
+    const e = findEmpByAction(d);
+    const empId = e ? (e.id || e.EmployeeID || '') : (d.EmployeeID || d.employee_id || '');
+
+    if (idq){
+      if (String(d.EmployeeID || d.employee_id || '').toLowerCase() !== idq
+          && String(empId).toLowerCase() !== idq) return false;
+    }
+    if (F.type && String(d.ActionType || d.action_type || '') !== F.type) return false;
+
+    const iss = String(d.IssueDate || d.issue_date || '').slice(0, 10);
+    if (F.from && (!iss || iss < F.from)) return false;
+    if (F.to   && (!iss || iss > F.to))   return false;
+
+    if (q){
+      const aid  = d.ActionID || d.action_id || d.id || '';
+      const ref  = d.RefNo || d.ref_no || '';
+      const name = d.FullName || d.full_name || '';
+      const act  = d.ActionType || d.action_type || '';
+      const hay  = (aid + ' ' + ref + ' ' + name + ' ' + act + ' '
+                    + (d.EmployeeID || d.employee_id || '') + ' ' + empId).toLowerCase();
+      if (hay.indexOf(q) === -1) return false;
+    }
+    return true;
+  }).sort(function(a, b){
+    return (new Date(b.IssueDate || b.issue_date || 0) - new Date(a.IssueDate || a.issue_date || 0))
+      || (+(b.ActionID || b.action_id || b.id || 0) - +(a.ActionID || a.action_id || a.id || 0));
+  });
+}
+
+function dcRenderChips(){
+  const el = document.getElementById('dcChips');
+  if (!el) return;
+  const F = window.DC_F;
+  const chips = [];
+  if (F.q)    chips.push(['q',    'Search: ' + F.q]);
+  if (F.id)   chips.push(['id',   'ID: ' + F.id]);
+  if (F.type) chips.push(['type', 'Type: ' + F.type]);
+  if (F.from) chips.push(['from', 'Issue from: ' + F.from]);
+  if (F.to)   chips.push(['to',   'Issue to: ' + F.to]);
+  if (!chips.length){ el.innerHTML = ''; return; }
+
+  el.innerHTML = chips.map(function(c){
+    return '<span class="tt-chip">' + escapeHtml(c[1])
+      + '<button type="button" title="Remove filter" onclick="dcSetFilter(\'' + c[0] + '\',\'\',false)">✕</button></span>';
+  }).join('')
+  + '<span class="tt-chip" style="background:#fee2e2;color:#b91c1c">All filters'
+  + '<button type="button" onclick="dcClearFilters()">✕</button></span>';
+}
+
 function renderDisciplinary(){
+  const F = window.DC_F;
+  const types = dcTypeOptions();
+
   document.getElementById('page-disciplinary').innerHTML = `
-    <div class="card">
-      <div class="card-header"><h3>${'New Disciplinary Action'}</h3></div>
+    <div class="dc-shell" style="margin-bottom:16px">
+      <div class="dc-form-head">
+        <div class="dch-ico">⚖️</div>
+        <div>
+          <h3>New Disciplinary Action</h3>
+          <p>Show-cause, warning, suspension &amp; termination letters — Bengali body with full formatting</p>
+        </div>
+      </div>
       <div class="card-body">
+
+        <div class="dc-step"><span class="n">1</span> Employee &amp; Action <span class="ln"></span></div>
         <div class="form-grid">
-          <div class="field"><label>${'Employee'} *</label><select id="dcEmp" onchange="dcFillEmp()"></select><div id="dcEmpInfo"></div></div>
-          <div class="field"><label>${'Action Type'} *</label><select id="dcType">
-            ${Object.entries(DC_TEMPLATES).map(([k,v])=>`<option value="${k}">${v.label.en}</option>`).join('')}
-          </select></div>
-          <div class="field"><label>${'Memo No.'} *</label><input id="dcRef" type="text" value="${refNo('MG/SEC/DC')}"></div>
+          <div class="field"><label>${'Employee'} <span class="dc-req">*</span></label>
+            <select id="dcEmp" onchange="dcFillEmp()"></select><div id="dcEmpInfo"></div></div>
+          <div class="field"><label>${'Action Type'} <span class="dc-req">*</span></label>
+            <select id="dcType">
+              ${Object.entries(DC_TEMPLATES).map(([k,v]) => `<option value="${k}">${v.label.en}</option>`).join('')}
+            </select></div>
+          <div class="field"><label>${'Memo No.'} <span class="dc-req">*</span></label>
+            <input id="dcRef" type="text" value="${refNo('MG/SEC/DC')}"></div>
           <div class="field"><label>${'Incident Date'}</label><input id="dcIncident" type="date"></div>
           <div class="field"><label>${'Issue Date'}</label><input id="dcIssue" type="date" value="${todayISO()}"></div>
-          <div class="field wide"><label>${'Letter body (Bengali) — write the full text, intro to closing'} *</label>
-            <textarea id="dcDesc" rows="10" placeholder="${'e.g. The allegation raised against you… (a blank line starts a new paragraph with a one-line gap)'}"></textarea>
+        </div>
+
+        <div class="dc-step" style="margin-top:22px"><span class="n">2</span> Letter Body (Bengali) <span class="ln"></span></div>
+        <div class="rte-wrap">
+          ${rteToolbar('dcDesc')}
+          <div id="dcDesc" class="rte-area is-empty" contenteditable="true" dir="auto"
+               data-ph="${'Write the full letter body here — intro to closing. A blank line starts a new paragraph.'}"
+               oninput="rteSync('dcDesc')"
+               onkeyup="rteSaveSel('dcDesc'); rteToolbarState('dcDesc');"
+               onmouseup="rteSaveSel('dcDesc'); rteToolbarState('dcDesc');"
+               onfocus="rteSaveSel('dcDesc')"></div>
+          <input type="hidden" class="rte-store" id="dcDescStore">
+          <div class="rte-foot">
+            <span>Ctrl+B bold · Ctrl+I italic · Ctrl+U underline · Ctrl+Z undo</span>
+            <span class="rte-count"></span>
           </div>
         </div>
-        <div style="margin-top:14px" class="btn-row">
+        <div id="dcPreviewBox" class="dc-preview" style="display:none"></div>
+
+        <div class="btn-row" style="margin-top:16px">
           <button class="btn primary" id="btnSubmitDisc" onclick="submitDisciplinary()">${'Save'}</button>
-          <button class="btn" onclick="previewDisciplinary()">${ico('print')} ${'Preview Full Bangla Notice'}</button>
+          <button class="btn" type="button" onclick="dcTogglePreview()">👁 ${'Preview Body'}</button>
+          <button class="btn" type="button" onclick="previewDisciplinary()">${ico('print')} ${'Preview Full Bangla Notice'}</button>
+          <button class="btn ghost" type="button" onclick="dcClearBody()">${'Clear Body'}</button>
         </div>
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-header">
-        <div style="display:flex;align-items:baseline;gap:8px">
-          <h3>${'Recent Actions'}</h3>
-          <span class="sub" id="dcCount">${num(DATA.disciplinary.length)} ${'records'}</span>
-        </div>
-        <div class="search-row" style="margin-left:auto; display:flex; gap:10px;">
-          <input type="text" id="dcIdSearch" placeholder="${'ID only...'}" oninput="renderDisciplinaryTable()" style="width:120px;">
-          <input type="text" id="dcSearch" placeholder="${'Search...'}" oninput="renderDisciplinaryTable()" style="width:180px;">
-        </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="card-header" style="padding:14px 16px 0;border-bottom:0"><h3>${'Recent Actions'}</h3></div>
+
+      <div class="tbl-toolbar">
+        <span class="tt-who">${RTE_SVG.search}
+          <input type="text" id="dcSearch" placeholder="${'Search ref, name, type, ID…'}"
+                 value="${escapeHtml(F.q)}" oninput="dcSetFilter('q', this.value, true)"></span>
+        <span class="tt-who">${RTE_SVG.search}
+          <input type="text" id="dcIdSearch" placeholder="${'Exact employee ID'}"
+                 value="${escapeHtml(F.id)}" oninput="dcSetFilter('id', this.value, true)"
+                 style="min-width:150px"></span>
+        <span class="tt-lab">${'Type'}</span>
+        <select id="dcTypeFilter" onchange="dcSetFilter('type', this.value)">
+          <option value="">${'All'}</option>
+          ${types.map(t => `<option value="${escapeHtml(t)}"${F.type === t ? ' selected' : ''}>${escapeHtml(t)}</option>`).join('')}
+        </select>
+        <span class="tt-lab">${'Issue'}</span>
+        <input type="date" id="dcFrom" value="${escapeHtml(F.from)}" onchange="dcSetFilter('from', this.value)">
+        <span class="tt-lab">${'to'}</span>
+        <input type="date" id="dcTo" value="${escapeHtml(F.to)}" onchange="dcSetFilter('to', this.value)">
+        <button type="button" class="tt-clear" onclick="dcClearFilters()">✕ ${'Clear'}</button>
+        <span class="tt-count"><b id="dcCount">0</b> ${'records'}</span>
       </div>
+      <div class="tt-chipbar" id="dcChips"></div>
+
       <div class="table-wrap">
         <table>
-          <thead><tr><th style="width:50px">${'#'}</th><th>ID</th><th>${'Ref'}</th><th>${'Employee'}</th><th>${'Type'}</th><th>${'Date'}</th><th></th></tr></thead>
+          <thead><tr>
+            <th style="width:56px">${'#'}</th><th>ID</th><th>${'Ref'}</th><th>${'Employee'}</th>
+            <th>${'Type'}</th><th>${'Date'}</th><th style="width:64px"></th>
+          </tr></thead>
           <tbody id="dcTableBody"></tbody>
         </table>
       </div>
     </div>
   `;
+
   fillEmpSelect('dcEmp');
+  rteSync('dcDesc');
   renderDisciplinaryTable();
 }
 
-function renderDisciplinaryTable() {
-  const q = (document.getElementById('dcSearch')?.value || '').toLowerCase();
-  const idq = (document.getElementById('dcIdSearch')?.value || '').toLowerCase();
-  const rows = DATA.disciplinary.filter(d => {
-    const e = findEmpByAction(d);
-    const empId = e ? (e.id || e.EmployeeID || '') : (d.EmployeeID || d.employee_id || '');
-    
-    if (idq) {
-      if (String(d.EmployeeID||d.employee_id||'').toLowerCase() !== idq && String(empId).toLowerCase() !== idq) return false;
-    }
-    
-    if (q) {
-      const aid = d.ActionID || d.action_id || d.id || '';
-      const ref = d.RefNo || d.ref_no || '';
-      const name = d.FullName || d.full_name || '';
-      const act = d.ActionType || d.action_type || '';
-      const hay = `${aid} ${ref} ${name} ${act} ${d.EmployeeID||d.employee_id||''} ${empId}`.toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
-    return true;
-  }).sort((a,b)=>(new Date(b.IssueDate||b.issue_date||0)-new Date(a.IssueDate||b.issue_date||0)) || (+(b.ActionID||b.action_id||b.id||0) - +(a.ActionID||a.action_id||a.id||0)));
+function renderDisciplinaryTable(){
+  const rows = dcFilteredRows();
 
-  const countSpan = document.getElementById('dcCount');
-  if (countSpan) countSpan.textContent = `${num(rows.length)} ${'records'}`;
-  
+  const countEl = document.getElementById('dcCount');
+  if (countEl) countEl.textContent = num(rows.length);
+
   const tbody = document.getElementById('dcTableBody');
-  if (!tbody) return;
-
-  if (rows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="15" style="text-align:center; padding:40px 20px; color:var(--text-mute); font-size:0.95rem;">No matching records found.</td></tr>`;
-    return;
+  if (tbody){
+    if (!rows.length){
+      const F = window.DC_F;
+      const hasFilter = !!(F.q || F.id || F.type || F.from || F.to);
+      tbody.innerHTML = tblEmptyRow(7, hasFilter
+        ? 'No records match the current filters.'
+        : 'No disciplinary records yet.');
+    } else {
+      tbody.innerHTML = rows.map(function(d, i){
+        const e = findEmpByAction(d);
+        const empId = e ? (e.id || e.EmployeeID || '') : (d.EmployeeID || d.employee_id || '—');
+        const aid = d.ActionID || d.action_id || d.id;
+        return `<tr class="row-click clickable" onclick="openDisciplinaryPopup(${jsQ(aid)})" style="cursor:pointer">
+          <td>${rows.length - i}</td>
+          <td><span class="chip" style="font-size:11px;font-weight:600">${escapeHtml(num(empId))}</span></td>
+          <td><strong>${escapeHtml(num(d.RefNo || d.ref_no || ''))}</strong></td>
+          <td>${escapeHtml(d.FullName || d.full_name || '')}</td>
+          <td>${escapeHtml(d.ActionType || d.action_type || '')}</td>
+          <td>${escapeHtml(fmtDate(d.IssueDate || d.issue_date))}</td>
+          <td onclick="event.stopPropagation()"><button class="btn ghost sm" type="button"
+              onclick="reprintDisc(${jsQ(aid)})">${ico('print')}</button></td>
+        </tr>`;
+      }).join('');
+    }
   }
 
-  tbody.innerHTML = rows.map((d,i)=>{
-    const e = findEmpByAction(d);
-    const empId = e ? (e.id || e.EmployeeID || '') : (d.EmployeeID || d.employee_id || '—');
-    const aid = d.ActionID || d.action_id || d.id;
-    return `<tr class="row-click clickable" onclick="openDisciplinaryPopup(${jsQ(aid)})" style="cursor:pointer">
-      <td>${rows.length - i}</td>
-      <td><span class="chip" style="font-size:11px;font-weight:600">${escapeHtml(num(empId))}</span></td>
-      <td><strong>${escapeHtml(num(d.RefNo||d.ref_no||''))}</strong></td>
-      <td>${escapeHtml(d.FullName||d.full_name||'')}</td>
-      <td>${escapeHtml(d.ActionType||d.action_type||'')}</td>
-      <td>${escapeHtml(fmtDate(d.IssueDate||d.issue_date))}</td>
-      <td onclick="event.stopPropagation()"><button class="btn ghost sm" onclick="reprintDisc(${jsQ(aid)})">${ico('print')}</button></td>
-    </tr>`;
-  }).join('');
+  dcRenderChips();
 }
 
-window.openDisciplinaryPopup = openDisciplinaryPopup;
+/* The single source of truth for "what is in the letter body box" */
+function dcGetBody(){
+  return (typeof rteGet === 'function')
+    ? rteGet('dcDesc')
+    : (document.getElementById('dcDesc') ? (document.getElementById('dcDesc').value || '') : '');
+}
+
+function dcTogglePreview(){
+  const box = document.getElementById('dcPreviewBox');
+  if (!box) return;
+  if (box.style.display === 'none' || !box.style.display){
+    const html = dcGetBody();
+    box.innerHTML = '<div class="dc-pv-lab">Letter body preview — exactly how it will print</div>'
+      + dcBodyHtml(html);
+    box.style.display = 'block';
+  } else {
+    box.style.display = 'none';
+  }
+}
+
+function dcClearBody(){
+  window.mtCustomConfirm('Clear letter body',
+    'This clears everything in the letter body editor. Unsaved text will be lost. Continue?',
+    'danger', function(){
+      rteSet('dcDesc', '');
+      const box = document.getElementById('dcPreviewBox');
+      if (box) box.style.display = 'none';
+      toast('Letter body cleared', 'info');
+    });
+}
+
 window.renderDisciplinaryTable = renderDisciplinaryTable;
+window.dcSetFilter     = dcSetFilter;
+window.dcClearFilters  = dcClearFilters;
+window.dcTogglePreview = dcTogglePreview;
+window.dcClearBody     = dcClearBody;
+window.openDisciplinaryPopup = openDisciplinaryPopup;
 
 function openDisciplinaryPopup(aid, isEditing = false){
   const d = DATA.disciplinary.find(x=>String(x.ActionID||x.action_id||x.id)===String(aid)); if(!d) return;
   const actualAid = d.ActionID || d.action_id || d.id;
+  const raw = d.Description || d.description || '';
 
   const descContent = isEditing
-    ? `<div class="field wide" style="margin-top:12px"><label>Letter body (editable)</label><textarea id="_dcDescEdit" rows="10" style="width:100%">${escapeHtml(d.Description||d.description||'')}</textarea></div>
-       <p class="small-mute" style="margin-top:6px">Only the letter body is editable; ref no. and dates stay unchanged.</p>`
-    : `<div class="field wide" style="margin-top:12px"><label>Letter body</label><div style="background:var(--bg,#f8fafc);border:1px solid var(--border);border-radius:6px;padding:12px;max-height:220px;overflow-y:auto;white-space:pre-wrap;font-family:inherit;font-size:13px">${escapeHtml(d.Description||d.description||'—')}</div></div>`;
+    ? `<div class="field wide" style="margin-top:12px"><label>Letter body (editable)</label>
+         <div class="rte-wrap">
+           ${rteToolbar('_dcDescEdit')}
+           <div id="_dcDescEdit" class="rte-area" contenteditable="true" dir="auto"
+                oninput="rteSync('_dcDescEdit')"
+                onkeyup="rteSaveSel('_dcDescEdit'); rteToolbarState('_dcDescEdit');"
+                onmouseup="rteSaveSel('_dcDescEdit'); rteToolbarState('_dcDescEdit');"
+                onfocus="rteSaveSel('_dcDescEdit')"></div>
+           <input type="hidden" class="rte-store" id="_dcDescEditStore">
+           <div class="rte-foot"><span>Only the letter body is editable — ref no. and dates stay unchanged.</span>
+             <span class="rte-count"></span></div>
+         </div>
+       </div>`
+    : `<div class="field wide" style="margin-top:12px"><label>Letter body</label>
+         <div class="dc-body-view">${dcBodyHtml(raw)}</div></div>`;
 
   const actionsHtml = isEditing
     ? `<button class="btn" onclick="openDisciplinaryPopup(${jsQ(actualAid)}, false)">Cancel</button>
@@ -7775,11 +8486,22 @@ function openDisciplinaryPopup(aid, isEditing = false){
     </div>
     ${descContent}`,
     actionsHtml);
+
+  if (isEditing){
+    const load = function(){
+      const el = document.getElementById('_dcDescEdit');
+      if (el) { rteSet('_dcDescEdit', dcBodyHtml(raw)); }
+      else { setTimeout(load, 30); }
+    };
+    load();
+  }
 }
 async function saveDisciplinaryEdit(aid){
   if(!guardEdit()) return;
   const d = DATA.disciplinary.find(x=>String(x.ActionID||x.action_id||x.id)===String(aid)); if(!d) return;
-  const newDesc = document.getElementById('_dcDescEdit').value;
+  const newDesc = (typeof rteGet === 'function')
+    ? rteGet('_dcDescEdit')
+    : document.getElementById('_dcDescEdit').value;
   d.Description = newDesc;
   d.description = newDesc;
 
@@ -7844,7 +8566,7 @@ async function submitDisciplinary(){
         action_type: DC_TEMPLATES[type].label.en || '',
         incident_date: document.getElementById('dcIncident').value || '',
         issue_date: document.getElementById('dcIssue').value || '',
-        description: document.getElementById('dcDesc').value || ''
+        description: dcGetBody()
       };
       
       const { error } = await window.sb.from('disciplinary').insert([payload]);
@@ -7868,7 +8590,7 @@ async function submitDisciplinary(){
       console.error(err);
       toast('Disciplinary action failed: ' + err.message, 'error');
     } finally {
-      if (btn) { btn.disabled = false; btn.innerHTML = 'Submit Action'; }
+      if (btn) { btn.disabled = false; btn.innerHTML = 'Save'; }
     }
   });
 }
@@ -7906,7 +8628,7 @@ function previewDisciplinary(){
     ref:document.getElementById('dcRef').value,
     incident:document.getElementById('dcIncident').value,
     issue:document.getElementById('dcIssue').value,
-    desc:document.getElementById('dcDesc').value,
+    desc:dcGetBody(),
   }));
 }
 function banglaDisciplinaryLetter({emp, templateKey, ref, incident, issue, desc}){
@@ -7914,7 +8636,6 @@ function banglaDisciplinaryLetter({emp, templateKey, ref, incident, issue, desc}
   const desigBn = DESIG_BN[emp.Designation]||emp.Designation||'';
   const projBn = projectBn(emp.ProjectName)||emp.ProjectName||'';
   
-  const descPart = desc ? desc.split(/\n\s*\n+/).map(p=>`<p>${escapeHtml(p.trim()).replace(/\n/g,'<br>')}</p>`).join('') : '<p>—</p>';
   const shortSubject = (tpl.subject || '').replace('বিষয়ঃ ','');
   const idLn = empIdLine(emp); /* official ID only — empty when not on record */
   return `<div class="print-doc compact">
@@ -7928,8 +8649,8 @@ function banglaDisciplinaryLetter({emp, templateKey, ref, incident, issue, desc}
       পদবি: ${escapeHtml(desigBn)}<br>
       ${escapeHtml(projBn)}
     </div>
-    <div class="body-text tight-p">
-      ${descPart}
+    <div class="body-text tight-p dc-print-body">
+      ${dcBodyHtml(desc)}
     </div>
     <div class="sig-flow">
       <div style="font-size:11.5pt">
@@ -8165,13 +8886,154 @@ function deleteLeave(id){
 }
 
 /* ============ EXIT ============ */
-function renderExit(){
-  const rows = DATA.exits.slice().sort((a, b) => {
-    const timeA = new Date(a.created_at || a.IssueDate || a.issue_date || a.ExitDate || a.exit_date || 0).getTime();
-    const timeB = new Date(b.created_at || b.IssueDate || b.issue_date || b.ExitDate || b.exit_date || 0).getTime();
-    if (timeA !== timeB) return timeB - timeA;
+
+/* ---------- Exit: filter state ---------- */
+window.EX_F = window.EX_F || { q:'', id:'', type:'', project:'', from:'', to:'' };
+let exFilterTimer = null;
+
+const EX_FIELD_IDS = { q:'exSearch', id:'exIdSearch', type:'exTypeFilter',
+                       project:'exProjectFilter', from:'exFrom', to:'exTo' };
+
+function exSetFilter(k, v, isText){
+  window.EX_F[k] = v || '';
+  const el = document.getElementById(EX_FIELD_IDS[k]);
+  if (el && el.value !== window.EX_F[k]) el.value = window.EX_F[k];
+  if (isText){
+    clearTimeout(exFilterTimer);
+    exFilterTimer = setTimeout(renderExitTable, 220);
+  } else {
+    renderExitTable();
+  }
+}
+
+function exClearFilters(){
+  window.EX_F = { q:'', id:'', type:'', project:'', from:'', to:'' };
+  Object.keys(EX_FIELD_IDS).forEach(function(k){
+    const el = document.getElementById(EX_FIELD_IDS[k]);
+    if (el) el.value = '';
+  });
+  renderExitTable();
+}
+
+/* Distinct values taken from the data — never hard-coded */
+function exTypeOptions(){
+  const set = new Set();
+  DATA.exits.forEach(function(x){
+    const t = x.ExitType || x.ExitReason;
+    if (t) set.add(String(t));
+  });
+  return Array.from(set).sort();
+}
+
+function exProjectOptions(){
+  const set = new Set();
+  DATA.exits.forEach(function(x){
+    const p = x.CurrentProject || x.ProjectName;
+    if (p) set.add(String(p));
+  });
+  return Array.from(set).sort();
+}
+
+function exBaseRows(){
+  return DATA.exits.slice().sort(function(a, b){
+    const ta = new Date(a.created_at || a.IssueDate || a.issue_date || a.ExitDate || a.exit_date || 0).getTime();
+    const tb = new Date(b.created_at || b.IssueDate || b.issue_date || b.ExitDate || b.exit_date || 0).getTime();
+    if (ta !== tb) return tb - ta;
     return (+b.id || +b.ExitID || 0) - (+a.id || +a.ExitID || 0);
   });
+}
+
+function exFilteredRows(){
+  const F = window.EX_F;
+  const q   = (F.q  || '').toLowerCase();
+  const idq = (F.id || '').toLowerCase();
+
+  return exBaseRows().filter(function(x){
+    const e = findEmpByAction(x);
+    const empId = e ? (e.id || e.EmployeeID || '') : (x.employee_sys_id || x.EmployeeID || '');
+
+    if (idq){
+      if (String(x.EmployeeID || '').toLowerCase() !== idq
+          && String(empId).toLowerCase() !== idq) return false;
+    }
+    if (F.type && String(x.ExitType || x.ExitReason || '') !== F.type) return false;
+    if (F.project && String(x.CurrentProject || x.ProjectName || '') !== F.project) return false;
+
+    const ex = String(x.ExitDate || x.exit_date || '').slice(0, 10);
+    if (F.from && (!ex || ex < F.from)) return false;
+    if (F.to   && (!ex || ex > F.to))   return false;
+
+    if (q){
+      const hay = (x.FullName || '') + ' ' + (x.EmployeeID || '') + ' ' + empId + ' '
+        + (x.Designation || '') + ' ' + (x.CurrentProject || x.ProjectName || '') + ' '
+        + (x.ExitType || '') + ' ' + (x.ExitReason || '');
+      if (hay.toLowerCase().indexOf(q) === -1) return false;
+    }
+    return true;
+  });
+}
+
+function exRenderChips(){
+  const el = document.getElementById('exChips');
+  if (!el) return;
+  const F = window.EX_F;
+  const chips = [];
+  if (F.q)       chips.push(['q',       'Search: ' + F.q]);
+  if (F.id)      chips.push(['id',      'ID: ' + F.id]);
+  if (F.type)    chips.push(['type',    'Type: ' + F.type]);
+  if (F.project) chips.push(['project', 'Project: ' + F.project]);
+  if (F.from)    chips.push(['from',    'Exit from: ' + F.from]);
+  if (F.to)      chips.push(['to',      'Exit to: ' + F.to]);
+  if (!chips.length){ el.innerHTML = ''; return; }
+
+  el.innerHTML = chips.map(function(c){
+    return '<span class="tt-chip">' + escapeHtml(c[1])
+      + '<button type="button" title="Remove filter" onclick="exSetFilter(\'' + c[0] + '\',\'\',false)">✕</button></span>';
+  }).join('')
+  + '<span class="tt-chip" style="background:#fee2e2;color:#b91c1c">All filters'
+  + '<button type="button" onclick="exClearFilters()">✕</button></span>';
+}
+
+function renderExitTable(){
+  const rows = exFilteredRows();
+
+  const countEl = document.getElementById('exCount');
+  if (countEl) countEl.textContent = num(rows.length);
+
+  const tbody = document.getElementById('exTableBody');
+  if (tbody){
+    if (!rows.length){
+      const F = window.EX_F;
+      const hasFilter = !!(F.q || F.id || F.type || F.project || F.from || F.to);
+      tbody.innerHTML = tblEmptyRow(7, hasFilter
+        ? 'No exit records match the current filters.'
+        : 'No exit records');
+    } else {
+      tbody.innerHTML = rows.map(function(x, i){
+        const e = findEmpByAction(x);
+        const empKey = e ? (e.id || e.EmployeeID || '') : (x.employee_sys_id || x.EmployeeID || '');
+        const empId  = e ? (e.id || e.EmployeeID || '') : (x.EmployeeID || '—');
+        return `<tr class="row-click clickable" onclick="openEmpDetail(${jsQ(empKey)})" style="cursor:pointer">
+          <td>${rows.length - i}</td>
+          <td><span class="chip" style="font-size:11px;font-weight:600">${escapeHtml(num(empId))}</span></td>
+          <td><strong>${escapeHtml(x.FullName || '')}</strong></td>
+          <td>${escapeHtml(desig(x.Designation || ''))}</td>
+          <td>${escapeHtml(projName(x.CurrentProject || x.ProjectName || ''))}</td>
+          <td>${escapeHtml(fmtDate(x.ExitDate))}</td>
+          <td class="small-mute" style="max-width:280px">${escapeHtml((x.ExitReason || x.ExitType || '').slice(0, 120))}</td>
+        </tr>`;
+      }).join('');
+    }
+  }
+
+  exRenderChips();
+}
+
+window.exSetFilter = exSetFilter;
+window.exClearFilters = exClearFilters;
+window.renderExitTable = renderExitTable;
+
+function renderExit(){
   document.getElementById('page-exit').innerHTML = `
     <div class="card">
       <div class="card-header"><h3>${'Employee Exit Process'}</h3></div>
@@ -8203,29 +9065,49 @@ function renderExit(){
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-header"><h3>${'Recent Exits'}</h3><span class="sub">${num(rows.length)} ${'records'}</span></div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="card-header" style="padding:14px 16px 0;border-bottom:0"><h3>${'Recent Exits'}</h3></div>
+
+      <div class="tbl-toolbar">
+        <span class="tt-who">${RTE_SVG.search}
+          <input type="text" id="exSearch" placeholder="${'Search name, project, reason…'}"
+                 value="${escapeHtml(window.EX_F.q)}" oninput="exSetFilter('q', this.value, true)"></span>
+        <span class="tt-who">${RTE_SVG.search}
+          <input type="text" id="exIdSearch" placeholder="${'Exact employee ID'}"
+                 value="${escapeHtml(window.EX_F.id)}" oninput="exSetFilter('id', this.value, true)"
+                 style="min-width:150px"></span>
+        <span class="tt-lab">${'Exit type'}</span>
+        <select id="exTypeFilter" onchange="exSetFilter('type', this.value)">
+          <option value="">${'All'}</option>
+          ${exTypeOptions().map(t => `<option value="${escapeHtml(t)}"${window.EX_F.type === t ? ' selected' : ''}>${escapeHtml(t)}</option>`).join('')}
+        </select>
+        <span class="tt-lab">${'Project'}</span>
+        <select id="exProjectFilter" onchange="exSetFilter('project', this.value)">
+          <option value="">${'All'}</option>
+          ${exProjectOptions().map(p => `<option value="${escapeHtml(p)}"${window.EX_F.project === p ? ' selected' : ''}>${escapeHtml(p)}</option>`).join('')}
+        </select>
+        <span class="tt-lab">${'Exit date'}</span>
+        <input type="date" id="exFrom" value="${escapeHtml(window.EX_F.from)}" onchange="exSetFilter('from', this.value)">
+        <span class="tt-lab">${'to'}</span>
+        <input type="date" id="exTo" value="${escapeHtml(window.EX_F.to)}" onchange="exSetFilter('to', this.value)">
+        <button type="button" class="tt-clear" onclick="exClearFilters()">✕ ${'Clear'}</button>
+        <span class="tt-count"><b id="exCount">0</b> ${'records'}</span>
+      </div>
+      <div class="tt-chipbar" id="exChips"></div>
+
       <div class="table-wrap">
         <table>
-          <thead><tr><th style="width:50px">${'#'}</th><th>ID</th><th>${'Name'}</th><th>${'Designation'}</th><th>${'Project'}</th><th>${'Exit Date'}</th><th>${'Reason'}</th></tr></thead>
-          <tbody>${rows.map((x,i)=>{
-            const e = findEmpByAction(x);
-            const empKey = e ? (e.id || e.EmployeeID || '') : (x.employee_sys_id || x.EmployeeID || '');
-            const empId = e ? (e.id || e.EmployeeID || '') : (x.EmployeeID || '—');
-            return `<tr class="row-click clickable" onclick="openEmpDetail('${escapeHtml(empKey)}')" style="cursor:pointer">
-            <td>${rows.length - i}</td>
-            <td><span class="chip" style="font-size:11px;font-weight:600">${escapeHtml(num(empId))}</span></td>
-            <td><strong>${escapeHtml(x.FullName||'')}</strong></td>
-            <td>${escapeHtml(desig(x.Designation||''))}</td>
-            <td>${escapeHtml(projName(x.CurrentProject||x.ProjectName||''))}</td>
-            <td>${escapeHtml(fmtDate(x.ExitDate))}</td>
-            <td class="small-mute" style="max-width:280px">${escapeHtml(x.ExitReason||x.ExitType||'')}</td>
-            </tr>`}).join('') || `<tr><td colspan="7" class="small-mute" style="text-align:center;padding:20px">${'No exit records'}</td></tr>`}</tbody>
+          <thead><tr>
+            <th style="width:56px">${'#'}</th><th>ID</th><th>${'Name'}</th><th>${'Designation'}</th>
+            <th>${'Project'}</th><th>${'Exit Date'}</th><th>${'Reason'}</th>
+          </tr></thead>
+          <tbody id="exTableBody"></tbody>
         </table>
       </div>
     </div>
   `;
   fillEmpSelect('exEmp');
+  renderExitTable();
 }
 function exFillEmp(){
   const rid = document.getElementById('exEmp')?.value;

@@ -1592,6 +1592,51 @@ body.sidebar-open {
   .pop-detail .pop-row span:first-child { font-size:11px; }
 }
 
+/* ---------- Transfer popup (redesigned) ---------- */
+.trp-head{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;
+  background:linear-gradient(135deg,#eef2ff,#e0e7ff);border:1px solid #c7d2fe;margin-bottom:14px}
+.trp-avatar{width:46px;height:46px;border-radius:13px;display:grid;place-items:center;flex:0 0 46px;
+  background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:800;font-size:16px;letter-spacing:.5px}
+.trp-head-main{flex:1 1 auto;min-width:0}
+.trp-head-name{font-size:15px;font-weight:800;color:var(--text,#1e1b4b);line-height:1.25;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trp-head-sub{font-size:11.5px;color:#4f46e5;font-weight:600;margin-top:3px;letter-spacing:.3px}
+.trp-route{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;
+  background:var(--bg-dim,#f8fafc);border:1px dashed var(--border-strong,#cbd5e1);margin-bottom:14px}
+.trp-node{flex:1 1 0;min-width:0}
+.trp-node-label{font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--muted,#64748b)}
+.trp-node-val{font-size:13px;font-weight:700;color:var(--text,#1e1b4b);margin-top:4px;line-height:1.35}
+.trp-node.to .trp-node-val{color:var(--purple,#7c3aed)}
+.trp-arrow{flex:0 0 34px;height:34px;border-radius:50%;display:grid;place-items:center;
+  background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-size:15px;font-weight:800;line-height:1}
+.trp-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.trp-cell{padding:10px 12px;border-radius:12px;background:var(--surface,#fff);
+  border:1px solid var(--border,#eef1f6);box-shadow:0 1px 2px rgba(30,27,75,.04)}
+.trp-cell-k{font-size:10.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--muted,#64748b)}
+.trp-cell-v{font-size:13px;font-weight:700;color:var(--text,#1e1b4b);margin-top:4px;word-break:break-word}
+.trp-notes{padding:11px 13px;border-radius:12px;background:#fffbeb;border:1px solid #fde68a;
+  font-size:12.5px;color:#78350f;line-height:1.55;margin-bottom:14px}
+.trp-notes-k{font-size:10.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;
+  color:#b45309;margin-bottom:4px}
+.trp-foot{position:sticky;bottom:-20px;z-index:10;display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  padding:13px 0 4px;margin-top:6px;border-top:1px solid var(--border,#eef1f6);background:var(--surface,#fff)}
+.trp-spacer{flex:1 1 auto}
+.trp-foot .btn{display:inline-flex;align-items:center;gap:6px;border-radius:10px;font-weight:700;
+  font-size:12.5px;padding:9px 14px;line-height:1.2;
+  transition:transform .12s ease,box-shadow .12s ease,filter .12s ease}
+.trp-foot .btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(30,27,75,.14)}
+.trp-foot .btn:active{transform:translateY(0);box-shadow:none}
+.trp-foot .btn.trp-btn-ok{background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none}
+.trp-foot .btn.trp-btn-ok:hover{filter:brightness(1.06)}
+.trp-foot .btn.trp-btn-danger{background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;border:none}
+.trp-foot .btn.trp-btn-danger:hover{filter:brightness(1.06)}
+@media(max-width:640px){
+  .trp-grid{grid-template-columns:1fr}
+  .trp-route{flex-direction:column;align-items:stretch;gap:8px}
+  .trp-arrow{transform:rotate(90deg);margin:0 auto}
+  .trp-foot .btn{flex:1 1 calc(50% - 4px);justify-content:center}
+}
+
 .row-click:hover { background:linear-gradient(90deg, rgba(79,70,229,0.06) 0%, transparent 100%) !important; }
 .row-click td { transition:background .15s ease; }
 
@@ -6834,19 +6879,6 @@ function renderTransfer(){
   fillEmpSelect('trEmp');
   fillProjectSelect('trNew');
 
-  /* Auto-heal transfers that are essentially complete but stuck in pending status */
-  let changed = false;
-  DATA.transfers.forEach(t => {
-    const st = t.status || t.Status;
-    if (st === 'Join Pending' || st === 'Awaiting Confirmation' || st === 'Scheduled') {
-      const e = findEmpByAction(t);
-      if (e && e.ProjectName && t.NewProject && String(e.ProjectName).trim() === String(t.NewProject).trim()) {
-        t.Status = 'Completed'; t.status = 'Completed'; t._applied = true; changed = true;
-      }
-    }
-  });
-  if (changed) persist();
-
   renderTransferTable();
 }
 
@@ -6904,129 +6936,237 @@ function renderTransferTable() {
 }
 
 
+function isoDateInput(v){
+  if(v===undefined || v===null) return '';
+  const s = String(v).trim();
+  if(!s) return '';
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  const d = (typeof parseDate === 'function') ? parseDate(s) : null;
+  if(!d || isNaN(d.getTime())) return '';
+  const p = n => String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+}
+window.isoDateInput = isoDateInput;
+
 function openTransferPopup(tid){
   const t = DATA.transfers.find(x=>String(x.id)===String(tid)); if(!t) return;
   const memo = 'MG/SEC/TR/'+String(t.id).padStart(4,'0');
-  
+
   const status = t.status || t.Status || 'Scheduled';
   const isCancelled = status==='Cancelled';
   const isCompleted = status==='Completed';
-  const pillCls = isCancelled ? 'inactive' : isCompleted ? 'completed' : (status==='Awaiting Confirmation' || status==='Join Pending' ? 'warning' : 'scheduled');
-  const statusPill = `<span class="pill ${escapeHtml(pillCls)}">${escapeHtml(status)}</span>`;
+  const isPendingJoin = (status==='Join Pending' || status==='Awaiting Confirmation');
+  const pillCls = isCancelled ? 'inactive' : isCompleted ? 'completed' : (isPendingJoin ? 'warning' : 'scheduled');
+  const statusPill = '<span class="pill ' + escapeHtml(pillCls) + '">' + escapeHtml(status) + '</span>';
+
   const emp = findEmpByAction(t);
-  const empActive = emp && emp.Status==='Active';
-  openModal(`Transfer #${escapeHtml(t.id)}`,
-    `<div class="pop-detail">
-      <div class="pop-row"><span>Memo No.</span><b>${escapeHtml(memo)}</b></div>
-      <div class="pop-row"><span>Employee</span><b>${escapeHtml(t.FullName||'')} <span class="small-mute">(#${escapeHtml(num(t.EmployeeID||''))})</span></b></div>
-      <div class="pop-row"><span>Designation</span><b>${escapeHtml(t.Designation||'')}</b></div>
-      <div class="pop-row"><span>From</span><b>${escapeHtml(projName(t.CurrentProject))}</b></div>
-      <div class="pop-row"><span>To</span><b style="color:var(--purple)">${escapeHtml(projName(t.NewProject))}</b></div>
-      <div class="pop-row"><span>Transfer Date</span><b>${escapeHtml(fmtDate(t.TransferDate))}</b></div>
-      <div class="pop-row"><span>Issue Date</span><b>${escapeHtml(fmtDate(t['Issues Date']||t.IssueDate||''))}</b></div>
-      <div class="pop-row"><span>Status</span>${statusPill}</div>
-      ${emp?`<div class="pop-row"><span>Current Project (Employeetbl)</span><b>${escapeHtml(projName(emp.ProjectName))}</b></div>`:''}
-      ${t.Notes?`<div class="pop-row"><span>Notes</span><b>${escapeHtml(t.Notes).replace(/\n/g, '<br>')}</b></div>`:''}
-    </div>
-    <div class="pop-hint">💡 "Confirm Joined" updates Employeetbl.ProjectName and marks Completed. "Cancel" only marks the history record — Employeetbl is not touched.</div>`,
-    `<div style="position: sticky; bottom: -20px; background: var(--surface, #fff); padding: 12px 0; border-top: 1px solid var(--border, #eee); display: flex; gap: 8px; flex-wrap: wrap; z-index: 10;">
-      <button class="btn" onclick="closeModal()">Close</button>
-      <button class="btn" onclick="reprintTransfer(${jsQ(t.id)})">${ico('print')} Reprint</button>
-      ${!isCancelled ? `<button class="btn danger" onclick="cancelTransferOrder(${jsQ(t.id)})">✗ Cancel Order</button>` : ''}
-      ${isCancelled ? `<button class="btn" onclick="restoreTransferOrder(${jsQ(t.id)})">↺ Restore</button>` : ''}
-      ${!isCancelled ? `<button class="btn primary" onclick="editTransferOrder(${jsQ(t.id)})">Edit Transfer Order</button>` : ''}
-      <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteTransferRecord(${jsQ(t.id)})">🗑 Delete Record</button>
-    </div>`);
+  const empProject = emp ? projName(emp.ProjectName) : '';
+
+  const initials = String(t.FullName||'?').trim().split(/\s+/).slice(0,2)
+                     .map(w=>w.charAt(0)).join('').toUpperCase() || '?';
+
+  const tDate = isoDateInput(t.TransferDate || t.transfer_date);
+  const issueDate = isoDateInput(t['Issues Date'] || t.issues_date || t.IssueDate);
+
+  const body =
+    '<div class="trp-wrap">' +
+
+      '<div class="trp-head">' +
+        '<div class="trp-avatar">' + escapeHtml(initials) + '</div>' +
+        '<div class="trp-head-main">' +
+          '<div class="trp-head-name">' + escapeHtml(t.FullName||'') + '</div>' +
+          '<div class="trp-head-sub">' + escapeHtml(memo) + ' &nbsp;&middot;&nbsp; ' + escapeHtml(t.Designation||'') + '</div>' +
+        '</div>' + statusPill +
+      '</div>' +
+
+      '<div class="trp-route">' +
+        '<div class="trp-node from">' +
+          '<div class="trp-node-label">From</div>' +
+          '<div class="trp-node-val">' + escapeHtml(projName(t.CurrentProject)) + '</div>' +
+        '</div>' +
+        '<div class="trp-arrow">&#8594;</div>' +
+        '<div class="trp-node to">' +
+          '<div class="trp-node-label">To</div>' +
+          '<div class="trp-node-val">' + escapeHtml(projName(t.NewProject)) + '</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="trp-grid">' +
+        '<div class="trp-cell"><div class="trp-cell-k">Employee ID</div><div class="trp-cell-v">' + (escapeHtml(num(t.EmployeeID||'')) || '&mdash;') + '</div></div>' +
+        '<div class="trp-cell"><div class="trp-cell-k">Designation</div><div class="trp-cell-v">' + (escapeHtml(t.Designation||'') || '&mdash;') + '</div></div>' +
+        '<div class="trp-cell"><div class="trp-cell-k">Issue Date</div><div class="trp-cell-v">' + (issueDate ? escapeHtml(fmtDate(issueDate)) : '&mdash;') + '</div></div>' +
+        '<div class="trp-cell"><div class="trp-cell-k">Transfer Date</div><div class="trp-cell-v">' + (tDate ? escapeHtml(fmtDate(tDate)) : '&mdash;') + '</div></div>' +
+        '<div class="trp-cell"><div class="trp-cell-k">Current Project (Employee Table)</div><div class="trp-cell-v">' + (escapeHtml(empProject||'') || '&mdash;') + '</div></div>' +
+        '<div class="trp-cell"><div class="trp-cell-k">Memo No.</div><div class="trp-cell-v">' + escapeHtml(memo) + '</div></div>' +
+      '</div>' +
+
+      (t.Notes ? '<div class="trp-notes"><div class="trp-notes-k">Notes</div>' + escapeHtml(t.Notes).replace(/\n/g,'<br>') + '</div>' : '') +
+
+      '<div class="trp-foot">' +
+        '<button type="button" class="btn ghost" onclick="closeModal()">Close</button>' +
+        '<button type="button" class="btn outline" onclick="reprintTransfer(' + jsQ(t.id) + ')">' + ico('print') + ' Reprint</button>' +
+        (!isCancelled ? '<button type="button" class="btn outline" onclick="editTransferOrder(' + jsQ(t.id) + ')">Edit</button>' : '') +
+        '<span class="trp-spacer"></span>' +
+        (isCancelled
+          ? '<button type="button" class="btn outline" onclick="restoreTransferOrder(' + jsQ(t.id) + ')">Restore</button>'
+          : '<button type="button" class="btn danger" onclick="cancelTransferOrder(' + jsQ(t.id) + ')">Cancel Order</button>') +
+        ((!isCancelled && !isCompleted)
+          ? '<button type="button" class="btn trp-btn-ok" onclick="confirmTransferJoined(' + jsQ(t.id) + ')">Confirm Joined</button>'
+          : '') +
+        '<button type="button" class="btn trp-btn-danger" onclick="deleteTransferRecord(' + jsQ(t.id) + ')">Delete Record</button>' +
+      '</div>' +
+
+    '</div>';
+
+  openModal('Transfer #' + escapeHtml(t.id), body);
 }
-function revertTransferComplete(tid){
+
+function confirmTransferJoined(tid){
   if(!guardEdit()) return;
   const t = DATA.transfers.find(x=>String(x.id)===String(tid)); if(!t) return;
-  if(!confirm('Revert this transfer to "Scheduled"? Employeetbl.ProjectName is NOT auto-reverted — edit manually in Employees tab if needed.')) return;
-  t.Status='Scheduled'; t.status='Scheduled'; delete t._applied;
-  if(window.MGHRM && typeof window.MGHRM.update === 'function') {
-    window.MGHRM.update('transfers', t.id, { Status: 'Scheduled', status: 'Scheduled' }).catch(console.error);
-  }
-  logActivity('update','transfers', tid, 'Complete → Scheduled (undo)');
-  toast('Reverted — Employeetbl unchanged','warning');
-  persist(); closeModal(); renderTransfer();
+
+  const newProj = t.NewProject || t.new_project || '';
+  const newBn   = t.NewProjectBangla || t.new_project_bn || '';
+  if(!newProj){ toast('This transfer has no target project', 'error'); return; }
+
+  const emp = findEmpByAction(t) || findEmp(t.EmployeeID || t.employee_id || t.employee_sys_id);
+  if(!emp){ toast('Employee not found in the employees table', 'error'); return; }
+
+  window.mtCustomConfirm(
+    'Confirm Joined',
+    'Mark this transfer as Completed and set the employee project to "' + newProj + '"? The Employees table will be updated.',
+    'primary',
+    async function(){
+      try {
+        t.Status = 'Completed'; t.status = 'Completed';
+        emp.ProjectName = newProj;
+        if(newBn) emp.ProjectNameBangla = newBn;
+
+        if(window.MGHRM && typeof window.MGHRM.update === 'function'){
+          await window.MGHRM.update('employees', emp.id, { project_name: newProj });
+          await window.MGHRM.update('transfers', t.id, { status:'Completed', Status:'Completed' });
+        }
+        logActivity('update','transfers', tid, 'Joining confirmed - project set to ' + newProj);
+        toast('Joining confirmed - ' + emp.FullName + ' moved to ' + newProj, 'success');
+        persist(); closeModal(); renderTransfer();
+      } catch(err){
+        console.error(err);
+        toast('Error: ' + (err.message || err), 'error');
+      }
+    }
+  );
 }
+window.confirmTransferJoined = confirmTransferJoined;
+
+function deleteTransferRecord(tid){
+  if(!guardEdit()) return;
+  const t = DATA.transfers.find(x=>String(x.id)===String(tid)); if(!t) return;
+  window.mtCustomConfirm(
+    'Delete Transfer Record',
+    'Archive the transfer record of "' + (t.FullName||'') + '"? It will be hidden from the app but kept safely in the database.',
+    'danger',
+    async function(){
+      const idx = DATA.transfers.findIndex(x=>String(x.id)===String(tid)); if(idx<0) return;
+      DATA.transfers.splice(idx,1);
+      if(window.MGHRM && typeof MGHRM.remove === 'function') await MGHRM.remove('transfers', tid);
+      logActivity('archive','transfers', tid, 'Transfer of ' + (t.FullName||'') + ' archived');
+      toast('Record archived','success');
+      persist(); closeModal(); renderTransfer();
+    }
+  );
+}
+
+function cancelTransferOrder(tid){
+  if(!guardEdit()) return;
+  const t = DATA.transfers.find(x=>String(x.id)===String(tid)); if(!t) return;
+  const wasCompleted = (t.Status === 'Completed' || t.status === 'Completed');
+  const target = t.NewProject || t.new_project || '';
+  const back   = t.CurrentProject || t.current_project || '';
+
+  const msg = wasCompleted
+    ? 'This transfer is already Completed. Cancelling will also move the employee back to "' + back + '". Continue?'
+    : 'Cancel this transfer order? The history record will be marked Cancelled.';
+
+  window.mtCustomConfirm('Cancel Transfer Order', msg, 'danger', async function(){
+    try {
+      if(wasCompleted){
+        const emp = findEmpByAction(t) || findEmp(t.EmployeeID || t.employee_id || t.employee_sys_id);
+        const empProj = emp ? (emp.ProjectName || emp.project_name || '') : '';
+        if(emp && String(empProj).trim() === String(target).trim()){
+          emp.ProjectName = back; emp.project_name = back;
+          if(window.MGHRM && typeof window.MGHRM.update === 'function'){
+            await window.MGHRM.update('employees', emp.id, { project_name: back });
+          }
+        } else if(emp){
+          toast('Employee project NOT reverted - it no longer matches this transfer','warning');
+        }
+      }
+      t.Status = 'Cancelled'; t.status = 'Cancelled';
+      if(window.MGHRM && typeof window.MGHRM.update === 'function'){
+        await window.MGHRM.update('transfers', t.id, { Status:'Cancelled', status:'Cancelled' });
+      }
+      logActivity('cancel','transfers', tid, 'Transfer #' + tid + ' cancelled');
+      toast(wasCompleted ? 'Transfer cancelled & employee project reverted' : 'Scheduled transfer cancelled','success');
+      persist(); closeModal(); renderTransfer();
+    } catch(err){ console.error(err); toast('Error: ' + (err.message||err), 'error'); }
+  });
+}
+
 function restoreTransferOrder(tid){
   if(!guardEdit()) return;
   const t = DATA.transfers.find(x=>String(x.id)===String(tid)); if(!t) return;
-  if(!confirm('Restore cancelled transfer to Scheduled?')) return;
-  t.Status='Scheduled'; t.status='Scheduled'; delete t._applied;
-  if(window.MGHRM && typeof window.MGHRM.update === 'function') {
-    window.MGHRM.update('transfers', t.id, { Status: 'Scheduled', status: 'Scheduled' }).catch(console.error);
-  }
-  logActivity('restore','transfers', tid, 'Cancelled → Scheduled');
-  toast('Restored','success');
-  persist(); closeModal(); renderTransfer();
-}
-function deleteTransferRecord(tid){
-  if(!guardEdit()) return;
-  if(!confirm('WARNING: this transfer record will be permanently deleted. Cannot be undone.')) return;
-  const idx = DATA.transfers.findIndex(x=>String(x.id)===String(tid)); if(idx<0) return;
-  const t = DATA.transfers[idx];
-  DATA.transfers.splice(idx,1);
-  if(window.MGHRM && typeof MGHRM.remove==='function') MGHRM.remove('transfers', tid);
-  logActivity('delete','transfers', tid, `Transfer of ${t.FullName||''} deleted`);
-  toast('Record deleted','success');
-  persist(); closeModal(); renderTransfer();
-}
-function cancelTransferOrder(tid){
-  if(!guardEdit()) return;
-  if(!confirm('Are you sure you want to cancel this transfer order?')) return;
-  const t = DATA.transfers.find(x=>String(x.id)===String(tid)); if(!t) return;
-  
-  const wasCompleted = (t.Status === 'Completed' || t.status === 'Completed');
-  t.Status = 'Cancelled'; t.status = 'Cancelled';
-  
-  if (wasCompleted) {
-    const emp = findEmp(t.EmployeeID || t.employee_id || t.employee_sys_id);
-    if (emp) {
-      emp.ProjectName = t.CurrentProject || t.current_project;
-      emp.project_name = t.current_project || t.CurrentProject;
-      if(window.MGHRM && typeof window.MGHRM.update === 'function') {
-        window.MGHRM.update('employees', emp.id, { project_name: emp.project_name }).catch(console.error);
-      }
-    }
-  }
-  
-  if(window.MGHRM && typeof window.MGHRM.update === 'function') {
-    window.MGHRM.update('transfers', t.id, { Status: 'Cancelled', status: 'Cancelled' }).catch(console.error);
-  }
-  logActivity('cancel','transfers', tid, `Transfer #${tid} cancelled`);
-  toast(wasCompleted ? 'Transfer cancelled & Employee Project Reverted' : 'Scheduled Transfer cancelled', 'success');
-  persist(); closeModal(); renderTransfer();
+  window.mtCustomConfirm('Restore Transfer',
+    'Restore this cancelled transfer back to Scheduled?', 'primary', async function(){
+      try {
+        t.Status = 'Scheduled'; t.status = 'Scheduled'; delete t._applied;
+        if(window.MGHRM && typeof window.MGHRM.update === 'function'){
+          await window.MGHRM.update('transfers', t.id, { Status:'Scheduled', status:'Scheduled' });
+        }
+        logActivity('restore','transfers', tid, 'Cancelled to Scheduled');
+        toast('Restored','success');
+        persist(); closeModal(); renderTransfer();
+      } catch(err){ console.error(err); toast('Error: ' + (err.message||err), 'error'); }
+  });
 }
 function editTransferOrder(tid){
   if(!guardEdit()) return;
   const t = DATA.transfers.find(x=>String(x.id)===String(tid)); if(!t) return;
-  const opts = DATA.projects.map(p=>`<option value="${p.ProjectName}"${p.ProjectName===t.NewProject?' selected':''}>${p.ProjectName}</option>`).join('');
+  const opts = DATA.projects.map(p=>'<option value="' + p.ProjectName + '"' + (p.ProjectName===t.NewProject?' selected':'') + '>' + p.ProjectName + '</option>').join('');
   openModal('Edit Transfer Order',
-    `<div class="field"><label>New Project</label><select id="_np">${opts}</select></div>
-     <div class="field"><label>Transfer Date</label><input type="date" id="_td" value="${t.TransferDate || ''}"></div>
-     <div class="field"><label>Issue Date</label><input type="date" id="_id" value="${t.IssuesDate || ''}"></div>`,
-    `<div style="display:flex;gap:8px;">
-       <button class="btn" onclick="closeModal()">Cancel</button>
-       <button class="btn primary" onclick="(function(){
-          var np=document.getElementById('_np').value;
-          var td=document.getElementById('_td').value;
-          var id=document.getElementById('_id').value;
-          var tr=DATA.transfers.find(x=>String(x.id)===String(${JSON.stringify(String(tid))}));
-          if(tr){
-            tr.NewProject=np; tr.new_project=np;
-            tr.TransferDate=td; tr.transfer_date=td;
-            tr.IssuesDate=id; tr.issues_date=id;
-            if(window.MGHRM&&typeof window.MGHRM.update==='function'){
-              window.MGHRM.update('transfers',tr.id,{new_project:np, transfer_date:td, issues_date:id}).catch(console.error);
-            }
-            logActivity('update','transfers',${JSON.stringify(String(tid))}, 'Transfer order updated');
-            persist(); closeModal(); renderTransfer(); toast('Transfer order updated','success');
-          }
-       })()">Save Changes</button>
-     </div>`);
+    '<div class="field"><label>New Project</label><select id="_np">' + opts + '</select></div>' +
+    '<div class="field"><label>Transfer Date</label><input type="date" id="_td" value="' + isoDateInput(t.TransferDate || t.transfer_date) + '"></div>' +
+    '<div class="field"><label>Issue Date</label><input type="date" id="_id" value="' + isoDateInput(t['Issues Date'] || t.issues_date) + '"></div>',
+    '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
+      '<button class="btn" onclick="closeModal()">Cancel</button>' +
+      '<button class="btn primary" onclick="saveTransferOrderEdit(' + jsQ(String(tid)) + ')">Save Changes</button>' +
+    '</div>');
 }
+
+function saveTransferOrderEdit(tid){
+  const npEl = document.getElementById('_np');
+  const tdEl = document.getElementById('_td');
+  const idEl = document.getElementById('_id');
+  const np = npEl ? npEl.value : '';
+  const td = tdEl ? tdEl.value : '';
+  const id = idEl ? idEl.value : '';
+  if(!np || !td){ toast('Project and Transfer Date are required','error'); return; }
+
+  window.mtCustomConfirm('Save Transfer Order',
+    'Apply these changes to this transfer record?', 'primary', async function(){
+      const tr = DATA.transfers.find(x=>String(x.id)===String(tid)); if(!tr) return;
+      try {
+        tr.NewProject = np; tr.new_project = np;
+        tr.TransferDate = td; tr.transfer_date = td;
+        tr['Issues Date'] = id; tr.issues_date = id;
+        if(window.MGHRM && typeof window.MGHRM.update === 'function'){
+          await window.MGHRM.update('transfers', tr.id, { new_project: np, transfer_date: td, issues_date: id });
+        }
+        logActivity('update','transfers', tid, 'Transfer order updated');
+        persist(); closeModal(); renderTransfer(); toast('Transfer order updated','success');
+      } catch(err){ console.error(err); toast('Error: ' + (err.message||err), 'error'); }
+  });
+}
+window.saveTransferOrderEdit = saveTransferOrderEdit;
 
 const EMP_PICKER_CB = {
   trEmp: 'trFillEmp',
@@ -9519,25 +9659,18 @@ function applyScheduledTransfers(){
   const today = todayISO();
   DATA.transfers.forEach(t=>{
     const st = t.status || t.Status;
-    if(st==='Cancelled' || t._applied) return;
+    if(st === 'Cancelled' || st === 'Completed') return;
 
-    if(t.TransferDate && t.TransferDate <= today && st !== 'Completed'){
-      t._applied = true;
-      t.Status = 'Completed';
-      t.status = 'Completed';
+    const due = isoDateInput(t.TransferDate || t.transfer_date);
+    if(!due || due > today) return;
 
-      const emp = findEmp(t.EmployeeID || t.employee_id || t.employee_sys_id);
-      if (emp) {
-        emp.ProjectName = t.NewProject || t.new_project;
-        emp.project_name = t.new_project || t.NewProject;
-        if(window.MGHRM && typeof window.MGHRM.update === 'function') {
-          window.MGHRM.update('employees', emp.id, { project_name: emp.project_name }).catch(console.error);
-        }
-      }
+    /* Do NOT change the employee project automatically.
+       Flag it so an admin presses "Confirm Joined" in the popup. */
+    t.Status = 'Join Pending';
+    t.status = 'Join Pending';
 
-      if(window.MGHRM && typeof window.MGHRM.update === 'function') {
-        window.MGHRM.update('transfers', t.id, { Status: 'Completed', status: 'Completed', _applied: true }).catch(console.error);
-      }
+    if(window.MGHRM && typeof window.MGHRM.update === 'function'){
+      window.MGHRM.update('transfers', t.id, { Status:'Join Pending', status:'Join Pending' }).catch(function(){});
     }
   });
 }

@@ -893,11 +893,15 @@
       return Promise.resolve(fallbackData);
     }
     var keys = Object.keys(TABLE_MAP);
-    var skipDeletedAtBuckets = ['divisions', 'districts', 'thana', 'desigBangla'];
+    var deletedAtBuckets = [
+      'employees', 'projects', 'demand', 'disciplinary', 'exits',
+      'transfers', 'career', 'leaves', 'uniform', 'meetings',
+      'meetingAttendance', 'todos', 'appSettings', 'recruitmentArchive'
+    ];
     return Promise.all(
       keys.map(function (k) {
         var query = client.from(TABLE_MAP[k].table).select('*');
-        if (skipDeletedAtBuckets.indexOf(k) === -1) {
+        if (deletedAtBuckets.indexOf(k) !== -1) {
           query = query.is('deleted_at', null);
         }
         return query
@@ -929,6 +933,10 @@
       pairs.forEach(function (p) {
         out[p[0]] = p[1];
       });
+
+      /* NEW: snapshot the server state before anything is modified locally */
+      captureBaseline(out);
+
       // Reconstruct meetings attendance for all dates into DATA.meetings[isoDate]
       reconstructMeetingsData(out.meetings, out.meetingAttendance);
       out.rawMeetings = out.meetings;
@@ -1688,9 +1696,72 @@
   }
 
   /* ---------- Memory-based Auto-Sync ---------- */
-  var memoryHashes = {};
+  var memoryHashes = {};            /* kept for compatibility, no longer used */
   var pushTimer = null;
   var pushing = false;
+
+  /* ---------- Per-row change detection ---------- */
+  var memoryRecords = {};           /* bucket -> { pkValue: hash }  = last known server state */
+  var pushAgain = false;
+  var pushingPromise = null;
+
+  function isTempKey(v) {
+    if (v === undefined || v === null || v === '') return true;
+    var s = String(v);
+    return s.indexOf('temp_') === 0 || s.indexOf('local_') === 0 ||
+           s.indexOf('rand_') === 0 || s.indexOf('new_') === 0;
+  }
+
+  function rowKey(k, dbRow) {
+    var m = TABLE_MAP[k];
+    if (!m) return null;
+    var v = dbRow[m.pk];
+    if (isTempKey(v)) return null;
+    return String(v);
+  }
+
+  /* Snapshot the server state. Called by loadAll() right after the tables are fetched. */
+  function captureBaseline(dataObj) {
+    var next = {};
+    Object.keys(TABLE_MAP).forEach(function (k) {
+      var arr = dataObj ? dataObj[k] : null;
+      if (!Array.isArray(arr)) return;
+      var m = {};
+      arr.forEach(function (r) {
+        var db = toDb(k, r);
+        var key = rowKey(k, db);
+        if (key === null) return;
+        m[key] = hashOf(db);
+      });
+      next[k] = m;
+    });
+    memoryRecords = next;
+  }
+
+  /* Return only the rows whose content differs from the last known server state. */
+  function collectChangedRows(k) {
+    var src = global.DATA || {};
+    var arr = src[k];
+    if (!Array.isArray(arr) || !arr.length) return { rows: [], hashes: {} };
+    var base = memoryRecords[k];
+    var rows = [], hashes = {}, seen = {};
+    arr.forEach(function (r) {
+      var db = toDb(k, r);
+      var key = rowKey(k, db);
+      if (key === null) {
+        /* Cannot identify this row. Push it as before - never silently drop it. */
+        rows.push(db);
+        return;
+      }
+      if (seen[key]) return;
+      seen[key] = true;
+      var h = hashOf(db);
+      if (base && base[key] === h) return;   /* unchanged -> skip */
+      rows.push(db);
+      hashes[key] = h;
+    });
+    return { rows: rows, hashes: hashes };
+  }
 
   function hashOf(obj) {
     var s = typeof obj === 'string' ? obj : JSON.stringify(obj);
@@ -1713,48 +1784,58 @@
   }
 
   function doPush() {
-    if (!ready || pushing || !sb) return Promise.resolve();
-    var src = global.DATA || {};
+    if (!ready || !sb) return Promise.resolve();
+    if (pushing) { pushAgain = true; return pushingPromise || Promise.resolve(); }
+
     var jobs = [],
       names = [];
 
     Object.keys(TABLE_MAP).forEach(function (k) {
-      var arr = src[k];
-      if (!Array.isArray(arr) || !arr.length) return;
-      var h = hashOf(arr);
-      if (memoryHashes[k] === h) return;
-
-      memoryHashes[k] = h;
-      names.push(k);
-
       var m = TABLE_MAP[k];
-      var clean = arr.map(function (r) {
-        return toDb(k, r);
-      });
-      clean = deduplicate(clean, m.pk);
+      var changed = collectChangedRows(k);
+      if (!changed.rows.length) return;
+
+      names.push(k + ' (' + changed.rows.length + ')');
+      var rows = deduplicate(changed.rows, m.pk);
       var p = sb
         .from(m.table)
-        .upsert(clean, { onConflict: m.pk })
+        .upsert(rows, { onConflict: m.pk })
         .then(function (r) {
           if (r.error) throw r.error;
+          /* Commit the baseline ONLY after the server confirmed the write. */
+          if (!memoryRecords[k]) memoryRecords[k] = {};
+          Object.keys(changed.hashes).forEach(function (key) {
+            memoryRecords[k][key] = changed.hashes[key];
+          });
         });
       jobs.push(p);
     });
 
     if (!jobs.length) return Promise.resolve();
+
     pushing = true;
-    return Promise.all(jobs)
+    pushingPromise = Promise.all(jobs)
       .then(function () {
-        console.log('⚡ [Auto-Sync] Server synced:', names.join(', '));
+        console.log('\u26a1 [Auto-Sync] Server synced:', names.join(', '));
       })
       .catch(function (e) {
-        console.error('❌ [Auto-Sync Error]:', e.message || e);
-        if (global.toast) global.toast('Sync failed: ' + (e.message || e), 'error');
+        console.error('\u274c [Auto-Sync Error]:', (e && e.message) || e);
+        if (global.toast) global.toast('Sync failed: ' + ((e && e.message) || e), 'error');
         throw e;
       })
-      .finally(function () {
+      .then(function (v) {
         pushing = false;
+        pushingPromise = null;
+        if (pushAgain) { pushAgain = false; doPush().catch(function () {}); }
+        return v;
+      }, function (e) {
+        pushing = false;
+        pushingPromise = null;
+        if (pushAgain) { pushAgain = false; doPush().catch(function () {}); }
+        throw e;
       });
+
+    return pushingPromise;
   }
 
   global.MGHRM = {

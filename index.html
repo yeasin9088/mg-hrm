@@ -6291,6 +6291,7 @@ async function fetchProjectsDirectly() {
     const { data, error } = await sbClient
       .from('projects')
       .select('*')
+      .is('deleted_at', null)
       .order('id', { ascending: true });
 
     if (error) {
@@ -6730,7 +6731,11 @@ async function deleteProject(pid){
   try {
     const targetId = p.id || p['Project ID'];
     if(sbClient){
-      const { error } = await sbClient.from('projects').delete().eq('id', targetId);
+      const _delPayload = { deleted_at: new Date().toISOString() };
+      const _cu = (window.MGHRM && typeof window.MGHRM.currentUser === 'function') ? window.MGHRM.currentUser() : null;
+      if (_cu && _cu.id) _delPayload.deleted_by = _cu.id;
+      const { error } = await sbClient.from('projects').update(_delPayload).eq('id', targetId);
+      if (!error && window.MGHRM && typeof window.MGHRM.remove === 'function') { /* local state already updated by caller */ }
       if(error) throw error;
     }
     DATA.projects = DATA.projects.filter(x => String(x['Project ID'])!==String(targetId) && String(x.id)!==String(targetId));
@@ -8175,7 +8180,10 @@ async function confirmReactivate(empKey, exitId){
 
       if (exitId) {
         DATA.exits = DATA.exits.filter(x => String(x.ExitID || x.id) !== String(exitId));
-        await window.sb.from('exits').delete().eq('id', String(exitId));
+        const _exitPayload = { deleted_at: new Date().toISOString() };
+        const _cu2 = (window.MGHRM && typeof window.MGHRM.currentUser === 'function') ? window.MGHRM.currentUser() : null;
+        if (_cu2 && _cu2.id) _exitPayload.deleted_by = _cu2.id;
+        await window.sb.from('exits').update(_exitPayload).eq('id', String(exitId));
       }
     }
 
@@ -10482,7 +10490,10 @@ async function mtSubmitDay(iso, event){
           ...(existingMeetings || []).map(m => String(m.id)).filter(Boolean)
         ])).filter(Boolean);
         if (meetingIdsToDelete.length > 0) {
-          await window.sb.from('meeting_attendance').delete().in('meeting_id', meetingIdsToDelete);
+          const _attPayload = { deleted_at: new Date().toISOString() };
+          const _cu3 = (window.MGHRM && typeof window.MGHRM.currentUser === 'function') ? window.MGHRM.currentUser() : null;
+          if (_cu3 && _cu3.id) _attPayload.deleted_by = _cu3.id;
+          await window.sb.from('meeting_attendance').update(_attPayload).in('meeting_id', meetingIdsToDelete);
         }
       } catch (cleanErr) {
         console.warn('[Meeting Attendance Pre-Insert Cleanup Warning]', cleanErr);
@@ -10567,7 +10578,8 @@ async function mtUpdateDay(iso) {
     const { data: existingMeetings, error: mFindErr } = await window.sb
       .from('meetings')
       .select('*')
-      .eq('meeting_date', targetIso);
+      .eq('meeting_date', targetIso)
+      .is('deleted_at', null);
 
     if (mFindErr) console.warn('[Update Meeting Error]', mFindErr);
 

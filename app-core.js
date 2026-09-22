@@ -1199,8 +1199,10 @@
     var payload = {
       deleted_at: new Date().toISOString()
     };
-    if (user && user.id) {
-      payload.deleted_by = user.id;
+    var u = null;
+    try { u = (typeof currentUser === 'function') ? currentUser() : null; } catch (e) { u = null; }
+    if (u && u.id) {
+      payload.deleted_by = u.id;
     }
 
     return sb

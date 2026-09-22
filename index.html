@@ -1880,6 +1880,212 @@ input:focus, select:focus, textarea:focus {
   text-decoration: line-through;
   opacity: 0.5;
 }
+
+/* ============================================================
+   PARADE STATE — in-app view (ps-*)
+   Minimalist report style. One accent colour (--primary).
+   Semantic colour is used ONLY for shortage / surplus.
+   ============================================================ */
+.ps-head { display:flex; flex-wrap:wrap; align-items:flex-end; gap:14px; margin:0 0 16px; }
+.ps-head h2 { font-size:19px; font-weight:750; letter-spacing:-.35px; color:var(--text); margin:0; }
+.ps-head .ps-h-sub { font-size:12.5px; color:var(--text-muted); margin-top:4px; line-height:1.5; }
+.ps-head .ps-h-actions { margin-left:auto; display:flex; gap:8px; flex-wrap:wrap; }
+
+.ps-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:16px; }
+.ps-stat { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:13px 15px 14px; }
+.ps-stat .k { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.75px; color:var(--text-muted); }
+.ps-stat .v { font-size:25px; font-weight:800; letter-spacing:-.8px; line-height:1.05; margin-top:6px;
+  font-variant-numeric:tabular-nums; color:var(--text); }
+.ps-stat .s { font-size:11.5px; color:var(--text-muted); margin-top:5px; }
+.ps-stat.is-low .v   { color:#dc2626; }
+.ps-stat.is-ok .v    { color:#16a34a; }
+.ps-stat.is-extra .v { color:#2563eb; }
+
+.ps-card { background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:16px; }
+.ps-card-top { display:flex; flex-wrap:wrap; align-items:center; gap:9px; padding:12px 14px; border-bottom:1px solid var(--border); }
+.ps-card-top h3 { font-size:13.5px; font-weight:700; color:var(--text); margin:0; letter-spacing:-.1px; }
+.ps-card-top .ps-note { font-size:11.5px; color:var(--text-muted); }
+.ps-card-top .ps-right { margin-left:auto; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+
+.ps-seg { display:inline-flex; padding:2px; background:var(--bg-dim); border:1px solid var(--border); border-radius:9px; }
+.ps-seg button { border:0; background:transparent; color:var(--text-muted); font-family:inherit;
+  font-size:11.5px; font-weight:700; padding:5px 11px; border-radius:7px; cursor:pointer; transition:all .14s; }
+.ps-seg button:hover { color:var(--text); }
+.ps-seg button.on { background:var(--card); color:var(--primary); box-shadow:0 1px 3px rgba(15,23,42,.09); }
+
+.ps-search { position:relative; display:inline-flex; align-items:center; }
+.ps-search svg { position:absolute; left:9px; width:14px; height:14px; color:var(--text-muted); pointer-events:none; }
+.ps-search input { height:32px; width:190px; padding:0 10px 0 29px; border:1px solid var(--border); border-radius:9px;
+  background:var(--card); color:var(--text); font-family:inherit; font-size:12.5px; transition:border-color .15s, box-shadow .15s; }
+.ps-search input:focus { outline:none; border-color:var(--primary); box-shadow:0 0 0 3px var(--primary-soft); }
+.ps-search input::-webkit-search-cancel-button { cursor:pointer; }
+
+.ps-toggle { display:inline-flex; align-items:center; gap:7px; font-size:12px; font-weight:600; color:var(--text-2);
+  cursor:pointer; user-select:none; padding:5px 10px; border:1px solid var(--border); border-radius:9px; background:var(--card); }
+.ps-toggle:hover { border-color:var(--primary); color:var(--primary); }
+.ps-toggle input { accent-color:var(--primary); width:14px; height:14px; cursor:pointer; margin:0; }
+
+.ps-scroll { max-height:64vh; overflow:auto; }
+.ps-tbl { width:100%; border-collapse:separate; border-spacing:0; font-size:12.5px; }
+.ps-tbl thead th { position:sticky; top:0; z-index:2; background:var(--card);
+  font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.6px; color:var(--text-muted);
+  padding:9px 8px; text-align:center; white-space:nowrap;
+  border-bottom:1px solid var(--border-strong); box-shadow:inset 0 -1px 0 var(--border); }
+.ps-tbl thead th.ps-th-proj { text-align:left; padding-left:14px; }
+.ps-tbl thead th.ps-th-grp { color:var(--text-2); border-bottom:1px solid var(--border); }
+.ps-tbl thead th.ps-th-grp + th.ps-th-grp { border-left:1px solid var(--border); }
+.ps-tbl thead th.ps-th-tot { color:var(--primary); }
+
+.ps-tbl tbody td { padding:9px 8px; text-align:center; vertical-align:middle;
+  border-bottom:1px solid var(--border); font-variant-numeric:tabular-nums; }
+.ps-tbl tbody tr:last-child td { border-bottom:0; }
+.ps-tbl tbody tr:hover td { background:var(--bg-dim); }
+.ps-tbl tbody tr.ps-row { cursor:pointer; }
+.ps-tbl td.ps-i { color:var(--text-muted); font-size:11.5px; width:44px; }
+.ps-tbl td.ps-proj { text-align:left; padding-left:14px; max-width:250px; }
+.ps-tbl td.ps-proj strong { font-weight:650; color:var(--text); display:block;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ps-tbl td.ps-proj .ps-proj-sub { font-size:10.5px; color:var(--text-muted); margin-top:2px; }
+.ps-tbl td.ps-d { color:var(--text-2); }
+.ps-tbl td.ps-a { font-weight:700; color:var(--text); }
+.ps-tbl td.ps-a.low { color:#dc2626; }
+.ps-tbl td.ps-a.over { color:#2563eb; }
+.ps-tbl td.ps-grpend { border-right:1px solid var(--border); }
+.ps-tbl td.ps-tot { font-weight:800; color:var(--text); background:var(--bg-dim); }
+.ps-tbl td.ps-tot.low { color:#dc2626; }
+.ps-tbl td.ps-tot.over { color:#2563eb; }
+
+.ps-gap { display:inline-block; min-width:34px; padding:2px 7px; border-radius:7px;
+  font-size:11.5px; font-weight:800; font-variant-numeric:tabular-nums; }
+.ps-gap.low  { background:#fef2f2; color:#b91c1c; }
+.ps-gap.over { background:#eff6ff; color:#1d4ed8; }
+.ps-gap.ok   { background:#f0fdf4; color:#15803d; }
+
+.ps-fill { display:flex; align-items:center; gap:8px; justify-content:flex-end; min-width:112px; }
+.ps-fill .ps-fill-bar { flex:1; height:6px; border-radius:99px; background:var(--bg-dim); overflow:hidden; min-width:44px; }
+.ps-fill .ps-fill-bar > i { display:block; height:100%; border-radius:99px; background:var(--success); }
+.ps-fill.low  .ps-fill-bar > i { background:#dc2626; }
+.ps-fill.mid  .ps-fill-bar > i { background:#f59e0b; }
+.ps-fill .ps-fill-pct { font-size:11.5px; font-weight:700; font-variant-numeric:tabular-nums;
+  color:var(--text-2); min-width:34px; text-align:right; }
+.ps-fill.low .ps-fill-pct { color:#dc2626; }
+
+.ps-tbl tfoot td { padding:11px 8px; text-align:center; font-weight:800; background:var(--bg-dim);
+  font-variant-numeric:tabular-nums; border-top:1px solid var(--border-strong); position:sticky; bottom:0; z-index:1; }
+.ps-tbl tfoot td.ps-proj { text-align:left; padding-left:14px; font-size:11.5px;
+  text-transform:uppercase; letter-spacing:.6px; color:var(--text-muted); }
+
+.ps-empty { padding:48px 20px; text-align:center; color:var(--text-muted); font-size:13px; }
+
+@media (max-width:900px){
+  .ps-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media (max-width:640px){
+  .ps-stats { grid-template-columns:1fr; }
+  .ps-head .ps-h-actions { margin-left:0; width:100%; }
+  .ps-search input { width:100%; }
+  .ps-search { flex:1 1 100%; }
+  .ps-scroll { max-height:none; }
+  .ps-tbl thead th { position:static; }
+  .ps-tbl tfoot td { position:static; }
+}
+
+/* ============================================================
+   PARADE STATE — print (psp-*)  A4 landscape, minimal
+   Builds on the existing .mrep report shell.
+   ============================================================ */
+.psp { padding:0 !important; }
+.psp-head { padding:9mm 11mm 6mm; border-bottom:2px solid #4f46e5; position:relative; }
+.psp-head::before { content:''; position:absolute; left:0; top:0; bottom:0; width:2.5mm;
+  background:linear-gradient(180deg,#4f46e5,#312e81); }
+.psp-org { font-size:8.5pt; letter-spacing:2.4px; text-transform:uppercase; color:#4f46e5; font-weight:700; }
+.psp-title { font-size:17pt; font-weight:800; letter-spacing:-.4px; color:#1e1b4b; margin-top:1.5mm; }
+.psp-sub { font-size:9.5pt; color:#475569; margin-top:1.5mm; }
+.psp-meta { font-size:7.5pt; color:#94a3b8; margin-top:2mm; }
+
+.psp-kpis { display:flex; border-bottom:1px solid #e2e8f0; }
+.psp-kpi { flex:1; padding:4.5mm 5mm 4mm; border-right:1px solid #e2e8f0; }
+.psp-kpi:last-child { border-right:0; }
+.psp-kpi .k { font-size:7pt; font-weight:800; text-transform:uppercase; letter-spacing:.9px; color:#64748b; }
+.psp-kpi .v { font-size:17pt; font-weight:800; letter-spacing:-.6px; color:#1e1b4b; margin-top:1.5mm;
+  font-variant-numeric:tabular-nums; line-height:1; }
+.psp-kpi .s { font-size:7.5pt; color:#64748b; margin-top:1.5mm; }
+.psp-kpi.is-low .v { color:#b91c1c; }
+.psp-kpi.is-ok .v  { color:#15803d; }
+.psp-kpi.is-extra .v { color:#1d4ed8; }
+
+.psp-body { padding:6mm 11mm 8mm; }
+.psp-sec { font-size:8pt; font-weight:800; text-transform:uppercase; letter-spacing:1.1px; color:#4f46e5;
+  margin:0 0 2.5mm; padding-bottom:1.4mm; border-bottom:1px solid #e2e8f0; }
+.psp-sec + .psp-sec { margin-top:7mm; }
+
+.psp-tbl { width:100%; border-collapse:collapse; table-layout:fixed; font-size:8pt; }
+.psp-tbl th { font-weight:800; font-size:6.8pt; text-transform:uppercase; letter-spacing:.5px;
+  color:#64748b; padding:1.8mm 1.2mm; text-align:center; border-bottom:1px solid #cbd5e1; }
+.psp-tbl th.grp { border-bottom:0; color:#334155; padding-bottom:1mm; }
+.psp-tbl th.grp + th.grp { border-left:1px solid #e2e8f0; }
+.psp-tbl th.tot { color:#4f46e5; }
+.psp-tbl th.l { text-align:left; padding-left:2.4mm; }
+.psp-tbl td { padding:1.7mm 1.2mm; text-align:center; font-variant-numeric:tabular-nums;
+  border-bottom:1px solid #eef2f7; color:#334155; }
+.psp-tbl td.l { text-align:left; padding-left:2.4mm; }
+.psp-tbl td.proj { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.psp-tbl td.proj strong { font-weight:650; color:#1e1b4b; }
+.psp-tbl td.d { color:#64748b; }
+.psp-tbl td.a { font-weight:800; color:#1e1b4b; }
+.psp-tbl td.a.low { color:#b91c1c; }
+.psp-tbl td.a.over { color:#1d4ed8; }
+.psp-tbl td.grpend { border-right:1px solid #e2e8f0; }
+.psp-tbl tbody tr.alt td { background:#fbfcfe; }
+.psp-tbl tbody tr.total td { background:#eef2ff; border-top:1.5px solid #c7d2fe; border-bottom:0;
+  font-weight:800; color:#1e1b4b; padding-top:2.4mm; padding-bottom:2.4mm; }
+.psp-tbl tbody tr.total td.low { color:#b91c1c; }
+.psp-tbl tbody tr.total td.over { color:#1d4ed8; }
+.psp-tbl .dash { color:#cbd5e1; }
+
+.psp-gap { display:inline-block; min-width:6mm; font-weight:800; font-size:7.5pt; }
+.psp-gap.low  { color:#b91c1c; }
+.psp-gap.over { color:#1d4ed8; }
+.psp-gap.ok   { color:#15803d; }
+
+.psp-fill { display:flex; align-items:center; gap:1.8mm; }
+.psp-fill .track { flex:1; height:1.6mm; background:#eef2f7; border-radius:99px; overflow:hidden; min-width:10mm; }
+.psp-fill .track > i { display:block; height:100%; background:#16a34a; border-radius:99px; }
+.psp-fill.low .track > i { background:#dc2626; }
+.psp-fill.mid .track > i { background:#f59e0b; }
+.psp-fill .pct { font-size:7.5pt; font-weight:800; font-variant-numeric:tabular-nums;
+  color:#475569; min-width:9mm; text-align:right; }
+.psp-fill.low .pct { color:#b91c1c; }
+
+.psp-req { display:flex; gap:0; border:1px solid #e2e8f0; border-radius:1.5mm; overflow:hidden; }
+.psp-req .cell { flex:1; padding:3.5mm 3mm; border-right:1px solid #e2e8f0; text-align:center; }
+.psp-req .cell:last-child { border-right:0; background:#eef2ff; }
+.psp-req .cell .k { font-size:6.8pt; font-weight:800; text-transform:uppercase; letter-spacing:.6px; color:#64748b; }
+.psp-req .cell .v { font-size:13pt; font-weight:800; margin-top:1.6mm; color:#1e1b4b;
+  font-variant-numeric:tabular-nums; line-height:1; }
+.psp-req .cell .v.low { color:#b91c1c; }
+.psp-req .cell .v.ok  { color:#15803d; }
+.psp-req .cell .s { font-size:7pt; color:#94a3b8; margin-top:1.5mm; }
+
+.psp-note { margin-top:4mm; padding:2.5mm 3.5mm; border-left:2px solid #4f46e5; background:#f8fafc;
+  font-size:7.5pt; color:#475569; line-height:1.75; }
+.psp-note b { color:#334155; }
+
+.psp-sign { display:flex; gap:0; margin-top:9mm; }
+.psp-sign .s { flex:1; padding:0 5mm; }
+.psp-sign .s .line { height:0; border-top:1px solid #94a3b8; margin-bottom:1.8mm; }
+.psp-sign .s .role { font-size:7.5pt; font-weight:800; text-transform:uppercase; letter-spacing:.7px; color:#475569; }
+.psp-sign .s .who { font-size:7pt; color:#94a3b8; margin-top:1mm; }
+
+.psp-foot { display:flex; justify-content:space-between; padding:3.5mm 11mm; border-top:1px solid #e2e8f0;
+  font-size:7pt; color:#94a3b8; }
+
+@media print {
+  .psp-tbl { font-size:7.6pt; }
+  .psp { page-break-inside:auto; }
+  .psp-tbl thead { display:table-header-group; }
+  .psp-tbl tbody tr { page-break-inside:avoid; }
+}
 </style>
 <!-- Print page size controlled here: openPrint adjusts when landscape reports (parade/staff-list/uniform) are opened -->
 <style id="pageSizeStyle">@page { size: A4 portrait; margin: 0; }</style>
@@ -6152,67 +6358,273 @@ function computeParade(){
     return {idx:i+1,project:p,demand,actual:a,demandTotal,actualTotal};
   }).filter(r=>r.demandTotal>0);
 }
-function renderParade(){
-  const rows = computeParade();
-  const shortProj = rows.filter(r=>r.actualTotal<r.demandTotal);
-  const cell = (d,a)=>{
-    const cls = a<d?'short':a>d?'full':a===d&&d===0?'zero':'full';
-    return `<td class="parade-cell">${num(d)}</td><td class="parade-cell ${cls}">${num(a)}</td>`;
-  };
-  document.getElementById('page-parade').innerHTML = `
-    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
-      ${kpi('Total Projects', num(rows.length),'b',ico('home'))}
-      ${kpi('Total Demand', num(rows.reduce((s,r)=>s+r.demandTotal,0)),'p',ico('users'))}
-      ${kpi('Actual Manpower', num(rows.reduce((s,r)=>s+r.actualTotal,0)),'g',ico('check'))}
-      ${kpi('Shortage', num(shortProj.length)+ ' proj', 'r', ico('warn'))}
-    </div>
-    <div class="card">
-      <div class="card-header">
-        <div><h3>${'Parade State Analysis'}</h3>
-        <span class="sub">${'D = Demand, A = Actual | Red = Shortage'}</span></div>
-        <button class="btn" onclick="printParade()">${ico('print')} ${'Print / PDF'}</button>
-        <button class="btn success sm" onclick="exportParadeExcel()">${ico('excel')} Excel</button>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th rowspan="2">#</th><th rowspan="2">${'Project'}</th>
-              <th colspan="2" style="text-align:center">${'Incharge'}</th>
-              <th colspan="2" style="text-align:center">${'Supervisor'}</th>
-              <th colspan="2" style="text-align:center">${'Asst Sup'}</th>
-              <th colspan="2" style="text-align:center">${'Guard'}</th>
-              <th colspan="2" style="text-align:center">${'Lady'}</th>
-              <th colspan="2" style="text-align:center">${'Total'}</th>
-              <th rowspan="2">${'Status'}</th>
-            </tr>
-            <tr>
-              ${'<th style="text-align:center">D</th><th style="text-align:center">A</th>'.repeat(6)}
-            </tr>
-          </thead>
-          <tbody>
-            ${rows.map(r=>{
-  const gap = r.demandTotal - r.actualTotal;
-  const status = gap>0?`<span class="pill inactive">-${num(gap)}</span>`:gap<0?`<span class="pill active">+${num(-gap)}</span>`:`<span class="pill completed">${'Full'}</span>`;
-  return `<tr class="row-click" onclick="editDemand('${r.project.replace(/'/g,"\\'")}')" style="cursor:pointer" title="Click to edit demand">
-    <td>${num(r.idx)}</td>
-    <td style="font-size:12px"><strong>${projName(r.project)}</strong></td>
-    ${cell(r.demand.Incharge,r.actual.Incharge)}
-    ${cell(r.demand.Supervisor,r.actual.Supervisor)}
-    ${cell(r.demand.AsstSup,r.actual.AsstSup)}
-    ${cell(r.demand.Guard,r.actual.Guard)}
-    ${cell(r.demand.Lady,r.actual.Lady)}
-    <td class="parade-cell"><strong>${num(r.demandTotal)}</strong></td>
-    <td class="parade-cell ${r.actualTotal<r.demandTotal?'short':'full'}"><strong>${num(r.actualTotal)}</strong></td>
-    <td>${status}</td>
-  </tr>`;
-}).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  `;
+
+/* ============ PARADE STATE — view state, filters, table builders ============ */
+window.PS_VIEW = window.PS_VIEW || 'summary';
+window.PS_F    = window.PS_F    || { q:'', lowOnly:false };
+let psFilterTimer = null;
+
+const PS_DESIGS = [
+  {key:'Incharge',   label:'Incharge'},
+  {key:'Supervisor', label:'Supervisor'},
+  {key:'AsstSup',    label:'Asst. Supervisor'},
+  {key:'Guard',      label:'Guard'},
+  {key:'Lady',       label:'Lady Guard'}
+];
+
+const PS_SEARCH_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>';
+
+function psFiltered(){
+  const F = window.PS_F;
+  const q = (F.q || '').toLowerCase();
+  let rows = computeParade();
+  if (q) rows = rows.filter(function(r){ return String(r.project || '').toLowerCase().indexOf(q) !== -1; });
+  if (F.lowOnly) rows = rows.filter(function(r){ return r.actualTotal < r.demandTotal; });
+  return rows;
 }
+
+function psSetView(v){
+  window.PS_VIEW = (v === 'detail') ? 'detail' : 'summary';
+  psRenderTable();
+}
+
+function psSetFilter(k, v, isText){
+  window.PS_F[k] = v;
+  if (isText){
+    clearTimeout(psFilterTimer);
+    psFilterTimer = setTimeout(psRenderTable, 220);
+  } else {
+    psRenderTable();
+  }
+}
+
+function psSyncSeg(){
+  const seg = document.getElementById('psSeg');
+  if (!seg) return;
+  Array.prototype.forEach.call(seg.querySelectorAll('button'), function(b){
+    b.classList.toggle('on', b.getAttribute('data-view') === window.PS_VIEW);
+  });
+}
+
+function psGapChip(g){
+  const cls = g < 0 ? 'low' : (g > 0 ? 'over' : 'ok');
+  const txt = g < 0 ? '\u2212' + Math.abs(g) : (g > 0 ? '+' + g : '0');
+  return '<span class="ps-gap ' + cls + '">' + txt + '</span>';
+}
+
+function psFillCell(demand, actual){
+  const pct = demand ? Math.round(actual * 100 / demand) : (actual ? 100 : 0);
+  const cls = pct >= 100 ? '' : (pct < 90 ? 'low' : 'mid');
+  const w = Math.max(0, Math.min(100, pct));
+  return '<div class="ps-fill ' + cls + '">'
+    + '<span class="ps-fill-bar"><i style="width:' + w + '%"></i></span>'
+    + '<span class="ps-fill-pct">' + pct + '%</span></div>';
+}
+
+function psStatsHtml(all, rows, totD, totA){
+  const scoped = (rows.length !== all.length)
+    ? rows.length + ' of ' + all.length + ' projects'
+    : all.length + ' projects';
+  const fillPct = totD ? Math.round(totA * 100 / totD) : 0;
+  const gap = totA - totD;
+  const shortN = rows.filter(function(r){ return r.actualTotal < r.demandTotal; }).length;
+  const gapCls = gap < 0 ? 'is-low' : (gap > 0 ? 'is-extra' : 'is-ok');
+  const gapTxt = gap < 0 ? '\u2212' + Math.abs(gap) : (gap > 0 ? '+' + gap : '0');
+  const fillCls = fillPct >= 100 ? 'is-ok' : (fillPct < 90 ? 'is-low' : '');
+  return ''
+    + '<div class="ps-stat"><div class="k">Projects</div>'
+    +   '<div class="v">' + rows.length + '</div>'
+    +   '<div class="s">' + scoped + '</div></div>'
+    + '<div class="ps-stat"><div class="k">Total Demand</div>'
+    +   '<div class="v">' + totD + '</div>'
+    +   '<div class="s">authorised strength</div></div>'
+    + '<div class="ps-stat ' + fillCls + '"><div class="k">Deployed</div>'
+    +   '<div class="v">' + totA + '</div>'
+    +   '<div class="s">' + fillPct + '% of demand</div></div>'
+    + '<div class="ps-stat ' + gapCls + '"><div class="k">Net Gap</div>'
+    +   '<div class="v">' + gapTxt + '</div>'
+    +   '<div class="s">' + shortN + ' projects under strength</div></div>';
+}
+
+function psSummaryTable(rows, totD, totA){
+  if (!rows.length) return '<div class="ps-empty">No projects match the current filter.</div>';
+  const body = rows.map(function(r){
+    const g = r.actualTotal - r.demandTotal;
+    return '<tr class="ps-row" onclick="editDemand(' + jsQ(r.project) + ')" title="Click to edit demand">'
+      + '<td class="ps-i">' + num(r.idx) + '</td>'
+      + '<td class="ps-proj"><strong>' + escapeHtml(r.project) + '</strong></td>'
+      + '<td class="ps-d">' + num(r.demandTotal) + '</td>'
+      + '<td class="ps-a ' + (g < 0 ? 'low' : (g > 0 ? 'over' : '')) + '">' + num(r.actualTotal) + '</td>'
+      + '<td>' + psGapChip(g) + '</td>'
+      + '<td>' + psFillCell(r.demandTotal, r.actualTotal) + '</td>'
+      + '</tr>';
+  }).join('');
+  const gTot = totA - totD;
+  return '<div class="ps-scroll"><table class="ps-tbl">'
+    + '<thead><tr>'
+    +   '<th style="width:46px">#</th>'
+    +   '<th class="ps-th-proj">Project</th>'
+    +   '<th>Demand</th><th>Deployed</th><th>Gap</th>'
+    +   '<th style="min-width:130px">Fill</th>'
+    + '</tr></thead>'
+    + '<tbody>' + body + '</tbody>'
+    + '<tfoot><tr>'
+    +   '<td></td><td class="ps-proj">Grand total</td>'
+    +   '<td>' + num(totD) + '</td>'
+    +   '<td class="ps-tot ' + (gTot < 0 ? 'low' : (gTot > 0 ? 'over' : '')) + '">' + num(totA) + '</td>'
+    +   '<td>' + psGapChip(gTot) + '</td>'
+    +   '<td>' + psFillCell(totD, totA) + '</td>'
+    + '</tr></tfoot></table></div>';
+}
+
+function psDetailTable(rows, totD, totA){
+  if (!rows.length) return '<div class="ps-empty">No projects match the current filter.</div>';
+  const body = rows.map(function(r){
+    const g = r.actualTotal - r.demandTotal;
+    return '<tr class="ps-row" onclick="editDemand(' + jsQ(r.project) + ')" title="Click to edit demand">'
+      + '<td class="ps-i">' + num(r.idx) + '</td>'
+      + '<td class="ps-proj"><strong>' + escapeHtml(r.project) + '</strong></td>'
+      + PS_DESIGS.map(function(d){
+          const dd = r.demand[d.key] || 0, aa = r.actual[d.key] || 0;
+          return '<td class="ps-d">' + num(dd) + '</td>'
+            + '<td class="ps-a ps-grpend ' + (aa < dd ? 'low' : (aa > dd ? 'over' : '')) + '">' + num(aa) + '</td>';
+        }).join('')
+      + '<td class="ps-tot">' + num(r.demandTotal) + '</td>'
+      + '<td class="ps-tot ' + (g < 0 ? 'low' : (g > 0 ? 'over' : '')) + '">' + num(r.actualTotal) + '</td>'
+      + '<td>' + psGapChip(g) + '</td>'
+      + '</tr>';
+  }).join('');
+  const gTot = totA - totD;
+  return '<div class="ps-scroll"><table class="ps-tbl">'
+    + '<thead>'
+    + '<tr>'
+    +   '<th rowspan="2" style="width:46px">#</th>'
+    +   '<th rowspan="2" class="ps-th-proj">Project</th>'
+    +   PS_DESIGS.map(function(d){ return '<th colspan="2" class="ps-th-grp">' + d.label + '</th>'; }).join('')
+    +   '<th colspan="2" class="ps-th-grp ps-th-tot">Total</th>'
+    +   '<th rowspan="2">Gap</th>'
+    + '</tr>'
+    + '<tr>'
+    +   PS_DESIGS.map(function(){
+          return '<th style="border-left:1px solid var(--border)">D</th><th>A</th>';
+        }).join('')
+    +   '<th class="ps-th-tot" style="border-left:1px solid var(--border)">D</th>'
+    +   '<th class="ps-th-tot">A</th>'
+    + '</tr>'
+    + '</thead>'
+    + '<tbody>' + body + '</tbody>'
+    + '<tfoot><tr>'
+    +   '<td></td><td class="ps-proj">Grand total</td>'
+    +   PS_DESIGS.map(function(d){
+          const dd = rows.reduce(function(s,r){ return s + (r.demand[d.key] || 0); }, 0);
+          const aa = rows.reduce(function(s,r){ return s + (r.actual[d.key] || 0); }, 0);
+          return '<td>' + num(dd) + '</td><td>' + num(aa) + '</td>';
+        }).join('')
+    +   '<td>' + num(totD) + '</td>'
+    +   '<td class="' + (gTot < 0 ? 'low' : (gTot > 0 ? 'over' : '')) + '">' + num(totA) + '</td>'
+    +   '<td>' + psGapChip(gTot) + '</td>'
+    + '</tr></tfoot></table></div>';
+}
+
+function psDesigHtml(all){
+  const tD = all.reduce(function(s,r){ return s + r.demandTotal; }, 0);
+  const tA = all.reduce(function(s,r){ return s + r.actualTotal; }, 0);
+  const body = PS_DESIGS.map(function(d){
+    const dd = all.reduce(function(s,r){ return s + (r.demand[d.key] || 0); }, 0);
+    const aa = all.reduce(function(s,r){ return s + (r.actual[d.key] || 0); }, 0);
+    const g = aa - dd;
+    return '<tr>'
+      + '<td class="ps-proj"><strong>' + d.label + '</strong></td>'
+      + '<td class="ps-d">' + num(dd) + '</td>'
+      + '<td class="ps-a ' + (g < 0 ? 'low' : (g > 0 ? 'over' : '')) + '">' + num(aa) + '</td>'
+      + '<td>' + psGapChip(g) + '</td>'
+      + '<td>' + psFillCell(dd, aa) + '</td>'
+      + '</tr>';
+  }).join('');
+  return '<table class="ps-tbl">'
+    + '<thead><tr>'
+    +   '<th class="ps-th-proj">Designation</th><th>Demand</th><th>Deployed</th><th>Gap</th>'
+    +   '<th style="min-width:130px">Fill</th>'
+    + '</tr></thead>'
+    + '<tbody>' + body + '</tbody>'
+    + '<tfoot><tr><td class="ps-proj">All designations</td>'
+    +   '<td>' + num(tD) + '</td><td>' + num(tA) + '</td>'
+    +   '<td>' + psGapChip(tA - tD) + '</td><td>' + psFillCell(tD, tA) + '</td>'
+    + '</tr></tfoot></table>';
+}
+
+function psRenderTable(){
+  const all  = computeParade();
+  const rows = psFiltered();
+  const totD = rows.reduce(function(s,r){ return s + r.demandTotal; }, 0);
+  const totA = rows.reduce(function(s,r){ return s + r.actualTotal; }, 0);
+
+  const statsEl = document.getElementById('psStats');
+  if (statsEl) statsEl.innerHTML = psStatsHtml(all, rows, totD, totA);
+
+  const area = document.getElementById('psTableArea');
+  if (area) area.innerHTML = (window.PS_VIEW === 'detail')
+    ? psDetailTable(rows, totD, totA)
+    : psSummaryTable(rows, totD, totA);
+
+  const dEl = document.getElementById('psDesigArea');
+  if (dEl) dEl.innerHTML = psDesigHtml(all);
+
+  psSyncSeg();
+}
+
+function renderParade(){
+  const F = window.PS_F;
+  document.getElementById('page-parade').innerHTML = ''
+    + '<div class="ps-head">'
+    +   '<div>'
+    +     '<h2>Parade State</h2>'
+    +     '<div class="ps-h-sub">Manpower demand vs. deployment across all projects \u00b7 '
+    +       escapeHtml(fmtDateEnLong(todayISO())) + '</div>'
+    +   '</div>'
+    +   '<div class="ps-h-actions">'
+    +     '<button class="btn primary" onclick="printParade()">' + ico('print') + ' Print / PDF</button>'
+    +     '<button class="btn" onclick="exportParadeExcel()">' + ico('excel') + ' Excel</button>'
+    +   '</div>'
+    + '</div>'
+
+    + '<div class="ps-stats" id="psStats"></div>'
+
+    + '<div class="ps-card">'
+    +   '<div class="ps-card-top">'
+    +     '<h3>Project-wise Deployment</h3>'
+    +     '<div class="ps-right">'
+    +       '<div class="ps-seg" id="psSeg">'
+    +         '<button type="button" data-view="summary" onclick="psSetView(\'summary\')">Summary</button>'
+    +         '<button type="button" data-view="detail" onclick="psSetView(\'detail\')">Detail</button>'
+    +       '</div>'
+    +       '<span class="ps-search">' + PS_SEARCH_SVG
+    +         '<input type="text" id="psSearch" placeholder="Search project\u2026"'
+    +         ' value="' + escapeHtml(F.q) + '" oninput="psSetFilter(\'q\', this.value, true)"></span>'
+    +       '<label class="ps-toggle">'
+    +         '<input type="checkbox" id="psLowOnly"' + (F.lowOnly ? ' checked' : '')
+    +         ' onchange="psSetFilter(\'lowOnly\', this.checked)"> Only shortage'
+    +       '</label>'
+    +     '</div>'
+    +   '</div>'
+    +   '<div id="psTableArea"></div>'
+    + '</div>'
+
+    + '<div class="ps-card">'
+    +   '<div class="ps-card-top">'
+    +     '<h3>Requirement by Designation</h3>'
+    +     '<span class="ps-note ps-right">Net deficit across all projects \u2014 what recruitment must cover</span>'
+    +   '</div>'
+    +   '<div id="psDesigArea"></div>'
+    + '</div>';
+
+  psRenderTable();
+}
+
+window.renderParade   = renderParade;
+window.psRenderTable  = psRenderTable;
+window.psSetView      = psSetView;
+window.psSetFilter    = psSetFilter;
 function exportParadeExcel(){
   const rows = computeParade();
   const keys = ['#','Project','Incharge D','Incharge A','Sup D','Sup A','AsstSup D','AsstSup A','Guard D','Guard A','Lady D','Lady A','Total D','Total A'];
@@ -10836,100 +11248,152 @@ function fmtDateEnLong(v){
 }
 
 function printParade(){
-  const rows = computeParade();
-  const K = ['Incharge','Supervisor','AsstSup','Guard','Lady'];
-  const KLBL = {Incharge:'Incharge', Supervisor:'Supervisor', AsstSup:'Asst. Supervisor', Guard:'Guard', Lady:'Lady Guard'};
-  const totD = rows.reduce((s,r)=>s+r.demandTotal,0), totA = rows.reduce((s,r)=>s+r.actualTotal,0);
-  const needPer = {}; K.forEach(k=>needPer[k]=rows.reduce((s,r)=>s+Math.max(0,r.demand[k]-r.actual[k]),0));
-  const overPer = {}; K.forEach(k=>overPer[k]=rows.reduce((s,r)=>s+Math.max(0,r.actual[k]-r.demand[k]),0));
-  const totNeed = K.reduce((s,k)=>s+needPer[k],0);
-  const totOver = K.reduce((s,k)=>s+overPer[k],0);
-  const shortProj = rows.filter(r=>r.actualTotal<r.demandTotal).length;
-  const fillPct = totD ? Math.round(totA*100/totD) : 0;
-   const cellDA = (d,a)=>{
-    const diff = a-d;
-    const chip = diff<0?`<span class="pillbox short">${diff}</span>`:diff>0?`<span class="pillbox over">+${diff}</span>`:`<span class="pillbox ok">0</span>`;
-    return `<td class="num dem-col">${d}</td><td class="num act-col" style="font-weight:${diff<0?'800':'500'};color:${diff<0?'#dc2626':diff>0?'#1d4ed8':'#16a34a'}">${a}</td><td class="num diff-col">${chip}</td>`;
-  };
-  const __ph = `<div class="print-doc mrep landscape">
-    <div class="mrep-head">
-      <div class="mrep-brand">${COMPANY.name} — Security Division</div>
-      <div class="mrep-title">Daily Parade State Report</div>
-      <div class="mrep-sub">Manpower demand vs. deployment across all projects · ${fmtDateEnLong(todayISO())}</div>
-      <div class="mrep-meta">Generated on ${fmtDateEnLong(todayISO())} · MG Security HRM</div>
-    </div>
-    <div class="mrep-kpis">
-      <div class="mrep-kpi"><div class="k">Total Demand</div><div class="v">${totD}</div><div class="s">${rows.length} projects</div></div>
-      <div class="mrep-kpi"><div class="k">Deployed</div><div class="v" style="color:#16a34a">${totA}</div><div class="s">${fillPct}% of demand</div></div>
-      <div class="mrep-kpi"><div class="k">Shortage</div><div class="v" style="color:#dc2626">−${totNeed}</div><div class="s">${shortProj} projects under strength</div></div>
-      <div class="mrep-kpi"><div class="k">Surplus</div><div class="v" style="color:#1d4ed8">+${totOver}</div><div class="s">deployed above demand</div></div>
-    </div>
-     <div class="mrep-body">
-      <table class="parade-tbl">
-        <thead>
-          <tr class="hg1">
-            <th rowspan="2" style="width:3%">#</th>
-            <th rowspan="2" style="width:26%;text-align:left">Project</th>
-            ${K.map(k=>`<th colspan="3" class="grp" style="text-align:center">${KLBL[k]}</th>`).join('')}
-            <th colspan="3" class="grp total-grp" style="text-align:center">Total</th>
-            <th rowspan="2" style="width:8%;text-align:center">Status</th>
-          </tr>
-          <tr class="hg2">
-            ${K.map(()=>`<th class="sub dem-col" title="Demand">Dem</th><th class="sub act-col" title="Actual">Act</th><th class="sub diff-col" title="Difference">±</th>`).join('')}
-            <th class="sub dem-col">Dem</th><th class="sub act-col">Act</th><th class="sub diff-col">±</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows.map(r=>{
-            const gap = r.actualTotal-r.demandTotal;
-            const gapChip = gap<0?`<span class="pillbox short">${gap}</span>`:gap>0?`<span class="pillbox over">+${gap}</span>`:`<span class="pillbox ok">Full</span>`;
-            
-            const statusPill = gap<0
-              ? `<span class="pillbox short" style="font-weight:800">−${Math.abs(gap)}</span>`
-              : gap>0
-                ? `<span class="pillbox over" style="font-weight:800">+${gap}</span>`
-                : `<span class="pillbox ok" style="font-weight:800">Full</span>`;
-            return `<tr>
-              <td class="num">${r.idx}</td><td style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0"><strong>${r.project}</strong></td>
-              ${K.map(k=>cellDA(r.demand[k],r.actual[k])).join('')}
-              <td class="num dem-col"><strong>${r.demandTotal}</strong></td>
-              <td class="num act-col" style="font-weight:800;color:${gap<0?'#dc2626':gap>0?'#1d4ed8':'#16a34a'}"><strong>${r.actualTotal}</strong></td>
-              <td class="num diff-col">${gapChip}</td>
-              <td style="text-align:center">${statusPill}</td>
-            </tr>`;
-          }).join('')}
-          <tr class="grand">
-            <td></td><td style="white-space:nowrap"><strong>Grand Total</strong></td>
-            ${K.map(k=>{
-              const gd=rows.reduce((s,r)=>s+r.demand[k],0), ga=rows.reduce((s,r)=>s+r.actual[k],0), gdf=ga-gd;
-              const chip = gdf<0?`<span class="pillbox short">${gdf}</span>`:gdf>0?`<span class="pillbox over">+${gdf}</span>`:`<span class="pillbox ok">0</span>`;
-              return `<td class="num dem-col">${gd}</td><td class="num act-col">${ga}</td><td class="num diff-col">${chip}</td>`;
-            }).join('')}
-            <td class="num dem-col">${totD}</td>
-            <td class="num act-col">${totA}</td>
-            <td class="num diff-col">${(totA-totD)<0?`<span class="pillbox short">${totA-totD}</span>`:(totA-totD)>0?`<span class="pillbox over">+${totA-totD}</span>`:`<span class="pillbox ok">0</span>`}</td>
-            <td style="text-align:center">${(totA-totD)<0?`<span class="pillbox short" style="font-weight:800">−${totD-totA}</span>`:(totA-totD)>0?`<span class="pillbox over" style="font-weight:800">+${totA-totD}</span>`:`<span class="pillbox ok" style="font-weight:800">Full</span>`}</td>
-          </tr>
-        </tbody>
-      </table>
-      <div class="mrep-summary-box">
-        <h4>Recruitment Requirement — additional manpower needed to fill all demands</h4>
-        <table>
-          <thead><tr>${K.map(k=>`<th style="text-align:center">${KLBL[k]}</th>`).join('')}<th style="text-align:center">Total Needed</th></tr></thead>
-          <tbody><tr>${K.map(k=>`<td class="num" style="font-size:11pt;font-weight:800;color:${needPer[k]>0?'#dc2626':'#16a34a'}">${needPer[k]>0?'−'+needPer[k]:'✓ 0'}</td>`).join('')}<td class="num" style="font-size:12pt;font-weight:800;color:${totNeed>0?'#dc2626':'#16a34a'}">${totNeed>0?'−'+totNeed:'Fully staffed ✓'}</td></tr></tbody>
-        </table>
-        <p style="font-size:7.5pt;color:#64748b;margin-top:2mm">Figures show net shortage per designation (demand − deployment, project-wise deficits summed). Positive deployments (surplus) are shown separately above.</p>
-      </div>
-      <p class="mrep-legend">
-        <strong>Legend:</strong>
-        <span class="lg-item"><span class="lg-sw dem"></span> <b>Dem</b> = Approved demand</span>
-        <span class="lg-item"><span class="lg-sw act"></span> <b>Act</b> = Currently deployed</span>
-        <span class="lg-item"><span class="lg-sw diff"></span> <b>±</b> = Difference (Act − Dem) — <span style="color:#dc2626;font-weight:700">Red</span> = Shortage · <span style="color:#1d4ed8;font-weight:700">Blue</span> = Surplus · <span style="color:#16a34a;font-weight:700">Green</span> = Full
-      </p>
-    </div>
-    <div class="mrep-foot"><span>${COMPANY.name} — Security Division</span><span>Prepared by: ${nameEnOf(COMPANY.preparedByName)}, ${desigEn(COMPANY.preparedByDesig)} · Approved by: ${nameEnOf(COMPANY.securityMgr)}, ${desigEn(COMPANY.securityMgrTitle)}</span></div>
-  </div>`;
-  openPrint(__ph); return __ph;
+  const rows   = computeParade();
+  const K      = PS_DESIGS;
+  const totD   = rows.reduce(function(s,r){ return s + r.demandTotal; }, 0);
+  const totA   = rows.reduce(function(s,r){ return s + r.actualTotal; }, 0);
+  const gap    = totA - totD;
+  const fillPct = totD ? Math.round(totA * 100 / totD) : 0;
+  const shortN = rows.filter(function(r){ return r.actualTotal < r.demandTotal; }).length;
+  const overN  = rows.filter(function(r){ return r.actualTotal > r.demandTotal; }).length;
+  const need   = {};
+  K.forEach(function(d){
+    need[d.key] = rows.reduce(function(s,r){
+      return s + Math.max(0, (r.demand[d.key] || 0) - (r.actual[d.key] || 0));
+    }, 0);
+  });
+  const needTotal = K.reduce(function(s,d){ return s + need[d.key]; }, 0);
+
+  function gapTxt(g){ return g < 0 ? '\u2212' + Math.abs(g) : (g > 0 ? '+' + g : '0'); }
+  function gapCls(g){ return g < 0 ? 'low' : (g > 0 ? 'over' : 'ok'); }
+  function fillCell(demand, actual){
+    const pct = demand ? Math.round(actual * 100 / demand) : (actual ? 100 : 0);
+    const cls = pct >= 100 ? '' : (pct < 90 ? 'low' : 'mid');
+    return '<div class="psp-fill ' + cls + '">'
+      + '<span class="track"><i style="width:' + Math.max(0, Math.min(100, pct)) + '%"></i></span>'
+      + '<span class="pct">' + pct + '%</span></div>';
+  }
+
+  const __ph = '<div class="print-doc mrep landscape psp">'
+
+    + '<div class="psp-head">'
+    +   '<div class="psp-org">' + COMPANY.name + ' \u2014 Security Division</div>'
+    +   '<div class="psp-title">Daily Parade State Report</div>'
+    +   '<div class="psp-sub">Manpower demand vs. deployment across all projects</div>'
+    +   '<div class="psp-meta">' + fmtDateEnLong(todayISO()) + ' \u00b7 ' + rows.length
+    +     ' projects \u00b7 generated by MG Security HRM</div>'
+    + '</div>'
+
+    + '<div class="psp-kpis">'
+    +   '<div class="psp-kpi"><div class="k">Total Demand</div><div class="v">' + totD + '</div>'
+    +     '<div class="s">authorised strength</div></div>'
+    +   '<div class="psp-kpi ' + (fillPct >= 100 ? 'is-ok' : (fillPct < 90 ? 'is-low' : '')) + '">'
+    +     '<div class="k">Deployed</div><div class="v">' + totA + '</div>'
+    +     '<div class="s">' + fillPct + '% of demand</div></div>'
+    +   '<div class="psp-kpi ' + (gap < 0 ? 'is-low' : (gap > 0 ? 'is-extra' : 'is-ok')) + '">'
+    +     '<div class="k">Net Gap</div><div class="v">' + gapTxt(gap) + '</div>'
+    +     '<div class="s">' + shortN + ' under strength \u00b7 ' + overN + ' above</div></div>'
+    +   '<div class="psp-kpi ' + (needTotal > 0 ? 'is-low' : 'is-ok') + '">'
+    +     '<div class="k">Recruitment Need</div><div class="v">'
+    +     (needTotal > 0 ? '\u2212' + needTotal : '0') + '</div>'
+    +     '<div class="s">additional manpower required</div></div>'
+    + '</div>'
+
+    + '<div class="psp-body">'
+
+    +   '<div class="psp-sec">1. Project-wise Demand &amp; Deployment</div>'
+    +   '<table class="psp-tbl">'
+    +     '<thead>'
+    +     '<tr>'
+    +       '<th rowspan="2" style="width:3%">#</th>'
+    +       '<th rowspan="2" class="l" style="width:22%">Project</th>'
+    +       K.map(function(d){ return '<th colspan="2" class="grp">' + d.label + '</th>'; }).join('')
+    +       '<th colspan="3" class="grp tot">Total</th>'
+    +       '<th rowspan="2" style="width:8%">Fill</th>'
+    +     '</tr>'
+    +     '<tr>'
+    +       K.map(function(){
+            return '<th style="border-left:1px solid #e2e8f0">Dem</th><th>Act</th>';
+          }).join('')
+    +       '<th class="tot" style="border-left:1px solid #e2e8f0">Dem</th>'
+    +       '<th class="tot">Act</th><th class="tot">\u00b1</th>'
+    +     '</tr>'
+    +     '</thead>'
+    +     '<tbody>'
+    +     rows.map(function(r, i){
+          const g = r.actualTotal - r.demandTotal;
+          return '<tr' + (i % 2 ? ' class="alt"' : '') + '>'
+            + '<td>' + r.idx + '</td>'
+            + '<td class="l proj"><strong>' + r.project + '</strong></td>'
+            + K.map(function(d){
+                const dd = r.demand[d.key] || 0, aa = r.actual[d.key] || 0;
+                return '<td class="d" style="border-left:1px solid #e2e8f0">' + dd + '</td>'
+                  + '<td class="a' + (aa < dd ? ' low' : (aa > dd ? ' over' : '')) + '">' + aa + '</td>';
+              }).join('')
+            + '<td class="a" style="border-left:1px solid #e2e8f0">' + r.demandTotal + '</td>'
+            + '<td class="a' + (g < 0 ? ' low' : (g > 0 ? ' over' : '')) + '">' + r.actualTotal + '</td>'
+            + '<td><span class="psp-gap ' + gapCls(g) + '">' + gapTxt(g) + '</span></td>'
+            + '<td>' + fillCell(r.demandTotal, r.actualTotal) + '</td>'
+            + '</tr>';
+        }).join('')
+    +     '</tbody>'
+    +     '<tfoot>'
+    +     '<tr class="total">'
+    +       '<td></td><td class="l">Grand Total</td>'
+    +       K.map(function(d){
+            const dd = rows.reduce(function(s,r){ return s + (r.demand[d.key] || 0); }, 0);
+            const aa = rows.reduce(function(s,r){ return s + (r.actual[d.key] || 0); }, 0);
+            return '<td style="border-left:1px solid #c7d2fe">' + dd + '</td><td>' + aa + '</td>';
+          }).join('')
+    +       '<td style="border-left:1px solid #c7d2fe">' + totD + '</td>'
+    +       '<td class="' + (gap < 0 ? 'low' : (gap > 0 ? 'over' : '')) + '">' + totA + '</td>'
+    +       '<td><span class="psp-gap ' + gapCls(gap) + '">' + gapTxt(gap) + '</span></td>'
+    +       '<td>' + fillCell(totD, totA) + '</td>'
+    +     '</tr>'
+    +     '</tfoot>'
+    +   '</table>'
+
+    +   '<div class="psp-sec">2. Recruitment Requirement by Designation</div>'
+    +   '<div class="psp-req">'
+    +     K.map(function(d){
+          const n = need[d.key];
+          return '<div class="cell"><div class="k">' + d.label + '</div>'
+            + '<div class="v ' + (n > 0 ? 'low' : 'ok') + '">' + (n > 0 ? '\u2212' + n : '0') + '</div>'
+            + '<div class="s">' + (n > 0 ? 'to recruit' : 'fully staffed') + '</div></div>';
+        }).join('')
+    +     '<div class="cell"><div class="k">Total Needed</div>'
+    +       '<div class="v ' + (needTotal > 0 ? 'low' : 'ok') + '">'
+    +       (needTotal > 0 ? '\u2212' + needTotal : '0') + '</div>'
+    +       '<div class="s">across all designations</div></div>'
+    +   '</div>'
+
+    +   '<div class="psp-note">'
+    +     '<b>Dem</b> = authorised demand (sanctioned strength) &nbsp;\u00b7&nbsp; '
+    +     '<b>Act</b> = currently deployed active manpower &nbsp;\u00b7&nbsp; '
+    +     '<b>\u00b1</b> = Act \u2212 Dem; a negative figure means the project is under strength. &nbsp;\u00b7&nbsp; '
+    +     '<b>Fill</b> = Act as a percentage of Dem; below 90% is highlighted. &nbsp;\u00b7&nbsp; '
+    +     'Section 2 sums the per-project deficits, so a surplus in one project does not cancel a shortage in another.'
+    +   '</div>'
+
+    +   '<div class="psp-sign">'
+    +     '<div class="s"><div class="line"></div><div class="role">Prepared by</div>'
+    +       '<div class="who">HR Department</div></div>'
+    +     '<div class="s"><div class="line"></div><div class="role">Verified by</div>'
+    +       '<div class="who">Operations</div></div>'
+    +     '<div class="s"><div class="line"></div><div class="role">Approved by</div>'
+    +       '<div class="who">Head of HR</div></div>'
+    +   '</div>'
+
+    + '</div>'
+
+    + '<div class="psp-foot">'
+    +   '<span>' + COMPANY.name + ' \u2014 Security Division</span>'
+    +   '<span>Daily Parade State Report \u00b7 Internal use only</span>'
+    + '</div>'
+
+  + '</div>';
+
+  openPrint(__ph);
 }
 /* English renderings of Bangla signatory names/designations (stored, user-editable via Settings) */
 function nameEnOf(bn){ return NAMES_BN_TO_EN[(bn||'').trim()] || bn || ''; }

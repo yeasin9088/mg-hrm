@@ -320,7 +320,7 @@
       table: 'meeting_attendance',
       pk: 'id',
       allowed: ['employee_sys_id',  
-        'id', 'meeting_id', 'employee_id', 'full_name',
+        'id', 'meeting_id', 'meeting_date', 'employee_id', 'full_name',
         'designation', 'project_name', 'status', 'remarks', 'sort_order', 'created_at'
        ],
       map: { 'employee_sys_id': 'employee_sys_id', 
@@ -328,6 +328,8 @@
         'EmployeeID': 'employee_id',
         'FullName': 'full_name',
         'Designation': 'designation',
+        'MeetingDate': 'meeting_date',
+        'meeting_date': 'meeting_date',
         'ProjectName': 'project_name',
         'Status': 'status',
         'Remarks': 'remarks',

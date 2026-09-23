@@ -12237,9 +12237,9 @@ async function mtSubmitDay(iso, event){
         return {
           meeting_id: meetingDbId,
           meeting_date: iso,
-          employee_id: String(rep.id || rep.EmployeeID || rep.employee_id || ''),
-          full_name: rep.FullName || rep.fullName || rep.name || '',
-          designation: rep.Designation || rep.designation || '',
+          employee_id: (rep.id || rep.EmployeeID || rep.employee_id) ? String(rep.id || rep.EmployeeID || rep.employee_id) : null,
+          full_name: (rep.FullName || rep.fullName || rep.name) ? (rep.FullName || rep.fullName || rep.name) : null,
+          designation: (rep.Designation || rep.designation) ? (rep.Designation || rep.designation) : null,
           project_name: proj,
           status: isPresent ? 'Present' : 'Absent',
           remarks: remarksStr,
@@ -12251,33 +12251,90 @@ async function mtSubmitDay(iso, event){
         window.mtUpdateLoader('Saving Attendance', 'Uploading attendance records to server...', 60);
       }
 
-      // Pre-insert cleanup to avoid duplicate rows on resubmission / editing
-      try {
-        const { data: existingMeetings } = await window.sb.from('meetings').select('id, meeting_id').eq('meeting_date', iso);
-        const meetingIdsToDelete = Array.from(new Set([
-          meetingDbId,
-          meetingId,
-          ...(existingMeetings || []).map(m => m.meeting_id).filter(Boolean),
-          ...(existingMeetings || []).map(m => String(m.id)).filter(Boolean)
-        ])).filter(Boolean);
-        if (meetingIdsToDelete.length > 0) {
-          const _attPayload = { deleted_at: new Date().toISOString() };
-          const _cu3 = (window.MGHRM && typeof window.MGHRM.currentUser === 'function') ? window.MGHRM.currentUser() : null;
-          if (_cu3 && _cu3.id) _attPayload.deleted_by = _cu3.id;
-          await window.sb.from('meeting_attendance').update(_attPayload).in('meeting_id', meetingIdsToDelete);
+      // ===== SAFE SAVE: clear every existing row for this date, then insert =====
+      // The table's unique index also counts rows left behind by a soft delete,
+      // so we hard-delete by primary key before inserting the fresh rows.
+
+      // 1. Read every existing row for this date
+      let _attExisting = [];
+      const { data: _attExRows, error: _attExErr } = await window.sb
+        .from('meeting_attendance').select('*').eq('meeting_date', iso);
+      if (_attExErr) console.warn('[attendance pre-clean select]', _attExErr.message);
+      _attExisting = Array.isArray(_attExRows) ? _attExRows : [];
+
+      // 2. Hard-delete them by primary key
+      if (_attExisting.length) {
+        const _attIds = _attExisting.map(r => r.id).filter(v => v !== null && v !== undefined);
+        if (_attIds.length) {
+          const { error: _attDelErr } = await window.sb
+            .from('meeting_attendance').delete().in('id', _attIds);
+          if (_attDelErr) console.warn('[attendance pre-clean delete]', _attDelErr.message);
         }
-      } catch (cleanErr) {
-        console.warn('[Meeting Attendance Pre-Insert Cleanup Warning]', cleanErr);
       }
 
-      // 1. Bulk insert without client-generated IDs
-      const { data: savedRecords, error: attErr } = await window.sb.from('meeting_attendance').insert(attendanceRecords).select();
-      if (attErr) throw attErr;
+      // 2b. Two projects can share one representative (one supervisor can cover
+      // two units). The unique index would reject that, so keep employee_id on
+      // the first occurrence only — the representative name is kept on every row.
+      const _seenEmp = new Set();
+      attendanceRecords.forEach(rec => {
+        const _k = String(rec.employee_id || '');
+        if (!_k) return;
+        if (_seenEmp.has(_k)) { rec.employee_id = null; }
+        else { _seenEmp.add(_k); }
+      });
 
-      // 2. Safely merge returned DB records into local state
+      if (typeof window.mtUpdateLoader === 'function') {
+        window.mtUpdateLoader('Saving Attendance', 'Uploading attendance records to server...', 75);
+      }
+
+      // 3. Insert the fresh rows
+      const { data: _attSavedRows, error: attErr } = await window.sb
+        .from('meeting_attendance').insert(attendanceRecords).select();
+
+      // 4. If a unique conflict still occurs, update the existing rows instead of failing
+      let _attFinal = Array.isArray(_attSavedRows) ? _attSavedRows : null;
+      if (attErr) {
+        const _isDup = attErr.code === '23505' || /duplicate key/i.test(attErr.message || '');
+        if (!_isDup) throw attErr;
+        console.warn('[attendance] unique conflict — falling back to row-by-row update');
+        const _hasDel = _attExisting.length > 0 &&
+          Object.prototype.hasOwnProperty.call(_attExisting[0], 'deleted_at');
+        const _byProj = {};
+        _attExisting.forEach(r => { _byProj[String(r.project_name || '')] = r; });
+        _attFinal = [];
+        for (const rec of attendanceRecords) {
+          const _hit = _byProj[String(rec.project_name || '')];
+          const _payload = {
+            meeting_id:  rec.meeting_id,
+            employee_id: rec.employee_id,
+            full_name:   rec.full_name,
+            designation: rec.designation,
+            status:      rec.status,
+            remarks:     rec.remarks,
+            sort_order:  rec.sort_order
+          };
+          if (_hasDel) _payload.deleted_at = null;
+          let _saved = null;
+          if (_hit && _hit.id !== null && _hit.id !== undefined) {
+            const { data: _upd, error: _uErr } = await window.sb
+              .from('meeting_attendance').update(_payload).eq('id', _hit.id).select();
+            if (_uErr) throw _uErr;
+            _saved = Array.isArray(_upd) && _upd.length ? _upd[0] : null;
+          }
+          if (!_saved) {
+            const { data: _ins, error: _iErr } = await window.sb
+              .from('meeting_attendance').insert([rec]).select();
+            if (_iErr) throw _iErr;
+            _saved = Array.isArray(_ins) && _ins.length ? _ins[0] : null;
+          }
+          if (_saved) _attFinal.push(_saved);
+        }
+      }
+
+      // 5. Merge the saved rows into local state
       if (!Array.isArray(window.DATA.meetingAttendance)) window.DATA.meetingAttendance = [];
       window.DATA.meetingAttendance = window.DATA.meetingAttendance.filter(r => r.meeting_id !== meetingDbId);
-      const finalRecords = (Array.isArray(savedRecords) && savedRecords.length > 0) ? savedRecords : attendanceRecords;
+      const finalRecords = (Array.isArray(_attFinal) && _attFinal.length > 0) ? _attFinal : attendanceRecords;
       finalRecords.forEach(a => window.DATA.meetingAttendance.push(a));
       window.DATA.meeting_attendance = window.DATA.meetingAttendance;
 
@@ -12413,14 +12470,25 @@ async function mtUpdateDay(iso) {
           project_name: proj,
           status: currStatus,
           remarks: currNotes,
-          employee_id: String(repObj.id || repObj.EmployeeID || repObj.employee_id || ''),
-          full_name: repObj.FullName || repObj.fullName || repObj.name || '',
-          designation: repObj.Designation || repObj.designation || '',
+          employee_id: (repObj.id || repObj.EmployeeID || repObj.employee_id) ? String(repObj.id || repObj.EmployeeID || repObj.employee_id) : null,
+          full_name: (repObj.FullName || repObj.fullName || repObj.name) ? (repObj.FullName || repObj.fullName || repObj.name) : null,
+          designation: (repObj.Designation || repObj.designation) ? (repObj.Designation || repObj.designation) : null,
           sort_order: sort_order,
           meeting_date: targetIso
         });
       }
     }
+
+    // Two projects can share one representative (one supervisor covers two units).
+    // The unique index rejects the same employee_id twice in one batch, so keep it
+    // on the first occurrence only — the representative name stays on every row.
+    const _seenUpdEmp = new Set();
+    changedRecords.forEach(rec => {
+      const _k = String(rec.employee_id || '');
+      if (!_k) return;
+      if (_seenUpdEmp.has(_k)) { rec.employee_id = null; }
+      else { _seenUpdEmp.add(_k); }
+    });
 
     // 6. Asynchronously loop through ONLY the changed records to patch the database
     // STRICTLY DO NOT INTERACT WITH DATA.todos

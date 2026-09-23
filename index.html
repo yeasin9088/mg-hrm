@@ -11656,6 +11656,30 @@ const DESIG_BN_TO_EN = {
 const MEETING_DESIGS = ['Security Incharge','Security Supervisor','Asst Security Supervisor'];
 let MT_MONTH = new Date();   
 let MT_SELECTED_DATE = todayISO();   
+
+/* ===== PHASE 2 . meeting session time window ===== */
+const MT_OPEN_H = 9,  MT_OPEN_M = 30;   /* attendance opens 09:30 */
+const MT_LOCK_H = 11, MT_LOCK_M = 30;   /* auto "Not Held" after 11:30 */
+function mtMinutesNow(){ const n = new Date(); return n.getHours() * 60 + n.getMinutes(); }
+function mtIsBeforeOpen(){ return mtMinutesNow() < (MT_OPEN_H * 60 + MT_OPEN_M); }
+function mtIsAfterLock(){ return mtMinutesNow() >= (MT_LOCK_H * 60 + MT_LOCK_M); }
+
+/* Single source of truth: what should this day show? */
+function mtResolveDayState(iso, rec){
+  const realToday = todayISO();
+  const r = rec || {};
+  if (mtIsFriday(iso)) return 'holiday';
+  const isToday = (iso === realToday);
+  if (r.isEditing || r.unlocked) return 'running';
+  if (r.submitted) return 'submitted';
+  const hasMarks = Object.keys(r.present || {}).length + Object.keys(r.absent || {}).length;
+  const hasStaffMode = !!r.staffMode;
+  if (hasMarks || hasStaffMode) return 'running';
+  if (isToday && mtIsBeforeOpen()) return 'countdown';
+  if (isToday && !mtIsAfterLock()) return 'ready';
+  return 'notheld';
+}
+window.mtResolveDayState = mtResolveDayState;
 function mtActiveProjects(){
   
   return (DATA.projects||[])
@@ -11835,7 +11859,7 @@ function mtToggleProject(iso, proj){
     const eligible = mtEligible();
     const totalProjects = Object.keys(eligible).length;
     const presentCount = Object.keys(d.present||{}).length;
-    counterEl.textContent = `${presentCount} / ${totalProjects}`;
+    counterEl.textContent = `Attendance given: ${presentCount} / ${totalProjects}`;
   }
   if(typeof window.mtCheckDirty === 'function') window.mtCheckDirty(iso);
 }
@@ -12161,7 +12185,10 @@ async function mtSubmitDay(iso, event){
         title: 'Morning Coordination Meeting',
         venue: 'HQ',
         agenda: d.meetingNote || 'Daily routine check',
-        created_by: window.localStorage.getItem('mghrm_user') || 'Admin'
+        created_by: window.localStorage.getItem('mghrm_user') || 'Admin',
+        started_at: d.startedAt || (window.MT_STARTED_AT && window.MT_STARTED_AT[iso]) || new Date().toISOString(),
+        ended_at: new Date().toISOString(),
+        submitted_at: new Date().toISOString()
       };
       const { data: mData, error: mErr } = await window.sb.from('meetings').insert([meetingPayload]).select();
       if (mErr) throw mErr;
@@ -12348,13 +12375,21 @@ async function mtSubmitDay(iso, event){
       d.submitted = true;
       d.isEditing = false;
       d.wasSubmitted = true;
-      d.submittedAt = new Date().toISOString();
+      d.submittedAt = meetingPayload.submitted_at;
+      d.endedAt = meetingPayload.ended_at;
+      if (!d.startedAt) d.startedAt = meetingPayload.started_at;
+      d.off = false;
+      delete d.offReason;
       delete d.unlocked;
 
       DATA.meetings[iso].submitted = true;
       DATA.meetings[iso].submittedAt = d.submittedAt;
+      DATA.meetings[iso].endedAt = d.endedAt;
+      DATA.meetings[iso].startedAt = d.startedAt;
       DATA.meetings[iso].isEditing = false;
       DATA.meetings[iso].wasSubmitted = true;
+      DATA.meetings[iso].off = false;
+      delete DATA.meetings[iso].offReason;
       delete DATA.meetings[iso].unlocked;
       window.mtOriginalState = {};
 
@@ -12414,13 +12449,18 @@ async function mtUpdateDay(iso) {
     let meetingDbId = null;
     if (existingMeetings && existingMeetings.length > 0) {
       meetingDbId = existingMeetings[0].meeting_id || String(existingMeetings[0].id);
-      if (meetingNoteChanged) {
-        await window.sb
-          .from('meetings')
-          .update({
-            agenda: d.meetingNote || 'Daily routine check'
-          })
-          .eq('id', existingMeetings[0].id);
+      {
+        const _updRow = {
+          ended_at: new Date().toISOString(),
+          submitted_at: existingMeetings[0].submitted_at || new Date().toISOString()
+        };
+        if (meetingNoteChanged) _updRow.agenda = d.meetingNote || 'Daily routine check';
+        const { error: _uErr } = await window.sb.from('meetings').update(_updRow).eq('id', existingMeetings[0].id);
+        if (_uErr) console.warn('[Update Meeting Time]', _uErr);
+        d.endedAt = _updRow.ended_at;
+        d.submittedAt = _updRow.submitted_at;
+        d.off = false;
+        delete d.offReason;
       }
     }
 
@@ -12609,11 +12649,16 @@ window.mtStartMeeting = function(iso) {
   const targetIso = iso || (typeof MT_SELECTED_DATE !== 'undefined' ? MT_SELECTED_DATE : todayISO());
   if (!window.MT_STARTED_MEETINGS) window.MT_STARTED_MEETINGS = {};
   window.MT_STARTED_MEETINGS[targetIso] = true;
+  if (!window.MT_STARTED_AT) window.MT_STARTED_AT = {};
   const d = mtEnsure(targetIso);
   d.started = true;
+  if (!d.startedAt) {
+    d.startedAt = new Date().toISOString();
+    window.MT_STARTED_AT[targetIso] = d.startedAt;
+  }
   persist();
   renderMeeting();
-  toast('Meeting started. Recording attendance...', 'info');
+  toast('Meeting started at ' + new Date(d.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + '. Recording attendance...', 'info');
 };
 
 window.mtToggleViewSummary = function(iso) {
@@ -12652,6 +12697,47 @@ function mtUnmarkOff(iso){
   d.off = false; d.unlocked = true; d.note = ''; d.offReason = '';
   persist(); renderMeeting();
 }
+
+window.mtSetNotHeld = async function(iso, reason) {
+  if (typeof guardEdit === 'function' && !guardEdit()) return;
+  const targetIso = iso || (typeof MT_SELECTED_DATE !== 'undefined' ? MT_SELECTED_DATE : todayISO());
+  const txt = String(reason || '').trim() || 'Meeting Postponed';
+  const d = mtEnsure(targetIso);
+  d.off = true;
+  d.offReason = txt;
+  d.note = txt;
+  d.submitted = false;
+  try {
+    if (window.sb) {
+      const { data: rows } = await window.sb
+        .from('meetings')
+        .select('id')
+        .eq('meeting_date', targetIso)
+        .is('deleted_at', null);
+      const row = rows && rows[0];
+      if (row) {
+        await window.sb.from('meetings').update({ not_held_reason: txt }).eq('id', row.id);
+      } else {
+        await window.sb.from('meetings').insert([{
+          meeting_id: 'MTG-' + Date.now(),
+          meeting_date: targetIso,
+          title: 'Morning Coordination Meeting',
+          venue: 'HQ',
+          agenda: 'Not held',
+          created_by: window.localStorage.getItem('mghrm_user') || 'Admin',
+          not_held_reason: txt
+        }]);
+      }
+    }
+  } catch (e) {
+    console.warn('[not-held save]', e);
+  }
+  persist();
+  renderMeeting();
+  toast('Reason saved: ' + txt, 'success');
+};
+window.mtSavePostponeReason = window.mtSetNotHeld;
+window.mtApplyReasonPreset = function(iso, preset){ window.mtSetNotHeld(iso, preset); };
 function mtShiftMonth(n){ MT_MONTH = new Date(MT_MONTH.getFullYear(), MT_MONTH.getMonth()+n, 1); renderMeeting(); }
 window.mtSelectDate = function(iso) {
   MT_SELECTED_DATE = iso;
@@ -12665,7 +12751,7 @@ function mtStats(y, m){
   let workdays=0, heldDays=0, totalPresent=0, totalPossible=0;
   const today = todayISO();
   const now = new Date();
-  const isAfter11 = now.getHours() >= 11;
+  const isAfter11 = mtIsAfterLock();
   for(let d=1; d<=daysInMonth; d++){
     const iso = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     if(iso > today) continue;                                  
@@ -12847,13 +12933,56 @@ function mtRenderSummaryView(today, rec, projNames, isEmbedded) {
 }
 window.mtRenderSummaryView = mtRenderSummaryView;
 
+function mtRenderNotHeldView(today, rec) {
+  const d = rec || {};
+  const currentReason = d.offReason || d.note || 'Meeting Postponed';
+  const presets = ['Public Holiday', 'Official Holiday', 'Severe Weather', 'Management Meeting', 'Administrative Decision'];
+  return `
+    <div id="mtNotHeldView" style="padding:22px 22px 20px; background:var(--surface,#fff); border:1px solid var(--border); border-left:4px solid var(--danger,#dc2626); border-radius:10px; margin:4px 0 10px 0;">
+      <div style="font-size:19px; font-weight:800; color:var(--text); letter-spacing:-0.01em; line-height:1.25;">
+        Meeting Not Held — Attendance Not Recorded
+      </div>
+      <div style="font-size:13px; color:var(--text-muted,#64748b); margin-top:6px;">
+        ${fmtDateLong(today)} · Nothing was recorded inside the 09:30 – 11:30 AM window, so there is no attendance to view, edit or print for this date.
+      </div>
+
+      <div style="margin-top:18px; font-size:12.5px; font-weight:700; color:var(--text-2); text-transform:uppercase; letter-spacing:0.04em;">
+        Reason this meeting was not held
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+        <input type="text" id="mtPostponeReasonInput" value="${escapeHtml(currentReason)}" placeholder="e.g. Public Holiday, Severe Weather..." style="flex:1; min-width:220px; padding:8px 12px; border:1px solid var(--border-strong,#cbd5e1); border-radius:6px; font-size:13px; background:var(--card,#fff); color:var(--text);">
+        <button type="button" class="btn primary sm" onclick="mtSetNotHeld('${today}', document.getElementById('mtPostponeReasonInput').value)" style="font-weight:600; padding:7px 14px; font-size:12.5px;">
+          Save Reason
+        </button>
+      </div>
+      <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:10px;">
+        <span style="font-size:11px; color:var(--text-muted,#64748b); font-weight:600;">Quick:</span>
+        ${presets.map(p => `<button type="button" class="btn ghost sm" style="font-size:11px; padding:2px 8px; height:auto; border-radius:12px; border:1px solid var(--border);" onclick="mtApplyReasonPreset('${today}', '${escapeHtml(p)}')">${escapeHtml(p)}</button>`).join('')}
+      </div>
+
+      <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--border); display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+        <button type="button" class="btn ghost sm" onclick="mtUnlockDay('${today}'); mtStartMeeting('${today}');" style="font-weight:700; padding:8px 16px; font-size:13px; border:1px solid var(--border-strong,#cbd5e1);">
+          Take Meeting Attendance
+        </button>
+        <span style="font-size:11.5px; color:var(--text-muted,#64748b);">Opens the board so you can still record this date.</span>
+      </div>
+    </div>
+  `;
+}
+window.mtRenderNotHeldView = mtRenderNotHeldView;
+
 function mtRenderSubmittedActionPanel(today, rec, projNames) {
   const d = rec || {};
   const presentCount = Object.keys(d.present || {}).length;
   const absentCount = Object.keys(d.absent || {}).length;
   const recordedProjs = (projNames || []).filter(p => (d.present && d.present[p]) || (d.absent && d.absent[p]));
   const totalRecorded = recordedProjs.length || (presentCount + absentCount);
-  const submittedTime = d.submittedAt ? new Date(d.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+  const _fmtT = (v) => v ? new Date(v).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+  const submittedTime = _fmtT(d.submittedAt);
+  const startedTime = _fmtT(d.startedAt);
+  const endedTime = _fmtT(d.endedAt);
+  const realPresent = (projNames || []).filter(p => d.present && d.present[p]).length;
+  const realAbsent = (projNames || []).filter(p => d.absent && d.absent[p]).length;
   const isSummaryOpen = !!(window.MT_VIEW_SUMMARY_DATES && window.MT_VIEW_SUMMARY_DATES[today]);
 
   return `
@@ -12864,16 +12993,22 @@ function mtRenderSubmittedActionPanel(today, rec, projNames) {
             <span class="badge success" style="padding: 3px 10px; font-size: 11px; font-weight: 700; border-radius: 12px; background: var(--success-soft, #ecfdf5); color: var(--success, #059669); border: 1px solid rgba(16,185,129,0.3);">
               ${ico('check', 12)} Attendance Submitted
             </span>
-            ${submittedTime ? `<span style="font-size: 12px; color: var(--text-muted);">at ${submittedTime}</span>` : ''}
           </div>
           <h4 style="margin: 0; font-size: 16px; font-weight: 700; color: var(--text);">Daily Session Completed — ${today}</h4>
+          <div style="margin-top: 6px; font-size: 12px; color: var(--text-muted); display: flex; gap: 10px; flex-wrap: wrap;">
+            <span>Started: <strong style="color: var(--text-2);">${startedTime || '—'}</strong></span>
+            <span>·</span>
+            <span>Ended: <strong style="color: var(--text-2);">${endedTime || '—'}</strong></span>
+            <span>·</span>
+            <span>Submitted: <strong style="color: var(--text-2);">${submittedTime || '—'}</strong></span>
+          </div>
         </div>
         
         <div style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap;">
           <div style="font-size: 13px; color: var(--text-2); display: flex; gap: 12px; align-items: center; background: var(--bg-dim, #f8fafc); padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border);">
-            <span>Present: <strong style="color: var(--success, #059669);">${presentCount}</strong></span>
-            <span>Absent: <strong style="color: var(--danger, #dc2626);">${absentCount}</strong></span>
-            <span>Total: <strong>${totalRecorded}</strong></span>
+            <span>Present: <strong style="color: var(--success, #059669);">${realPresent}</strong></span>
+            <span>Absent: <strong style="color: var(--danger, #dc2626);">${realAbsent}</strong></span>
+            <span>Total projects: <strong>${(projNames || []).length}</strong></span>
           </div>
         </div>
       </div>
@@ -12885,8 +13020,8 @@ function mtRenderSubmittedActionPanel(today, rec, projNames) {
         <button type="button" class="btn ghost" onclick="mtEditDay('${today}')" style="font-weight: 600; padding: 9px 18px; font-size: 13px; border: 1px solid var(--border); display: inline-flex; align-items: center; gap: 6px;">
           ${ico('edit', 14)} Edit Attendance
         </button>
-        <button type="button" class="btn primary" onclick="printDailySummary('${today}')" style="font-weight: 600; padding: 9px 18px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px;">
-          ${ico('print', 14)} Print Summary
+        <button type="button" class="btn ghost" onclick="printDailySummary('${today}')" style="font-weight: 600; padding: 9px 18px; font-size: 13px; border: 1px solid var(--border); display: inline-flex; align-items: center; gap: 6px;">
+          ${ico('print', 14)} Print Meeting Summary
         </button>
       </div>
 
@@ -12977,7 +13112,7 @@ function mtRenderStartPromptView(today) {
         ${ico('calendar', 30)}
       </div>
       <h3 style="margin: 0 0 8px 0; font-size: 19px; font-weight: 700; color: var(--text);">Ready to Conduct Meeting</h3>
-      <p style="margin: 0 0 24px 0; font-size: 13.5px; color: var(--text-2);">Session time active (9:30 – 10:30 AM). Click below to open the attendance board and record representative participation.</p>
+      <p style="margin: 0 0 24px 0; font-size: 13.5px; color: var(--text-2);">Session time active (09:30 – 11:30 AM). Click below to open the attendance board and record representative participation.</p>
       
       <button type="button" class="btn primary" onclick="mtStartMeeting('${today}')" style="font-size: 14.5px; font-weight: 700; padding: 11px 28px; border-radius: 8px; box-shadow: 0 4px 12px rgba(37,99,235,0.25);">
         ${ico('play', 15)} Start Meeting Now
@@ -13100,32 +13235,20 @@ function renderMeeting(){
   const now = new Date();
   const isToday = MT_SELECTED_DATE === todayISO();
   const isPastDate = MT_SELECTED_DATE < todayISO();
-  const isAfter11AM = now.getHours() >= 11;
-  const isBefore930AM = now.getHours() < 9 || (now.getHours() === 9 && now.getMinutes() < 30);
+  const isAfter11AM = mtIsAfterLock();
+  const isBefore930AM = mtIsBeforeOpen();
 
-  // Lock condition: Not submitted AND (it's a past date OR it's today after 11:00 AM)
-  const isAutoPostponed = !d.submitted && !d.unlocked && (isPastDate || (isToday && isAfter11AM));
+  const dayState         = mtResolveDayState(today, d);
+  const isAutoPostponed  = (dayState === 'notheld');
+  const isMeetingActive  = (dayState === 'running');
+  const isCountdownState = (dayState === 'countdown');
+  const isStartPromptState = (dayState === 'ready');
 
   if (isAutoPostponed) {
     d.off = true;
     if (!d.offReason) d.offReason = 'Meeting Postponed';
     if (!d.note) d.note = d.offReason;
-  } else if (d.unlocked && d.offReason === 'Meeting Postponed') {
-    d.off = false;
-    delete d.offReason;
   }
-
-  const isMeetingActive = !!(
-    d.isEditing ||
-    d.unlocked ||
-    d.started ||
-    (window.MT_STARTED_MEETINGS && window.MT_STARTED_MEETINGS[today]) ||
-    Object.keys(d.present || {}).length > 0 ||
-    Object.keys(d.absent || {}).length > 0
-  );
-
-  const isCountdownState = isToday && !isMeetingActive && !d.submitted && !d.off && isBefore930AM;
-  const isStartPromptState = isToday && !isMeetingActive && !d.submitted && !d.off && !isBefore930AM && !isAfter11AM;
 
   const rec = d;
   const isFri = mtIsFriday(today);
@@ -13152,7 +13275,7 @@ function renderMeeting(){
     const isSelected = iso === MT_SELECTED_DATE;
     const isTodayCal = iso === realToday;
     const isPastCal = iso < realToday;
-    const isCalDayAutoPostponed = (!r || !r.submitted) && !r?.unlocked && (isPastCal || (isTodayCal && isAfter11AM));
+    const isCalDayAutoPostponed = (!r || !r.submitted) && !r?.unlocked && !isTodayCal && isPastCal;
     const isDayOff = fri || (r && r.off) || isCalDayAutoPostponed;
     const dayReason = fri ? 'Friday — Weekly Holiday' : ((r && (r.offReason || r.note)) || (isCalDayAutoPostponed ? 'Meeting Postponed' : ''));
     const cls = future ? '' : isDayOff ? 'off' : (r && Object.keys(r.present||{}).length) ? 'held' : 'missed';
@@ -13286,12 +13409,15 @@ function renderMeeting(){
     <div class="grid-2">
       <div class="card">
         <div class="card-header">
-          <div><h3 style="display:inline-flex;align-items:center;flex-wrap:wrap">Attendance Board — ${MT_SELECTED_DATE} <span id="mtAttendanceCounterBadge" class="badge" style="font-size: 1.2rem; background: var(--primary-soft); color: var(--primary); padding: 4px 12px; border-radius: 20px; margin-left: 10px;">${presentCount} / ${totalProjects}</span></h3>
-          <span class="sub">${fmtDateLong(today)} · 9:30 – 10:30 AM · click a project card to expand details</span></div>
+          <div><h3 style="display:inline-flex;align-items:center;flex-wrap:wrap">Attendance Board — ${MT_SELECTED_DATE}
+            <span id="mtAttendanceCounterBadge" class="badge" style="font-size: 1.05rem; background: var(--primary-soft); color: var(--primary); padding: 4px 12px; border-radius: 20px; margin-left: 10px;">Attendance given: ${presentCount} / ${totalProjects}</span></h3>
+          <span class="sub">${fmtDateLong(today)} · window 09:30 – 11:30 AM${(rec && rec.startedAt) ? ' · started ' + new Date(rec.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''} · click a project card to expand details</span></div>
         </div>
         <div class="card-body">
-          ${isOff ? `
-            ${mtRenderPostponedView(today, rec, isFri, isAutoPostponed)}
+          ${isFri ? `
+            ${mtRenderPostponedView(today, rec, isFri, false)}
+          ` : isOff ? `
+            ${mtRenderNotHeldView(today, rec)}
           ` : (rec && rec.submitted && !rec.isEditing) ? `
             ${mtRenderSubmittedActionPanel(today, rec, projNames)}
           ` : isCountdownState ? `
@@ -13437,7 +13563,7 @@ function updateMeetingBadge(){
   const today = todayISO();
   const rec = mtDay(today);
   const now = new Date();
-  const isAfter11 = now.getHours() >= 11;
+  const isAfter11 = mtIsAfterLock();
   const isPostponed = (!rec || !rec.submitted) && !rec?.unlocked && isAfter11;
   const pending = !mtIsFriday(today) && !(rec && rec.off) && !isPostponed && !(rec && rec.submitted) && !(rec && Object.keys(rec.present||{}).length);
   b.style.display = pending ? '' : 'none';

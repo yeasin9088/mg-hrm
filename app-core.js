@@ -303,7 +303,8 @@
       pk: 'id',
       allowed: [ 
         'id', 'meeting_id', 'meeting_date', 'title', 'venue', 'agenda',
-        'created_by', 'created_at'
+        'created_by', 'created_at',
+        'started_at', 'ended_at', 'submitted_at', 'not_held_reason'
        ],
       map: { 
         'id': 'id',
@@ -312,7 +313,15 @@
         'Title': 'title',
         'Venue': 'venue',
         'Agenda': 'agenda',
-        'CreatedBy': 'created_by'
+        'CreatedBy': 'created_by',
+        'StartedAt': 'started_at',
+        'started_at': 'started_at',
+        'EndedAt': 'ended_at',
+        'ended_at': 'ended_at',
+        'SubmittedAt': 'submitted_at',
+        'submitted_at': 'submitted_at',
+        'NotHeldReason': 'not_held_reason',
+        'not_held_reason': 'not_held_reason'
        }
     },
 
@@ -614,7 +623,7 @@
         absent: {},
         notes: {},
         representatives: {},
-        submitted: true,
+        submitted: false,
         meetingNote: ''
       };
     }
@@ -623,7 +632,7 @@
     if (!d.absent) d.absent = {};
     if (!d.notes) d.notes = {};
     if (!d.representatives) d.representatives = {};
-    if (typeof d.submitted !== 'boolean') d.submitted = true;
+    if (typeof d.submitted !== 'boolean') d.submitted = false;
     return d;
   }
 
@@ -644,7 +653,20 @@
     if (mDate) {
       var d = ensureMeetingDay(mDate);
       if (d) {
-        d.submitted = true;
+        /* PHASE 2 FIX:
+           A meetings row alone is NOT proof that attendance was taken.
+           Only a real submitted_at timestamp marks the day as submitted. */
+        d.submitted = !!row.submitted_at;
+        if (row.submitted_at) d.submittedAt = row.submitted_at;
+        if (row.started_at)   d.startedAt   = row.started_at;
+        if (row.ended_at)     d.endedAt     = row.ended_at;
+
+        if (row.not_held_reason) {
+          d.off       = true;
+          d.offReason = row.not_held_reason;
+          d.note      = row.not_held_reason;
+        }
+
         if (row.agenda && !d.meetingNote) {
           d.meetingNote = row.agenda;
         }

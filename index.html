@@ -10566,26 +10566,26 @@ function printReport(){
   if(currentReport==='newJoins'){
     const list = senioritySort(DATA.employees.filter(e=>inMonth(e.JoinDate)));
     const rows = list.map((e,i)=>`<tr><td class="num">${i+1}</td><td>${e.EmployeeID||''}</td><td><strong>${e.FullName}</strong></td><td>${e.Designation||''}</td><td>${e.ProjectName||''}</td><td>${fmtDate(e.JoinDate)}</td></tr>`).join('');
-    html = mrepShell({ title:'Monthly New Joins Report', subtitle:`${mLabel} · all employees who joined during the month`,
-      kpis: mrepKpi('Total New Joins', list.length, mLabel, '#4f46e5'),
+    html = mrepShell2({ title:'Monthly New Joins Report', subtitle:`${mLabel} · all employees who joined during the month`,
+      meta:`<b>${list.length}</b> New Joins <i>·</i> ${mLabel}`,
       body:`<table><thead><tr><th>#</th><th>ID</th><th>Name</th><th>Designation</th><th>Project</th><th>Join Date</th></tr></thead><tbody>${rows||'<tr><td colspan="6" style="text-align:center;color:#94a3b8">No joins this month</td></tr>'}</tbody></table>` });
   } else if(currentReport==='exits'){
     const list = DATA.exits.filter(x=>inMonth(x.ExitDate));
     const rows = list.map((x,i)=>`<tr><td class="num">${i+1}</td><td>${x.EmployeeID||''}</td><td><strong>${x.FullName}</strong></td><td>${x.Designation||''}</td><td>${x.CurrentProject||''}</td><td>${fmtDate(x.ExitDate)}</td><td>${x.ExitReason||''}</td></tr>`).join('');
-    html = mrepShell({ title:'Monthly Exits Report', subtitle:`${mLabel} · all separations during the month`,
-      kpis: mrepKpi('Total Exits', list.length, mLabel, '#dc2626'),
+    html = mrepShell2({ title:'Monthly Exits Report', subtitle:`${mLabel} · all separations during the month`,
+      meta:`<b>${list.length}</b> Exits <i>·</i> ${mLabel}`,
       body:`<table><thead><tr><th>#</th><th>ID</th><th>Name</th><th>Designation</th><th>Project</th><th>Exit Date</th><th>Reason</th></tr></thead><tbody>${rows||'<tr><td colspan="7" style="text-align:center;color:#94a3b8">No exits this month</td></tr>'}</tbody></table>` });
   } else if(currentReport==='transfers'){
     const list = DATA.transfers.filter(t=>inMonth(t.TransferDate));
     const rows = list.map((t,i)=>`<tr><td class="num">${i+1}</td><td>${fmtDate(t.TransferDate)}</td><td><strong>${t.FullName}</strong></td><td>${t.Designation||''}</td><td>${t.CurrentProject||''}</td><td>${t.NewProject||''}</td></tr>`).join('');
-    html = mrepShell({ title:'Monthly Transfers Report', subtitle:`${mLabel} · all transfer orders effective in the month`,
-      kpis: mrepKpi('Total Transfers', list.length, mLabel, '#0891b2'),
+    html = mrepShell2({ title:'Monthly Transfers Report', subtitle:`${mLabel} · all transfer orders effective in the month`,
+      meta:`<b>${list.length}</b> Transfers <i>·</i> ${mLabel}`,
       body:`<table><thead><tr><th>#</th><th>Date</th><th>Name</th><th>Designation</th><th>From</th><th>To</th></tr></thead><tbody>${rows||'<tr><td colspan="6" style="text-align:center;color:#94a3b8">No transfers this month</td></tr>'}</tbody></table>` });
   } else if(currentReport==='disciplinary'){
     const list = DATA.disciplinary.filter(d=>inMonth(d.IssueDate));
     const rows = list.map((d,i)=>`<tr><td class="num">${i+1}</td><td>${d.RefNo||''}</td><td><strong>${d.FullName}</strong></td><td>${d.Designation||''}</td><td>${d.ProjectName||''}</td><td>${d.ActionType||''}</td><td>${fmtDate(d.IssueDate)}</td></tr>`).join('');
-    html = mrepShell({ title:'Monthly Disciplinary Actions Report', subtitle:`${mLabel} · all actions issued during the month`,
-      kpis: mrepKpi('Total Actions', list.length, mLabel, '#d97706'),
+    html = mrepShell2({ title:'Monthly Disciplinary Actions Report', subtitle:`${mLabel} · all actions issued during the month`,
+      meta:`<b>${list.length}</b> Actions <i>·</i> ${mLabel}`,
       body:`<table><thead><tr><th>#</th><th>Ref No</th><th>Name</th><th>Designation</th><th>Project</th><th>Action Type</th><th>Issue Date</th></tr></thead><tbody>${rows||'<tr><td colspan="7" style="text-align:center;color:#94a3b8">No actions this month</td></tr>'}</tbody></table>` });
   } else if(currentReport==='parade'){
     printParade(); return;
@@ -10598,8 +10598,8 @@ function printReport(){
     const rows = rowsAll.map(([p,c],i)=>{ const a=activeByProj[p]||0; const rate=a?+(c*100/(a+c)).toFixed(1):0;
       return `<tr><td class="num">${i+1}</td><td><strong>${p}</strong></td><td class="num diff-neg">${c}</td><td class="num">${a}</td>
         <td><div style="display:flex;gap:6px;align-items:center"><div class="bar" style="flex:1"><div style="width:${Math.min(100,rate)}%;background:${rate>30?'#dc2626':rate>15?'#d97706':'#16a34a'}"></div></div><strong>${rate}%</strong></div></td></tr>`; }).join('');
-    html = mrepShell({ title:'Turnover Analysis Report', subtitle:`All-time exits vs current strength · highest loss on top`,
-      kpis: mrepKpi('Total Recorded Exits', DATA.exits.length, 'all time', '#dc2626') + mrepKpi('Current Active', DATA.employees.filter(e=>e.Status==='Active').length, 'headcount', '#16a34a'),
+    html = mrepShell2({ title:'Turnover Analysis Report', subtitle:`All-time exits vs current strength · highest loss on top`,
+      meta:`<b>${DATA.exits.length}</b> Exits All Time <i>·</i> <b>${DATA.employees.filter(e=>e.Status==='Active').length}</b> Active Now`,
       body:`<table><thead><tr><th>#</th><th>Project</th><th class="num">Total Exits</th><th class="num">Current Staff</th><th style="width:30%">Turnover Rate</th></tr></thead><tbody>${rows}</tbody></table>` });
   }
   openPrint(html);
@@ -11369,6 +11369,7 @@ function printParade(){
     }, 0);
   });
   const needTotal = K.reduce(function(s,d){ return s + need[d.key]; }, 0);
+  const totNeed = needTotal;
 
   function gapTxt(g){ return g < 0 ? '\u2212' + Math.abs(g) : (g > 0 ? '+' + g : '0'); }
   function gapCls(g){ return g < 0 ? 'low' : (g > 0 ? 'over' : 'ok'); }
@@ -11380,32 +11381,20 @@ function printParade(){
       + '<span class="pct">' + pct + '%</span></div>';
   }
 
-  const __ph = '<div class="print-doc mrep landscape psp">'
-
-    + '<div class="psp-head">'
-    +   '<div class="psp-org">' + COMPANY.name + ' \u2014 Security Division</div>'
-    +   '<div class="psp-title">Daily Parade State Report</div>'
-    +   '<div class="psp-sub">Manpower demand vs. deployment across all projects</div>'
-    +   '<div class="psp-meta">' + fmtDateEnLong(todayISO()) + ' \u00b7 ' + rows.length
-    +     ' projects \u00b7 generated by MG Security HRM</div>'
-    + '</div>'
-
-    + '<div class="psp-kpis">'
-    +   '<div class="psp-kpi"><div class="k">Total Demand</div><div class="v">' + totD + '</div>'
-    +     '<div class="s">authorised strength</div></div>'
-    +   '<div class="psp-kpi ' + (fillPct >= 100 ? 'is-ok' : (fillPct < 90 ? 'is-low' : '')) + '">'
-    +     '<div class="k">Deployed</div><div class="v">' + totA + '</div>'
-    +     '<div class="s">' + fillPct + '% of demand</div></div>'
-    +   '<div class="psp-kpi ' + (gap < 0 ? 'is-low' : (gap > 0 ? 'is-extra' : 'is-ok')) + '">'
-    +     '<div class="k">Net Gap</div><div class="v">' + gapTxt(gap) + '</div>'
-    +     '<div class="s">' + shortN + ' under strength \u00b7 ' + overN + ' above</div></div>'
-    +   '<div class="psp-kpi ' + (needTotal > 0 ? 'is-low' : 'is-ok') + '">'
-    +     '<div class="k">Recruitment Need</div><div class="v">'
-    +     (needTotal > 0 ? '\u2212' + needTotal : '0') + '</div>'
-    +     '<div class="s">additional manpower required</div></div>'
-    + '</div>'
-
-    + '<div class="psp-body">'
+  const __ph = `<div class="print-doc mrep m2 landscape">
+    <div class="m2-head">
+      <div class="m2-l">
+        <div class="m2-brand">${COMPANY.name} · Security Division</div>
+        <div class="m2-title">Daily Parade State Report</div>
+        <div class="m2-sub">Manpower demand vs. deployment across all projects</div>
+        <div class="m2-meta"><b>${rows.length}</b> Projects <i>·</i> <b>${totD}</b> Demand <i>·</i> <b>${totA}</b> Deployed <i>·</i> <b>−${totNeed}</b> Shortage <i>·</i> <b>${fillPct}%</b> Fill</div>
+      </div>
+      <div class="m2-r">
+        <div class="m2-gen">Generated on ${fmtDateEnLong(todayISO())}</div>
+        <div class="m2-sys">MG Security HRM</div>
+      </div>
+    </div>
+    <div class="m2-body">`
 
     +   '<div class="psp-sec">1. Project-wise Demand &amp; Deployment</div>'
     +   '<table class="psp-tbl">'
@@ -13393,7 +13382,7 @@ function printMeetingReport(){
     </div>
   ` : '';
 
-  const printDocHtml = `<div class="print-doc landscape mrep mt-matrix-print">
+  const printDocHtml = `<div class="print-doc landscape mrep m2 mt-matrix-print">
     <style>
       @media print {
         @page { size: landscape; margin: 10mm; }
@@ -13413,7 +13402,7 @@ function printMeetingReport(){
         min-height: 205mm;
         margin: 0 auto;
         background: #fff;
-        padding: 8mm 10mm;
+        padding: 4mm 10mm 6mm;
         font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         color: #0f172a;
       }
@@ -13446,7 +13435,7 @@ function printMeetingReport(){
         border-collapse: collapse !important;
         border-spacing: 0 !important;
         table-layout: auto !important;
-        border: 1px solid #cbd5e1 !important;
+        border: 1px solid #e2e8f0 !important;
         font-size: 9px;
       }
       .mt-matrix-print th,
@@ -13454,7 +13443,7 @@ function printMeetingReport(){
         position: static !important;
         overflow: visible !important;
         max-height: none !important;
-        border: 1px solid #cbd5e1 !important;
+        border: 1px solid #e2e8f0 !important;
         text-align: center;
         vertical-align: middle;
         box-sizing: border-box;
@@ -13481,10 +13470,17 @@ function printMeetingReport(){
       }
     </style>
 
-    <div class="print-header">
-      <h2>Mahbub Group of Industries</h2>
-      <h3>Security Department - Meeting Attendance Register</h3>
-      <p><strong>Month:</strong> ${monthNames[m]} ${y}</p>
+    <div class="m2-head">
+      <div class="m2-l">
+        <div class="m2-brand">${typeof COMPANY !== 'undefined' ? COMPANY.name : 'Mahbub Group'} · Security Division</div>
+        <div class="m2-title">Meeting Attendance Register</div>
+        <div class="m2-sub">Project-wise present / absent register for the selected month</div>
+        <div class="m2-meta"><b>${monthNames[m]} ${y}</b> <i>·</i> <b>${projNames.length}</b> Projects</div>
+      </div>
+      <div class="m2-r">
+        <div class="m2-gen">Generated on ${typeof fmtDateEnLong === 'function' ? fmtDateEnLong(todayISO()) : todayISO()}</div>
+        <div class="m2-sys">MG Security HRM</div>
+      </div>
     </div>
 
     <table style="width:100%;border-collapse:collapse;border:1px solid #cbd5e1;">
@@ -13650,57 +13646,58 @@ function printDailySummary(iso) {
       margin: 0 auto;
     }
     .report-header {
-      text-align: center;
-      border-bottom: 1.5px solid #0f172a;
-      padding-bottom: 5px;
+      text-align: left;
+      border-left: 1mm solid #0f172a;
+      padding: 0 0 3px 3mm;
       margin-bottom: 8px;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 3mm;
+      position: relative;
     }
     .report-header h1 {
-      margin: 0 0 2px 0;
-      font-size: 13.5pt;
-      font-weight: 800;
-      color: #0f172a;
-      letter-spacing: -0.2px;
+      margin: 0;
+      font-size: 6.8pt;
+      font-weight: 700;
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+      color: #94a3b8;
     }
     .report-header h2 {
-      margin: 0 0 3px 0;
-      font-size: 10pt;
-      font-weight: 600;
-      color: #334155;
+      margin: .8mm 0 0 0;
+      font-size: 13.5pt;
+      font-weight: 700;
+      color: #0f172a;
+      letter-spacing: -.25px;
     }
     .report-header p {
-      margin: 0;
-      font-size: 8pt;
+      margin: .8mm 0 0 0;
+      font-size: 7.6pt;
       color: #64748b;
     }
-    .summary-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 4px;
-      padding: 5px 10px;
-      margin-bottom: 8px;
-      font-size: 8pt;
+    .report-meta {
+      font-size: 6.8pt; font-weight: 600; letter-spacing: .8px; text-transform: uppercase;
+      color: #94a3b8; margin-top: 1.4mm;
     }
+    .report-meta b { font-weight: 700; color: #475569; }
+    .report-meta i { font-style: normal; color: #cbd5e1; margin: 0 1.8mm; }
+    .report-gen { position: absolute; right: 0; top: 0; font-size: 7.2pt; color: #64748b; text-align: right; }
     table {
       width: 100%;
       border-collapse: collapse;
       table-layout: auto;
       font-size: 8pt;
-      border: 1px solid #cbd5e1;
+      border: 1px solid #e2e8f0;
     }
     th {
-      background: #f1f5f9;
+      background: #f8fafc;
       color: #1e293b;
       font-weight: 700;
-      border: 1px solid #cbd5e1;
+      border: 1px solid #e2e8f0;
       padding: 3.5px 6px;
       text-align: left;
     }
     td {
-      border: 1px solid #cbd5e1;
+      border: 1px solid #e2e8f0;
       vertical-align: middle;
     }
     tr {
@@ -13721,19 +13718,11 @@ function printDailySummary(iso) {
 <body>
   <div class="report-wrap">
     <div class="report-header">
-      <h1>Mahbub Group of Industries</h1>
-      <h2>Security Department — Daily Meeting Attendance Summary</h2>
-      <p><strong>Date:</strong> ${reportDateFormatted} (${targetIso}) · <strong>Meeting Time:</strong> 9:30 AM – 10:30 AM</p>
-    </div>
-    <div class="summary-bar">
-      <div>
-        <span style="margin-right:12px;"><strong>Present:</strong> <span style="color:#059669;font-weight:700;">${presentList.length}</span></span>
-        <span style="margin-right:12px;"><strong>Absent:</strong> <span style="color:#dc2626;font-weight:700;">${absentList.length}</span></span>
-        <span><strong>Total Recorded:</strong> <strong>${rowsToRender.length}</strong></span>
-      </div>
-      <div style="color:#64748b;font-size:7.5pt;">
-        Status: Submitted & Recorded
-      </div>
+      <div class="report-gen">Generated on ${reportDateFormatted}</div>
+      <h1>Mahbub Group of Industries · Security Division</h1>
+      <h2>Daily Meeting Attendance Summary</h2>
+      <p>${reportDateFormatted} · Meeting time 9:30 AM – 10:30 AM</p>
+      <div class="report-meta"><b>${presentList.length}</b> Present <i>·</i> <b>${absentList.length}</b> Absent <i>·</i> <b>${rowsToRender.length}</b> Recorded</div>
     </div>
     <table>
       <thead>
@@ -13786,28 +13775,27 @@ function printDailySummary(iso) {
   }
 
   // Fallback for sandboxed iframes or popup blockers: open via in-app print preview
-  const modalDocHtml = `<div class="print-doc portrait" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a;max-width:186mm;margin:0 auto;padding:8mm 10mm;background:#fff;">
-    <div style="text-align:center;border-bottom:1.5px solid #0f172a;padding-bottom:5px;margin-bottom:8px;">
-      <h2 style="margin:0 0 2px 0;font-size:13.5pt;font-weight:800;color:#0f172a;">Mahbub Group of Industries</h2>
-      <h3 style="margin:0 0 3px 0;font-size:10pt;font-weight:600;color:#334155;">Security Department — Daily Meeting Attendance Summary</h3>
-      <p style="margin:0;font-size:8pt;color:#64748b;"><strong>Date:</strong> ${reportDateFormatted} (${targetIso}) · <strong>Meeting Time:</strong> 9:30 AM – 10:30 AM</p>
-    </div>
-    <div style="display:flex;justify-content:space-between;background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;padding:5px 10px;margin-bottom:8px;font-size:8pt;">
-      <div>
-        <span style="margin-right:12px;"><strong>Present:</strong> <span style="color:#059669;font-weight:700;">${presentList.length}</span></span>
-        <span style="margin-right:12px;"><strong>Absent:</strong> <span style="color:#dc2626;font-weight:700;">${absentList.length}</span></span>
-        <span><strong>Total Recorded:</strong> <strong>${rowsToRender.length}</strong></span>
+  const modalDocHtml = `<div class="print-doc portrait mrep m2" style="max-width:186mm;margin:0 auto;background:#fff;">
+    <div class="m2-head">
+      <div class="m2-l">
+        <div class="m2-brand">Mahbub Group of Industries · Security Division</div>
+        <div class="m2-title">Daily Meeting Attendance Summary</div>
+        <div class="m2-sub">${reportDateFormatted} · Meeting time 9:30 AM – 10:30 AM</div>
+        <div class="m2-meta"><b>${presentList.length}</b> Present <i>·</i> <b>${absentList.length}</b> Absent <i>·</i> <b>${rowsToRender.length}</b> Recorded</div>
       </div>
-      <div style="color:#64748b;font-size:7.5pt;">Status: Submitted & Recorded</div>
+      <div class="m2-r">
+        <div class="m2-gen">Status: Submitted &amp; Recorded</div>
+        <div class="m2-sys">MG Security HRM</div>
+      </div>
     </div>
-    <table style="width:100%;border-collapse:collapse;border:1px solid #cbd5e1;font-size:8pt;">
+    <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;font-size:8pt;">
       <thead>
         <tr>
-          <th style="width:24px;text-align:center;background:#f1f5f9;border:1px solid #cbd5e1;padding:3.5px 6px;">#</th>
-          <th style="width:28%;background:#f1f5f9;border:1px solid #cbd5e1;padding:3.5px 6px;">Project Name</th>
-          <th style="width:26%;background:#f1f5f9;border:1px solid #cbd5e1;padding:3.5px 6px;">Representative</th>
-          <th style="width:14%;text-align:center;background:#f1f5f9;border:1px solid #cbd5e1;padding:3.5px 6px;">Status</th>
-          <th style="width:32%;background:#f1f5f9;border:1px solid #cbd5e1;padding:3.5px 6px;">Notes / Action Items</th>
+          <th style="width:24px;text-align:center;background:#f8fafc;border:1px solid #e2e8f0;padding:3.5px 6px;">#</th>
+          <th style="width:28%;background:#f8fafc;border:1px solid #e2e8f0;padding:3.5px 6px;">Project Name</th>
+          <th style="width:26%;background:#f8fafc;border:1px solid #e2e8f0;padding:3.5px 6px;">Representative</th>
+          <th style="width:14%;text-align:center;background:#f8fafc;border:1px solid #e2e8f0;padding:3.5px 6px;">Status</th>
+          <th style="width:32%;background:#f8fafc;border:1px solid #e2e8f0;padding:3.5px 6px;">Notes / Action Items</th>
         </tr>
       </thead>
       <tbody>
@@ -13815,10 +13803,7 @@ function printDailySummary(iso) {
       </tbody>
     </table>
     ${generalNoteHtml}
-    <div style="margin-top:10px;padding-top:6px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:7.5pt;color:#64748b;">
-      <span>Mahbub Group — Security Division · Daily Summary</span>
-      <span>Printed: ${new Date().toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'})}</span>
-    </div>
+    <div class="m2-foot"><span>Mahbub Group — Security Division · Daily Summary</span><span>Printed: ${new Date().toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'})}</span></div>
   </div>`;
 
   if (typeof openPrint === 'function') {
@@ -14038,13 +14023,11 @@ function printUniform(kind){
     <td>${o.challanNo||'—'}</td><td class="num">${o.amount?Number(o.amount).toLocaleString('en-IN'):'—'}</td>
     <td>${isDone?fmtDate(o.completedAt):`<span class="pillbox ${unifStep(o)>=4?'ok':unifStep(o)===3?'over':'short'}">${UNIF_STAGES[unifStep(o)-1].key}</span>`}</td>
   </tr>`;
-  const html = mrepShell({
+  const html = mrepShell2({
     title: isDone ? 'Uniform Orders — Completed' : 'Uniform Order Tracking — Active Orders',
     subtitle: isDone ? 'Delivered & billed uniform orders · most recent first' : 'Orders currently in the pipeline · demand → requisition → tailor → delivery',
     landscape: true,
-    kpis: mrepKpi(isDone?'Completed Orders':'Active Orders', list.length, isDone?'all time':'in pipeline', '#4f46e5')
-        + mrepKpi('Total Sets', totSets, 'uniform sets', '#0891b2')
-        + mrepKpi('Total Billed', '৳ '+totAmt.toLocaleString('en-IN'), isDone?'billed amount':'billed so far', '#16a34a'),
+    meta:`<b>${list.length}</b> ${isDone?'Completed':'Active'} Orders <i>·</i> <b>${totSets}</b> Sets <i>·</i> ৳ <b>${totAmt.toLocaleString('en-IN')}</b> Billed`,
     body: `<table><thead><tr><th>#</th><th>Order ID</th><th>Project</th><th class="num">Sets</th><th>Demand Date</th><th>Req. No</th><th>Req. Approved</th><th>Work Order</th><th>Delivered</th><th>Challan No</th><th class="num">Amount (৳)</th><th>${isDone?'Completed On':'Status'}</th></tr></thead>
       <tbody>${list.map(row).join('')}</tbody></table>`
   });
@@ -14458,37 +14441,35 @@ window.printTodos = function() {
     const noteStyle = isSolved ? 'line-height:1.4;text-decoration:line-through;opacity:0.65;' : 'line-height:1.4;';
 
     return '<tr>' +
-      '<td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:center;font-size:10pt;">' + (idx + 1) + '</td>' +
-      '<td style="border:1px solid #cbd5e1;padding:6px 8px;white-space:nowrap;font-size:10pt;">' + escapeHtml(dStr) + '</td>' +
-      '<td style="border:1px solid #cbd5e1;padding:6px 8px;font-size:10pt;font-weight:600;">' + escapeHtml(pName) + '</td>' +
-      '<td style="border:1px solid #cbd5e1;padding:6px 8px;font-size:10pt;' + noteStyle + '">' + escapeHtml(t.note || '') + '</td>' +
-      '<td style="border:1px solid #cbd5e1;padding:6px 8px;font-size:9.5pt;white-space:nowrap;color:#475569;">' + escapeHtml(who) + '</td>' +
-      '<td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:center;font-size:9pt;white-space:nowrap;">' + stBadge + '</td>' +
+      '<td style="border-bottom:1px solid #e2e8f0;padding:6px 8px;text-align:center;font-size:10pt;">' + (idx + 1) + '</td>' +
+      '<td style="border-bottom:1px solid #e2e8f0;padding:6px 8px;white-space:nowrap;font-size:10pt;">' + escapeHtml(dStr) + '</td>' +
+      '<td style="border-bottom:1px solid #e2e8f0;padding:6px 8px;font-size:10pt;font-weight:600;">' + escapeHtml(pName) + '</td>' +
+      '<td style="border-bottom:1px solid #e2e8f0;padding:6px 8px;font-size:10pt;' + noteStyle + '">' + escapeHtml(t.note || '') + '</td>' +
+      '<td style="border-bottom:1px solid #e2e8f0;padding:6px 8px;font-size:9.5pt;white-space:nowrap;color:#475569;">' + escapeHtml(who) + '</td>' +
+      '<td style="border-bottom:1px solid #e2e8f0;padding:6px 8px;text-align:center;font-size:9pt;white-space:nowrap;">' + stBadge + '</td>' +
     '</tr>';
   }).join('') || '<tr><td colspan="6" style="border:1px solid #cbd5e1;padding:24px;text-align:center;color:#64748b;">No follow-up notes found</td></tr>';
 
   // Minimal clean internal document: strictly internal H3, no corporate letterheads or signatures
-  const html = '<div class="print-doc" style="padding:15px;font-family:inherit;">' +
-    '<div style="margin:0 0 12px 0;border-bottom:2px solid #0f172a;padding-bottom:8px;display:flex;justify-content:space-between;align-items:baseline;">' +
-      '<h3 style="margin:0;font-size:15pt;font-weight:700;color:#0f172a;letter-spacing:-0.2px;">Internal To-Do & Follow-up List</h3>' +
-      '<span style="font-size:9pt;color:#64748b;">Generated: ' + (typeof fmtDateEnLong === 'function' ? fmtDateEnLong(todayISO()) : todayISO()) + '</span>' +
-    '</div>' +
-    '<div style="display:flex;gap:16px;margin-bottom:12px;font-size:9.5pt;background:#f8fafc;padding:6px 12px;border:1px solid #e2e8f0;border-radius:6px;">' +
-      '<span><strong>Total:</strong> ' + total + '</span>' +
-      '<span><strong>Pending:</strong> ' + pending + '</span>' +
-      '<span><strong>Approved:</strong> ' + approved + '</span>' +
-      '<span><strong>Rejected:</strong> ' + rejected + '</span>' +
-      '<span><strong>Solved:</strong> ' + solved + '</span>' +
-    '</div>' +
+  const html = '<div class="print-doc mrep m2">' +
+    '<div class="m2-head"><div class="m2-l">' +
+      '<div class="m2-brand">' + (typeof COMPANY !== 'undefined' ? COMPANY.name : 'Mahbub Group') + ' · Security Division</div>' +
+      '<div class="m2-title">Internal To-Do &amp; Follow-up List</div>' +
+      '<div class="m2-sub">Call notes, permissions and follow-ups pending across all projects</div>' +
+      '<div class="m2-meta"><b>' + total + '</b> Total <i>·</i> <b>' + pending + '</b> Pending <i>·</i> <b>' + approved + '</b> Approved <i>·</i> <b>' + rejected + '</b> Rejected <i>·</i> <b>' + solved + '</b> Solved</div>' +
+    '</div><div class="m2-r">' +
+      '<div class="m2-gen">Generated on ' + (typeof fmtDateEnLong === 'function' ? fmtDateEnLong(todayISO()) : todayISO()) + '</div>' +
+      '<div class="m2-sys">MG Security HRM</div>' +
+    '</div></div>' +
     '<table style="width:100%;border-collapse:collapse;margin-top:4px;font-family:inherit;">' +
       '<thead>' +
-        '<tr style="background:#f1f5f9;">' +
-          '<th style="border:1px solid #94a3b8;padding:7px 6px;text-align:center;width:35px;font-size:9pt;">#</th>' +
-          '<th style="border:1px solid #94a3b8;padding:7px 8px;text-align:left;width:85px;font-size:9pt;">Date</th>' +
-          '<th style="border:1px solid #94a3b8;padding:7px 8px;text-align:left;width:130px;font-size:9pt;">Project</th>' +
-          '<th style="border:1px solid #94a3b8;padding:7px 8px;text-align:left;font-size:9pt;">Task / Action Note</th>' +
-          '<th style="border:1px solid #94a3b8;padding:7px 8px;text-align:left;width:110px;font-size:9pt;">Source</th>' +
-          '<th style="border:1px solid #94a3b8;padding:7px 8px;text-align:center;width:130px;font-size:9pt;">Status</th>' +
+        '<tr style="background:#f8fafc;">' +
+          '<th style="border-bottom:1px solid #e2e8f0;padding:7px 6px;text-align:center;width:35px;font-size:9pt;">#</th>' +
+          '<th style="border-bottom:1px solid #e2e8f0;padding:7px 8px;text-align:left;width:85px;font-size:9pt;">Date</th>' +
+          '<th style="border-bottom:1px solid #e2e8f0;padding:7px 8px;text-align:left;width:130px;font-size:9pt;">Project</th>' +
+          '<th style="border-bottom:1px solid #e2e8f0;padding:7px 8px;text-align:left;font-size:9pt;">Task / Action Note</th>' +
+          '<th style="border-bottom:1px solid #e2e8f0;padding:7px 8px;text-align:left;width:110px;font-size:9pt;">Source</th>' +
+          '<th style="border-bottom:1px solid #e2e8f0;padding:7px 8px;text-align:center;width:130px;font-size:9pt;">Status</th>' +
         '</tr>' +
       '</thead>' +
       '<tbody>' +

@@ -1213,6 +1213,85 @@ body.sidebar-open {
 .mrep-summary-box h4 { font-size: 9.5pt; color: #312e81; margin-bottom: 2mm; }
 .mrep-summary-box table td, .mrep-summary-box table th { font-size: 8.5pt; }
 
+/* ============ COMPACT REPORT SHELL (m2) — modern minimal ============ */
+.print-doc.mrep.m2 { padding: 0 !important; }
+
+.mrep.m2 .m2-head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 8mm;
+  padding: 5mm 12mm 3mm; background: #fff; border-bottom: 1px solid #e2e8f0;
+}
+.mrep.m2 .m2-l { border-left: 1mm solid #0f172a; padding-left: 3mm; min-width: 0; }
+.mrep.m2 .m2-brand {
+  font-size: 6.8pt; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase;
+  color: #94a3b8; line-height: 1.2;
+}
+.mrep.m2 .m2-title {
+  font-size: 13.5pt; font-weight: 700; color: #0f172a; letter-spacing: -.25px;
+  line-height: 1.2; margin-top: .8mm;
+}
+.mrep.m2 .m2-sub { font-size: 7.6pt; color: #64748b; line-height: 1.35; margin-top: .8mm; }
+.mrep.m2 .m2-meta {
+  font-size: 6.8pt; font-weight: 600; letter-spacing: .8px; text-transform: uppercase;
+  color: #94a3b8; margin-top: 1.4mm; line-height: 1.3;
+}
+.mrep.m2 .m2-meta b { font-weight: 700; color: #475569; font-variant-numeric: tabular-nums; }
+.mrep.m2 .m2-meta i { font-style: normal; color: #cbd5e1; margin: 0 1.8mm; }
+.mrep.m2 .m2-r { flex: 0 0 auto; text-align: right; padding-top: .5mm; }
+.mrep.m2 .m2-gen { font-size: 7.2pt; color: #64748b; line-height: 1.5; white-space: nowrap; }
+.mrep.m2 .m2-sys {
+  font-size: 6.6pt; color: #b6c0cc; letter-spacing: .5px; text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.mrep.m2 .m2-body { padding: 4mm 12mm 6mm; }
+.mrep.m2 .m2-foot {
+  padding: 3mm 12mm; border-top: 1px solid #e2e8f0; font-size: 6.8pt; color: #b6c0cc;
+  display: flex; justify-content: space-between;
+}
+
+/* tighter tables inside the compact shell */
+.mrep.m2 table { font-size: 8.2pt; }
+.mrep.m2 table + table { margin-top: 4mm; }
+.mrep.m2 thead { display: table-header-group; }
+.mrep.m2 tbody tr { page-break-inside: avoid; break-inside: avoid; }
+.mrep.m2 thead th {
+  background: #f8fafc; color: #475569; font-weight: 700; text-align: left;
+  padding: 1.6mm 2.6mm; font-size: 6.9pt; letter-spacing: .6px; text-transform: uppercase;
+  border-top: 0; border-bottom: 1px solid #cbd5e1;
+}
+.mrep.m2 tbody td { padding: 1.35mm 2.6mm; border-bottom: 1px solid #f1f5f9; }
+.mrep.m2 tbody tr:nth-child(even) { background: #fbfcfd; }
+.mrep.m2 .num { text-align: center; font-variant-numeric: tabular-nums; color: #64748b; }
+.mrep.m2 .rgt { text-align: right; font-variant-numeric: tabular-nums; }
+
+.mrep.m2 .m2-grp td {
+  background: #fff !important; color: #0f172a; font-weight: 700; font-size: 8.4pt;
+  padding: 2.6mm 2.6mm 1.6mm; border-bottom: 1px solid #0f172a;
+}
+.mrep.m2 .m2-grp td i {
+  font-style: normal; color: #94a3b8; font-weight: 600; margin-right: 2mm;
+  font-variant-numeric: tabular-nums;
+}
+.mrep.m2 .m2-grp td small { font-weight: 600; color: #94a3b8; font-size: 7pt; margin-left: 2mm; }
+
+/* black & white print mode */
+body.print-bw .mrep.m2 .m2-l { border-left-color: #000 !important; }
+body.print-bw .mrep.m2 .m2-brand,
+body.print-bw .mrep.m2 .m2-sub,
+body.print-bw .mrep.m2 .m2-gen,
+body.print-bw .mrep.m2 .m2-sys,
+body.print-bw .mrep.m2 .m2-meta,
+body.print-bw .mrep.m2 .m2-meta b,
+body.print-bw .mrep.m2 .m2-meta i { color: #000 !important; }
+body.print-bw .mrep.m2 .m2-foot,
+body.print-bw .mrep.m2 .num { color: #000 !important; }
+body.print-bw .mrep.m2 .m2-title,
+body.print-bw .mrep.m2 .m2-grp td,
+body.print-bw .mrep.m2 .m2-grp td i,
+body.print-bw .mrep.m2 .m2-grp td small { color: #000 !important; }
+body.print-bw .mrep.m2 thead th { background: #fff !important; }
+body.print-bw .mrep.m2 tbody tr:nth-child(even) { background: #f5f5f5 !important; }
+
 /* ---------- Parade State two-row header & column-groups ---------- */
 .mrep .parade-tbl { table-layout: fixed; font-size: 8.5pt; width: 100%; }
 .mrep .parade-tbl tbody td { padding: 1.4mm 1mm; overflow: hidden; text-overflow: ellipsis; }
@@ -10458,6 +10537,24 @@ function mrepShell({title, subtitle, kpis, body, landscape}){
   </div>`;
 }
 function mrepKpi(k, v, s, color){ return `<div class="mrep-kpi"><div class="k">${k}</div><div class="v"${color?` style="color:${color}"`:''}>${v}</div><div class="s">${s||''}</div></div>`; }
+function mrepShell2({title, subtitle, meta, body, landscape}){
+  return `<div class="print-doc mrep m2${landscape?' landscape':''}">
+    <div class="m2-head">
+      <div class="m2-l">
+        <div class="m2-brand">${COMPANY.name} · Security Division</div>
+        <div class="m2-title">${title}</div>
+        <div class="m2-sub">${subtitle}</div>
+        ${meta?`<div class="m2-meta">${meta}</div>`:''}
+      </div>
+      <div class="m2-r">
+        <div class="m2-gen">Generated on ${fmtDateEnLong(todayISO())}</div>
+        <div class="m2-sys">MG Security HRM</div>
+      </div>
+    </div>
+    <div class="m2-body">${body}</div>
+    <div class="m2-foot"><span>${COMPANY.name} — Security Division</span><span>${title} · Internal use</span></div>
+  </div>`;
+}
 function printReport(){
   const monthVal = document.getElementById('reportMonth')?.value || todayISO().slice(0,7);
   const [yr,mo] = monthVal.split('-').map(Number);
@@ -10510,31 +10607,40 @@ function printReport(){
 
 function buildStaffListPrint(selectedProj){
   const active = senioritySort(DATA.employees.filter(e=>e.Status==='Active'));
-  const head = e=>`<tr><td class="num">${e._i}</td><td>${e.EmployeeID||''}</td><td><strong>${e.FullName}</strong></td><td>${e.Designation||''}</td><td>${fmtDate(e.JoinDate)}</td><td>${e.PhoneNumber||''}</td><td>${e.Salary?Number(e.Salary).toLocaleString('en-IN'):''}</td></tr>`;
+  const head = e=>`<tr><td class="num">${e._i}</td><td>${e.EmployeeID||''}</td><td><strong>${e.FullName}</strong></td><td>${e.Designation||''}</td><td>${fmtDate(e.JoinDate)}</td><td>${e.PhoneNumber||''}</td><td class="rgt">${e.Salary?Number(e.Salary).toLocaleString('en-IN'):''}</td></tr>`;
+  const HDR = `<tr><th>#</th><th>ID</th><th>Name</th><th>Designation</th><th>Join Date</th><th>Phone</th><th style="text-align:right">Salary (৳)</th></tr>`;
+
   if(selectedProj){
     const list = active.filter(e=>e.ProjectName===selectedProj).map((e,i)=>({...e,_i:i+1}));
     if(!list.length){ toast('No active employees in this project','error'); return ''; }
-    return mrepShell({ title:'Project Staff List', subtitle:`Active employees · sorted by designation seniority, then seniority of service`,
-      kpis: mrepKpi('Project', selectedProj, '', '#4f46e5') + mrepKpi('Active Staff', list.length, 'currently deployed', '#16a34a'),
-      body:`<div class="mrep-sec" style="font-size:13pt">${selectedProj} — <span style="color:#4f46e5">${list.length} active employees</span></div>
-        <table><thead><tr><th>#</th><th>ID</th><th>Name</th><th>Designation</th><th>Join Date</th><th>Phone</th><th>Salary (৳)</th></tr></thead><tbody>${list.map(head).join('')}</tbody></table>` });
+    const desigs = new Set(list.map(e=>e.Designation).filter(Boolean)).size;
+    return mrepShell2({
+      title:'Project Staff List',
+      subtitle:`Active employees of ${selectedProj} · designation seniority order, then seniority of service`,
+      meta:`<b>${list.length}</b> Active <i>·</i> <b>${desigs}</b> Designations`,
+      body:`<table><thead>${HDR}</thead><tbody>${list.map(head).join('')}</tbody></table>`
+    });
   }
-  
+
   const groups = {};
   active.forEach(e=>{ (groups[e.ProjectName||'(Unassigned)'] = groups[e.ProjectName||'(Unassigned)']||[]).push(e); });
   const ordered = Object.entries(groups).sort((a,b)=>b[1].length-a[1].length);
+  const desigs = new Set(active.map(e=>e.Designation).filter(Boolean)).size;
   let body = '', gi = 0;
   ordered.forEach(([p,emps])=>{
     emps.forEach((e,i)=>e._i=i+1);
     gi++;
-    body += `<table style="margin-bottom:5mm">
-      <thead><tr class="proj-head"><td colspan="7">${gi}. ${p} — ${emps.length} active employees</td></tr>
-      <tr><th>#</th><th>ID</th><th>Name</th><th>Designation</th><th>Join Date</th><th>Phone</th><th>Salary (৳)</th></tr></thead>
+    body += `<table>
+      <thead><tr class="m2-grp"><td colspan="7"><i>${gi}</i>${p}<small>${emps.length} active</small></td></tr>${HDR}</thead>
       <tbody>${emps.map(head).join('')}</tbody></table>`;
   });
-  return mrepShell({ title:'All Projects Staff List', subtitle:`Active employees by project · largest project first · seniority order within each project`, landscape:true,
-    kpis: mrepKpi('Projects', ordered.length, 'with active staff', '#4f46e5') + mrepKpi('Total Active', active.length, 'across all projects', '#16a34a'),
-    body });
+  return mrepShell2({
+    title:'All Projects Staff List',
+    subtitle:'Active employees grouped by project · largest project first · designation seniority order within each project',
+    landscape:true,
+    meta:`<b>${active.length}</b> Active <i>·</i> <b>${ordered.length}</b> Projects <i>·</i> <b>${desigs}</b> Designations`,
+    body
+  });
 }
 function printEmpList(){
   const proj = document.getElementById('empProjectFilter')?.value || '';

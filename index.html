@@ -2165,6 +2165,152 @@ input:focus, select:focus, textarea:focus {
   .psp-tbl thead { display:table-header-group; }
   .psp-tbl tbody tr { page-break-inside:avoid; }
 }
+
+/* ============ MEETING BOARD — MODERN UI (v2) ============ */
+/* Scoped under #mtTiles / #mtBoardBar. No other screen is affected. */
+
+#mtBoardBar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 0 0 14px 0; padding: 10px 12px;
+  background: #FBFCFD; border: 1px solid var(--border); border-radius: 12px;
+}
+#mtBoardBar input#mtSearch {
+  flex: 1 1 190px; min-width: 150px; height: 34px; padding: 0 12px;
+  font-size: 13px; font-family: inherit; color: var(--text);
+  background: #fff; border: 1px solid var(--border); border-radius: 8px;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+#mtBoardBar input#mtSearch::placeholder { color: #A8B0BB; }
+#mtBoardBar input#mtSearch:focus {
+  outline: none; border-color: #0B6B4F; box-shadow: 0 0 0 3px rgba(11,107,79,.10);
+}
+#mtFilterChips { display: flex; gap: 5px; flex-wrap: wrap; }
+#mtFilterChips .mt-chip {
+  font-family: inherit; font-size: 11.5px; font-weight: 600; letter-spacing: .02em;
+  padding: 7px 12px; border-radius: 8px; cursor: pointer;
+  background: #fff; color: var(--text-2);
+  border: 1px solid var(--border); transition: all .15s ease;
+}
+#mtFilterChips .mt-chip:hover { border-color: var(--border-strong); color: var(--text); }
+#mtFilterChips .mt-chip.active {
+  background: #16181D; border-color: #16181D; color: #fff;
+}
+#mtFilterChips .mt-chip[data-f="present"].active { background: #0B6B4F; border-color: #0B6B4F; }
+#mtFilterChips .mt-chip[data-f="absent"].active  { background: #C2263E; border-color: #C2263E; }
+#mtBarCount {
+  font-size: 11.5px; color: var(--text-muted); font-variant-numeric: tabular-nums;
+  white-space: nowrap; margin-left: auto;
+}
+
+#mtTiles { gap: 12px !important; }
+
+#mtTiles .mt-tile {
+  position: relative;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-left: 3px solid transparent;
+  border-radius: 12px;
+  padding: 13px 14px;
+  transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+#mtTiles .mt-tile:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 2px 10px rgba(20,22,29,.055);
+}
+#mtTiles .mt-tile.present {
+  border-color: #CFE9DE; border-left-color: #0B6B4F; background: #F6FCF9;
+}
+#mtTiles .mt-tile.absent {
+  border-color: #F3D3DA; border-left-color: #C2263E; background: #FDF8F9;
+}
+
+#mtTiles .mt-tile h5 {
+  font-size: 13px; font-weight: 600; letter-spacing: -.1px;
+  color: var(--text); line-height: 1.35; padding-right: 30px; margin: 0;
+}
+#mtTiles .mt-tile h5 .badge.mute {
+  float: right; margin-top: 1px;
+  font-size: 10.5px; font-weight: 500; letter-spacing: .02em;
+  padding: 2px 8px; border-radius: 100px;
+  background: #F4F5F7; color: var(--text-muted); border: 1px solid var(--border);
+}
+
+/* ---- status circle: empty = dashed ring, present = green + check, absent = red + cross ---- */
+#mtTiles .mt-tile .mt-check {
+  position: absolute; top: 11px; right: 11px;
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 1.5px dashed var(--border-strong);
+  background: #fff; display: grid; place-items: center;
+  transition: background .18s ease, border-color .18s ease, transform .18s ease;
+}
+#mtTiles .mt-tile .mt-check::after {
+  content: ''; opacity: 0; transition: opacity .18s ease;
+}
+#mtTiles .mt-tile.present .mt-check {
+  border: 1.5px solid #0B6B4F; background: #0B6B4F; border-style: solid;
+  box-shadow: 0 1px 4px rgba(11,107,79,.28);
+}
+#mtTiles .mt-tile.present .mt-check::after {
+  opacity: 1; width: 11px; height: 6px; margin-top: -2px;
+  border-left: 2px solid #fff; border-bottom: 2px solid #fff;
+  transform: rotate(-45deg);
+}
+#mtTiles .mt-tile.absent .mt-check {
+  border: 1.5px solid #C2263E; background: #C2263E; border-style: solid;
+  box-shadow: 0 1px 4px rgba(194,38,62,.26);
+}
+#mtTiles .mt-tile.absent .mt-check::after {
+  opacity: 1; width: 11px; height: 11px;
+  background:
+    linear-gradient(45deg, transparent 43%, #fff 43%, #fff 57%, transparent 57%),
+    linear-gradient(-45deg, transparent 43%, #fff 43%, #fff 57%, transparent 57%);
+}
+
+#mtTiles .mt-tile-body {
+  margin-top: 11px; padding-top: 11px;
+  border-top: 1px solid var(--rule-2, #EDEFF2);
+}
+
+#mtTiles .mt-rep-select {
+  width: 100%; height: 36px; padding: 0 10px;
+  font-family: inherit; font-size: 12.5px; color: var(--text);
+  background: #fff; border: 1px solid var(--border); border-radius: 8px;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+#mtTiles .mt-rep-select:focus {
+  outline: none; border-color: #0B6B4F; box-shadow: 0 0 0 3px rgba(11,107,79,.10);
+}
+
+#mtTiles .mt-btn-present, #mtTiles .mt-btn-absent {
+  flex: 1 1 0; justify-content: center;
+  height: 36px; padding: 0 12px; border-radius: 9px;
+  font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: .02em;
+  transition: background .15s ease, border-color .15s ease, color .15s ease, transform .1s ease;
+}
+#mtTiles .mt-btn-present:active, #mtTiles .mt-btn-absent:active { transform: translateY(1px); }
+#mtTiles .mt-tile.present .mt-btn-present {
+  background: #0B6B4F !important; border-color: #0B6B4F !important; color: #fff !important;
+}
+#mtTiles .mt-tile.absent .mt-btn-absent {
+  background: #C2263E !important; border-color: #C2263E !important; color: #fff !important;
+}
+#mtTiles .mt-tile.present .mt-btn-absent,
+#mtTiles .mt-tile.absent .mt-btn-present {
+  background: #fff !important; border-color: var(--border) !important; color: var(--text-muted) !important;
+}
+
+#mtTiles .mt-tile .mt-note-box textarea {
+  border-radius: 8px; font-size: 12.5px; font-family: inherit;
+}
+#mtTiles .mt-tile .mt-note-box textarea:focus {
+  outline: none; border-color: #0B6B4F; box-shadow: 0 0 0 3px rgba(11,107,79,.10);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #mtTiles .mt-tile, #mtTiles .mt-tile .mt-check,
+  #mtTiles .mt-tile .mt-check::after, #mtFilterChips .mt-chip { transition: none !important; }
+}
+/* ============ END MEETING BOARD MODERN UI ============ */
 </style>
 <!-- Print page size controlled here: openPrint adjusts when landscape reports (parade/staff-list/uniform) are opened -->
 <style id="pageSizeStyle">@page { size: A4 portrait; margin: 0; }</style>
@@ -11841,6 +11987,57 @@ function mtSetStatus(iso, proj, status){
   if(typeof window.mtCheckDirty === 'function') window.mtCheckDirty(iso);
 }
 window.mtSetStatus = mtSetStatus;
+
+/* ===== Meeting board — search & filter ===== */
+window.MT_SEARCH = window.MT_SEARCH || '';
+window.MT_FILTER = window.MT_FILTER || 'all';
+
+function mtSetFilter(f){
+  window.MT_FILTER = f || 'all';
+  document.querySelectorAll('#mtFilterChips .mt-chip').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('data-f') === window.MT_FILTER);
+  });
+  mtFilterTiles();
+}
+
+function mtFilterTiles(){
+  const tiles = Array.prototype.slice.call(document.querySelectorAll('#mtTiles .mt-tile'));
+  if(!tiles.length) return;
+  const box = document.getElementById('mtSearch');
+  const q = ((box && box.value) || window.MT_SEARCH || '').trim().toLowerCase();
+  let shown = 0;
+  tiles.forEach(function(t){
+    const head = t.querySelector('h5');
+    const name = (head ? head.textContent : '').toLowerCase();
+    const isP = t.classList.contains('present');
+    const isA = t.classList.contains('absent');
+    let ok = !q || name.indexOf(q) !== -1;
+    if(ok && window.MT_FILTER === 'present')  ok = isP;
+    if(ok && window.MT_FILTER === 'absent')   ok = isA;
+    if(ok && window.MT_FILTER === 'unmarked') ok = !isP && !isA;
+    t.style.display = ok ? '' : 'none';
+    if(ok) shown++;
+  });
+  const c = document.getElementById('mtBarCount');
+  if(c) c.textContent = shown + ' of ' + tiles.length + ' projects';
+}
+
+window.mtSetFilter = mtSetFilter;
+window.mtFilterTiles = mtFilterTiles;
+
+/* Keep the search text and the active filter after the board re-renders */
+(function(){
+  const _origRenderMeeting = window.renderMeeting;
+  if(typeof _origRenderMeeting !== 'function') return;
+  window.renderMeeting = function(){
+    _origRenderMeeting.apply(this, arguments);
+    try{
+      const box = document.getElementById('mtSearch');
+      if(box) box.value = window.MT_SEARCH || '';
+      mtSetFilter(window.MT_FILTER || 'all');
+    }catch(e){}
+  };
+})();
 window.mtUpdateLoader = function(title, details, percent) {
   const t = document.getElementById('mtSyncTitle');
   const d = document.getElementById('mtSyncDetails');
@@ -13034,7 +13231,17 @@ function renderMeeting(){
           ` : isStartPromptState ? `
             ${mtRenderStartPromptView(today)}
           ` : `
-            <p class="small-mute" style="margin-bottom:10px">${'Click a project to expand card details. Mark attendance or take notes inside.'}</p>
+            <div id="mtBoardBar">
+              <input id="mtSearch" type="search" placeholder="Search project name…" autocomplete="off"
+                     oninput="MT_SEARCH=this.value; mtFilterTiles();">
+              <div id="mtFilterChips">
+                <button type="button" class="mt-chip active" data-f="all"      onclick="mtSetFilter('all')">All</button>
+                <button type="button" class="mt-chip"        data-f="unmarked" onclick="mtSetFilter('unmarked')">Unmarked</button>
+                <button type="button" class="mt-chip"        data-f="present"  onclick="mtSetFilter('present')">Present</button>
+                <button type="button" class="mt-chip"        data-f="absent"   onclick="mtSetFilter('absent')">Absent</button>
+              </div>
+              <span id="mtBarCount"></span>
+            </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px" id="mtTiles">
               ${projNames.map(p=>{
                 const isPres = !!(rec && rec.present && rec.present[p]);
@@ -13068,9 +13275,9 @@ function renderMeeting(){
                   <button type="button" class="${presBtnCls}" style="flex:1;justify-content:center;font-weight:600;" onclick="event.stopPropagation(); mtSetStatus('${today}', '${pSafe}', 'present')">Present</button>
                   <button type="button" class="${absBtnCls}" style="flex:1;justify-content:center;font-weight:600;" onclick="event.stopPropagation(); mtSetStatus('${today}', '${pSafe}', 'absent')">Absent</button>
                 </div>`;
-                return `<div class="mt-tile ${tileCls}" data-proj="${pSafe}" onclick="this.classList.toggle('expanded')">
+                return `<div class="mt-tile ${tileCls}" data-proj="${pSafe}" onclick="this.classList.toggle('expanded')" title="${isPres ? 'Present' : (isAbs ? 'Absent' : 'Not marked yet')}">
                   <span class="mt-check" aria-hidden="true"></span>
-                  <h5>${projName(p)} <span class="badge mute" style="font-size: 0.75rem; font-weight: 500; padding: 2px 8px; border-radius: 12px; float: right; margin-top: -2px;">Staff: ${projStaffCount(p)}</span></h5>
+                  <h5>${projName(p)} <span class="badge mute">Staff: ${projStaffCount(p)}</span></h5>
                   <div class="mt-tile-body" onclick="event.stopPropagation()">
                     ${repSelectHtml}
                     ${noteHtml}

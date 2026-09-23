@@ -3281,7 +3281,7 @@ function dashboardMeetingCard(){
   return `<div class="card">
     <div class="card-header">
       <div><h3>${"Today's Meeting Attendance"}</h3>
-      <span class="sub">${'Daily 9:30 – 10:30 AM'}</span></div>
+      <span class="sub">${'Daily 9:30 – 11:30 AM'}</span></div>
       <button class="btn primary sm" onclick="navigate('meeting')">${'Take Attendance'}</button>
     </div>
     <div class="card-body tight" style="cursor:pointer" onclick="navigate('meeting')">
@@ -13127,7 +13127,7 @@ function mtRenderPostponedView(today, rec, isFri, isAutoPostponed) {
   const now = new Date();
   const isToday = today === todayISO();
   const isPast = today < todayISO();
-  const isAfter11 = isToday && now.getHours() >= 11;
+  const isAfter11 = isToday && mtIsAfterLock();
 
   let noticeText = '';
   if (isFri) {
@@ -13691,7 +13691,7 @@ function printMeetingReport(){
 
   const now = new Date();
   const realToday = todayISO();
-  const isAfter11 = now.getHours() >= 11;
+  const isAfter11 = mtIsAfterLock();
 
   let thRow1 = '';
   let thRow2 = '';

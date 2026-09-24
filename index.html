@@ -2331,6 +2331,75 @@ input:focus, select:focus, textarea:focus {
   #mtTiles .mt-tile .mt-check::after, #mtFilterChips .mt-chip,
   #mtTiles .mt-btn-present, #mtTiles .mt-btn-absent { transition: none !important; }
 }
+
+/* ---- PHASE 5 . board header (modern) ---- */
+#page-meeting .card-header.mt-hd {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+  padding: 16px 16px 15px;
+  background: linear-gradient(180deg,#FFFFFF 0%,#FBFCFD 100%);
+}
+.mt-hd-l { min-width: 0; }
+.mt-hd-kicker {
+  font-size: 10.5px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+  color: #A8B0BB;
+}
+.mt-hd-title {
+  margin: 5px 0 0; font-size: 19px; font-weight: 700; letter-spacing: -.015em;
+  color: var(--text); line-height: 1.25;
+}
+.mt-hd-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 10px; }
+.mt-hd-pill {
+  font-size: 11px; font-weight: 600; letter-spacing: .02em;
+  padding: 5px 11px; border-radius: 100px;
+  border: 1px solid var(--border); background: #fff; color: var(--text-2);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.mt-hd-pill i { font-style: normal; color: #A8B0BB; font-weight: 600; }
+.mt-hd-pill.dark { background: #16181D; border-color: #16181D; color: #fff; font-weight: 700; }
+.mt-hd-r { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.mt-hd-tf { display: flex; flex-direction: column; gap: 5px; }
+.mt-hd-tf > span {
+  font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
+  color: #A8B0BB;
+}
+.mt-hd-tf input[type="time"] {
+  height: 36px; padding: 0 10px; min-width: 122px;
+  font-family: inherit; font-size: 13px; font-weight: 600; color: var(--text);
+  background: #fff; border: 1px solid var(--border); border-radius: 9px;
+  font-variant-numeric: tabular-nums;
+}
+.mt-hd-tf input[type="time"]:focus {
+  outline: none; border-color: #0B6B4F; box-shadow: 0 0 0 3px rgba(11,107,79,.10);
+}
+@media (max-width: 700px) {
+  #page-meeting .card-header.mt-hd { padding: 14px 13px 13px; }
+  .mt-hd-r { width: 100%; }
+}
+
+/* ---- PHASE 5 . category separators (stronger, sticky while scrolling) ---- */
+#mtTiles .mt-group { margin: 0 0 26px 0; }
+#mtTiles .mt-group-h {
+  position: sticky; top: 0; z-index: 4;
+  display: flex; align-items: center; gap: 12px;
+  margin: 0 0 13px 0; padding: 11px 13px;
+  background: rgba(251,252,253,.95);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  border-left: 4px solid #16181D;
+  border-radius: 11px;
+}
+#mtTiles .mt-group-h .mt-group-t {
+  font-size: 12.5px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase;
+  color: #16181D;
+}
+#mtTiles .mt-group-h .mt-group-n {
+  margin-left: auto; font-size: 10.5px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase;
+  color: #fff; background: #16181D;
+  padding: 4px 11px; border-radius: 100px; white-space: nowrap;
+}
+
 /* ============ END MEETING BOARD MODERN UI ============ */
 </style>
 <!-- Print page size controlled here: openPrint adjusts when landscape reports (parade/staff-list/uniform) are opened -->
@@ -7871,6 +7940,8 @@ function openTransferPopup(tid){
 
   const emp = findEmpByAction(t);
   const empProject = emp ? projName(emp.ProjectName) : '';
+  /* The order's own "from" snapshot — authoritative for this popup. */
+  const orderFrom = projName(t.CurrentProject || t.current_project || '');
 
   const initials = String(t.FullName||'?').trim().split(/\s+/).slice(0,2)
                      .map(w=>w.charAt(0)).join('').toUpperCase() || '?';
@@ -7892,7 +7963,7 @@ function openTransferPopup(tid){
       '<div class="trp-route">' +
         '<div class="trp-node from">' +
           '<div class="trp-node-label">From</div>' +
-          '<div class="trp-node-val">' + escapeHtml(projName(t.CurrentProject)) + '</div>' +
+          '<div class="trp-node-val">' + escapeHtml(orderFrom || empProject || '') + '</div>' +
         '</div>' +
         '<div class="trp-arrow">&#8594;</div>' +
         '<div class="trp-node to">' +
@@ -7906,7 +7977,8 @@ function openTransferPopup(tid){
         '<div class="trp-cell"><div class="trp-cell-k">Designation</div><div class="trp-cell-v">' + (escapeHtml(t.Designation||'') || '&mdash;') + '</div></div>' +
         '<div class="trp-cell"><div class="trp-cell-k">Issue Date</div><div class="trp-cell-v">' + (issueDate ? escapeHtml(fmtDate(issueDate)) : '&mdash;') + '</div></div>' +
         '<div class="trp-cell"><div class="trp-cell-k">Transfer Date</div><div class="trp-cell-v">' + (tDate ? escapeHtml(fmtDate(tDate)) : '&mdash;') + '</div></div>' +
-        '<div class="trp-cell"><div class="trp-cell-k">Current Project (Employee Table)</div><div class="trp-cell-v">' + (escapeHtml(empProject||'') || '&mdash;') + '</div></div>' +
+        '<div class="trp-cell"><div class="trp-cell-k">From Project (on this order)</div><div class="trp-cell-v">' + (escapeHtml(orderFrom||'') || '&mdash;') + '</div></div>' +
+        (String(orderFrom||'') !== String(empProject||'') ? '<div class="trp-cell"><div class="trp-cell-k">Employee Table &mdash; Now At</div><div class="trp-cell-v">' + (escapeHtml(empProject||'') || '&mdash;') + '</div></div>' : '') +
         '<div class="trp-cell"><div class="trp-cell-k">Memo No.</div><div class="trp-cell-v">' + escapeHtml(memo) + '</div></div>' +
       '</div>' +
 
@@ -8458,7 +8530,11 @@ async function submitTransfer(){
 function reprintTransfer(id){
   const tr = DATA.transfers.find(x=>String(x.id)===String(id)); if(!tr) return;
   const e = DATA.employees.find(x=>x.EmployeeID===tr.EmployeeID || String(x.id)===String(tr.employee_sys_id)) || {FullName:tr.FullName,EmployeeID:tr.EmployeeID,Designation:tr.Designation,ProjectName:tr.CurrentProject};
-  openPrint(bangleTransferOrder({emp:e, np:tr.NewProject, td:tr.TransferDate, iss:tr['Issues Date'], notes:tr.Notes, refNo:'MG/SEC/TR/'+String(tr.id).padStart(4,'0')}));
+  /* Reprint must always show the ORIGINAL "from" project saved on the order,
+     no matter what status the order is in now (Completed included). */
+  const fromProj   = tr.CurrentProject || tr.current_project || '';
+  const fromProjBn = tr.CurrentProjectBangla || tr.current_project_bn || '';
+  openPrint(bangleTransferOrder({emp:e, np:tr.NewProject, td:tr.TransferDate, iss:tr['Issues Date'], notes:tr.Notes, refNo:'MG/SEC/TR/'+String(tr.id).padStart(4,'0'), fromProj, fromProjBn}));
 }
 function previewTransferOrder(){
   const rid = document.getElementById('trEmp').value;
@@ -8469,7 +8545,7 @@ function previewTransferOrder(){
   const ref = document.getElementById('trRef').value;
   if(!rid||!np){ toast('Select employee and new project first','error'); return; }
   const e = findEmp(rid);
-  openPrint(bangleTransferOrder({emp:e, np, td, iss, notes, refNo:ref}));
+  openPrint(bangleTransferOrder({emp:e, np, td, iss, notes, refNo:ref, fromProj:e.ProjectName, fromProjBn:e.ProjectNameBangla||e.ProjectNameBn||''}));
 }
 
 /* ============ BANGLA OFFICIAL LETTERS ============ */
@@ -8506,8 +8582,12 @@ function letterheadEn(){
     </div>
   </div>`;
 }
-function bangleTransferOrder({emp,np,td,iss,notes,refNo}){
-  const cpBn = projectBn(emp.ProjectName)||emp.ProjectName;
+function bangleTransferOrder({emp,np,td,iss,notes,refNo,fromProj,fromProjBn}){
+  /* The "from" project comes from the transfer order's own saved snapshot
+     (fromProj), NOT from the live employees table — after a completed
+     transfer the employee already sits in the new project. */
+  const fromName = fromProj || emp.ProjectName || '';
+  const cpBn = fromProjBn || projectBn(fromName) || fromName;
   const npBn = projectBn(np)||np;
   const desigBn = DESIG_BN[emp.Designation]||emp.Designation;
   const idLn = empIdLine(emp); /* official ID only — empty when not on record */
@@ -11222,25 +11302,70 @@ window.markAllNotifsAsRead = function() {
   }
 };
 
-function applyScheduledTransfers(){
+/* ============================================================
+   AUTO-APPLY DUE TRANSFER ORDERS
+   A transfer order whose TransferDate has arrived is applied
+   automatically — no button press needed:
+     - status           -> 'Completed'
+     - employee project -> the order's New Project
+   Uses the same writes as confirmTransferJoined().
+   Runs on boot, then every 5 minutes, and whenever the window
+   regains focus.
+   ============================================================ */
+var TR_AUTO_RUNNING = false;
+
+async function applyScheduledTransfers(){
+  if (TR_AUTO_RUNNING) return 0;
+  if (typeof DATA === 'undefined' || !Array.isArray(DATA.transfers)) return 0;
+  if (!window.MGHRM || typeof window.MGHRM.update !== 'function') return 0;
+  TR_AUTO_RUNNING = true;
+
   const today = todayISO();
-  DATA.transfers.forEach(t=>{
-    const st = t.status || t.Status;
-    if(st === 'Cancelled' || st === 'Completed') return;
+  let applied = 0, failed = 0, changed = false;
 
-    const due = isoDateInput(t.TransferDate || t.transfer_date);
-    if(!due || due > today) return;
+  try {
+    for (const t of DATA.transfers) {
+      const st = (t.status || t.Status || '');
+      if (st === 'Cancelled' || st === 'Canceled' || st === 'Completed') continue;
 
-    /* Do NOT change the employee project automatically.
-       Flag it so an admin presses "Confirm Joined" in the popup. */
-    t.Status = 'Join Pending';
-    t.status = 'Join Pending';
+      const due = isoDateInput(t.TransferDate || t.transfer_date);
+      if (!due || due > today) continue;               /* not due yet */
 
-    if(window.MGHRM && typeof window.MGHRM.update === 'function'){
-      window.MGHRM.update('transfers', t.id, { Status:'Join Pending', status:'Join Pending' }).catch(function(){});
+      const newProj = t.NewProject || t.new_project || '';
+      const newBn   = t.NewProjectBangla || t.new_project_bn || '';
+      if (!newProj) { failed++; continue; }            /* nothing to apply to */
+
+      const emp = findEmpByAction(t) || findEmp(t.EmployeeID || t.employee_id || t.employee_sys_id);
+      if (!emp || !emp.id) { failed++; console.warn('[autoTransfer] no employee row for transfer', t.id); continue; }
+
+      try {
+        if (emp.ProjectName !== newProj) {
+          await window.MGHRM.update('employees', emp.id, { project_name: newProj });
+          emp.ProjectName = newProj;
+          if (newBn) emp.ProjectNameBangla = newBn;
+        }
+        await window.MGHRM.update('transfers', t.id, { status: 'Completed', Status: 'Completed' });
+        t.Status = 'Completed'; t.status = 'Completed';
+        try { logActivity('update','transfers', t.id, 'Auto-applied on due date (' + due + ') - project set to ' + newProj); } catch(e){}
+        applied++; changed = true;
+      } catch (err) {
+        failed++;
+        console.error('[autoTransfer] apply failed for transfer', t.id, err);
+      }
     }
-  });
+  } finally {
+    TR_AUTO_RUNNING = false;
+  }
+
+  if (changed) {
+    try { persist(); } catch(e){}
+    try { if (typeof currentPage !== 'undefined' && currentPage === 'transfer' && typeof renderTransfer === 'function') renderTransfer(); } catch(e){}
+    toast(applied + ' transfer order(s) applied automatically on their due date', 'success');
+  }
+  if (failed) toast(failed + ' transfer order(s) could not be applied - please check your access rights', 'error');
+  return applied;
 }
+window.applyScheduledTransfers = applyScheduledTransfers;
 function denyJoin(nid){
   
   if(!guardEdit()) return;
@@ -11702,6 +11827,66 @@ function mtResolveDayState(iso, rec){
   return 'notheld';
 }
 window.mtResolveDayState = mtResolveDayState;
+
+/* ===== PHASE 5 . manual session times ===== */
+function mtToTimeInput(isoStr){
+  if(!isoStr) return '';
+  const dt = new Date(isoStr);
+  if(isNaN(dt.getTime())) return '';
+  return String(dt.getHours()).padStart(2,'0') + ':' + String(dt.getMinutes()).padStart(2,'0');
+}
+function mtFromTimeInput(iso, hhmm){
+  if(!hhmm) return '';
+  const parts = String(hhmm).split(':');
+  if(parts.length < 2) return '';
+  const base = (typeof parseDate === 'function' && parseDate(iso)) || new Date();
+  const dt = new Date(base.getFullYear(), base.getMonth(), base.getDate(),
+                      parseInt(parts[0],10) || 0, parseInt(parts[1],10) || 0, 0, 0);
+  if(isNaN(dt.getTime())) return '';
+  return dt.toISOString();
+}
+/* Update-only writer. It NEVER inserts a meetings row, so it can never
+   create a ghost "submitted" day. */
+async function mtPersistMeetingTimes(iso){
+  if(!window.sb) return;
+  try{
+    const dd = mtDay(iso) || {};
+    const patch = { started_at: dd.startedAt || null, ended_at: dd.endedAt || null };
+    const { data: rows } = await window.sb
+      .from('meetings')
+      .select('id')
+      .eq('meeting_date', iso)
+      .is('deleted_at', null);
+    if(rows && rows[0]) await window.sb.from('meetings').update(patch).eq('id', rows[0].id);
+  }catch(e){ console.warn('[MeetingTimes]', e); }
+}
+window.mtSaveStartTime = function(iso, value){
+  const targetIso = iso || MT_SELECTED_DATE || todayISO();
+  const isoTime = mtFromTimeInput(targetIso, value);
+  if(!isoTime) return;
+  const dd = mtEnsure(targetIso);
+  dd.started = true;
+  dd.startedAt = isoTime;
+  dd.off = false;
+  delete dd.offReason;
+  if(!window.MT_STARTED_MEETINGS) window.MT_STARTED_MEETINGS = {};
+  window.MT_STARTED_MEETINGS[targetIso] = true;
+  if(!window.MT_STARTED_AT) window.MT_STARTED_AT = {};
+  window.MT_STARTED_AT[targetIso] = isoTime;
+  persist();
+  mtPersistMeetingTimes(targetIso);
+  toast('Meeting start time set to ' + value, 'info');
+};
+window.mtSaveEndTime = function(iso, value){
+  const targetIso = iso || MT_SELECTED_DATE || todayISO();
+  const dd = mtEnsure(targetIso);
+  dd.endedAt = mtFromTimeInput(targetIso, value) || '';
+  persist();
+  mtPersistMeetingTimes(targetIso);
+  toast(value ? ('Meeting end time set to ' + value)
+              : 'End time cleared - the submit time will be used', 'info');
+};
+
 function mtActiveProjects(){
   
   return (DATA.projects||[])
@@ -12358,7 +12543,7 @@ async function mtSubmitDay(iso, event){
         agenda: d.meetingNote || 'Daily routine check',
         created_by: window.localStorage.getItem('mghrm_user') || 'Admin',
         started_at: d.startedAt || (window.MT_STARTED_AT && window.MT_STARTED_AT[iso]) || new Date().toISOString(),
-        ended_at: new Date().toISOString(),
+        ended_at: (function(){ const el = document.getElementById('mtEndTimeInput'); const picked = (el && el.value) ? mtFromTimeInput(iso, el.value) : ''; return picked || d.endedAt || new Date().toISOString(); })(),
         submitted_at: new Date().toISOString()
       };
       const { data: mData, error: mErr } = await window.sb.from('meetings').insert([meetingPayload]).select();
@@ -13579,10 +13764,26 @@ function renderMeeting(){
 
     <div class="grid-2">
       <div class="card">
-        <div class="card-header">
-          <div><h3 style="display:inline-flex;align-items:center;flex-wrap:wrap">Attendance Board — ${MT_SELECTED_DATE}
-            <span id="mtAttendanceCounterBadge" class="badge" style="font-size: 1.05rem; background: var(--primary-soft); color: var(--primary); padding: 4px 12px; border-radius: 20px; margin-left: 10px;">Attendance given: ${presentCount} / ${totalProjects}</span></h3>
-          <span class="sub">${fmtDateLong(today)} · window 09:30 – 11:30 AM${(rec && rec.startedAt) ? ' · started ' + new Date(rec.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''} · click a project card to expand details</span></div>
+        <div class="card-header mt-hd">
+          <div class="mt-hd-l">
+            <div class="mt-hd-kicker">Meeting Attendance</div>
+            <h3 class="mt-hd-title">${fmtDateLong(today)}</h3>
+            <div class="mt-hd-meta">
+              <span class="mt-hd-pill">09:30 – 11:30 <i>window</i></span>
+              <span class="mt-hd-pill dark" id="mtAttendanceCounterBadge">Attendance given: ${presentCount} / ${totalProjects}</span>
+              ${(rec && rec.startedAt) ? `<span class="mt-hd-pill">started ${new Date(rec.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>` : ''}
+              ${(rec && rec.endedAt) ? `<span class="mt-hd-pill">ended ${new Date(rec.endedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>` : ''}
+            </div>
+          </div>
+          ${dayState === 'running' ? `
+          <div class="mt-hd-r">
+            <label class="mt-hd-tf"><span>Start</span>
+              <input type="time" id="mtStartTimeInput" value="${mtToTimeInput(rec && rec.startedAt)}" onchange="mtSaveStartTime('${today}', this.value)">
+            </label>
+            <label class="mt-hd-tf"><span>End</span>
+              <input type="time" id="mtEndTimeInput" value="${mtToTimeInput(rec && rec.endedAt)}" onchange="mtSaveEndTime('${today}', this.value)">
+            </label>
+          </div>` : ''}
         </div>
         <div class="card-body">
           ${isFri ? `
@@ -16089,7 +16290,9 @@ function buildAddressCascade(containerId, initial, onChange){
   };
 }
 window.buildAddressCascade = buildAddressCascade;
-applyScheduledTransfers();
+applyScheduledTransfers().catch(function(e){ console.warn('[autoTransfer] boot run failed:', e); });
+setInterval(function(){ if(!document.hidden) applyScheduledTransfers().catch(function(){}); }, 300000);
+window.addEventListener('focus', function(){ applyScheduledTransfers().catch(function(){}); });
 buildNotifications();
 renderAll();
 renderBrandLogo(); renderGateLogos();

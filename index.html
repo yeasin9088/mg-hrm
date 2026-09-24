@@ -2166,18 +2166,18 @@ input:focus, select:focus, textarea:focus {
   .psp-tbl tbody tr { page-break-inside:avoid; }
 }
 
-/* ============ MEETING BOARD — MODERN UI (v2) ============ */
-/* Scoped under #mtTiles / #mtBoardBar. No other screen is affected. */
+/* ============ MEETING BOARD — MODERN UI (v3) ============ */
+/* Scoped under #mtBoardBar / #mtTiles only. No other screen is affected. */
 
 #mtBoardBar {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  margin: 0 0 14px 0; padding: 10px 12px;
+  margin: 0 0 16px 0; padding: 11px 13px;
   background: #FBFCFD; border: 1px solid var(--border); border-radius: 12px;
 }
 #mtBoardBar input#mtSearch {
-  flex: 1 1 190px; min-width: 150px; height: 34px; padding: 0 12px;
+  flex: 1 1 200px; min-width: 150px; height: 36px; padding: 0 13px;
   font-size: 13px; font-family: inherit; color: var(--text);
-  background: #fff; border: 1px solid var(--border); border-radius: 8px;
+  background: #fff; border: 1px solid var(--border); border-radius: 9px;
   transition: border-color .15s ease, box-shadow .15s ease;
 }
 #mtBoardBar input#mtSearch::placeholder { color: #A8B0BB; }
@@ -2187,14 +2187,12 @@ input:focus, select:focus, textarea:focus {
 #mtFilterChips { display: flex; gap: 5px; flex-wrap: wrap; }
 #mtFilterChips .mt-chip {
   font-family: inherit; font-size: 11.5px; font-weight: 600; letter-spacing: .02em;
-  padding: 7px 12px; border-radius: 8px; cursor: pointer;
+  padding: 8px 13px; border-radius: 8px; cursor: pointer;
   background: #fff; color: var(--text-2);
   border: 1px solid var(--border); transition: all .15s ease;
 }
 #mtFilterChips .mt-chip:hover { border-color: var(--border-strong); color: var(--text); }
-#mtFilterChips .mt-chip.active {
-  background: #16181D; border-color: #16181D; color: #fff;
-}
+#mtFilterChips .mt-chip.active { background: #16181D; border-color: #16181D; color: #fff; }
 #mtFilterChips .mt-chip[data-f="present"].active { background: #0B6B4F; border-color: #0B6B4F; }
 #mtFilterChips .mt-chip[data-f="absent"].active  { background: #C2263E; border-color: #C2263E; }
 #mtBarCount {
@@ -2202,56 +2200,65 @@ input:focus, select:focus, textarea:focus {
   white-space: nowrap; margin-left: auto;
 }
 
-#mtTiles { gap: 12px !important; }
+/* ---- group blocks (categories) ---- */
+#mtTiles { display: block !important; }
+#mtTiles .mt-group { margin: 0 0 20px 0; }
+#mtTiles .mt-group:last-child { margin-bottom: 0; }
+#mtTiles .mt-group-h {
+  display: flex; align-items: center; gap: 10px;
+  margin: 0 0 10px 0; padding: 0 2px 7px 2px;
+  border-bottom: 1px solid var(--border);
+}
+#mtTiles .mt-group-h .mt-group-t {
+  font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: #767E8A;
+}
+#mtTiles .mt-group-h .mt-group-n {
+  font-size: 11px; font-weight: 600; color: #A8B0BB;
+  font-variant-numeric: tabular-nums; margin-left: auto;
+}
+#mtTiles .mt-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); gap: 12px;
+}
 
+/* ---- project record card ---- */
 #mtTiles .mt-tile {
-  position: relative;
-  background: #fff;
-  border: 1px solid var(--border);
-  border-left: 3px solid transparent;
-  border-radius: 12px;
-  padding: 13px 14px;
-  transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+  position: relative; background: #fff;
+  border: 1px solid var(--border); border-radius: 13px;
+  padding: 13px 14px 12px;
+  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
 }
 #mtTiles .mt-tile:hover {
   border-color: var(--border-strong);
-  box-shadow: 0 2px 10px rgba(20,22,29,.055);
+  box-shadow: 0 3px 14px rgba(20,22,29,.06);
 }
-#mtTiles .mt-tile.present {
-  border-color: #CFE9DE; border-left-color: #0B6B4F; background: #F6FCF9;
-}
-#mtTiles .mt-tile.absent {
-  border-color: #F3D3DA; border-left-color: #C2263E; background: #FDF8F9;
-}
+#mtTiles .mt-tile.present { border-color: #CFE9DE; background: #F7FCFA; }
+#mtTiles .mt-tile.absent  { border-color: #F3D3DA; background: #FDF8F9; }
 
+#mtTiles .mt-tile-head { display: flex; align-items: flex-start; gap: 10px; }
+#mtTiles .mt-tile-l { flex: 1 1 auto; min-width: 0; }
 #mtTiles .mt-tile h5 {
-  font-size: 13px; font-weight: 600; letter-spacing: -.1px;
-  color: var(--text); line-height: 1.35; padding-right: 30px; margin: 0;
+  margin: 0; font-size: 13.5px; font-weight: 650; letter-spacing: -.1px;
+  color: var(--text); line-height: 1.35;
 }
-#mtTiles .mt-tile h5 .badge.mute {
-  float: right; margin-top: 1px;
-  font-size: 10.5px; font-weight: 500; letter-spacing: .02em;
-  padding: 2px 8px; border-radius: 100px;
-  background: #F4F5F7; color: var(--text-muted); border: 1px solid var(--border);
+#mtTiles .mt-tile .mt-kicker {
+  margin-top: 3px; font-size: 11px; font-weight: 500; letter-spacing: .02em;
+  color: var(--text-muted); font-variant-numeric: tabular-nums;
 }
 
-/* ---- status circle: empty = dashed ring, present = green + check, absent = red + cross ---- */
 #mtTiles .mt-tile .mt-check {
-  position: absolute; top: 11px; right: 11px;
-  width: 22px; height: 22px; border-radius: 50%;
-  border: 1.5px dashed var(--border-strong);
-  background: #fff; display: grid; place-items: center;
-  transition: background .18s ease, border-color .18s ease, transform .18s ease;
+  flex: 0 0 auto; width: 20px; height: 20px; border-radius: 50%; margin-top: 1px;
+  border: 1.5px dashed var(--border-strong); background: #fff;
+  display: grid; place-items: center;
+  transition: background .18s ease, border-color .18s ease;
 }
-#mtTiles .mt-tile .mt-check::after {
-  content: ''; opacity: 0; transition: opacity .18s ease;
-}
+#mtTiles .mt-tile .mt-check::after { content: ''; opacity: 0; transition: opacity .18s ease; }
 #mtTiles .mt-tile.present .mt-check {
   border: 1.5px solid #0B6B4F; background: #0B6B4F; border-style: solid;
   box-shadow: 0 1px 4px rgba(11,107,79,.28);
 }
 #mtTiles .mt-tile.present .mt-check::after {
-  opacity: 1; width: 11px; height: 6px; margin-top: -2px;
+  opacity: 1; width: 10px; height: 5px; margin-top: -2px;
   border-left: 2px solid #fff; border-bottom: 2px solid #fff;
   transform: rotate(-45deg);
 }
@@ -2260,47 +2267,60 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 1px 4px rgba(194,38,62,.26);
 }
 #mtTiles .mt-tile.absent .mt-check::after {
-  opacity: 1; width: 11px; height: 11px;
+  opacity: 1; width: 10px; height: 10px;
   background:
     linear-gradient(45deg, transparent 43%, #fff 43%, #fff 57%, transparent 57%),
     linear-gradient(-45deg, transparent 43%, #fff 43%, #fff 57%, transparent 57%);
 }
 
-#mtTiles .mt-tile-body {
-  margin-top: 11px; padding-top: 11px;
-  border-top: 1px solid var(--rule-2, #EDEFF2);
+/* ---- status wording pill ---- */
+#mtTiles .mt-tile .mt-state {
+  display: inline-block; margin-top: 10px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  padding: 4px 9px; border-radius: 100px;
+  background: #F4F5F7; color: #767E8A; border: 1px solid var(--border);
 }
+#mtTiles .mt-tile.present .mt-state { background: #E7F6F0; color: #0B6B4F; border-color: #CFE9DE; }
+#mtTiles .mt-tile.absent  .mt-state { background: #FDECEF; color: #C2263E; border-color: #F3D3DA; }
 
+#mtTiles .mt-tile-body {
+  margin-top: 11px; padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
 #mtTiles .mt-rep-select {
   width: 100%; height: 36px; padding: 0 10px;
   font-family: inherit; font-size: 12.5px; color: var(--text);
-  background: #fff; border: 1px solid var(--border); border-radius: 8px;
+  background: #fff; border: 1px solid var(--border); border-radius: 9px;
   transition: border-color .15s ease, box-shadow .15s ease;
 }
 #mtTiles .mt-rep-select:focus {
   outline: none; border-color: #0B6B4F; box-shadow: 0 0 0 3px rgba(11,107,79,.10);
 }
 
+/* ---- paired Present / Absent segmented control ---- */
+#mtTiles .mt-actions {
+  display: flex; gap: 0; margin-top: 12px;
+  border: 1px solid var(--border); border-radius: 9px; overflow: hidden; background: #fff;
+}
 #mtTiles .mt-btn-present, #mtTiles .mt-btn-absent {
-  flex: 1 1 0; justify-content: center;
-  height: 36px; padding: 0 12px; border-radius: 9px;
-  font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: .02em;
-  transition: background .15s ease, border-color .15s ease, color .15s ease, transform .1s ease;
+  flex: 1 1 0; display: flex; align-items: center; justify-content: center;
+  height: 34px; padding: 0 10px; border: 0 !important; border-radius: 0 !important;
+  background: #fff !important; color: var(--text-muted) !important;
+  font-family: inherit; font-size: 11.5px; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; cursor: pointer;
+  transition: background .15s ease, color .15s ease;
 }
-#mtTiles .mt-btn-present:active, #mtTiles .mt-btn-absent:active { transform: translateY(1px); }
-#mtTiles .mt-tile.present .mt-btn-present {
-  background: #0B6B4F !important; border-color: #0B6B4F !important; color: #fff !important;
-}
-#mtTiles .mt-tile.absent .mt-btn-absent {
-  background: #C2263E !important; border-color: #C2263E !important; color: #fff !important;
-}
-#mtTiles .mt-tile.present .mt-btn-absent,
-#mtTiles .mt-tile.absent .mt-btn-present {
-  background: #fff !important; border-color: var(--border) !important; color: var(--text-muted) !important;
-}
+#mtTiles .mt-btn-present + .mt-btn-absent { border-left: 1px solid var(--border) !important; }
+#mtTiles .mt-tile.present .mt-btn-present { background: #0B6B4F !important; color: #fff !important; }
+#mtTiles .mt-tile.absent  .mt-btn-absent  { background: #C2263E !important; color: #fff !important; }
+#mtTiles .mt-tile.present .mt-btn-absent:hover { background: #FDF8F9 !important; color: #C2263E !important; }
+#mtTiles .mt-tile.absent  .mt-btn-present:hover { background: #F7FCFA !important; color: #0B6B4F !important; }
+#mtTiles .mt-tile:not(.present):not(.absent) .mt-btn-present:hover { background: #E7F6F0 !important; color: #0B6B4F !important; }
+#mtTiles .mt-tile:not(.present):not(.absent) .mt-btn-absent:hover  { background: #FDECEF !important; color: #C2263E !important; }
 
+#mtTiles .mt-tile .mt-note-box { margin-top: 11px; }
 #mtTiles .mt-tile .mt-note-box textarea {
-  border-radius: 8px; font-size: 12.5px; font-family: inherit;
+  border-radius: 9px; font-size: 12.5px; font-family: inherit;
 }
 #mtTiles .mt-tile .mt-note-box textarea:focus {
   outline: none; border-color: #0B6B4F; box-shadow: 0 0 0 3px rgba(11,107,79,.10);
@@ -2308,7 +2328,8 @@ input:focus, select:focus, textarea:focus {
 
 @media (prefers-reduced-motion: reduce) {
   #mtTiles .mt-tile, #mtTiles .mt-tile .mt-check,
-  #mtTiles .mt-tile .mt-check::after, #mtFilterChips .mt-chip { transition: none !important; }
+  #mtTiles .mt-tile .mt-check::after, #mtFilterChips .mt-chip,
+  #mtTiles .mt-btn-present, #mtTiles .mt-btn-absent { transition: none !important; }
 }
 /* ============ END MEETING BOARD MODERN UI ============ */
 </style>
@@ -11674,7 +11695,8 @@ function mtResolveDayState(iso, rec){
   if (r.submitted) return 'submitted';
   const hasMarks = Object.keys(r.present || {}).length + Object.keys(r.absent || {}).length;
   const hasStaffMode = !!r.staffMode;
-  if (hasMarks || hasStaffMode) return 'running';
+  const wasStarted = !!(r.started || (window.MT_STARTED_MEETINGS && window.MT_STARTED_MEETINGS[iso]));
+  if (hasMarks || hasStaffMode || wasStarted) return 'running';
   if (isToday && mtIsBeforeOpen()) return 'countdown';
   if (isToday && !mtIsAfterLock()) return 'ready';
   return 'notheld';
@@ -11724,12 +11746,161 @@ function mtEnsure(iso){
   if(typeof d.meetingNote!=='string') d.meetingNote = '';
   return d;
 }
+
+/* ============================================================
+   ATTENDANCE BOARD — PROJECT GROUPING
+   MT_CATEGORY_ORDER   : the order the category blocks appear in.
+   MT_PROJECT_CATEGORY : normalized project name -> category name.
+   Both are EMPTY for now — fill them in a later step and the board
+   groups and sorts itself with no markup change.
+   ============================================================ */
+var MT_CATEGORY_ORDER = ['Factory and Others','Biswas Agro Fisheries','M/S Shoinik Traders','Farms','Garments Factory'];
+
+var MT_PROJECT_CATEGORY = {
+  /* --- Factory and Others (20) --- */
+  'Aggregate terminal 05 (AT 5)':                              'Factory and Others',
+  'Aggregate Terminal Unit 01 (AT 1)':                         'Factory and Others',
+  'Aggregate Terminal Unit 02 (AT 2)':                         'Factory and Others',
+  'Biswas Auto Bricks Limited':                                'Factory and Others',
+  'Biswas Classic Feed Depo, CTG':                             'Factory and Others',
+  'Biswas Poultry And Fish Feed Limited':                      'Factory and Others',
+  'Building Product Limited (BPL)':                            'Factory and Others',
+  'Classic Melamine And Fiber Limited':                        'Factory and Others',
+  'Classic Poultry And Fish Feed Limited':                     'Factory and Others',
+  'KBC Agro Product Private Limited - Unit 01':                'Factory and Others',
+  'KBC Agro Product Private Limited - Unit 02':                'Factory and Others',
+  'KBC Agro Product Private Limited - Unit 03':                'Factory and Others',
+  'Khan Flour Mill (KBC 5)':                                   'Factory and Others',
+  'NDE Readymix Concrete Ltd. Unit 11 (RMC 11)':               'Factory and Others',
+  'Sattar Jut Mill':                                           'Factory and Others',
+  'The Crescent Jute Mills Co. Ltd.':                          'Factory and Others',
+  'Power Fish And Poultry Feed Limited':                       'Factory and Others',
+  'Head Office':                                               'Factory and Others',
+  'Rofikul Islam International School And Collage':            'Factory and Others',
+  'Anondo Feed':                                               'Factory and Others',
+
+  /* --- Biswas Agro Fisheries (12) --- */
+  'Biswas Agro Fisheries - Jokigonj, Sylhet Bill':             'Biswas Agro Fisheries',
+  'Biswas Agro Fisheries - Abirana Bill':                      'Biswas Agro Fisheries',
+  'Biswas Agro Fisheries - Amira Bill':                        'Biswas Agro Fisheries',
+  'Biswas Agro Fisheries - Bashakoir Bill':                    'Biswas Agro Fisheries',
+  'Biswas Agro Fisheries - Kakchor Bill':                      'Biswas Agro Fisheries',
+  'Biswas Agro Fisheries - Kumira Bill':                       'Biswas Agro Fisheries',
+  'Biswas Agro Fisheries - Medila Bill':                       'Biswas Agro Fisheries',
+  'Biswas Agro Fisheries - Muthajory Bill':                    'Biswas Agro Fisheries',
+  'Biswas Agro Fisheries - Patira Bill':                       'Biswas Agro Fisheries',
+  'Biswas Agro Fisheries - Shikdar Bill':                      'Biswas Agro Fisheries',
+  'Biswas Agro Fisheries - Tarakanda Bill':                    'Biswas Agro Fisheries',
+  'Biswas Agro Fisheries - Trishal Bill':                      'Biswas Agro Fisheries',
+
+  /* --- M/S Shoinik Traders (8) --- */
+  'M/S Shoinik Traders - Bhairab Ghat':                        'M/S Shoinik Traders',
+  'M/S Shoinik Traders - Borishal Ghat':                       'M/S Shoinik Traders',
+  'M/S Shoinik Traders - Daudkandi Ghat':                      'M/S Shoinik Traders',
+  'M/S Shoinik Traders - Gabtoli Ghat':                        'M/S Shoinik Traders',
+  'M/S Shoinik Traders - Kaligonj Ghat':                       'M/S Shoinik Traders',
+  'M/S Shoinik Traders - Noapara Ghat':                        'M/S Shoinik Traders',
+  'M/S Shoinik Traders - Nogorbari Ghat':                      'M/S Shoinik Traders',
+  'M/S Shoinik Traders - Pounglee, Tangail Ghat':              'M/S Shoinik Traders',
+
+  /* --- Farms (6) --- */
+  'Biswas Agro Farm':                                          'Farms',
+  'Fresh Chicks Limited - Unit 1':                             'Farms',
+  'Fresh Chicks Limited - Unit 2':                             'Farms',
+  'Fresh Chicks Limited - Unit 3':                             'Farms',
+  'Dasha Poultry Complex':                                     'Farms',
+  'Islam Poultry Complex':                                     'Farms',
+
+  /* --- Garments Factory (5) --- */
+  'Phoenix Spinning Mills Limited':                            'Garments Factory',
+  'Danys Knitwear Limited - Unit 1':                           'Garments Factory',
+  'Danys Knitwear Limited - Unit 2':                           'Garments Factory',
+  'Danys Knitwear Limited - Unit 3':                           'Garments Factory',
+  'DNM Apparels Limited':                                      'Garments Factory'
+};
+
+function mtNormName(s){
+  return String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+function mtProjectCategory(name){
+  var key = mtNormName(name);
+  if (!key) return '';
+  for (var n in MT_PROJECT_CATEGORY) {
+    if (Object.prototype.hasOwnProperty.call(MT_PROJECT_CATEGORY, n) && mtNormName(n) === key) {
+      return MT_PROJECT_CATEGORY[n];
+    }
+  }
+  return '';
+}
+
+/* Groups project names into category blocks and sorts the projects inside
+   each block by active staff count, highest first. */
+function mtGroupedProjects(names){
+  var list = Array.isArray(names) ? names.slice() : [];
+  var buckets = {};
+  var order = [];
+
+  list.forEach(function(p){
+    var c = mtProjectCategory(p) || 'Other Projects';
+    if (!buckets[c]) { buckets[c] = []; order.push(c); }
+    buckets[c].push(p);
+  });
+
+  var anyCategorised = false;
+  for (var i = 0; i < order.length; i++) {
+    if (order[i] !== 'Other Projects') { anyCategorised = true; break; }
+  }
+  /* Nothing categorised yet — one single unnamed block, exactly as before. */
+  if (!anyCategorised) return [{ group: '', items: order.length ? buckets[order[0]] : list }];
+
+  var preferred = Array.isArray(MT_CATEGORY_ORDER) ? MT_CATEGORY_ORDER : [];
+  order.sort(function(a, b){
+    if (a === 'Other Projects') return 1;
+    if (b === 'Other Projects') return -1;
+    var ia = preferred.indexOf(a), ib = preferred.indexOf(b);
+    if (ia !== -1 && ib !== -1) return ia - ib;
+    if (ia !== -1) return -1;
+    if (ib !== -1) return 1;
+    return String(a).localeCompare(String(b));
+  });
+
+  return order.map(function(c){
+    var items = buckets[c];
+    items.sort(function(a, b){
+      var da = (typeof projStaffCount === 'function') ? projStaffCount(a) : 0;
+      var db = (typeof projStaffCount === 'function') ? projStaffCount(b) : 0;
+      if (db !== da) return db - da;
+      return String(a).localeCompare(String(b));
+    });
+    return { group: c, items: items };
+  });
+}
+window.mtGroupedProjects = mtGroupedProjects;
+
+/* Danys Knitwear Unit 2 has no supervisory staff of its own, so its
+   representative list is taken from Unit 1. The units stay separate. */
+function mtRepSourceProject(name){
+  var s = String(name || '');
+  if (!(/danys/i.test(s) && /unit\s*2/i.test(s))) return s;   /* Unit 2 only */
+  try {
+    var list = (typeof mtActiveProjects === 'function') ? (mtActiveProjects() || []) : [];
+    for (var i = 0; i < list.length; i++) {
+      var p = String(list[i] || '');
+      if (/danys/i.test(p) && /unit\s*1/i.test(p)) return p;
+    }
+  } catch (e) {}
+  return s.replace(/unit\s*2/i, 'Unit 1');   /* fallback: same name, Unit 2 -> Unit 1 */
+}
+window.mtRepSourceProject = mtRepSourceProject;
+
 function mtGetProjectReps(projName){
   if(!projName) return [];
+  const srcProj = (typeof mtRepSourceProject === 'function') ? mtRepSourceProject(projName) : projName;
   const activeEmps = (window.DATA.employees || []).filter(e => {
     const p = e.ProjectName || e.project_name;
     const st = e.Status || e.status;
-    return p === projName && (st === 'Active' || !st);
+    return p === srcProj && (st === 'Active' || !st);
   });
 
   const supervisors = activeEmps.filter(e => {
@@ -13112,7 +13283,7 @@ function mtRenderStartPromptView(today) {
         ${ico('calendar', 30)}
       </div>
       <h3 style="margin: 0 0 8px 0; font-size: 19px; font-weight: 700; color: var(--text);">Ready to Conduct Meeting</h3>
-      <p style="margin: 0 0 24px 0; font-size: 13.5px; color: var(--text-2);">Session time active (09:30 – 11:30 AM). Click below to open the attendance board and record representative participation.</p>
+      <p style="margin: 0 0 24px 0; font-size: 13.5px; color: var(--text-2);">Session time active (9:30 – 11:30 AM). Click below to open the attendance board and record representative participation.</p>
       
       <button type="button" class="btn primary" onclick="mtStartMeeting('${today}')" style="font-size: 14.5px; font-weight: 700; padding: 11px 28px; border-radius: 8px; box-shadow: 0 4px 12px rgba(37,99,235,0.25);">
         ${ico('play', 15)} Start Meeting Now
@@ -13436,46 +13607,59 @@ function renderMeeting(){
               </div>
               <span id="mtBarCount"></span>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px" id="mtTiles">
-              ${projNames.map(p=>{
-                const isPres = !!(rec && rec.present && rec.present[p]);
-                const isAbs = !!(rec && rec.absent && rec.absent[p]);
-                const tileCls = isPres ? 'present' : (isAbs ? 'absent' : '');
-                const pSafe = p.replace(/'/g,"\\'").replace(/"/g,'&quot;');
-                const reps = mtGetProjectReps(p);
-                const savedRep = (rec && rec.representatives && rec.representatives[p]) || null;
-                const repSelectHtml = `<select class="mt-rep-select" onclick="event.stopPropagation()" onchange="mtSaveRep('${today}', '${pSafe}', this)">
-                  <option value="">-- Select Representative --</option>
-                  ${reps.length === 0 ? `<option value="" disabled>No active staff in project</option>` : reps.map(emp => {
-                    const empId = emp.id != null ? emp.id : (emp.EmployeeID || emp.employee_id || '');
-                    const empName = emp.FullName || emp.full_name || '';
-                    const empDes = emp.Designation || emp.designation || '';
-                    const optVal = `${empId}|${empName}|${empDes}`;
-                    const isSelected = savedRep && (
-                      savedRep === optVal ||
-                      (typeof savedRep === 'object' && (
-                        savedRep.value === optVal ||
-                        (savedRep.id && String(savedRep.id) === String(empId)) ||
-                        (savedRep.name && savedRep.name === empName)
-                      ))
-                    );
-                    return `<option value="${optVal.replace(/"/g, '&quot;')}" ${isSelected ? 'selected' : ''}>${empName} (${empDes || 'Staff'})</option>`;
+            <div id="mtTiles">
+              ${(typeof mtGroupedProjects === 'function' ? mtGroupedProjects(projNames) : [{group:'', items:projNames}]).map(function(grp){
+                return `<div class="mt-group" data-group="${escapeHtml(grp.group || '')}">
+                  ${grp.group ? `<div class="mt-group-h"><span class="mt-group-t">${escapeHtml(grp.group)}</span><span class="mt-group-n">${num(grp.items.length)} projects</span></div>` : ''}
+                  <div class="mt-grid">
+                  ${grp.items.map(function(p){
+                    const isPres = !!(rec && rec.present && rec.present[p]);
+                    const isAbs = !!(rec && rec.absent && rec.absent[p]);
+                    const tileCls = isPres ? 'present' : (isAbs ? 'absent' : '');
+                    const pSafe = p.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+                    const statusLabel = isPres ? 'Present' : (isAbs ? 'Absent' : 'Not marked');
+                    const reps = mtGetProjectReps(p);
+                    const savedRep = (rec && rec.representatives && rec.representatives[p]) || null;
+                    const repSelectHtml = `<select class="mt-rep-select" onclick="event.stopPropagation()" onchange="mtSaveRep('${today}', '${pSafe}', this)">
+                      <option value="">-- Select Representative --</option>
+                      ${reps.length === 0 ? `<option value="" disabled>No active staff in project</option>` : reps.map(emp => {
+                        const empId = emp.id != null ? emp.id : (emp.EmployeeID || emp.employee_id || '');
+                        const empName = emp.FullName || emp.full_name || '';
+                        const empDes = emp.Designation || emp.designation || '';
+                        const optVal = `${empId}|${empName}|${empDes}`;
+                        const isSelected = savedRep && (
+                          savedRep === optVal ||
+                          (typeof savedRep === 'object' && (
+                            savedRep.value === optVal ||
+                            (savedRep.id && String(savedRep.id) === String(empId)) ||
+                            (savedRep.name && savedRep.name === empName)
+                          ))
+                        );
+                        return `<option value="${optVal.replace(/"/g, '&quot;')}" ${isSelected ? 'selected' : ''}>${empName} (${empDes || 'Staff'})</option>`;
+                      }).join('')}
+                    </select>`;
+                    const noteHtml = mtBuildNotesSection(today, p, false);
+                    const presBtnCls = isPres ? 'btn success sm mt-btn-present' : 'btn success ghost sm mt-btn-present';
+                    const absBtnCls = isAbs ? 'btn danger sm mt-btn-absent' : 'btn danger ghost sm mt-btn-absent';
+                    return `<div class="mt-tile ${tileCls}" data-proj="${pSafe}" onclick="this.classList.toggle('expanded')" title="${statusLabel}">
+                      <div class="mt-tile-head">
+                        <div class="mt-tile-l">
+                          <h5>${projName(p)}</h5>
+                          <div class="mt-kicker">${num(projStaffCount(p))} active staff</div>
+                        </div>
+                        <span class="mt-check" aria-hidden="true"></span>
+                      </div>
+                      <span class="mt-state">${statusLabel}</span>
+                      <div class="mt-tile-body" onclick="event.stopPropagation()">
+                        ${repSelectHtml}
+                        ${noteHtml}
+                        <div class="mt-actions">
+                          <button type="button" class="${presBtnCls}" onclick="event.stopPropagation(); mtSetStatus('${today}', '${pSafe}', 'present')">Present</button>
+                          <button type="button" class="${absBtnCls}" onclick="event.stopPropagation(); mtSetStatus('${today}', '${pSafe}', 'absent')">Absent</button>
+                        </div>
+                      </div>
+                    </div>`;
                   }).join('')}
-                </select>`;
-                const noteHtml = mtBuildNotesSection(today, p, false);
-                const presBtnCls = isPres ? 'btn success sm mt-btn-present' : 'btn success ghost sm mt-btn-present';
-                const absBtnCls = isAbs ? 'btn danger sm mt-btn-absent' : 'btn danger ghost sm mt-btn-absent';
-                const statusButtonsHtml = `<div style="display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
-                  <button type="button" class="${presBtnCls}" style="flex:1;justify-content:center;font-weight:600;" onclick="event.stopPropagation(); mtSetStatus('${today}', '${pSafe}', 'present')">Present</button>
-                  <button type="button" class="${absBtnCls}" style="flex:1;justify-content:center;font-weight:600;" onclick="event.stopPropagation(); mtSetStatus('${today}', '${pSafe}', 'absent')">Absent</button>
-                </div>`;
-                return `<div class="mt-tile ${tileCls}" data-proj="${pSafe}" onclick="this.classList.toggle('expanded')" title="${isPres ? 'Present' : (isAbs ? 'Absent' : 'Not marked yet')}">
-                  <span class="mt-check" aria-hidden="true"></span>
-                  <h5>${projName(p)} <span class="badge mute">Staff: ${projStaffCount(p)}</span></h5>
-                  <div class="mt-tile-body" onclick="event.stopPropagation()">
-                    ${repSelectHtml}
-                    ${noteHtml}
-                    ${statusButtonsHtml}
                   </div>
                 </div>`;
               }).join('')}

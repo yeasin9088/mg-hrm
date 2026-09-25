@@ -95,6 +95,13 @@ function findEmp(rid) {
   --warning: #d97706; --warning-soft: #fef3c7;
   --info: #0284c7;    --info-soft: #e0f2fe;
   --purple: #7c3aed;  --purple-soft: #ede9fe;
+  /* ---- Phase 13: semantic status & accent scale (aliases only - values unchanged) ---- */
+  --st-ok: var(--success); --st-ok-2:#10b981; --st-ok-3:#16a34a; --st-ok-strong:#15803d; --st-ok-bg:#dcfce7; --st-ok-line:#bbf7d0; --st-ok-tint:#ecfdf5; --st-ok-tint-2:#f0fdf4;
+  --st-bad:#dc2626; --st-bad-2:#ef4444; --st-bad-3: var(--danger); --st-bad-strong:#b91c1c; --st-bad-strong-2:#991b1b; --st-bad-bg:#fee2e2; --st-bad-line:#fecaca; --st-bad-tint:#fef2f2;
+  --st-warn: var(--warning); --st-warn-2:#f59e0b; --st-warn-strong:#b45309; --st-warn-bg: var(--warning-soft); --st-warn-line:#fcd34d;
+  --st-info:#2563eb; --st-info-strong:#1d4ed8; --st-info-2:#3b82f6; --st-info-bg:#dbeafe; --st-info-tint:#f0f9ff; --st-info-tint-2:#eff6ff;
+  --st-violet: var(--purple); --st-violet-2:#8b5cf6; --st-violet-bg: var(--purple-soft);
+  --st-neutral:#475569; --st-neutral-bg:#f1f5f9; --st-neutral-line:#e2e8f0;
   --shadow-sm: 0 1px 2px rgba(15,23,42,.05);
   --shadow: 0 1px 3px rgba(15,23,42,.06), 0 1px 2px rgba(15,23,42,.04);
   --shadow-md: 0 4px 12px rgba(15,23,42,.08);
@@ -130,7 +137,7 @@ body.lang-bn { font-family: var(--font-bn), var(--font-en); }
 }
 .brand-logo {
   width: 38px; height: 38px; border-radius: 8px;
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  background: linear-gradient(135deg, var(--st-info-2), var(--st-violet-2));
   display: grid; place-items: center; color: white;
   font-weight: 800; font-size: 15px; letter-spacing: -.5px;
   overflow: hidden; flex-shrink: 0;
@@ -350,8 +357,8 @@ tbody tr.clickable { cursor: pointer; }
   text-transform: uppercase;
 }
 .pill.active     { background: var(--success-soft); color: var(--success); }
-.pill.inactive   { background: var(--danger-soft);  color: var(--danger); }
-.pill.scheduled  { background: var(--warning-soft); color: var(--warning); }
+.pill.inactive   { background: var(--st-neutral-bg); color: var(--st-neutral); }
+.pill.scheduled  { background: var(--st-info-bg); color: var(--st-info-strong); }
 .pill.completed  { background: var(--info-soft);    color: #0369a1; }
 .pill.cancelled  { background: #f1f5f9;             color: var(--text-muted); }
 .pill.pending    { background: var(--warning-soft); color: var(--warning); }
@@ -424,7 +431,7 @@ tbody tr.clickable { cursor: pointer; }
   background: white; padding: 12px 18px; border-radius: 8px;
   box-shadow: var(--shadow-lg); border-left: 4px solid var(--primary);
   font-size: 13px; min-width: 260px; max-width: 380px;
-  animation: slideDown .25s;
+  animation: slideDown var(--mg-base) var(--mg-ease);
   display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
 }
 .toast.success { border-left-color: var(--success); }
@@ -439,7 +446,7 @@ tbody tr.clickable { cursor: pointer; }
 /* ============ EMPLOYEE PROFILE ============ */
 .emp-header {
   display: flex; gap: 18px; align-items: center; padding: 22px;
-  background: linear-gradient(135deg, #eef2ff 0%, #f0f9ff 100%);
+  background: linear-gradient(135deg, #eef2ff 0%, var(--st-info-tint) 100%);
   border-radius: var(--radius); margin-bottom: 18px;
   border: 1px solid var(--border);
 }
@@ -470,7 +477,7 @@ tbody tr.clickable { cursor: pointer; }
 
 /* ============ PARADE STATE ============ */
 .parade-cell { text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; }
-.parade-cell.short { color: var(--danger); background: #fef2f2; }
+.parade-cell.short { color: var(--danger); background: var(--st-bad-tint); }
 .parade-cell.full  { color: var(--success); }
 .parade-cell.zero  { color: var(--text-muted); }
 
@@ -831,13 +838,13 @@ body.sidebar-open {
 }
 .csv-drop-icon { font-size: 32px; margin-bottom: 6px; }
 .csv-badge-root {
-  background: #dcfce7;
+  background: var(--st-ok-bg);
   color: var(--success);
   font-weight: 700;
   padding: 2px 7px;
   border-radius: 4px;
   font-size: 10.5px;
-  border: 1px solid #bbf7d0;
+  border: 1px solid var(--st-ok-line);
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -943,7 +950,7 @@ body.sidebar-open {
 }
 .mt-tile:hover { border-color: var(--primary); }
 .mt-tile.present { border-color: var(--success); background: var(--success-soft); }
-.mt-tile.absent { border-color: var(--danger); background: var(--danger-soft, #fee2e2); }
+.mt-tile.absent { border-color: var(--danger); background: var(--danger-soft, var(--st-bad-bg)); }
 .mt-tile .mt-check {
   position: absolute; top: 12px; right: 12px; width: 22px; height: 22px;
   border-radius: 50%; border: 2px solid var(--border-strong, #cbd5e1);
@@ -1198,9 +1205,9 @@ body.sidebar-open {
 .mrep .pillbox {
   display: inline-block; padding: 1px 8px; border-radius: 100px; font-size: 8pt; font-weight: 700;
 }
-.mrep .pillbox.ok { background: #dcfce7; color: var(--success); }
-.mrep .pillbox.short { background: #fee2e2; color: var(--danger); }
-.mrep .pillbox.over { background: #dbeafe; color: #1d4ed8; }
+.mrep .pillbox.ok { background: var(--st-ok-bg); color: var(--success); }
+.mrep .pillbox.short { background: var(--st-bad-bg); color: var(--danger); }
+.mrep .pillbox.over { background: var(--st-info-bg); color: var(--st-info-strong); }
 .mrep-foot {
   padding: 4mm 12mm; border-top: 1px solid #e2e8f0; font-size: 7.5pt; color: #94a3b8;
   display: flex; justify-content: space-between;
@@ -1306,7 +1313,7 @@ body.print-bw .mrep.m2 tbody tr:nth-child(even) { background: #f5f5f5 !important
   padding: 2mm 1mm; text-align: center;
 }
 .mrep .parade-tbl thead tr.hg1 th.grp { border-right: 1.5px solid #c7d2fe; }
-.mrep .parade-tbl thead tr.hg1 th.grp.total-grp { background: #dbeafe; color: #1e3a8a; }
+.mrep .parade-tbl thead tr.hg1 th.grp.total-grp { background: var(--st-info-bg); color: #1e3a8a; }
 .mrep .parade-tbl thead tr.hg2 th.sub {
   background: #f8fafc; color: #475569;
   padding: 1.4mm 1mm; font-size: 7.2pt; font-weight: 700;
@@ -1314,7 +1321,7 @@ body.print-bw .mrep.m2 tbody tr:nth-child(even) { background: #f5f5f5 !important
   border-bottom: 1.5px solid var(--primary);
 }
 .mrep .parade-tbl thead tr.hg2 th.dem-col { background: #f1f5f9; }
-.mrep .parade-tbl thead tr.hg2 th.act-col { background: #ecfdf5; color: #065f46; }
+.mrep .parade-tbl thead tr.hg2 th.act-col { background: var(--st-ok-tint); color: #065f46; }
 .mrep .parade-tbl thead tr.hg2 th.diff-col { background: var(--warning-soft); color: var(--warning); border-right: 1.5px solid #c7d2fe; }
 .mrep .parade-tbl tbody td.dem-col { background: rgba(241,245,249,.55); }
 .mrep .parade-tbl tbody td.act-col { background: rgba(236,253,245,.45); }
@@ -1333,8 +1340,8 @@ body.print-bw .mrep.m2 tbody tr:nth-child(even) { background: #f5f5f5 !important
 .mrep-legend .lg-item { display: inline-block; margin-right: 5mm; }
 .mrep-legend .lg-sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: middle; margin-right: 3px; }
 .mrep-legend .lg-sw.dem { background: #f1f5f9; border: 1px solid #cbd5e1; }
-.mrep-legend .lg-sw.act { background: #ecfdf5; border: 1px solid #86efac; }
-.mrep-legend .lg-sw.diff { background: var(--warning-soft); border: 1px solid #fcd34d; }
+.mrep-legend .lg-sw.act { background: var(--st-ok-tint); border: 1px solid #86efac; }
+.mrep-legend .lg-sw.diff { background: var(--warning-soft); border: 1px solid var(--st-warn-line); }
 @media print {
   
   .print-doc.mrep { width: 100% !important; padding: 0 !important; }
@@ -1851,7 +1858,7 @@ body.print-bw .mrep.m2 tbody tr:nth-child(even) { background: #f5f5f5 !important
 
 .addr-cascade-modern { display:block; }
 .addr-cascade-modern .ac-progress { display:flex; align-items:center; gap:6px; margin-bottom:16px;
-  padding:12px 8px; background:linear-gradient(135deg,#eef2ff,#f0f9ff); border-radius:10px;
+  padding:12px 8px; background:linear-gradient(135deg,#eef2ff,var(--st-info-tint)); border-radius:10px;
   border:1px solid #e0e7ff; overflow-x:auto; }
 .addr-cascade-modern .ac-step { display:flex; align-items:center; gap:6px; flex-shrink:0; }
 .addr-cascade-modern .ac-dot { width:26px; height:26px; border-radius:50%; background:#cbd5e1; color:#fff;
@@ -1887,7 +1894,7 @@ body.print-bw .mrep.m2 tbody tr:nth-child(even) { background: #f5f5f5 !important
 .addr-cascade-modern .ac-menu { position:absolute; top:100%; left:0; right:0; z-index:1000; max-height:220px;
   overflow-y:auto; background:#fff; border:1px solid var(--border,#e5e7eb); border-radius:8px;
   box-shadow:0 12px 28px rgba(30,27,75,.12); margin-top:4px; display:none; }
-.addr-cascade-modern .ac-menu.show { display:block; animation:acFade .18s ease; }
+.addr-cascade-modern .ac-menu.show { display:block; animation:acFade var(--mg-fast) var(--mg-ease); }
 @keyframes acFade { from{opacity:0; transform:translateY(-4px);} to{opacity:1; transform:none;} }
 .addr-cascade-modern .ac-opt { padding:8px 12px; cursor:pointer; display:flex; justify-content:space-between;
   align-items:center; gap:8px; border-bottom:1px solid #f1f5f9; transition:background .12s ease; }
@@ -1901,7 +1908,7 @@ body.print-bw .mrep.m2 tbody tr:nth-child(even) { background: #f5f5f5 !important
 .addr-cascade-modern .ac-chip-line { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
 .addr-cascade-modern .ac-chip { display:inline-flex; align-items:center; padding:4px 10px; font-size:12px;
   font-weight:600; background:var(--primary-soft, #eef2ff); color:var(--primary, #3730a3); border:1px solid rgba(79,70,229,.25); border-radius:6px;
-  box-shadow:0 1px 3px rgba(0,0,0,.05); animation:acChipIn .25s ease; }
+  box-shadow:0 1px 3px rgba(0,0,0,.05); animation:acChipIn var(--mg-base) var(--mg-ease); }
 @keyframes acChipIn { from{opacity:0; transform:scale(.85);} to{opacity:1; transform:scale(1);} }
 .addr-cascade-modern .ac-arrow { color:var(--primary, var(--primary)); font-size:14px; font-weight:700; }
 .addr-cascade-modern .ac-chip-hint { font-size:12px; color:var(--text-mute, #64748b); text-align:center; padding:4px; }
@@ -1911,7 +1918,7 @@ body.print-bw .mrep.m2 tbody tr:nth-child(even) { background: #f5f5f5 !important
   -webkit-backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,.5); }
 
 
-.btn { transition:transform .12s ease, box-shadow .15s ease, background .15s ease; }
+.btn { transition:transform var(--mg-fast) var(--mg-ease), box-shadow var(--mg-fast) var(--mg-ease), background var(--mg-fast) var(--mg-ease); }
 .btn:hover { transform:translateY(-1px); }
 .btn:active { transform:translateY(0); }
 .btn.primary:hover { box-shadow:0 6px 14px rgba(79,70,229,.28); }
@@ -1924,7 +1931,7 @@ input:focus, select:focus, textarea:focus {
 }
 
 
-.card { transition:box-shadow .2s ease, transform .2s ease; }
+.card { transition:box-shadow var(--mg-base) var(--mg-ease), transform var(--mg-base) var(--mg-ease); }
 .card:hover { box-shadow:0 8px 20px rgba(30,27,75,.05); }
 
 /* Recruitment pipe-card modernization */
@@ -1978,7 +1985,7 @@ input:focus, select:focus, textarea:focus {
 .ps-stat .s { font-size:11.5px; color:var(--text-muted); margin-top:5px; }
 .ps-stat.is-low .v   { color:var(--danger); }
 .ps-stat.is-ok .v    { color:var(--success); }
-.ps-stat.is-extra .v { color:#2563eb; }
+.ps-stat.is-extra .v { color:var(--st-info); }
 
 .ps-card { background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:16px; }
 .ps-card-top { display:flex; flex-wrap:wrap; align-items:center; gap:9px; padding:12px 14px; border-bottom:1px solid var(--border); }
@@ -2028,17 +2035,17 @@ input:focus, select:focus, textarea:focus {
 .ps-tbl td.ps-d { color:var(--text-2); }
 .ps-tbl td.ps-a { font-weight:700; color:var(--text); }
 .ps-tbl td.ps-a.low { color:var(--danger); }
-.ps-tbl td.ps-a.over { color:#2563eb; }
+.ps-tbl td.ps-a.over { color:var(--st-info); }
 .ps-tbl td.ps-grpend { border-right:1px solid var(--border); }
 .ps-tbl td.ps-tot { font-weight:800; color:var(--text); background:var(--bg-dim); }
 .ps-tbl td.ps-tot.low { color:var(--danger); }
-.ps-tbl td.ps-tot.over { color:#2563eb; }
+.ps-tbl td.ps-tot.over { color:var(--st-info); }
 
 .ps-gap { display:inline-block; min-width:34px; padding:2px 7px; border-radius:7px;
   font-size:11.5px; font-weight:800; font-variant-numeric:tabular-nums; }
-.ps-gap.low  { background:#fef2f2; color:var(--danger); }
-.ps-gap.over { background:#eff6ff; color:#1d4ed8; }
-.ps-gap.ok   { background:#f0fdf4; color:var(--success); }
+.ps-gap.low  { background:var(--st-bad-tint); color:var(--danger); }
+.ps-gap.over { background:var(--st-info-tint-2); color:var(--st-info-strong); }
+.ps-gap.ok   { background:var(--st-ok-tint-2); color:var(--success); }
 
 .ps-fill { display:flex; align-items:center; gap:8px; justify-content:flex-end; min-width:112px; }
 .ps-fill .ps-fill-bar { flex:1; height:6px; border-radius:99px; background:var(--bg-dim); overflow:hidden; min-width:44px; }
@@ -2091,7 +2098,7 @@ input:focus, select:focus, textarea:focus {
 .psp-kpi .s { font-size:7.5pt; color:#64748b; margin-top:1.5mm; }
 .psp-kpi.is-low .v { color:var(--danger); }
 .psp-kpi.is-ok .v  { color:var(--success); }
-.psp-kpi.is-extra .v { color:#1d4ed8; }
+.psp-kpi.is-extra .v { color:var(--st-info-strong); }
 
 .psp-body { padding:6mm 11mm 8mm; }
 .psp-sec { font-size:8pt; font-weight:800; text-transform:uppercase; letter-spacing:1.1px; color:var(--primary);
@@ -2113,18 +2120,18 @@ input:focus, select:focus, textarea:focus {
 .psp-tbl td.d { color:#64748b; }
 .psp-tbl td.a { font-weight:800; color:var(--sidebar); }
 .psp-tbl td.a.low { color:var(--danger); }
-.psp-tbl td.a.over { color:#1d4ed8; }
+.psp-tbl td.a.over { color:var(--st-info-strong); }
 .psp-tbl td.grpend { border-right:1px solid #e2e8f0; }
 .psp-tbl tbody tr.alt td { background:#fbfcfe; }
 .psp-tbl tbody tr.total td { background:#eef2ff; border-top:1.5px solid #c7d2fe; border-bottom:0;
   font-weight:800; color:var(--sidebar); padding-top:2.4mm; padding-bottom:2.4mm; }
 .psp-tbl tbody tr.total td.low { color:var(--danger); }
-.psp-tbl tbody tr.total td.over { color:#1d4ed8; }
+.psp-tbl tbody tr.total td.over { color:var(--st-info-strong); }
 .psp-tbl .dash { color:#cbd5e1; }
 
 .psp-gap { display:inline-block; min-width:6mm; font-weight:800; font-size:7.5pt; }
 .psp-gap.low  { color:var(--danger); }
-.psp-gap.over { color:#1d4ed8; }
+.psp-gap.over { color:var(--st-info-strong); }
 .psp-gap.ok   { color:var(--success); }
 
 .psp-fill { display:flex; align-items:center; gap:1.8mm; }
@@ -2424,6 +2431,152 @@ input:focus, select:focus, textarea:focus {
 </script>
 </head>
 <body>
+<!-- ===== PHASE 8: Branded boot screen ===== -->
+<style id="mg-boot-css">
+#mgBoot{position:fixed;inset:0;z-index:100000;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  background:radial-gradient(120% 120% at 18% 12%, #312e81 0%, var(--sidebar) 46%, #141232 100%);
+  transition:opacity .4s cubic-bezier(.22,1,.36,1), visibility .4s}
+#mgBoot.mg-boot-done{opacity:0;visibility:hidden;pointer-events:none}
+.mg-boot-logo{width:60px;height:60px;border-radius:16px;display:flex;align-items:center;
+  justify-content:center;color:#fff;font-weight:800;font-size:21px;letter-spacing:.5px;
+  background:linear-gradient(135deg,var(--primary),var(--purple));
+  box-shadow:0 10px 26px rgba(79,70,229,.42);overflow:hidden}
+.mg-boot-logo img{width:100%;height:100%;object-fit:contain;background:#fff}
+.mg-boot-name{margin:17px 0 0;font-size:17px;font-weight:700;color:#fff;letter-spacing:-.01em}
+.mg-boot-sub{margin:4px 0 0;font-size:11.5px;font-weight:600;letter-spacing:.16em;
+  text-transform:uppercase;color:rgba(255,255,255,.52)}
+.mg-boot-track{margin:26px 0 0;width:184px;height:3px;border-radius:100px;
+  background:rgba(255,255,255,.16);overflow:hidden}
+.mg-boot-fill{height:100%;width:0;border-radius:100px;
+  background:linear-gradient(90deg,var(--primary),var(--purple));
+  transition:width .28s ease-out}
+@media (prefers-reduced-motion:reduce){
+  #mgBoot{transition:none}
+  .mg-boot-fill{transition:none}
+}
+</style>
+<div id="mgBoot" role="status" aria-live="polite" aria-label="Loading MG Security HRM">
+  <div class="mg-boot-logo" id="mgBootLogo"><span class="mg-boot-logo-text">MG</span></div>
+  <p class="mg-boot-name">MG Security HRM</p>
+  <p class="mg-boot-sub">HR Management System</p>
+  <div class="mg-boot-track"><div class="mg-boot-fill" id="mgBootBar"></div></div>
+</div>
+<!-- ===== /PHASE 8 boot screen ===== -->
+
+<!-- ===== PHASE 9: skeleton + empty state ===== -->
+<style id="mg-state-css">
+  /* --- loading skeleton rows --- */
+  .sk-row td{padding:14px 12px;border-bottom:1px solid var(--border)}
+  .sk-row:hover{background:transparent}
+  .sk-bar{display:block;height:11px;border-radius:6px;
+    background:linear-gradient(90deg,var(--border) 0%,rgba(255,255,255,.8) 50%,var(--border) 100%);
+    background-size:200% 100%;animation:mgSweep 1.15s linear infinite}
+  .sk-row td:nth-child(1) .sk-bar{width:42%}
+  .sk-row td:nth-child(2) .sk-bar{width:74%}
+  .sk-row td:nth-child(3) .sk-bar{width:56%}
+  .sk-row td:nth-child(4) .sk-bar{width:63%}
+  .sk-row td:nth-child(5) .sk-bar{width:48%}
+  .sk-row td:nth-child(6) .sk-bar{width:70%}
+  .sk-row td:nth-child(7) .sk-bar{width:52%}
+  @keyframes mgSweep{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+  /* --- empty state --- */
+  .es-row td{border-bottom:0!important;background:transparent!important}
+  .es-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:7px;padding:34px 20px;text-align:center}
+  .es-ico{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;
+    background:var(--primary-soft);color:var(--primary);margin-bottom:5px}
+  .es-title{font-weight:700;color:var(--text);font-size:0.95rem}
+  .es-sub{color:var(--text-mute);font-size:0.82rem;line-height:1.5}
+
+  @media (prefers-reduced-motion:reduce){.sk-bar{animation:none}}
+</style>
+
+<style id="mg-nav-css">
+/* PHASE 12 - sidebar navigation affordances. Additive only. */
+
+/* A) Collapsed-rail tooltip. The element itself is created by STEP 12-B. */
+#mgNavTip{
+  position:fixed; left:0; top:0; z-index:100001;
+  max-width:260px; padding:6px 10px;
+  background:var(--sidebar, #1e1b4b); color:#fff;
+  font-size:12px; font-weight:600; letter-spacing:.2px; line-height:1.2;
+  white-space:nowrap; border-radius:8px;
+  box-shadow:0 8px 22px rgba(15,23,42,.30);
+  pointer-events:none; opacity:0; transform:translateX(-4px);
+  transition:opacity var(--mg-fast,.14s) var(--mg-ease,ease),
+             transform var(--mg-fast,.14s) var(--mg-ease,ease);
+}
+#mgNavTip.on{ opacity:1; transform:none; }
+#mgNavTip::before{
+  content:''; position:absolute; left:-3px; top:50%; margin-top:-4px;
+  width:8px; height:8px; background:var(--sidebar, #1e1b4b);
+  border-radius:1px; transform:rotate(45deg);
+}
+
+/* B) Unambiguous active item - desktop rail only. */
+@media (min-width: 769px){
+  .nav-item.active{
+    background:linear-gradient(90deg, rgba(165,180,252,.22) 0%, rgba(165,180,252,.06) 100%);
+    color:#fff; font-weight:600;
+    box-shadow:inset 0 0 0 1px rgba(165,180,252,.16);
+  }
+  .nav-item.active svg{ opacity:1; }
+}
+
+/* C) Respect a user who asked the OS for less motion. */
+@media (prefers-reduced-motion: reduce){
+  #mgNavTip{ transition:none; }
+}
+</style>
+
+<style id="mg-motion-css">
+/* PHASE 11 - motion foundation. Additive only. */
+:root{
+  --mg-fast:.14s;
+  --mg-base:.22s;
+  --mg-slow:.32s;
+  --mg-ease:cubic-bezier(.22,.61,.36,1);
+}
+/* 1) fadeIn was already used once (employee profile page)
+      but @keyframes fadeIn was never defined -- so it silently
+      did nothing. This defines it. */
+@keyframes fadeIn{
+  from{opacity:0; transform:translateY(4px);}
+  to{opacity:1; transform:none;}
+}
+/* 2) Shared entrance for dialogs. */
+@keyframes mgRise{
+  from{opacity:0; transform:translateY(8px) scale(.985);}
+  to{opacity:1; transform:none;}
+}
+/* 3) Dialogs enter instead of popping in instantly. */
+.modal-back.open .modal{
+  animation:mgRise var(--mg-base) var(--mg-ease);
+}
+/* 4) Keyboard focus ring - visible for keyboard users only. */
+:where(.btn,.tab,.mt-chip,a[href],button):focus-visible{
+  outline:2px solid var(--primary);
+  outline-offset:2px;
+}
+/* 5) Global reduce-motion support.
+      Until now only one small meeting-board rule respected it. */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    animation-duration:.001ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.001ms !important;
+    scroll-behavior:auto !important;
+  }
+  /* A frozen spinner looks like a crashed app - slow it instead. */
+  .spin, .spin::after, #authGate .spin{
+    animation-duration:1.6s !important;
+    animation-iteration-count:infinite !important;
+  }
+}
+</style>
+
 <div id="mtSyncLoader" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.95); z-index: 99999; flex-direction: column; justify-content: center; align-items: center;">
 <h3 id="mtSyncTitle" style="margin-bottom: 10px;">Processing...</h3>
 <div style="width: 320px; height: 6px; background: #eee; border-radius: 10px; overflow: hidden; margin-bottom: 12px;"><div id="mtSyncBar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.2s;"></div></div>
@@ -3638,10 +3791,12 @@ async function fetchEmployeesDirectly() {
 
     if (error) {
       console.warn('[Employees] Supabase fetch warning:', error.message || error);
+      window.mgLoadState.employees = 'error';
       return null;
     }
 
     if (Array.isArray(data)) {
+      window.mgLoadState.employees = 'ok';
       console.log('[Employees] Direct Supabase fetch retrieved ' + data.length + ' records');
       DATA.employees = data.map(normEmployee);
       if (window.MGHRM && typeof window.MGHRM.captureBaseline === 'function') {
@@ -3908,10 +4063,7 @@ async function renderEmployees(){
               <th></th>
             </tr></thead>
             <tbody id="empTableBody">
-              ${(DATA.employees && DATA.employees.length > 0) ? '' : `<tr><td colspan="11" style="text-align:center;padding:32px;color:var(--text-muted)">
-                <span class="spin" style="display:inline-block;width:16px;height:16px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;margin-right:8px;vertical-align:middle;animation:spin .8s linear infinite"></span>
-                Loading employees from Supabase…
-              </td></tr>`}
+              ${(DATA.employees && DATA.employees.length > 0) ? '' : skRows(11, 5)}
             </tbody>
           </table>
         </div>
@@ -4007,7 +4159,10 @@ function renderEmpTable(){
   if (!tbody) return;
 
   if (rows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="15" style="text-align:center; padding:40px 20px; color:var(--text-mute); font-size:0.95rem;">No matching records found.</td></tr>`;
+    const hasData = !!(DATA.employees && DATA.employees.length);
+    tbody.innerHTML = hasData
+      ? tblEmptyRow(15, 'No matching records found.')
+      : mgStateRow(window.mgLoadState.employees, 15, 'No employees yet.', 'employees');
     return;
   }
 
@@ -7174,7 +7329,9 @@ function updateProjectsTableUI() {
 
   const tbody = document.getElementById('projectsTableBody');
   if (tbody) {
-    tbody.innerHTML = renderProjectsTableRows(DATA.projects);
+    tbody.innerHTML = total
+      ? renderProjectsTableRows(DATA.projects)
+      : mgStateRow(window.mgLoadState.projects, 7, 'No projects yet.', 'projects');
   }
 }
 window.updateProjectsTableUI = updateProjectsTableUI;
@@ -7199,10 +7356,12 @@ async function fetchProjectsDirectly() {
 
     if (error) {
       console.warn('[Projects] Supabase fetch warning:', error.message || error);
+      window.mgLoadState.projects = 'error';
       return DATA.projects || null;
     }
 
     if (Array.isArray(data)) {
+      window.mgLoadState.projects = 'ok';
       console.log('[Projects] Direct Supabase fetch retrieved ' + data.length + ' records');
       DATA.projects = data.map(normProject);
       if (window.MGHRM && typeof window.MGHRM.captureBaseline === 'function') {
@@ -7289,12 +7448,7 @@ async function renderProjects(){
             <th>Status</th>
           </tr></thead>
           <tbody id="projectsTableBody">
-            ${total > 0
-              ? renderProjectsTableRows(DATA.projects)
-              : `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">
-                   <span class="spin" style="display:inline-block;width:16px;height:16px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;margin-right:8px;vertical-align:middle;animation:spin .8s linear infinite"></span>
-                   Loading projects from Supabase…
-                 </td></tr>`}
+            ${total > 0 ? renderProjectsTableRows(DATA.projects) : skRows(7, 5)}
           </tbody>
         </table>
       </div>
@@ -8898,8 +9052,12 @@ function dcBodyHtml(v){
 
 /* Shared empty-state row helper for the three tables */
 function tblEmptyRow(colspan, msg){
-  return '<tr><td colspan="' + colspan + '" style="text-align:center;padding:44px 20px;'
-    + 'color:var(--text-mute);font-size:0.95rem;">' + (msg || 'No matching records found.') + '</td></tr>';
+  return '<tr class="es-row"><td colspan="' + colspan + '">'
+    + '<div class="es-wrap">'
+    +   '<div class="es-ico"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M20.5 20.5l-4-4"></path></svg></div>'
+    +   '<div class="es-title">' + (msg || 'No matching records found.') + '</div>'
+    +   '<div class="es-sub">Try a different filter, or clear the search box.</div>'
+    + '</div></td></tr>';
 }
 
 window.rteSaveSel = rteSaveSel;
@@ -8912,6 +9070,67 @@ window.rteToolbarState = rteToolbarState;
 window.dcSanitize = dcSanitize;
 window.dcBodyHtml = dcBodyHtml;
 window.tblEmptyRow = tblEmptyRow;
+function skRows(cols, rows){
+  var n = rows || 5, out = '', i, c;
+  for (i = 0; i < n; i++){
+    out += '<tr class="sk-row">';
+    for (c = 0; c < cols; c++) out += '<td><span class="sk-bar"></span></td>';
+    out += '</tr>';
+  }
+  return out;
+}
+window.skRows = skRows;
+
+window.mgLoadState = { employees: 'loading', projects: 'loading' };
+
+function mgStateRow(kind, span, msg, key){
+  if (kind === 'loading') return skRows(span, 5);
+  if (kind === 'error') {
+    return '<tr class="es-row"><td colspan="' + span + '">'
+      + '<div class="es-wrap">'
+      +   '<div class="es-ico" style="background:var(--danger-soft,#fee2e2);color:var(--danger,#b91c1c)">'
+      +     '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5"></path><path d="M12 16.5v.01"></path><circle cx="12" cy="12" r="9"></circle></svg>'
+      +   '</div>'
+      +   '<div class="es-title">Could not load data</div>'
+      +   '<div class="es-sub">Check your internet connection, then try again.</div>'
+      +   '<button class="btn primary sm" style="margin-top:10px" onclick="mgRetry(\'' + key + '\')">Retry</button>'
+      + '</div></td></tr>';
+  }
+  return tblEmptyRow(span, msg);
+}
+window.mgStateRow = mgStateRow;
+
+function mgRetry(key){
+  if (key === 'employees') {
+    window.mgLoadState.employees = 'loading';
+    if (typeof renderEmpTable === 'function') renderEmpTable();
+    if (typeof fetchEmployeesDirectly === 'function') {
+      fetchEmployeesDirectly().then(function(){
+        if (typeof renderEmpTable === 'function') renderEmpTable();
+      });
+    }
+  } else {
+    window.mgLoadState.projects = 'loading';
+    if (typeof updateProjectsTableUI === 'function') updateProjectsTableUI();
+    if (typeof fetchProjectsDirectly === 'function') {
+      fetchProjectsDirectly().then(function(){
+        if (typeof updateProjectsTableUI === 'function') updateProjectsTableUI();
+      });
+    }
+  }
+}
+window.mgRetry = mgRetry;
+
+setTimeout(function(){
+  if (window.mgLoadState.employees === 'loading') {
+    window.mgLoadState.employees = 'error';
+    if (typeof renderEmpTable === 'function') renderEmpTable();
+  }
+  if (window.mgLoadState.projects === 'loading') {
+    window.mgLoadState.projects = 'error';
+    if (typeof updateProjectsTableUI === 'function') updateProjectsTableUI();
+  }
+}, 12000);
 
 /* ============ DISCIPLINARY ============ */
 
@@ -15737,10 +15956,84 @@ window.mtToggleSidebar = function() {
     if (layout) layout.classList.toggle('side-collapsed', isCollapsed);
     try {
       localStorage.setItem('mghrm_sidebar', isCollapsed ? '1' : '0');
+      localStorage.setItem('mghrm_sidebar_user', '1');
     } catch(e) {}
   }
 };
 window.toggleSidebar = window.mtToggleSidebar;
+
+/* PHASE 12 - sidebar: collapsed-rail tooltips + keyboard-operable brand toggle */
+(function(){
+  var tip=null;
+
+  function rail(){
+    var sb=document.querySelector('.sidebar'), lay=document.querySelector('.layout');
+    if(!sb || !lay) return false;
+    return sb.classList.contains('collapsed') || lay.classList.contains('side-collapsed');
+  }
+  function lazy(){
+    if(!tip){
+      tip=document.createElement('div');
+      tip.id='mgNavTip';
+      tip.setAttribute('role','presentation');
+      document.body.appendChild(tip);
+    }
+    return tip;
+  }
+  function textOf(el){
+    var spans=el.querySelectorAll('span');
+    for(var i=0;i<spans.length;i++){
+      if(spans[i].classList.contains('badge')) continue;
+      var t=(spans[i].textContent||'').replace(/\s+/g,' ').trim();
+      if(t) return t;
+    }
+    return '';
+  }
+  function hide(){ if(tip) tip.classList.remove('on'); }
+  function show(el){
+    if(window.innerWidth<=768 || !rail()){ hide(); return; }
+    var label=textOf(el);
+    if(!label){ hide(); return; }
+    var r=el.getBoundingClientRect();
+    if(!r.height){ hide(); return; }
+    var t=lazy();
+    t.textContent=label;
+    t.style.left=(r.right+10)+'px';
+    t.style.top='0px';
+    var h=t.offsetHeight || 24;
+    t.style.top=(r.top+(r.height-h)/2)+'px';
+    t.classList.add('on');
+  }
+  function bind(){
+    var items=document.querySelectorAll('.nav-item');
+    for(var i=0;i<items.length;i++){
+      (function(el){
+        if(el.dataset.mgTip==='1') return;
+        el.dataset.mgTip='1';
+        el.addEventListener('mouseenter', function(){ show(el); });
+        el.addEventListener('mouseleave', hide);
+      })(items[i]);
+    }
+    var b=document.getElementById('sidebarBrand');
+    if(b && b.dataset.mgKeys!=='1'){
+      b.dataset.mgKeys='1';
+      b.addEventListener('keydown', function(ev){
+        var k=ev.key;
+        if(k==='Enter' || k===' ' || k==='Spacebar'){
+          ev.preventDefault();
+          if(typeof window.mtToggleSidebar==='function') window.mtToggleSidebar();
+          hide();
+        }
+      });
+    }
+  }
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+  window.addEventListener('scroll', hide, true);
+  window.addEventListener('resize', hide);
+  document.addEventListener('click', hide, true);
+})();
 
 window.mtCloseSidebarMobile = function() {
   const sidebar = document.querySelector('.sidebar');
@@ -15749,6 +16042,31 @@ window.mtCloseSidebarMobile = function() {
   if (backdrop) backdrop.classList.remove('active');
   document.body.classList.remove('sidebar-open');
 };
+
+/* PHASE 12 - auto-collapse the rail below 1280px, unless the user chose manually */
+function mgAutoCollapse(){
+  try{
+    var sb=document.querySelector('.sidebar'), lay=document.querySelector('.layout');
+    if(!sb || !lay) return;
+    if(window.innerWidth<=768) return;
+    if(window.innerWidth<1280){
+      if(localStorage.getItem('mghrm_sidebar_user')==='1') return;
+      sb.classList.add('collapsed'); lay.classList.add('side-collapsed');
+      sb.dataset.mgAuto='1';
+    } else if(sb.dataset.mgAuto==='1'){
+      sb.classList.remove('collapsed'); lay.classList.remove('side-collapsed');
+      sb.dataset.mgAuto='0';
+    }
+  }catch(e){}
+}
+window.mgAutoCollapse = mgAutoCollapse;
+(function(){
+  var t=null;
+  function run(){ clearTimeout(t); t=setTimeout(mgAutoCollapse, 120); }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', mgAutoCollapse);
+  else mgAutoCollapse();
+  window.addEventListener('resize', run);
+})();
 
 function restoreSidebar(){
   try{
@@ -16314,6 +16632,53 @@ try {
 setTimeout(()=>checkPendingToast(true), 2000);
 setTimeout(startupConnectionCheck, 1200);
 setInterval(()=>checkPendingToast(true), 180000); 
+
+/* ===== PHASE 8: branded boot screen controller ===== */
+(function(){
+  var boot = document.getElementById('mgBoot');
+  if(!boot) return;
+  var bar  = document.getElementById('mgBootBar');
+  var done = false, t0 = Date.now();
+  var MIN_MS = 700;    /* never flash on a fast load */
+  var MAX_MS = 1200;   /* HARD CAP - never blocks the app */
+  var iv;
+
+  function paint(p){ if(bar) bar.style.width = p + '%'; }
+  function finish(immediate){
+    if(done) return; done = true;
+    clearInterval(iv);
+    var wait = immediate ? 0 : Math.max(0, MIN_MS - (Date.now() - t0));
+    setTimeout(function(){
+      paint(100);
+      boot.classList.add('mg-boot-done');
+      setTimeout(function(){ if(boot.parentNode) boot.parentNode.removeChild(boot); }, 460);
+    }, wait);
+  }
+  window.mgBootDone = finish;   /* any code can call this early */
+
+  var pct = 0;
+  iv = setInterval(function(){
+    if(done){ clearInterval(iv); return; }
+    pct = Math.min(88, pct + (Math.random()*8 + 5));
+    paint(Math.round(pct));
+  }, 120);
+
+  /* if a login / setup gate appears, drop the boot screen at once */
+  ['authGate','setupGate'].forEach(function(id){
+    var g = document.getElementById(id);
+    if(!g || !window.MutationObserver) return;
+    var mo = new MutationObserver(function(){
+      if(g.className.indexOf('show') !== -1){ mo.disconnect(); finish(true); }
+    });
+    mo.observe(g, { attributes:true, attributeFilter:['class'] });
+  });
+
+  /* normal exits: page loaded, or the hard cap */
+  if(document.readyState === 'complete') setTimeout(function(){ finish(false); }, 250);
+  else window.addEventListener('load', function(){ setTimeout(function(){ finish(false); }, 250); });
+  setTimeout(function(){ finish(false); }, MAX_MS);
+})();
+/* ===== /PHASE 8 boot screen controller ===== */
 </script>
 
 <style id="auth-css">

@@ -1968,6 +1968,209 @@ input:focus, select:focus, textarea:focus {
 }
 
 /* ============================================================
+   MG To-Do v3 : three tabs, relative time, replies  (tokens only)
+   Everything is scoped to #page-todo - no other screen is touched.
+   ============================================================ */
+#page-todo .td-wrap{display:flex;flex-direction:column;gap:14px}
+
+/* ---- 1. counter strip ---- */
+#page-todo .td-stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+#page-todo .td-stat{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px 11px;cursor:pointer;font-family:inherit;text-align:left;transition:border-color .15s,box-shadow .15s,transform .15s}
+#page-todo .td-stat:hover{border-color:var(--border-strong);box-shadow:var(--shadow-sm);transform:translateY(-1px)}
+#page-todo .td-stat .k{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted)}
+#page-todo .td-stat .v{font-size:23px;font-weight:800;letter-spacing:-.8px;line-height:1.05;margin-top:5px;color:var(--text);font-variant-numeric:tabular-nums}
+#page-todo .td-stat.is-open .v{color:var(--st-info-strong)}
+#page-todo .td-stat.is-pend .v{color:var(--warning)}
+#page-todo .td-stat.is-imp  .v{color:var(--purple)}
+#page-todo .td-stat.is-due  .v{color:var(--danger)}
+#page-todo .td-stat.is-done .v{color:var(--st-ok-strong)}
+
+/* ---- 2. card + header ---- */
+#page-todo .td-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px}
+#page-todo .td-head{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:13px}
+#page-todo .td-head h3{margin:0;font-size:15px;font-weight:800;letter-spacing:-.2px;color:var(--text)}
+#page-todo .td-head .td-sub{font-size:12px;color:var(--text-muted);margin-top:3px}
+#page-todo .td-head .td-right{margin-left:auto;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+
+/* ---- 3. the three primary tabs ---- */
+#page-todo .td-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}
+#page-todo .td-tab{--acc:var(--st-neutral);--acc-soft:var(--bg-dim);--acc-line:var(--border);
+  position:relative;display:flex;align-items:center;gap:12px;text-align:left;font-family:inherit;
+  background:var(--card);border:1px solid var(--border);border-top:3px solid var(--acc);
+  border-radius:var(--radius-lg);padding:13px 14px;cursor:pointer;overflow:hidden;
+  transition:transform .16s,box-shadow .16s,border-color .16s,background .16s}
+#page-todo .td-tab:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:var(--acc-line)}
+#page-todo .td-tab.is-on{background:var(--acc-soft);border-color:var(--acc);box-shadow:var(--shadow-md)}
+#page-todo .td-tab.is-on:after{content:"";position:absolute;inset:0;border-radius:var(--radius-lg);box-shadow:inset 0 0 0 2px var(--acc);pointer-events:none}
+#page-todo .td-tab .ic{width:42px;height:42px;flex:0 0 42px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:var(--acc-soft);color:var(--acc);border:1px solid var(--acc-line)}
+#page-todo .td-tab.is-on .ic{background:var(--card)}
+#page-todo .td-tab .tt{display:block;font-size:14.5px;font-weight:800;color:var(--text);letter-spacing:-.2px;line-height:1.25}
+#page-todo .td-tab .ts{display:block;font-size:10.5px;font-weight:600;color:var(--text-muted);margin-top:2px}
+#page-todo .td-tab .n{margin-left:auto;font-size:27px;font-weight:800;letter-spacing:-1.2px;color:var(--acc);line-height:1;font-variant-numeric:tabular-nums}
+#page-todo .td-tab.t-open{--acc:var(--st-info);--acc-soft:var(--st-info-bg);--acc-line:var(--st-info-2)}
+#page-todo .td-tab.t-mgr {--acc:var(--purple);--acc-soft:var(--purple-soft);--acc-line:var(--st-violet-2)}
+#page-todo .td-tab.t-rem {--acc:var(--st-warn);--acc-soft:var(--warning-soft);--acc-line:var(--st-warn-line)}
+
+/* ---- 4. status row + search ---- */
+#page-todo .td-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}
+#page-todo .td-mini{display:inline-flex;gap:5px;flex-wrap:wrap}
+#page-todo .td-chipbtn{font-family:inherit;font-size:11.5px;font-weight:700;height:27px;padding:0 10px;border-radius:100px;border:1px solid var(--border);background:var(--card);color:var(--text-muted);cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all .14s}
+#page-todo .td-chipbtn:hover{color:var(--text);border-color:var(--border-strong)}
+#page-todo .td-chipbtn.on{background:var(--primary);border-color:var(--primary);color:var(--text-inv)}
+#page-todo .td-search{position:relative;display:inline-flex;align-items:center;margin-left:auto}
+#page-todo .td-search svg{position:absolute;left:9px;width:14px;height:14px;color:var(--text-muted);pointer-events:none}
+#page-todo .td-search input{height:34px;width:210px;padding:0 10px 0 30px;border:1px solid var(--border);border-radius:9px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px}
+#page-todo .td-search input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
+
+/* ---- 5. composer ---- */
+#page-todo .td-compose{border:1.5px solid var(--border);border-radius:var(--radius);background:var(--bg);padding:11px 12px;margin-top:12px;transition:border-color .16s,box-shadow .16s}
+#page-todo .td-compose:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft);background:var(--card)}
+#page-todo .td-compose input.td-in{width:100%;border:0;outline:0;background:transparent;font-family:inherit;font-size:15px;font-weight:600;color:var(--text);padding:4px 2px}
+#page-todo .td-compose input.td-in::placeholder{color:var(--text-muted);font-weight:500}
+#page-todo .td-crow{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:8px;padding-top:9px;border-top:1px solid var(--border)}
+#page-todo .td-cf{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--text-2)}
+#page-todo .td-cf select,#page-todo .td-cf input[type="date"]{font-family:inherit;font-size:12.5px;font-weight:600;color:var(--text);background:var(--card);border:1px solid var(--border);border-radius:8px;height:30px;padding:0 8px;cursor:pointer}
+#page-todo .td-cf input[type="date"]{min-width:132px}
+#page-todo .td-cf.td-impbox{cursor:pointer;user-select:none;border:1px solid var(--border);background:var(--card);border-radius:8px;height:30px;padding:0 10px}
+#page-todo .td-cf.td-impbox input{accent-color:var(--warning);width:14px;height:14px;cursor:pointer;margin:0}
+#page-todo .td-cf.td-mgrbox{cursor:pointer;user-select:none;border:1px solid var(--st-violet-2);background:var(--purple-soft);border-radius:8px;height:30px;padding:0 10px;color:var(--purple);font-weight:700}
+#page-todo .td-cf.td-mgrbox input{accent-color:var(--purple);width:14px;height:14px;cursor:pointer;margin:0}
+#page-todo .td-hint{margin-left:auto;font-size:11.5px;color:var(--text-muted);display:inline-flex;align-items:center;gap:5px}
+
+/* ---- 6. groups + rows ---- */
+#page-todo .td-group{margin-bottom:14px}
+#page-todo .td-group:last-child{margin-bottom:0}
+#page-todo .td-group-h{display:flex;align-items:center;gap:9px;margin:0 0 8px;padding:0 2px}
+#page-todo .td-group-t{font-size:10.5px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;color:var(--text-muted)}
+#page-todo .td-group-n{font-size:10.5px;font-weight:800;color:var(--text-2);background:var(--bg-dim);border:1px solid var(--border);border-radius:100px;padding:1px 8px}
+#page-todo .td-list{display:flex;flex-direction:column;gap:7px}
+#page-todo .td-row{--racc:var(--st-neutral);display:flex;align-items:flex-start;gap:11px;background:var(--card);border:1px solid var(--border);border-left:3px solid var(--racc);border-radius:var(--radius);padding:12px 13px;transition:box-shadow .15s,transform .15s}
+#page-todo .td-row:hover{box-shadow:var(--shadow-sm);transform:translateY(-1px)}
+#page-todo .td-row.st-pending{--racc:var(--st-warn)}
+#page-todo .td-row.st-approved{--racc:var(--st-info)}
+#page-todo .td-row.st-rejected{--racc:var(--st-bad)}
+#page-todo .td-row.st-solved{--racc:var(--st-ok)}
+#page-todo .td-row.st-solved-rejected{--racc:var(--st-bad-2)}
+#page-todo .td-row.is-important{box-shadow:inset 0 0 0 1px var(--st-warn-line)}
+#page-todo .td-row.is-solved{background:var(--bg-dim)}
+#page-todo .td-row.is-solved .td-note{text-decoration:line-through;opacity:.62}
+#page-todo .td-toggle{display:inline-flex;flex-shrink:0;margin-top:1px;cursor:pointer;background:none;border:0;padding:0;transition:transform .15s}
+#page-todo .td-toggle:hover{transform:scale(1.12)}
+#page-todo .td-toggle.t-ok{color:var(--st-ok-3)}
+#page-todo .td-toggle.t-bad{color:var(--st-bad-2)}
+#page-todo .td-toggle.t-info{color:var(--st-info)}
+#page-todo .td-toggle.t-idle{color:var(--text-mute)}
+#page-todo .td-body{flex:1;min-width:0}
+#page-todo .td-note{font-size:14.5px;line-height:1.55;font-weight:500;color:var(--text);word-break:break-word;overflow-wrap:anywhere}
+#page-todo .td-row.is-important .td-note{font-weight:700}
+#page-todo .td-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}
+#page-todo .td-chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--text-2);background:var(--bg-dim);border:1px solid var(--border);border-radius:6px;padding:2px 7px;white-space:nowrap}
+#page-todo .td-chip.td-imp{background:var(--warning-soft);border-color:var(--st-warn-line);color:var(--st-warn-strong)}
+#page-todo .td-chip.td-due{background:var(--st-info-bg);border-color:var(--st-info-2);color:var(--st-info-strong)}
+#page-todo .td-chip.td-due.today{background:var(--warning-soft);border-color:var(--st-warn-line);color:var(--st-warn-strong)}
+#page-todo .td-chip.td-due.over{background:var(--st-bad-tint);border-color:var(--st-bad-line);color:var(--st-bad-strong)}
+#page-todo .td-chip.td-tr{background:var(--purple-soft);border-color:var(--st-violet-bg);color:var(--purple)}
+#page-todo .td-chip.td-mgr.m-asked{background:var(--st-info-bg);border-color:var(--st-info-2);color:var(--st-info-strong)}
+#page-todo .td-chip.td-mgr.m-approved{background:var(--st-ok-bg);border-color:var(--st-ok-line);color:var(--st-ok-strong)}
+#page-todo .td-chip.td-mgr.m-rejected{background:var(--st-bad-bg);border-color:var(--st-bad-line);color:var(--st-bad-strong)}
+#page-todo .td-chip.td-mgr.m-verbal{background:var(--purple-soft);border-color:var(--st-violet-bg);color:var(--purple)}
+#page-todo .td-when{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:var(--text-muted);background:var(--bg-dim);border:1px solid var(--border);border-radius:6px;padding:2px 7px;white-space:nowrap;cursor:help}
+#page-todo .td-when.fresh{color:var(--st-ok-strong);background:var(--st-ok-tint);border-color:var(--st-ok-line)}
+#page-todo .td-when.soon{color:var(--st-warn-strong);background:var(--warning-soft);border-color:var(--st-warn-line)}
+#page-todo .td-pill{display:inline-flex;align-items:center;font-size:10.5px;font-weight:800;letter-spacing:.02em;padding:3px 9px;border-radius:100px;border:1px solid;white-space:nowrap}
+#page-todo .td-pill.p-pending{background:var(--st-warn-bg);border-color:var(--st-warn-line);color:var(--st-warn-strong)}
+#page-todo .td-pill.p-approved{background:var(--st-info-bg);border-color:var(--st-info-2);color:var(--st-info-strong)}
+#page-todo .td-pill.p-rejected{background:var(--st-bad-bg);border-color:var(--st-bad-line);color:var(--st-bad-strong)}
+#page-todo .td-pill.p-solved-approved{background:var(--st-ok-bg);border-color:var(--st-ok-line);color:var(--st-ok-strong)}
+#page-todo .td-pill.p-solved-rejected{background:var(--st-bad-tint);border-color:var(--st-bad-line);color:var(--st-bad-strong-2)}
+#page-todo .td-acts{margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;margin-top:8px}
+#page-todo .td-btn{font-family:inherit;font-size:11.5px;font-weight:700;height:26px;padding:0 10px;border-radius:7px;border:1px solid transparent;display:inline-flex;align-items:center;gap:4px;cursor:pointer;transition:all .15s;white-space:nowrap}
+#page-todo .td-btn svg{flex-shrink:0}
+#page-todo .td-btn.b-approve{background:var(--st-info);color:var(--text-inv)}
+#page-todo .td-btn.b-approve:hover{background:var(--st-info-strong)}
+#page-todo .td-btn.b-reject{background:var(--st-bad-tint);color:var(--st-bad-strong);border-color:var(--st-bad-line)}
+#page-todo .td-btn.b-reject:hover{background:var(--st-bad-bg)}
+#page-todo .td-btn.b-solve{background:var(--st-ok);color:var(--text-inv)}
+#page-todo .td-btn.b-solve:hover{background:var(--st-ok-strong)}
+#page-todo .td-btn.b-ghost{background:transparent;color:var(--text-muted);border-color:var(--border)}
+#page-todo .td-btn.b-ghost:hover{color:var(--text);border-color:var(--border-strong);background:var(--bg-dim)}
+#page-todo .td-btn.td-print{background:var(--card);color:var(--text-2);border-color:var(--border)}
+#page-todo .td-btn.td-print:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-soft)}
+#page-todo .td-icb{width:27px;height:27px;padding:0;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--text-muted);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all .15s}
+#page-todo .td-icb:hover{color:var(--primary);border-color:var(--primary);background:var(--primary-soft)}
+#page-todo .td-icb.g-ai{border-color:var(--st-violet-2);color:var(--purple)}
+#page-todo .td-icb.g-ai:hover{background:var(--purple-soft)}
+#page-todo .td-icb.on{background:var(--purple-soft);border-color:var(--purple)}
+#page-todo .td-mgrbar{display:flex;gap:5px;flex-wrap:wrap;margin-top:9px;padding-top:8px;border-top:1px dashed var(--border)}
+#page-todo .td-extras{display:flex;flex-direction:column;gap:6px;margin-top:9px;padding-left:11px;border-left:2px solid var(--st-violet-bg)}
+#page-todo .td-extra{background:var(--bg-dim);border:1px solid var(--border);border-radius:9px;padding:7px 10px}
+#page-todo .td-extra .x{font-size:13px;line-height:1.5;color:var(--text-2);white-space:pre-wrap;word-break:break-word}
+#page-todo .td-extra .w{font-size:10.5px;font-weight:700;color:var(--text-muted);margin-top:3px}
+#page-todo .td-morelink{font-family:inherit;font-size:11.5px;font-weight:700;color:var(--primary);background:none;border:0;padding:2px 0;cursor:pointer;text-align:left}
+#page-todo .td-side{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0}
+#page-todo .td-star{background:none;border:0;padding:4px;border-radius:7px;cursor:pointer;color:var(--text-mute);display:inline-flex;transition:all .15s}
+#page-todo .td-star:hover{background:var(--bg-dim);color:var(--warning)}
+#page-todo .td-star.on{color:var(--warning)}
+#page-todo .td-star.td-del:hover{color:var(--danger);background:var(--danger-soft)}
+#page-todo .td-empty{text-align:center;padding:38px 16px;background:var(--bg);border:1px dashed var(--border);border-radius:var(--radius);color:var(--text-muted)}
+#page-todo .td-empty svg{opacity:.45;margin-bottom:8px}
+#page-todo .td-empty .t1{font-weight:700;font-size:14px;color:var(--text-2)}
+#page-todo .td-empty .t2{font-size:12.5px;margin-top:4px}
+#page-todo .td-foot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:11px;border-top:1px solid var(--border);font-size:11.5px;color:var(--text-muted)}
+
+/* ---- 7. the edit / reply / AI panel (lives outside #page-todo) ---- */
+#mgTdModal{position:fixed;inset:0;z-index:9998;display:none}
+#mgTdModal.open{display:block}
+#mgTdModal .td-mask{position:absolute;inset:0;background:rgba(15,23,42,.45)}
+#mgTdModal .td-box{position:relative;z-index:2;max-width:640px;margin:5vh auto;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+#mgTdModal .td-mh{display:flex;align-items:flex-start;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border)}
+#mgTdModal .td-mh .t1{font-size:15px;font-weight:800;color:var(--text);letter-spacing:-.2px}
+#mgTdModal .td-mh .t2{font-size:12px;color:var(--text-muted);margin-top:3px}
+#mgTdModal .td-mx{margin-left:auto;background:none;border:0;font-size:20px;line-height:1;color:var(--text-muted);cursor:pointer;padding:2px 4px;border-radius:6px}
+#mgTdModal .td-mx:hover{background:var(--bg-dim);color:var(--text)}
+#mgTdModal .td-mb{padding:14px 16px;overflow-y:auto}
+#mgTdModal .td-mf{display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--border);background:var(--bg)}
+#mgTdModal .fld{display:block;margin-bottom:11px}
+#mgTdModal .fld > label{display:block;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);margin-bottom:5px}
+#mgTdModal .inp{width:100%;font-family:inherit;font-size:13.5px;font-weight:600;color:var(--text);background:var(--card);border:1px solid var(--border);border-radius:9px;height:38px;padding:0 11px}
+#mgTdModal textarea.inp{height:auto;min-height:92px;padding:9px 11px;line-height:1.6;resize:vertical}
+#mgTdModal .inp:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
+#mgTdModal .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#mgTdModal .sw{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--text-2);margin-bottom:9px}
+#mgTdModal .sw input{width:15px;height:15px;accent-color:var(--primary)}
+#mgTdModal .mbtn{font-family:inherit;font-size:12.5px;font-weight:700;height:36px;padding:0 15px;border-radius:9px;border:1px solid var(--border);background:var(--card);color:var(--text-2);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+#mgTdModal .mbtn:hover{border-color:var(--border-strong);color:var(--text)}
+#mgTdModal .mbtn.pri{background:var(--primary);border-color:var(--primary);color:var(--text-inv)}
+#mgTdModal .mbtn.pri:hover{background:var(--primary-hover)}
+#mgTdModal .mbtn.gho{background:transparent}
+#mgTdModal .mbtn.dan{color:var(--st-bad-strong);border-color:var(--st-bad-line);background:var(--st-bad-tint)}
+#mgTdModal .mbtn:disabled{opacity:.6;cursor:progress}
+#mgTdModal .res{border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:12.5px;font-weight:600;margin-top:10px;line-height:1.6}
+#mgTdModal .res.ok{background:var(--st-ok-tint);border-color:var(--st-ok-line);color:var(--st-ok-strong)}
+#mgTdModal .res.bad{background:var(--st-bad-tint);border-color:var(--st-bad-line);color:var(--st-bad-strong)}
+#mgTdModal .res.warn{background:var(--warning-soft);border-color:var(--st-warn-line);color:var(--st-warn-strong)}
+#mgTdModal .spin{display:inline-block;width:13px;height:13px;border:2px solid var(--border-strong);border-top-color:var(--primary);border-radius:50%;animation:mgtSpin .7s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes mgtSpin{to{transform:rotate(360deg)}}
+#mgTdModal .kv{display:flex;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--text-muted);margin-top:8px}
+#mgTdModal .kv b{color:var(--text-2)}
+#mgTdModal .mini-note{font-size:12px;color:var(--text-muted);margin-top:6px}
+#mgTdModal .td-extra{background:var(--bg-dim);border:1px solid var(--border);border-radius:9px;padding:7px 10px;margin-top:6px}
+#mgTdModal .td-extra .x{font-size:13px;line-height:1.5;color:var(--text-2);white-space:pre-wrap;word-break:break-word}
+#mgTdModal .td-extra .w{font-size:10.5px;font-weight:700;color:var(--text-muted);margin-top:3px}
+@media (max-width: 1100px){
+  #page-todo .td-stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+  #page-todo .td-tabs{grid-template-columns:1fr}
+}
+@media (max-width: 760px){
+  #page-todo .td-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #page-todo .td-search{margin-left:0;width:100%}
+  #page-todo .td-search input{width:100%}
+  #page-todo .td-head .td-right{margin-left:0;width:100%}
+  #mgTdModal .td-box{margin:2vh 8px;max-height:94vh}
+  #mgTdModal .two{grid-template-columns:1fr}
+}
+
+/* ============================================================
    PARADE STATE — in-app view (ps-*)
    Minimalist report style. One accent colour (--primary).
    Semantic colour is used ONLY for shortage / surplus.
@@ -15022,233 +15225,411 @@ function printUniform(kind){
 /* ============ TO-DO / FOLLOW-UP ============ */
 
 DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
-window.MT_TODO_FILTER = window.MT_TODO_FILTER || 'all';
+window.MT_TODO_FILTER = window.MT_TODO_FILTER || 'open';
 
 function renderTodo(){
   DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
   const sec = document.getElementById('page-todo');
   if(!sec) return;
 
-  const totalCount = DATA.todos.length;
-  const pendingCount = DATA.todos.filter(function(t){
-    return t && (t.status || 'pending').toLowerCase() === 'pending';
-  }).length;
-  const approvedCount = DATA.todos.filter(function(t){
-    return t && (t.status || '').toLowerCase() === 'approved';
-  }).length;
-  const rejectedCount = DATA.todos.filter(function(t){
-    return t && (t.status || '').toLowerCase() === 'rejected';
-  }).length;
-  const solvedCount = DATA.todos.filter(function(t){
-    if (!t) return false;
-    const s = (t.status || '').toLowerCase();
-    return s === 'solved_approved' || s === 'solved_rejected' || s === 'solved' || s === 'done';
-  }).length;
-  const openCount = pendingCount + approvedCount;
+  const esc = (typeof escapeHtml === 'function') ? escapeHtml : function(v){ return String(v == null ? '' : v); };
+  const stOf = function(t){ return ((t && t.status) || 'pending').toLowerCase(); };
+  const isSolvedT = function(t){ const s = stOf(t); return s === 'solved_approved' || s === 'solved_rejected' || s === 'solved' || s === 'done'; };
+  const today = (typeof todayISO === 'function') ? todayISO() : new Date().toISOString().slice(0,10);
+  const TZ = (typeof fmtDate === 'function') ? fmtDate : function(v){ return String(v == null ? '' : v); };
+  const PN = (typeof projName === 'function') ? projName : function(v){ return String(v == null ? '' : v); };
+  const bn = function(v){ return String(v == null ? '' : v); };
+  const pad2 = function(n){ return (n < 10 ? '0' : '') + n; };
+  const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const enDate = function(d){ return d.getDate() + ' ' + MON[d.getMonth()] + ' ' + d.getFullYear(); };
+  const enTime = function(d){
+    const h = d.getHours();
+    return ((h % 12) || 12) + ':' + pad2(d.getMinutes()) + ' ' + (h < 12 ? 'AM' : 'PM');
+  };
+  const tsOf = function(t){
+    let d = t.created_at ? new Date(t.created_at) : (t.updated_at ? new Date(t.updated_at) : null);
+    if(!d || isNaN(d.getTime())){
+      const ds = String(t.date || '').slice(0,10);
+      d = /^\d{4}-\d{2}-\d{2}$/.test(ds) ? new Date(ds + 'T10:00:00') : null;
+    }
+    return d;
+  };
+  const agoOf = function(d){
+    if(!d) return { txt:'', cls:'', full:'' };
+    const now = new Date();
+    const full = enDate(d) + ', ' + enTime(d);
+    const sec = Math.floor((now.getTime() - d.getTime()) / 1000);
+    if(sec < 0)    return { txt: full, cls:'', full: full };
+    if(sec < 60)   return { txt:'just now', cls:'fresh', full: full };
+    if(sec < 3600) return { txt: bn(Math.max(1, Math.floor(sec / 60))) + ' min ago', cls:'fresh', full: full };
+    if(sec < 86400 && d.toDateString() === now.toDateString()){
+      return { txt: bn(Math.floor(sec / 3600)) + ' hours ago', cls:(sec < 21600 ? 'fresh' : ''), full: full };
+    }
+    const yst = new Date(now.getTime() - 86400000);
+    if(d.toDateString() === yst.toDateString()) return { txt:'Yesterday ' + enTime(d), cls:'', full: full };
+    const days = Math.floor(sec / 86400);
+    if(days < 7) return { txt: bn(days) + ' days ago', cls:'', full: full };
+    return { txt: enDate(d), cls:'', full: full };
+  };
+  const dayDiff = function(dstr){
+    if(!dstr) return 9999;
+    const d = new Date(String(dstr).slice(0,10) + 'T00:00:00');
+    if(isNaN(d.getTime())) return 9999;
+    return Math.round((new Date(today + 'T00:00:00') - d) / 86400000);
+  };
+  const mgrFlag = function(t){
+    const k = String(t.manager_status || 'none').toLowerCase();
+    if(k === 'asked' || k === 'approved' || k === 'rejected' || k === 'verbal') return true;
+    return String(t.category || '').toLowerCase() === 'permission';
+  };
+  const remFlag = function(t){ return !!t.remind_on; };
+  const xsOf = function(t){ return Array.isArray(t.extra_notes) ? t.extra_notes.filter(function(x){ return x && (x.bn || x.raw); }) : []; };
+
+  const all = DATA.todos.filter(function(t){ return !!t; });
+  const openCount      = all.filter(function(t){ return !isSolvedT(t); }).length;
+  const pendingCount   = all.filter(function(t){ return stOf(t) === 'pending'; }).length;
+  const approvedCount  = all.filter(function(t){ return stOf(t) === 'approved'; }).length;
+  const rejectedCount  = all.filter(function(t){ return stOf(t) === 'rejected'; }).length;
+  const solvedCount    = all.filter(isSolvedT).length;
+  const importantCount = all.filter(function(t){ return t.is_important && !isSolvedT(t); }).length;
+  const mgrCount       = all.filter(function(t){ return mgrFlag(t) && !isSolvedT(t); }).length;
+  const remCount       = all.filter(function(t){ return remFlag(t) && !isSolvedT(t); }).length;
+  const dueCount       = all.filter(function(t){ return !isSolvedT(t) && t.remind_on && String(t.remind_on).slice(0,10) <= today; }).length;
+  const totalCount     = all.length;
+
+  let mainF = window.MT_TODO_FILTER || 'open';
+  let subF  = window.MG_TD_SUB || 'all';
+  if(['pending','approved','rejected','solved'].indexOf(mainF) !== -1 && subF === 'all'){ subF = mainF; mainF = 'all'; }
 
   const activeProjsList = (typeof activeProjects === 'function' ? activeProjects() : [])
-    .slice()
-    .sort(function(a,b){ return ((a && a.ProjectName) || '').localeCompare((b && b.ProjectName) || ''); });
+    .slice().sort(function(a, b){ return String(a && a.ProjectName || '').localeCompare(String(b && b.ProjectName || '')); });
 
-  // Filter tasks based on active tab
-  const currentFilter = window.MT_TODO_FILTER || 'all';
-  const filteredTodos = DATA.todos.filter(function(t){
-    if (!t) return false;
-    const s = (t.status || 'pending').toLowerCase();
-    if (currentFilter === 'pending') return s === 'pending';
-    if (currentFilter === 'approved') return s === 'approved';
-    if (currentFilter === 'rejected') return s === 'rejected';
-    if (currentFilter === 'solved') return s === 'solved_approved' || s === 'solved_rejected' || s === 'solved' || s === 'done';
+  const q = String(window.MG_TD_Q || '').trim().toLowerCase();
+  const matchQ = function(t){
+    if(!q) return true;
+    const xs = xsOf(t).map(function(x){ return (x.bn || '') + ' ' + (x.raw || ''); }).join(' ');
+    return [t.note_bn, t.note, t.note_in, t.project, t.who, t.category, t.manager_note, xs]
+      .filter(Boolean).join(' ').toLowerCase().indexOf(q) !== -1;
+  };
+  const passSub = function(t){
+    const s = stOf(t);
+    if(subF === 'pending')  return s === 'pending';
+    if(subF === 'approved') return s === 'approved';
+    if(subF === 'rejected') return s === 'rejected';
+    if(subF === 'solved')   return isSolvedT(t);
+    if(subF === 'unsolved') return !isSolvedT(t);
+    return true;
+  };
+  const filtered = all.filter(function(t){
+    if(!matchQ(t) || !passSub(t)) return false;
+    if(mainF === 'open')      return !isSolvedT(t);
+    if(mainF === 'manager')   return mgrFlag(t);
+    if(mainF === 'reminder')  return remFlag(t);
+    if(mainF === 'important') return !!t.is_important;
+    if(mainF === 'solved')    return isSolvedT(t);
     return true;
   });
 
-  // Sort tasks: pending & approved first, then rejected, then solved, then date descending
-  const sortedTodos = filteredTodos.slice().sort(function(a, b){
-    function statusWeight(s) {
-      s = (s || 'pending').toLowerCase();
-      if (s === 'pending') return 1;
-      if (s === 'approved') return 2;
-      if (s === 'rejected') return 3;
-      if (s === 'solved_approved') return 4;
-      if (s === 'solved_rejected') return 5;
-      if (s === 'solved' || s === 'done') return 6;
-      return 1;
+  const wt = function(s){
+    s = (s || 'pending').toLowerCase();
+    if(s === 'pending') return 1;
+    if(s === 'approved') return 2;
+    if(s === 'rejected') return 3;
+    if(s === 'solved_approved') return 4;
+    if(s === 'solved_rejected') return 5;
+    if(s === 'solved' || s === 'done') return 6;
+    return 1;
+  };
+  const MGRW = { asked:1, rejected:2, verbal:3, approved:4, none:5 };
+  const ordered = filtered.slice().sort(function(a, b){
+    const sa = isSolvedT(a) ? 1 : 0, sb = isSolvedT(b) ? 1 : 0;
+    if(sa !== sb) return sa - sb;
+    const ia = a.is_important ? 0 : 1, ib = b.is_important ? 0 : 1;
+    if(ia !== ib) return ia - ib;
+    if(mainF === 'reminder'){
+      const ra = dayDiff(a.remind_on), rb = dayDiff(b.remind_on);
+      if(ra !== rb) return ra - rb;
     }
-    const wA = statusWeight(a ? a.status : '');
-    const wB = statusWeight(b ? b.status : '');
-    if (wA !== wB) return wA - wB;
-    return String((b && b.date) || '').localeCompare(String((a && a.date) || '')) || (Number(b && b.id) || 0) - (Number(a && a.id) || 0);
+    if(mainF === 'manager'){
+      const ma = MGRW[String(a.manager_status || 'none').toLowerCase()] || 5;
+      const mb = MGRW[String(b.manager_status || 'none').toLowerCase()] || 5;
+      if(ma !== mb) return ma - mb;
+    }
+    if(wt(a.status) !== wt(b.status)) return wt(a.status) - wt(b.status);
+    return String(b.date || '').localeCompare(String(a.date || '')) || (Number(b.id) || 0) - (Number(a.id) || 0);
   });
 
-  // SVG Icons
-  const checkCircleSvg = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-right: 12px; margin-top: 2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
-  const redCheckCircleSvg = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-right: 12px; margin-top: 2px;"><circle cx="12" cy="12" r="9"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-  const approvedCircleSvg = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-right: 12px; margin-top: 2px;"><circle cx="12" cy="12" r="9"/><polyline points="9 12 11 14 15 10"/></svg>';
-  const rejectedCircleSvg = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-right: 12px; margin-top: 2px;"><circle cx="12" cy="12" r="9"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-  const emptyCircleSvg = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--text-mute, #94a3b8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-right: 12px; margin-top: 2px;"><circle cx="12" cy="12" r="9"/></svg>';
-  const trashSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="cursor: pointer; color: var(--text-mute, #94a3b8); transition: color 0.2s;" onmouseover="this.style.color=\'#ef4444\'" onmouseout="this.style.color=\'var(--text-mute, #94a3b8)\'" title="Delete task"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+  let groups = [];
+  if(mainF === 'reminder'){
+    const RK = ['over','today','tomorrow','week','later'];
+    const RL = { over:'Overdue', today:'Today', tomorrow:'Tomorrow', week:'This week', later:'Later' };
+    const map = {};
+    ordered.forEach(function(t){
+      const d = String(t.remind_on || '').slice(0,10);
+      let k = 'later';
+      if(/^\d{4}-\d{2}-\d{2}$/.test(d)){
+        const diff = Math.round((new Date(d + 'T00:00:00') - new Date(today + 'T00:00:00')) / 86400000);
+        k = diff < 0 ? 'over' : (diff === 0 ? 'today' : (diff === 1 ? 'tomorrow' : (diff <= 7 ? 'week' : 'later')));
+      }
+      if(!map[k]) map[k] = [];
+      map[k].push(t);
+    });
+    RK.forEach(function(k){ if(map[k] && map[k].length) groups.push({ label: RL[k], items: map[k] }); });
+  } else if(mainF === 'manager'){
+    const MK = ['asked','rejected','verbal','approved','none'];
+    const ML = { asked:'Awaiting reply', rejected:'Manager declined', verbal:'Verbal consent', approved:'Approved', none:'Not informed yet' };
+    const map = {};
+    ordered.forEach(function(t){
+      const k = String(t.manager_status || 'none').toLowerCase();
+      const key = MK.indexOf(k) === -1 ? 'none' : k;
+      if(!map[key]) map[key] = [];
+      map[key].push(t);
+    });
+    MK.forEach(function(k){ if(map[k] && map[k].length) groups.push({ label: ML[k], items: map[k] }); });
+  } else {
+    const GL = { today:'Today', yesterday:'Yesterday', week:'This week', earlier:'Earlier' };
+    const map = { today:[], yesterday:[], week:[], earlier:[] };
+    ordered.forEach(function(t){
+      const k = dayDiff(t.date);
+      map[k <= 0 ? 'today' : (k === 1 ? 'yesterday' : (k <= 7 ? 'week' : 'earlier'))].push(t);
+    });
+    ['today','yesterday','week','earlier'].forEach(function(k){ if(map[k].length) groups.push({ label: GL[k], items: map[k] }); });
+  }
 
-  const itemsHtml = sortedTodos.map(function(t){
-    const st = (t.status || 'pending').toLowerCase();
-    const isPending = st === 'pending';
-    const isApproved = st === 'approved';
-    const isRejected = st === 'rejected';
-    const isSolvedApproved = st === 'solved_approved';
-    const isSolvedRejected = st === 'solved_rejected';
-    const isLegacySolved = st === 'solved' || st === 'done';
-    const isSolved = isSolvedApproved || isSolvedRejected || isLegacySolved;
+  const ICON = {
+    ok:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+    bad:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+    info:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="9 12 11 14 15 10"/></svg>',
+    idle:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg>',
+    trash:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+    star:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+    starOn:'<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+    clock:'<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>',
+    bell:'<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>',
+    tick:'<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+    cross:'<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+    search:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+    prn:'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>',
+    list:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="9" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1.4"/><circle cx="4" cy="12" r="1.4"/><circle cx="4" cy="18" r="1.4"/></svg>',
+    user:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+    bellBig:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>',
+    gear:'<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6h.09A1.65 1.65 0 0 0 10.09 3.09V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+    pencil:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+    plusbox:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2.5"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>',
+    empty:'<svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>'
+  };
 
-    const badges = [];
-    if (t.project) {
-      badges.push('<span class="badge mute">' + escapeHtml(typeof projName === 'function' ? projName(t.project) : t.project) + '</span>');
-    }
-    if (t.date) {
-      badges.push('<span class="badge mute">' + escapeHtml(typeof fmtDate === 'function' ? fmtDate(t.date) : t.date) + '</span>');
-    }
-    if (t.source) {
-      badges.push('<span class="badge mute" style="text-transform: capitalize;">' + escapeHtml(t.source) + '</span>');
-    }
-    if (t.who && t.who !== 'Admin') {
-      badges.push('<span class="badge mute">' + escapeHtml(t.who) + '</span>');
-    }
+  const pillOf = function(s){
+    if(s === 'pending')         return '<span class="td-pill p-pending">Pending</span>';
+    if(s === 'approved')        return '<span class="td-pill p-approved">Approved</span>';
+    if(s === 'rejected')        return '<span class="td-pill p-rejected">Rejected</span>';
+    if(s === 'solved_approved') return '<span class="td-pill p-solved-approved">Solved · Approved</span>';
+    if(s === 'solved_rejected') return '<span class="td-pill p-solved-rejected">Solved · Rejected</span>';
+    return '<span class="td-pill p-solved-approved">Solved</span>';
+  };
+  const MGR = { asked:['Informed to manager','m-asked'], approved:['Manager approved','m-approved'], rejected:['Manager declined','m-rejected'], verbal:['Verbal consent','m-verbal'] };
+  const CAT = { note:'Note', task:'Task', permission:'Permission', meeting:'Meeting' };
 
-    // Status Badge / Pill
-    let statusPill = '';
-    if (isPending) {
-      statusPill = '<span class="badge" style="background:#fef3c7;color:#b45309;border:1px solid #fde68a;font-weight:600;font-size:11px;padding:2px 8px;border-radius:6px;">Pending</span>';
-    } else if (isApproved) {
-      statusPill = '<span class="badge" style="background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe;font-weight:600;font-size:11px;padding:2px 8px;border-radius:6px;">Approved</span>';
-    } else if (isRejected) {
-      statusPill = '<span class="badge" style="background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;font-weight:600;font-size:11px;padding:2px 8px;border-radius:6px;">Rejected</span>';
-    } else if (isSolvedApproved) {
-      statusPill = '<span class="badge" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;font-weight:700;font-size:10.5px;padding:2px 8px;border-radius:6px;letter-spacing:0.3px;">SOLVED (APPROVED)</span>';
-    } else if (isSolvedRejected) {
-      statusPill = '<span class="badge" style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;font-weight:700;font-size:10.5px;padding:2px 8px;border-radius:6px;letter-spacing:0.3px;">SOLVED (REJECTED)</span>';
+  const rowHtml = function(t){
+    const id = esc(String(t.id));
+    const s = stOf(t);
+    const solved = isSolvedT(t);
+    let tcls = 't-idle', tsvg = ICON.idle, ttip = 'Pending — click to approve';
+    if(s === 'solved_approved' || s === 'solved' || s === 'done'){ tcls = 't-ok';   tsvg = ICON.ok;   ttip = 'Solved (approved) — click to reopen'; }
+    else if(s === 'solved_rejected'){ tcls = 't-bad';  tsvg = ICON.bad;  ttip = 'Solved (rejected) — click to reopen'; }
+    else if(s === 'approved'){ tcls = 't-info'; tsvg = ICON.info; ttip = 'Approved — click to mark solved'; }
+    else if(s === 'rejected'){ tcls = 't-bad';  tsvg = ICON.bad;  ttip = 'Rejected — click to mark solved'; }
+    let stCls = 'st-pending';
+    if(s === 'approved') stCls = 'st-approved';
+    else if(s === 'rejected') stCls = 'st-rejected';
+    else if(s === 'solved_rejected') stCls = 'st-solved-rejected';
+    else if(solved) stCls = 'st-solved';
+
+    let act = '';
+    if(s === 'pending'){
+      act = '<button type="button" class="td-btn b-approve" title="Approve this note" onclick="event.stopPropagation();mtSetTodoStatus(\'' + id + '\',\'approved\')">' + ICON.tick + ' Approve</button>' +
+            '<button type="button" class="td-btn b-reject" title="Reject this note" onclick="event.stopPropagation();mtSetTodoStatus(\'' + id + '\',\'rejected\')">' + ICON.cross + ' Reject</button>';
+    } else if(s === 'approved'){
+      act = '<button type="button" class="td-btn b-solve" title="Close this note as approved" onclick="event.stopPropagation();mtSetTodoStatus(\'' + id + '\',\'solved_approved\')">' + ICON.tick + ' Solve with Approve</button>' +
+            '<button type="button" class="td-btn b-ghost" title="Back to pending" onclick="event.stopPropagation();mtSetTodoStatus(\'' + id + '\',\'pending\')">Undo</button>';
+    } else if(s === 'rejected'){
+      act = '<button type="button" class="td-btn b-solve" title="Close this note as rejected" onclick="event.stopPropagation();mtSetTodoStatus(\'' + id + '\',\'solved_rejected\')">' + ICON.tick + ' Solve with Reject</button>' +
+            '<button type="button" class="td-btn b-ghost" title="Back to pending" onclick="event.stopPropagation();mtSetTodoStatus(\'' + id + '\',\'pending\')">Reopen</button>';
     } else {
-      statusPill = '<span class="badge" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;font-weight:700;font-size:10.5px;padding:2px 8px;border-radius:6px;letter-spacing:0.3px;">SOLVED</span>';
+      act = '<button type="button" class="td-btn b-ghost" title="Back to pending" onclick="event.stopPropagation();mtSetTodoStatus(\'' + id + '\',\'pending\')">Reopen</button>';
     }
 
-    // Action buttons logic (Advanced Workflow)
-    let workflowActions = '';
-    if (isPending) {
-      workflowActions = '<div style="display: inline-flex; align-items: center; gap: 6px; margin-left: 8px;">' +
-        '<button class="btn sm" style="background:#2563eb;color:#fff;border-radius:6px;padding:2px 9px;font-size:11.5px;height:24px;display:inline-flex;align-items:center;gap:4px;" onclick="event.stopPropagation();mtSetTodoStatus(\'' + escapeHtml(String(t.id)) + '\', \'approved\')" title="Approve this task">' +
-          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Approve' +
-        '</button>' +
-        '<button class="btn sm ghost" style="color:#ef4444;border:1px solid #fecaca;background:#fff;border-radius:6px;padding:2px 9px;font-size:11.5px;height:24px;display:inline-flex;align-items:center;gap:4px;" onclick="event.stopPropagation();mtSetTodoStatus(\'' + escapeHtml(String(t.id)) + '\', \'rejected\')" title="Reject this task">' +
-          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="6"/></svg> Reject' +
-        '</button>' +
-      '</div>';
-    } else if (isApproved) {
-      workflowActions = '<div style="display: inline-flex; align-items: center; gap: 6px; margin-left: 8px;">' +
-        '<button class="btn sm" style="background:#10b981;color:#fff;border-radius:6px;padding:2px 10px;font-size:11.5px;height:24px;display:inline-flex;align-items:center;gap:4px;" onclick="event.stopPropagation();mtSetTodoStatus(\'' + escapeHtml(String(t.id)) + '\', \'solved_approved\')" title="Mark as solved (approved)">' +
-          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Mark Solved' +
-        '</button>' +
-        '<button class="btn sm ghost" style="color:var(--text-mute);font-size:11.5px;padding:2px 6px;height:24px;" onclick="event.stopPropagation();mtSetTodoStatus(\'' + escapeHtml(String(t.id)) + '\', \'pending\')" title="Undo approval">Undo</button>' +
-      '</div>';
-    } else if (isRejected) {
-      workflowActions = '<div style="display: inline-flex; align-items: center; gap: 6px; margin-left: 8px;">' +
-        '<button class="btn sm" style="background:#10b981;color:#fff;border-radius:6px;padding:2px 10px;font-size:11.5px;height:24px;display:inline-flex;align-items:center;gap:4px;" onclick="event.stopPropagation();mtSetTodoStatus(\'' + escapeHtml(String(t.id)) + '\', \'solved_rejected\')" title="Mark as solved (rejected)">' +
-          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Mark Solved' +
-        '</button>' +
-        '<button class="btn sm ghost" style="color:var(--text-mute);font-size:11.5px;padding:2px 6px;height:24px;" onclick="event.stopPropagation();mtSetTodoStatus(\'' + escapeHtml(String(t.id)) + '\', \'pending\')" title="Reopen as pending">Reopen</button>' +
-      '</div>';
-    } else {
-      workflowActions = '<div style="display: inline-flex; align-items: center; gap: 6px; margin-left: 8px;">' +
-        '<button class="btn sm ghost" style="color:var(--text-mute);border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:11.5px;height:24px;" onclick="event.stopPropagation();mtSetTodoStatus(\'' + escapeHtml(String(t.id)) + '\', \'pending\')" title="Reopen as pending">Reopen</button>' +
+    const chips = [];
+    if(t.project) chips.push('<span class="td-chip">' + esc(PN(t.project)) + '</span>');
+    const ck = String(t.category || 'note').toLowerCase();
+    if(ck !== 'note') chips.push('<span class="td-chip">' + esc(CAT[ck] || ck) + '</span>');
+    if(t.who && t.who !== 'Admin') chips.push('<span class="td-chip">' + esc(t.who) + '</span>');
+    else if(t.source) chips.push('<span class="td-chip">' + esc(t.source) + '</span>');
+
+    const w = agoOf(tsOf(t));
+    const whenChips = [];
+    if(w.txt) whenChips.push('<span class="td-when ' + w.cls + '" title="' + esc(w.full) + '">' + ICON.clock + ' ' + w.txt + '</span>');
+    if(t.updated_at && t.created_at && (new Date(t.updated_at).getTime() - new Date(t.created_at).getTime()) > 60000){
+      whenChips.push('<span class="td-when" title="' + esc(enDate(new Date(t.updated_at)) + ', ' + enTime(new Date(t.updated_at))) + '">edited</span>');
+    }
+    if(t.remind_on){
+      const dd = dayDiff(t.remind_on);
+      const rc = dd < 0 ? 'over' : (dd === 0 ? 'today' : '');
+      whenChips.push('<span class="td-chip td-due ' + rc + '">' + ICON.bell + ' ' + esc(TZ(t.remind_on)) + '</span>');
+    }
+
+    let mgr = '';
+    const mk = String(t.manager_status || '').toLowerCase();
+    if(MGR[mk]) mgr = '<span class="td-chip td-mgr ' + MGR[mk][1] + '">' + MGR[mk][0] + '</span>';
+    const tr = t.__translating ? '<span class="td-chip td-tr">Translating…</span>' : '';
+
+    const xs = xsOf(t);
+    let extras = '';
+    if(xs.length){
+      const opened = !!(window.MG_TD_X && window.MG_TD_X[String(t.id)]);
+      const show = opened ? xs : xs.slice(-2);
+      extras = '<div class="td-extras">' + show.map(function(x){
+        const d = x.t ? new Date(x.t) : null;
+        const a = (d && !isNaN(d.getTime())) ? agoOf(d) : { txt:'', cls:'', full:'' };
+        return '<div class="td-extra"><div class="x">' + esc(x.bn || x.raw || '') + '</div>' + (a.txt ? '<div class="w">' + a.txt + '</div>' : '') + '</div>';
+      }).join('') +
+      (xs.length > 2 ? '<button type="button" class="td-morelink" onclick="mtToggleExtras(\'' + id + '\')">' + (opened ? 'Show less' : 'Show ' + bn(xs.length - 2) + ' more') + '</button>' : '') +
       '</div>';
     }
 
-    let toggleSvg = '';
-    if (isSolvedApproved || isLegacySolved) {
-      toggleSvg = '<div onclick="mtToggleTodoStatus(\'' + escapeHtml(String(t.id)) + '\')" style="cursor: pointer; display: inline-flex;" title="Solved (Approved) — Click to reopen">' + checkCircleSvg + '</div>';
-    } else if (isSolvedRejected) {
-      toggleSvg = '<div onclick="mtToggleTodoStatus(\'' + escapeHtml(String(t.id)) + '\')" style="cursor: pointer; display: inline-flex;" title="Solved (Rejected) — Click to reopen">' + redCheckCircleSvg + '</div>';
-    } else if (isApproved) {
-      toggleSvg = '<div onclick="mtToggleTodoStatus(\'' + escapeHtml(String(t.id)) + '\')" style="cursor: pointer; display: inline-flex;" title="Approved — Click to mark solved">' + approvedCircleSvg + '</div>';
-    } else if (isRejected) {
-      toggleSvg = '<div onclick="mtToggleTodoStatus(\'' + escapeHtml(String(t.id)) + '\')" style="cursor: pointer; display: inline-flex;" title="Rejected — Click to mark solved">' + rejectedCircleSvg + '</div>';
-    } else {
-      toggleSvg = '<div onclick="mtToggleTodoStatus(\'' + escapeHtml(String(t.id)) + '\')" style="cursor: pointer; display: inline-flex;" title="Pending — Click to approve">' + emptyCircleSvg + '</div>';
+    let mgrBar = '';
+    if(!solved){
+      if(mgrFlag(t)){
+        const opts = [['asked','Informed'],['approved','Approve'],['rejected','Decline'],['verbal','Verbal']];
+        mgrBar = '<div class="td-mgrbar">' + opts.map(function(o){
+          return '<button type="button" class="td-chipbtn' + (mk === o[0] ? ' on' : '') + '" onclick="event.stopPropagation();mtSetManagerStatus(\'' + id + '\',\'' + o[0] + '\')">' + o[1] + '</button>';
+        }).join('') + '</div>';
+      } else {
+        mgrBar = '<div class="td-mgrbar"><button type="button" class="td-chipbtn" onclick="event.stopPropagation();mtSetManagerStatus(\'' + id + '\',\'asked\')">+ Inform to manager</button></div>';
+      }
     }
 
-    let noteStyle = 'font-size: 1rem; color: var(--text-main); word-break: break-word; line-height: 1.5;';
-    if (isSolved) {
-      noteStyle += ' text-decoration: line-through; opacity: 0.55;';
-    } else if (isRejected) {
-      noteStyle += ' opacity: 0.85;';
-    }
+    const starBtn = '<button type="button" class="td-star' + (t.is_important ? ' on' : '') + '" title="Mark as important" onclick="event.stopPropagation();mtToggleTodoImportant(\'' + id + '\')">' + (t.is_important ? ICON.starOn : ICON.star) + '</button>';
+    const delBtn  = '<button type="button" class="td-star td-del" title="Delete note" onclick="event.stopPropagation();delTodo(\'' + id + '\')">' + ICON.trash + '</button>';
+    const showText = t.note_bn || t.note || t.note_in || '';
 
-    return '<div class="task-item ' + (isSolved ? 'completed' : '') + '" style="display: flex; align-items: flex-start; padding: 14px 16px; background: #fff; border: 1px solid var(--border); border-radius: 10px; transition: transform 0.2s, box-shadow 0.2s;">' +
-      toggleSvg +
-      '<div style="flex: 1; min-width: 0;">' +
-        '<div class="todo-note-text" style="' + noteStyle + '">' + escapeHtml(t.note || '') + '</div>' +
-        '<div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center;">' +
-          statusPill +
-          badges.join('') +
-          workflowActions +
+    return '<div class="td-row ' + stCls + (solved ? ' is-solved' : '') + (t.is_important ? ' is-important' : '') + '">' +
+      '<button type="button" class="td-toggle ' + tcls + '" title="' + ttip + '" onclick="mtToggleTodoStatus(\'' + id + '\')">' + tsvg + '</button>' +
+      '<div class="td-body">' +
+        '<div class="td-note">' + esc(showText) + '</div>' +
+        extras +
+        '<div class="td-meta">' + pillOf(s) + whenChips.join('') + (t.is_important ? '<span class="td-chip td-imp">Important</span>' : '') + chips.join('') + mgr + tr + '</div>' +
+        mgrBar +
+        '<div class="td-acts">' + act +
+          '<button type="button" class="td-icb" title="Edit note" onclick="event.stopPropagation();mtOpenNote(\'' + id + '\',\'edit\')">' + ICON.pencil + '</button>' +
+          '<button type="button" class="td-icb" title="Extra note / reply" onclick="event.stopPropagation();mtOpenNote(\'' + id + '\',\'extra\')">' + ICON.plusbox + '</button>' +
         '</div>' +
       '</div>' +
-      '<div style="margin-left: 12px; flex-shrink: 0; display: flex; align-items: center;">' +
-        '<div onclick="delTodo(\'' + escapeHtml(String(t.id)) + '\')" style="cursor: pointer; display: inline-flex;">' + trashSvg + '</div>' +
-      '</div>' +
+      '<div class="td-side">' + starBtn + delBtn + '</div>' +
+    '</div>';
+  };
+
+  const groupsHtml = groups.map(function(g){
+    return '<div class="td-group">' +
+      (g.label ? '<div class="td-group-h"><span class="td-group-t">' + g.label + '</span><span class="td-group-n">' + bn(g.items.length) + '</span></div>' : '') +
+      '<div class="td-list">' + g.items.map(rowHtml).join('') + '</div>' +
     '</div>';
   }).join('');
 
-  const emptyStateHtml = '<div style="text-align: center; padding: 40px 16px; background: #fff; border: 1px dashed var(--border); border-radius: 10px; color: var(--text-mute);">' +
-    '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 8px; opacity: 0.5;">' +
-      '<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>' +
-    '</svg>' +
-    '<div style="font-weight: 500; font-size: 0.95rem;">No tasks found</div>' +
-    '<div style="font-size: 0.82rem; margin-top: 4px; opacity: 0.8;">Write a note or task above and press Enter to save</div>' +
-  '</div>';
+  const emptyHtml = '<div class="td-empty">' + ICON.empty +
+    '<div class="t1">' + (q ? 'Nothing found for this search' : 'Nothing here yet') + '</div>' +
+    '<div class="t2">' + (q ? 'Try another keyword' : 'Type above and press Enter to save') + '</div></div>';
 
-  // Filter tabs HTML
-  const filterBtnStyle = function(k){
-    const active = currentFilter === k;
-    return 'cursor:pointer;padding:5px 12px;font-size:12.5px;font-weight:' + (active ? '600' : '500') + ';border-radius:20px;border:1px solid ' + (active ? 'var(--primary)' : 'var(--border)') + ';background:' + (active ? 'var(--primary)' : '#fff') + ';color:' + (active ? '#fff' : 'var(--text-mute)') + ';transition:all 0.15s;';
+  const stat = function(label, value, cls, act){
+    return '<button type="button" class="td-stat ' + cls + '" onclick="' + act + '"><div class="k">' + label + '</div><div class="v">' + bn(value) + '</div></button>';
   };
-
-  const filterTabsHtml = '<div style="display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap;">' +
-    '<button type="button" style="' + filterBtnStyle('all') + '" onclick="mtSetTodoFilter(\'all\')">All (' + totalCount + ')</button>' +
-    '<button type="button" style="' + filterBtnStyle('pending') + '" onclick="mtSetTodoFilter(\'pending\')">Pending (' + pendingCount + ')</button>' +
-    '<button type="button" style="' + filterBtnStyle('approved') + '" onclick="mtSetTodoFilter(\'approved\')">Approved (' + approvedCount + ')</button>' +
-    '<button type="button" style="' + filterBtnStyle('rejected') + '" onclick="mtSetTodoFilter(\'rejected\')">Rejected (' + rejectedCount + ')</button>' +
-    '<button type="button" style="' + filterBtnStyle('solved') + '" onclick="mtSetTodoFilter(\'solved\')">Solved (' + solvedCount + ')</button>' +
+  const statsHtml = '<div class="td-stats">' +
+    stat('open', openCount, 'is-open', 'mtSetTodoFilter(&quot;open&quot;)') +
+    stat('Pending', pendingCount, 'is-pend', 'mtSetTodoSub(&quot;pending&quot;)') +
+    stat('Important', importantCount, 'is-imp', 'mtSetTodoFilter(&quot;important&quot;)') +
+    stat('Reminder', remCount, 'is-due', 'mtSetTodoFilter(&quot;reminder&quot;)') +
+    stat('Solved', solvedCount, 'is-done', 'mtSetTodoFilter(&quot;solved&quot;)') +
   '</div>';
 
-  sec.innerHTML = '<div class="card" style="margin-bottom: 24px; border-radius: 14px; padding: 22px 24px 28px; background: var(--card);">' +
-    '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">' +
-      '<div>' +
-        '<h3 style="margin: 0; font-size: 1.2rem; font-weight: 600; color: var(--text-main);">To-Do / Follow-up Tasks</h3>' +
-        '<p style="margin: 3px 0 0; font-size: 0.82rem; color: var(--text-mute);">Quick call notes, reminders, meeting action items, and project follow-up items</p>' +
-      '</div>' +
-      '<div style="display: flex; align-items: center; gap: 10px;">' +
-        '<span class="badge" style="background: var(--bg-dim); color: var(--text-mute); font-size: 0.8rem; font-weight: 600; padding: 4px 10px; border-radius: 20px;">' + num(openCount) + ' open</span>' +
-        '<button class="btn secondary sm" onclick="printTodos()" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 13px; font-weight: 500; border-radius: 8px;">' +
-          ico('print') + ' Print Notes' +
-        '</button>' +
-      '</div>' +
+  const tab = function(key, cls, icon, title, sub, count){
+    return '<button type="button" class="td-tab ' + cls + (mainF === key ? ' is-on' : '') + '" onclick="mtSetTodoFilter(\'' + key + '\')">' +
+      '<span class="ic">' + icon + '</span>' +
+      '<span><span class="tt">' + title + '</span><span class="ts">' + sub + '</span></span>' +
+      '<span class="n">' + bn(count) + '</span>' +
+    '</button>';
+  };
+  const tabsHtml = '<div class="td-tabs">' +
+    tab('open', 't-open', ICON.list, 'Open', 'All active notes', openCount) +
+    tab('manager', 't-mgr', ICON.user, 'Inform to Manager', 'Notes to inform the manager', mgrCount) +
+    tab('reminder', 't-rem', ICON.bellBig, 'Reminder', 'Review again later', remCount) +
+  '</div>';
+
+  const mini = function(key, label, count){
+    return '<button type="button" class="td-chipbtn' + (subF === key ? ' on' : '') + '" onclick="mtSetTodoSub(\'' + key + '\')">' + label + ' ' + bn(count) + '</button>';
+  };
+  const barHtml = '<div class="td-bar">' +
+    '<div class="td-mini">' +
+      mini('all', 'All', totalCount) +
+      mini('unsolved', 'Unsolved', openCount) +
+      mini('pending', 'Pending', pendingCount) +
+      mini('approved', 'Approved', approvedCount) +
+      mini('rejected', 'Decline', rejectedCount) +
+      mini('solved', 'Solved', solvedCount) +
     '</div>' +
+    '<label class="td-search">' + ICON.search +
+      '<input type="search" id="tdSearch" placeholder="Search note, project or person..." value="' + esc(window.MG_TD_Q || '') + '" oninput="mtTodoSearch(this.value)">' +
+    '</label>' +
+  '</div>';
 
-    '<div class="todo-quick-add" style="margin-bottom: 20px; position: relative;">' +
-      '<input type="text" id="tdQuickNote" class="input wide" placeholder="Write a note or task and press Enter..." style="font-size: 1.1rem; padding: 16px 20px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.03); transition: all 0.3s; width: 100%; box-sizing: border-box;" onkeypress="mtQuickAddTodo(event)">' +
-      '<div style="display: flex; gap: 15px; margin-top: 12px; padding: 0 5px; align-items: center; flex-wrap: wrap;">' +
-        '<select id="tdQuickProj" class="input sm" style="max-width: 220px; border: none; background: transparent; font-weight: 500; color: var(--text-mute); cursor: pointer;">' +
-          '<option value="">-- Select Project (Optional) --</option>' +
-          activeProjsList.map(function(p){ return '<option value="' + escapeHtml(p.ProjectName) + '">' + escapeHtml(p.ProjectName) + '</option>'; }).join('') +
-        '</select>' +
-        '<input type="date" id="tdQuickDate" class="input sm" style="border: none; background: transparent; color: var(--text-mute); cursor: pointer;" value="' + todayISO() + '">' +
-      '</div>' +
-    '</div>' +
-
-    filterTabsHtml +
-
-    '<div class="todo-list" style="display: flex; flex-direction: column; gap: 8px;">' +
-      (itemsHtml || emptyStateHtml) +
+  const composeHtml = '<div class="td-compose">' +
+    '<input type="text" id="tdQuickNote" class="td-in" placeholder="Type here — press Enter to save (English/Banglish becomes Bengali)" onkeydown="if(event.key===\'Enter\'||event.keyCode===13){event.preventDefault();mtQuickAddTodo(event);}">' +
+    '<div class="td-crow">' +
+      '<label class="td-cf">Project<select id="tdQuickProj"><option value="">None</option>' +
+        activeProjsList.map(function(p){ return '<option value="' + esc(p.ProjectName) + '">' + esc(p.ProjectName) + '</option>'; }).join('') +
+      '</select></label>' +
+      '<label class="td-cf">Date<input type="date" id="tdQuickDate" value="' + today + '"></label>' +
+      '<label class="td-cf">Type<select id="tdQuickCat">' +
+        '<option value="note">Note</option><option value="task">Task</option>' +
+        '<option value="permission">Permission</option><option value="meeting">Meeting</option>' +
+      '</select></label>' +
+      '<label class="td-cf">Reminder<input type="date" id="tdQuickRemind"></label>' +
+      '<label class="td-cf td-impbox"><input type="checkbox" id="tdQuickImportant"> Important</label>' +
+      '<label class="td-cf td-mgrbox"><input type="checkbox" id="tdQuickMgr"> Inform to manager</label>' +
+      '<span class="td-hint">Press Enter to save</span>' +
     '</div>' +
   '</div>';
 
+  const gearOn = (typeof window.mgAiDot === 'function' && window.mgAiDot()) ? ' on' : '';
+  const headHtml = '<div class="td-head">' +
+    '<div><h3>Note list</h3><div class="td-sub">' + bn(totalCount) + ' notes · ' + bn(openCount) + ' open · ' + bn(mgrCount) + ' manager · ' + bn(remCount) + ' reminder · ' + bn(dueCount) + ' overdue</div></div>' +
+    '<div class="td-right">' +
+      '<button type="button" class="td-icb g-ai' + gearOn + '" title="AI settings (Gemini API)" onclick="mtOpenAI()">' + ICON.gear + '</button>' +
+      '<button type="button" class="td-btn td-print" onclick="printTodos(\'open\')">' + ICON.prn + ' Print Open</button>' +
+      '<button type="button" class="td-btn td-print" onclick="printTodos(\'important\')">' + ICON.prn + ' Print Important</button>' +
+      '<button type="button" class="td-btn td-print" onclick="printTodos(\'all\')">' + ICON.prn + ' Print All</button>' +
+    '</div>' +
+  '</div>';
+
+  const focusId = (document.activeElement && document.activeElement.id) || window.MG_TD_FOCUS || '';
+  const focusPos = (document.activeElement && typeof document.activeElement.selectionStart === 'number') ? document.activeElement.selectionStart : null;
+  window.MG_TD_FOCUS = focusId;
+
+  sec.innerHTML = '<div class="td-wrap">' + statsHtml +
+    '<div class="td-card">' + headHtml + tabsHtml + composeHtml + barHtml +
+      '<div style="margin-top:14px">' + (groupsHtml || emptyHtml) + '</div>' +
+      '<div class="td-foot"><span>' + bn(openCount) + ' open / total ' + bn(totalCount) + '</span><span>·</span><span>' + bn(solvedCount) + ' solved</span></div>' +
+    '</div>' +
+  '</div>';
+
+  if(focusId){
+    const el = document.getElementById(focusId);
+    if(el){
+      try{
+        el.focus();
+        if(focusPos != null && el.setSelectionRange) el.setSelectionRange(focusPos, focusPos);
+      }catch(e){}
+    }
+  }
   if (typeof updateTodoBadge === 'function') {
     updateTodoBadge();
   }
@@ -15256,55 +15637,92 @@ function renderTodo(){
 
 window.mtSetTodoFilter = function(filter) {
   window.MT_TODO_FILTER = filter;
+  window.MG_TD_SUB = 'all';
+  renderTodo();
+};
+
+window.mtSetTodoSub = function(sub) {
+  window.MG_TD_SUB = sub;
+  var f = window.MT_TODO_FILTER || 'open';
+  if (['pending','approved','rejected','solved'].indexOf(f) !== -1) window.MT_TODO_FILTER = 'open';
+  renderTodo();
+};
+
+window.mtOpenNote = window.mtOpenNote || function(){ if (typeof toast === 'function') toast('This panel arrives in the next prompt', 'info'); };
+window.mtOpenAI = window.mtOpenAI || function(){ if (typeof toast === 'function') toast('AI settings arrive in the next prompt', 'info'); };
+
+window.mtTodoSearch = function(v){
+  window.MG_TD_Q = v || '';
+  const el = document.getElementById('tdSearch');
+  if(el){ window.MG_TD_FOCUS = 'tdSearch'; }
+  renderTodo();
+};
+
+window.mtToggleTodoImportant = function(id){
+  DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
+  const t = DATA.todos.find(function(x){ return String(x.id) === String(id); });
+  if(!t) return;
+  t.is_important = !t.is_important;
+  if(window.appData && typeof window.appData.update === 'function'){
+    window.appData.update('todos', t.id, { is_important: t.is_important }).catch(function(err){
+      console.error('Important flag sync failed:', err);
+    });
+  } else if(window.sb){
+    window.sb.from('todos').update({ is_important: t.is_important }).eq('id', t.id).catch(function(err){
+      console.error('Important flag sync failed:', err);
+    });
+  }
   renderTodo();
 };
 
 window.mtQuickAddTodo = async function(event) {
-  if (event.key !== 'Enter') return;
+  if (!event || (event.key !== 'Enter' && event.keyCode !== 13 && event.which !== 13)) return null;
   if (event.preventDefault) event.preventDefault();
   const input = document.getElementById('tdQuickNote');
-  if (!input) return;
-  const note = input.value.trim();
-  if (!note) return;
+  if (!input) return null;
+  const raw = input.value.trim();
+  if (!raw) return null;
 
   const projEl = document.getElementById('tdQuickProj');
   const dateEl = document.getElementById('tdQuickDate');
+  const catEl  = document.getElementById('tdQuickCat');
+  const impEl  = document.getElementById('tdQuickImportant');
+  const remEl  = document.getElementById('tdQuickRemind');
   const project = projEl ? projEl.value : '';
   const date = (dateEl && dateEl.value) ? dateEl.value : todayISO();
 
   const task = {
     id: Date.now(),
-    note: note,
+    note_in: raw,
+    note: raw,
     project: project,
     date: date,
     who: 'Admin',
     status: 'pending',
     source: 'direct',
-    sourceDate: date
+    sourceDate: date,
+    category: (catEl && catEl.value) ? catEl.value : 'note',
+    is_important: !!(impEl && impEl.checked),
+    remind_on: (remEl && remEl.value) ? remEl.value : null
   };
 
   DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
   DATA.todos.unshift(task);
-
   renderTodo();
   if (typeof updateTodoBadge === 'function') updateTodoBadge();
 
   const freshInput = document.getElementById('tdQuickNote');
-  if (freshInput) {
-    freshInput.value = '';
-    freshInput.focus();
-  }
+  if (freshInput) { freshInput.value = ''; freshInput.focus(); }
   const freshProj = document.getElementById('tdQuickProj');
-  if (freshProj && project) {
-    freshProj.value = project;
-  }
+  if (freshProj && project) freshProj.value = project;
 
   try {
     await persist();
-    toast('Task added successfully', 'success');
+    toast('Note added', 'success');
   } catch (err) {
     console.error('Error persisting todo:', err);
   }
+  return task;
 };
 
 window.mtSetTodoStatus = function(id, newStatus) {
@@ -15375,97 +15793,133 @@ window.delTodo = function(id) {
   });
 };
 
-window.printTodos = function() {
+window.printTodos = function(mode) {
   DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
-  const list = DATA.todos.slice().sort(function(a, b){
-    function statusWeight(s) {
-      s = (s || 'pending').toLowerCase();
-      if (s === 'pending') return 1;
-      if (s === 'approved') return 2;
-      if (s === 'rejected') return 3;
-      if (s === 'solved_approved') return 4;
-      if (s === 'solved_rejected') return 5;
-      if (s === 'solved' || s === 'done') return 6;
-      return 1;
-    }
-    const wA = statusWeight(a ? a.status : '');
-    const wB = statusWeight(b ? b.status : '');
-    if (wA !== wB) return wA - wB;
-    return String((b && b.date) || '').localeCompare(String((a && a.date) || '')) || (Number(b && b.id) || 0) - (Number(a && a.id) || 0);
+  mode = mode || 'open';
+
+  const escP = function(v){ return (typeof escapeHtml === 'function') ? escapeHtml(v) : String(v == null ? '' : v); };
+  const stOfP = function(t){ return ((t && t.status) || 'pending').toLowerCase(); };
+  const isSolvedP = function(t){ const s = stOfP(t); return s === 'solved_approved' || s === 'solved_rejected' || s === 'solved' || s === 'done'; };
+  const dateP = function(v){ return (typeof fmtDate === 'function') ? fmtDate(v) : String(v == null ? '' : v); };
+  const projP = function(v){ return (typeof projName === 'function') ? projName(v) : String(v == null ? '' : v); };
+
+  let list = DATA.todos.filter(function(t){ return !!t; });
+  if (mode === 'open')      list = list.filter(function(t){ return !isSolvedP(t); });
+  if (mode === 'important') list = list.filter(function(t){ return t.is_important && !isSolvedP(t); });
+
+  const wtP = function(s){
+    s = (s || 'pending').toLowerCase();
+    if (s === 'pending') return 1;
+    if (s === 'approved') return 2;
+    if (s === 'rejected') return 3;
+    if (s === 'solved_approved') return 4;
+    if (s === 'solved_rejected') return 5;
+    return 6;
+  };
+  list = list.slice().sort(function(a, b){
+    const ia = a.is_important ? 0 : 1, ib = b.is_important ? 0 : 1;
+    if (ia !== ib) return ia - ib;
+    if (wtP(a.status) !== wtP(b.status)) return wtP(a.status) - wtP(b.status);
+    return String(b.date || '').localeCompare(String(a.date || ''));
   });
 
-  const total = list.length;
-  const pending = list.filter(function(t){ return t && (t.status || 'pending').toLowerCase() === 'pending'; }).length;
-  const approved = list.filter(function(t){ return t && (t.status || '').toLowerCase() === 'approved'; }).length;
-  const rejected = list.filter(function(t){ return t && (t.status || '').toLowerCase() === 'rejected'; }).length;
-  const solved = list.filter(function(t){
-    if (!t) return false;
-    const s = (t.status || '').toLowerCase();
-    return s === 'solved_approved' || s === 'solved_rejected' || s === 'solved' || s === 'done';
-  }).length;
+  const totalL    = list.length;
+  const pendingL  = list.filter(function(t){ return stOfP(t) === 'pending'; }).length;
+  const approvedL = list.filter(function(t){ return stOfP(t) === 'approved'; }).length;
+  const rejectedL = list.filter(function(t){ return stOfP(t) === 'rejected'; }).length;
+  const solvedL   = list.filter(isSolvedP).length;
 
-  const rowsHtml = list.map(function(t, idx) {
-    const st = (t.status || 'pending').toLowerCase();
-    let stBadge = '<span style="color:#b45309;font-weight:600">Pending</span>';
-    if (st === 'approved') {
-      stBadge = '<span style="color:#1d4ed8;font-weight:600">Approved</span>';
-    } else if (st === 'rejected') {
-      stBadge = '<span style="color:#b91c1c;font-weight:600">Rejected</span>';
-    } else if (st === 'solved_approved') {
-      stBadge = '<span style="color:#15803d;font-weight:700">SOLVED (APPROVED)</span>';
-    } else if (st === 'solved_rejected') {
-      stBadge = '<span style="color:#991b1b;font-weight:700">SOLVED (REJECTED)</span>';
-    } else if (st === 'solved' || st === 'done') {
-      stBadge = '<span style="color:#15803d;font-weight:700">SOLVED</span>';
-    }
+  const titleOf = { open:'Open Follow-up List', important:'Important Follow-ups', all:'Complete Follow-up Archive' };
+  const modeTitle = titleOf[mode] || titleOf.open;
 
-    const pName = t.project ? (typeof projName === 'function' ? projName(t.project) : t.project) : '—';
-    const dStr = t.date ? (typeof fmtDate === 'function' ? fmtDate(t.date) : t.date) : '—';
-    const who = t.who || (t.source === 'meeting' ? 'Meeting' : 'Direct');
-    const isSolved = st === 'solved_approved' || st === 'solved_rejected' || st === 'solved' || st === 'done';
-    const noteStyle = isSolved ? 'line-height:1.4;text-decoration:line-through;opacity:0.65;' : 'line-height:1.4;';
+  const SECTIONS = [
+    { key:'pending',  label:'Pending \u2014 awaiting decision' },
+    { key:'approved', label:'Approved \u2014 to be closed' },
+    { key:'rejected', label:'Rejected' },
+    { key:'solved',   label:'Solved / closed' }
+  ];
+  const bucketOf = function(t){
+    const s = stOfP(t);
+    if (s === 'pending')  return 'pending';
+    if (s === 'approved') return 'approved';
+    if (s === 'rejected') return 'rejected';
+    return 'solved';
+  };
+  const COLORS = { pending:'#d97706', approved:'#1d4ed8', rejected:'#dc2626', solved:'#16a34a' };
 
-    return '<tr>' +
-      '<td style="border-bottom:1px solid #e2e8f0;padding:6px 8px;text-align:center;font-size:10pt;">' + (idx + 1) + '</td>' +
-      '<td style="border-bottom:1px solid #e2e8f0;padding:6px 8px;white-space:nowrap;font-size:10pt;">' + escapeHtml(dStr) + '</td>' +
-      '<td style="border-bottom:1px solid #e2e8f0;padding:6px 8px;font-size:10pt;font-weight:600;">' + escapeHtml(pName) + '</td>' +
-      '<td style="border-bottom:1px solid #e2e8f0;padding:6px 8px;font-size:10pt;' + noteStyle + '">' + escapeHtml(t.note || '') + '</td>' +
-      '<td style="border-bottom:1px solid #e2e8f0;padding:6px 8px;font-size:9.5pt;white-space:nowrap;color:#475569;">' + escapeHtml(who) + '</td>' +
-      '<td style="border-bottom:1px solid #e2e8f0;padding:6px 8px;text-align:center;font-size:9pt;white-space:nowrap;">' + stBadge + '</td>' +
-    '</tr>';
-  }).join('') || '<tr><td colspan="6" style="border:1px solid #cbd5e1;padding:24px;text-align:center;color:#64748b;">No follow-up notes found</td></tr>';
+  const box = '<span style="display:inline-block;width:11px;height:11px;border:1.3px solid #111827;border-radius:2px;vertical-align:-1px;margin-right:4px;"></span>';
+  const NBSP = '&nbsp;';
+  let rowNo = 0;
 
-  // Minimal clean internal document: strictly internal H3, no corporate letterheads or signatures
+  const bodyHtml = SECTIONS.map(function(S){
+    const items = list.filter(function(t){ return bucketOf(t) === S.key; });
+    if (!items.length) return '';
+
+    const head = '<tr><td colspan="8" style="border:1px solid #cbd5e1;background:#f1f5f9;padding:5px 8px;font-size:9pt;font-weight:700;letter-spacing:.4px;color:#0f172a;text-transform:uppercase;">' +
+      escP(S.label) + ' &nbsp;\u00b7&nbsp; ' + items.length + '</td></tr>';
+
+    const rows = items.map(function(t){
+      rowNo++;
+      const st = bucketOf(t);
+      const solved = st === 'solved';
+      const noteTxt = escP(t.note_bn || t.note || t.note_in || '');
+      const noteStyle = solved ? 'text-decoration:line-through;color:#64748b;' : 'color:#0f172a;';
+      const imp = t.is_important ? '<span style="color:#b45309;font-weight:700;"> \u2605</span>' : '';
+      const rem = t.remind_on ? '<div style="font-size:8pt;color:#475569;margin-top:2px;">Remind on ' + escP(dateP(t.remind_on)) + '</div>' : '';
+      const mgr = (t.manager_status && t.manager_status !== 'none') ? '<div style="font-size:8pt;color:#475569;margin-top:2px;">Manager: ' + escP(t.manager_status) + '</div>' : '';
+      const mgrNote = t.manager_note ? '<div style="font-size:8pt;color:#475569;margin-top:2px;">' + escP(t.manager_note) + '</div>' : '';
+      const cat = t.category && t.category !== 'note' ? escP(t.category) : '\u2014';
+
+      return '<tr>' +
+        '<td style="border:1px solid #cbd5e1;padding:5px 6px;text-align:center;font-size:9pt;color:#334155;">' + rowNo + '</td>' +
+        '<td style="border:1px solid #cbd5e1;padding:5px 6px;font-size:9pt;white-space:nowrap;color:#334155;">' + escP(dateP(t.date)) + '</td>' +
+        '<td style="border:1px solid #cbd5e1;padding:5px 6px;font-size:9pt;font-weight:600;color:#0f172a;">' + escP(projP(t.project) || '\u2014') + '</td>' +
+        '<td style="border:1px solid #cbd5e1;padding:5px 6px;font-size:9.5pt;line-height:1.45;' + noteStyle + '">' + noteTxt + imp + rem + mgr + mgrNote + '</td>' +
+        '<td style="border:1px solid #cbd5e1;padding:5px 6px;font-size:8.5pt;text-align:center;color:#334155;">' + cat + '</td>' +
+        '<td style="border:1px solid #cbd5e1;padding:5px 6px;font-size:8.5pt;text-align:center;font-weight:700;color:' + COLORS[st] + ';white-space:nowrap;">' + escP(S.label.split(' ')[0]) + '</td>' +
+        '<td style="border:1px solid #cbd5e1;padding:5px 6px;font-size:8.5pt;white-space:nowrap;color:#0f172a;">' + box + 'Approved<br>' + box + 'Rejected</td>' +
+        '<td style="border:1px solid #cbd5e1;padding:5px 6px;font-size:8.5pt;color:#334155;">' + NBSP + '</td>' +
+      '</tr>';
+    }).join('');
+
+    return head + rows;
+  }).join('');
+
+  const emptyRow = '<tr><td colspan="8" style="border:1px solid #cbd5e1;padding:22px;text-align:center;color:#64748b;font-size:10pt;">No follow-up notes in this view</td></tr>';
+
+  const tableHtml = '<table style="width:100%;border-collapse:collapse;margin-top:6px;font-family:inherit;table-layout:fixed;">' +
+    '<colgroup><col style="width:5%"><col style="width:11%"><col style="width:15%"><col style="width:33%"><col style="width:8%"><col style="width:9%"><col style="width:12%"><col style="width:7%"></colgroup>' +
+    '<thead><tr>' +
+      '<th style="border:1px solid #94a3b8;background:#e2e8f0;padding:5px 6px;font-size:8.5pt;color:#0f172a;">SL</th>' +
+      '<th style="border:1px solid #94a3b8;background:#e2e8f0;padding:5px 6px;font-size:8.5pt;color:#0f172a;text-align:left;">Date</th>' +
+      '<th style="border:1px solid #94a3b8;background:#e2e8f0;padding:5px 6px;font-size:8.5pt;color:#0f172a;text-align:left;">Project</th>' +
+      '<th style="border:1px solid #94a3b8;background:#e2e8f0;padding:5px 6px;font-size:8.5pt;color:#0f172a;text-align:left;">Note / Follow-up</th>' +
+      '<th style="border:1px solid #94a3b8;background:#e2e8f0;padding:5px 6px;font-size:8.5pt;color:#0f172a;">Type</th>' +
+      '<th style="border:1px solid #94a3b8;background:#e2e8f0;padding:5px 6px;font-size:8.5pt;color:#0f172a;">Status</th>' +
+      '<th style="border:1px solid #94a3b8;background:#e2e8f0;padding:5px 6px;font-size:8.5pt;color:#0f172a;text-align:left;">Manager\'s mark</th>' +
+      '<th style="border:1px solid #94a3b8;background:#e2e8f0;padding:5px 6px;font-size:8.5pt;color:#0f172a;">Remarks</th>' +
+    '</tr></thead><tbody>' + (bodyHtml || emptyRow) + '</tbody></table>';
+
+  const footHtml = '<div style="display:flex;gap:28px;margin-top:22px;font-size:9pt;color:#0f172a;">' +
+      '<div style="flex:1;border-top:1px solid #0f172a;padding-top:4px;">Prepared by \u2014 MG Security HRM</div>' +
+      '<div style="flex:1;border-top:1px solid #0f172a;padding-top:4px;">Manager\'s remark / signature</div>' +
+      '<div style="width:150px;border-top:1px solid #0f172a;padding-top:4px;">Date</div>' +
+    '</div>';
+
   const html = '<div class="print-doc mrep m2">' +
     '<div class="m2-head"><div class="m2-l">' +
-      '<div class="m2-brand">' + (typeof COMPANY !== 'undefined' ? COMPANY.name : 'Mahbub Group') + ' · Security Division</div>' +
-      '<div class="m2-title">Internal To-Do &amp; Follow-up List</div>' +
-      '<div class="m2-sub">Call notes, permissions and follow-ups pending across all projects</div>' +
-      '<div class="m2-meta"><b>' + total + '</b> Total <i>·</i> <b>' + pending + '</b> Pending <i>·</i> <b>' + approved + '</b> Approved <i>·</i> <b>' + rejected + '</b> Rejected <i>·</i> <b>' + solved + '</b> Solved</div>' +
+      '<div class="m2-brand">' + (typeof COMPANY !== 'undefined' ? COMPANY.name : 'Mahbub Group') + ' \u00b7 Security Division</div>' +
+      '<div class="m2-title">' + modeTitle + '</div>' +
+      '<div class="m2-sub">Call notes, reminders, permissions and follow-ups pending across all projects</div>' +
+      '<div class="m2-meta"><b>' + totalL + '</b> Listed <i>\u00b7</i> <b>' + pendingL + '</b> Pending <i>\u00b7</i> <b>' + approvedL + '</b> Approved <i>\u00b7</i> <b>' + rejectedL + '</b> Rejected <i>\u00b7</i> <b>' + solvedL + '</b> Solved</div>' +
     '</div><div class="m2-r">' +
       '<div class="m2-gen">Generated on ' + (typeof fmtDateEnLong === 'function' ? fmtDateEnLong(todayISO()) : todayISO()) + '</div>' +
       '<div class="m2-sys">MG Security HRM</div>' +
     '</div></div>' +
-    '<table style="width:100%;border-collapse:collapse;margin-top:4px;font-family:inherit;">' +
-      '<thead>' +
-        '<tr style="background:#f8fafc;">' +
-          '<th style="border-bottom:1px solid #e2e8f0;padding:7px 6px;text-align:center;width:35px;font-size:9pt;">#</th>' +
-          '<th style="border-bottom:1px solid #e2e8f0;padding:7px 8px;text-align:left;width:85px;font-size:9pt;">Date</th>' +
-          '<th style="border-bottom:1px solid #e2e8f0;padding:7px 8px;text-align:left;width:130px;font-size:9pt;">Project</th>' +
-          '<th style="border-bottom:1px solid #e2e8f0;padding:7px 8px;text-align:left;font-size:9pt;">Task / Action Note</th>' +
-          '<th style="border-bottom:1px solid #e2e8f0;padding:7px 8px;text-align:left;width:110px;font-size:9pt;">Source</th>' +
-          '<th style="border-bottom:1px solid #e2e8f0;padding:7px 8px;text-align:center;width:130px;font-size:9pt;">Status</th>' +
-        '</tr>' +
-      '</thead>' +
-      '<tbody>' +
-        rowsHtml +
-      '</tbody>' +
-    '</table>' +
+    tableHtml + footHtml +
   '</div>';
 
-  if (typeof openPrint === 'function') {
-    openPrint(html);
-  }
+  (typeof printablePageHtml === 'function' ? openPrint(printablePageHtml(html)) : openPrint(html));
 };
 
 window.printTodoList = window.printTodos;
@@ -15490,6 +15944,241 @@ window.addTodo = function() {
   }
 };
 window.cycleTodo = window.mtToggleTodoStatus;
+
+/* ===== MG To-Do v3 : edit note + extra note (reply) panels ===== */
+(function(){
+  if (window.__mgTd3) return;
+  window.__mgTd3 = true;
+
+  var LB = 'display:block;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);margin-bottom:5px';
+  function bn(v){ return String(v == null ? '' : v); }
+  function esc(v){ return (typeof escapeHtml === 'function') ? escapeHtml(v) : String(v == null ? '' : v); }
+  function hasBn(s){ return /[\u0980-\u09FF]/.test(String(s || '')); }
+  function nowIso(){ return new Date().toISOString(); }
+  function el(id){ return document.getElementById(id); }
+  function toastSafe(m, k){ if (typeof toast === 'function') toast(m, k || 'success'); }
+  function list(){ return (window.DATA && Array.isArray(window.DATA.todos)) ? window.DATA.todos : []; }
+  function find(id){
+    var r = list().filter(function(x){ return String(x.id) === String(id); });
+    return r[0] || null;
+  }
+  function dval(v){ var s = String(v || '').slice(0,10); return (/^\d{4}-\d{2}-\d{2}$/.test(s)) ? s : ''; }
+
+  window.mgTdFind = find;
+
+  window.mgTdPush = async function(t, keys){
+    var payload = {};
+    (keys || []).forEach(function(k){ if (k === 'note_in') return; payload[k] = (t[k] === undefined ? null : t[k]); });
+    try{
+      if (window.appData && typeof window.appData.update === 'function') await window.appData.update('todos', t.id, payload);
+      else if (window.sb) await window.sb.from('todos').update(payload).eq('id', t.id);
+    }catch(err){
+      console.error('To-Do sync failed:', err);
+      toastSafe('Not saved to the database — check the internet connection', 'error');
+      return false;
+    }
+    try{ if (typeof window.persist === 'function') await window.persist(); }catch(e){}
+    return true;
+  };
+
+  function host(){
+    var h = el('mgTdModal');
+    if (!h){
+      h = document.createElement('div');
+      h.id = 'mgTdModal';
+      h.innerHTML = '<div class="td-mask" onclick="mtCloseNote()"></div><div class="td-box" id="mgTdBox"></div>';
+      document.body.appendChild(h);
+    }
+    return h;
+  }
+  window.mtCloseNote = function(){
+    var h = el('mgTdModal');
+    if (h) h.classList.remove('open');
+    window.MG_TD_EDIT_ID = null;
+  };
+  window.mtOpenShell = function(title, sub, body, foot){
+    host();
+    var box = el('mgTdBox');
+    box.innerHTML = '<div class="td-mh"><div><div class="t1">' + title + '</div><div class="t2">' + sub + '</div></div>' +
+      '<button type="button" class="td-mx" onclick="mtCloseNote()" title="close">×</button></div>' +
+      '<div class="td-mb">' + body + '</div>' +
+      (foot ? '<div class="td-mf">' + foot + '</div>' : '');
+    el('mgTdModal').classList.add('open');
+  };
+
+  function projOptions(sel){
+    var arr = (typeof activeProjects === 'function' ? activeProjects() : []).slice()
+      .sort(function(a, b){ return String(a && a.ProjectName || '').localeCompare(String(b && b.ProjectName || '')); });
+    var out = '<option value="">None</option>';
+    var found = false;
+    arr.forEach(function(p){
+      var n = String(p && p.ProjectName || '');
+      if (!n) return;
+      if (n === sel) found = true;
+      out += '<option value="' + esc(n) + '"' + (n === sel ? ' selected' : '') + '>' + esc(n) + '</option>';
+    });
+    if (sel && !found) out += '<option value="' + esc(sel) + '" selected>' + esc(sel) + '</option>';
+    return out;
+  }
+  function catOptions(sel){
+    var o = [['note','Note'],['task','Task'],['permission','Permission'],['meeting','Meeting']];
+    return o.map(function(x){ return '<option value="' + x[0] + '"' + ((sel || 'note') === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('');
+  }
+  function whenTxt(ts){
+    if (!ts) return '';
+    var d = new Date(ts);
+    if (isNaN(d.getTime())) return '';
+    return bn(d.getDate()) + '/' + bn(d.getMonth() + 1) + '/' + bn(d.getFullYear()) + ' · ' + bn((d.getHours() % 12) || 12) + ':' + bn((d.getMinutes() < 10 ? '0' : '') + d.getMinutes());
+  }
+  function extrasHtml(t){
+    var xs = Array.isArray(t.extra_notes) ? t.extra_notes.filter(function(x){ return x && (x.bn || x.raw); }) : [];
+    if (!xs.length) return '<div class="mini-note">No extra note under this note yet.</div>';
+    return xs.map(function(x){
+      return '<div class="td-extra"><div class="x">' + esc(x.bn || x.raw || '') + '</div>' +
+        (x.t ? '<div class="w">' + whenTxt(x.t) + '</div>' : '') + '</div>';
+    }).join('');
+  }
+  function editHtml(t){
+    var cur = String(t.note_bn || t.note || t.note_in || '');
+    var mk = String(t.manager_status || 'none').toLowerCase();
+    return '<label class="fld"><span style="' + LB + '">Note text (Bengali or English — both work)</span>' +
+        '<textarea class="inp" id="mgEdNote">' + esc(cur) + '</textarea></label>' +
+      '<div class="two">' +
+        '<label class="fld"><span style="' + LB + '">Project</span><select class="inp" id="mgEdProj">' + projOptions(t.project) + '</select></label>' +
+        '<label class="fld"><span style="' + LB + '">Date</span><input type="date" class="inp" id="mgEdDate" value="' + dval(t.date) + '"></label>' +
+      '</div>' +
+      '<div class="two">' +
+        '<label class="fld"><span style="' + LB + '">Type</span><select class="inp" id="mgEdCat">' + catOptions(t.category) + '</select></label>' +
+        '<label class="fld"><span style="' + LB + '">Reminder</span><input type="date" class="inp" id="mgEdRemind" value="' + dval(t.remind_on) + '"></label>' +
+      '</div>' +
+      '<label class="sw"><input type="checkbox" id="mgEdImp"' + (t.is_important ? ' checked' : '') + '> Important (star)</label>' +
+      '<label class="sw"><input type="checkbox" id="mgEdMgr"' + (mk !== 'none' ? ' checked' : '') + '> Inform to manager</label>' +
+      '<div style="margin-top:12px"><div style="' + LB + '">Extra note</div>' + extrasHtml(t) + '</div>';
+  }
+  function extraHtml(t){
+    return '<label class="fld"><span style="' + LB + '">Extra note — what you forgot to write</span>' +
+        '<textarea class="inp" id="mgExNote" placeholder="Type here and press &quot;Add&quot; — this is translated to Bengali too"></textarea></label>' +
+      '<div style="' + LB + '">Previous extra notes</div>' + extrasHtml(t);
+  }
+
+  window.mtOpenNote = function(id, mode){
+    var t = find(id);
+    if (!t){ toastSafe('Note not found', 'error'); return; }
+    window.MG_TD_EDIT_ID = t.id;
+    var key = esc(String(t.id));
+    var head = String(t.note_bn || t.note || t.note_in || '').slice(0, 70);
+    if (mode === 'extra'){
+      window.mtOpenShell('Extra note Add', 'Original note: ' + head, extraHtml(t),
+        '<button type="button" class="mbtn pri" id="mgExBtn" onclick="mtAddExtra()">Add</button>' +
+        '<button type="button" class="mbtn gho" onclick="mtOpenNote(\'' + key + '\',\'edit\')">Edit note</button>' +
+        '<button type="button" class="mbtn gho" onclick="mtCloseNote()">Close</button>');
+      var ex = el('mgExNote');
+      if (ex) ex.focus();
+    } else {
+      window.mtOpenShell('Edit note', 'Saving re-translates the text to Bengali', editHtml(t),
+        '<button type="button" class="mbtn pri" id="mgEdBtn" onclick="mtSaveNote()">Save</button>' +
+        '<button type="button" class="mbtn gho" onclick="mtOpenNote(\'' + key + '\',\'extra\')">Extra note</button>' +
+        '<button type="button" class="mbtn gho" onclick="mtCloseNote()">Close</button>');
+      var ed = el('mgEdNote');
+      if (ed) ed.focus();
+    }
+  };
+
+  function busy(btn, on, label){
+    if (!btn) return;
+    if (on){
+      btn.disabled = true;
+      if (!btn.dataset.old) btn.dataset.old = btn.textContent;
+      btn.textContent = label || 'Please wait…';
+    } else {
+      btn.disabled = false;
+      if (btn.dataset.old) btn.textContent = btn.dataset.old;
+    }
+  }
+  async function translate(raw){
+    if (hasBn(raw)) return { ok:true, bn:String(raw).trim(), why:'already-bn' };
+    if (typeof window.mgAITranslate !== 'function') return { ok:false, bn:null, why:'no-ai' };
+    var out = null;
+    try{ out = await window.mgAITranslate(raw); }catch(e){ out = null; }
+    if (out) return { ok:true, bn:out, why:'ai' };
+    return { ok:false, bn:null, why:'ai-failed' };
+  }
+
+  window.mtSaveNote = async function(){
+    var t = find(window.MG_TD_EDIT_ID);
+    if (!t) return;
+    var raw = String((el('mgEdNote') || {}).value || '').trim();
+    if (!raw){ toastSafe('Note text cannot be empty', 'error'); return; }
+    var btn = el('mgEdBtn');
+    busy(btn, true, 'Translating…');
+    var tr = await translate(raw);
+    t.note_in = raw;
+    t.note = null;
+    t.note_bn = tr.ok ? tr.bn : null;
+    t.project = (el('mgEdProj') || {}).value || '';
+    t.date = (el('mgEdDate') || {}).value || t.date;
+    t.category = (el('mgEdCat') || {}).value || 'note';
+    t.remind_on = (el('mgEdRemind') || {}).value || null;
+    t.is_important = !!(el('mgEdImp') && el('mgEdImp').checked);
+    var wantMgr = !!(el('mgEdMgr') && el('mgEdMgr').checked);
+    var mk = String(t.manager_status || 'none').toLowerCase();
+    if (wantMgr && mk === 'none') t.manager_status = 'asked';
+    if (!wantMgr) t.manager_status = 'none';
+    t.updated_at = nowIso();
+    var ok = await window.mgTdPush(t, ['note','note_bn','project','date','category','remind_on','is_important','manager_status','updated_at']);
+    busy(btn, false);
+    if (typeof renderTodo === 'function') renderTodo();
+    if (!ok) return;
+    if (tr.why === 'ai') toastSafe('Note saved and translated to Bengali', 'success');
+    else if (tr.ok) toastSafe('Note saved', 'success');
+    else if (tr.why === 'no-ai') toastSafe('Note saved — but not translated (add the AI key in the gear icon)', 'info');
+    else toastSafe('Note saved — but translation failed, please try again', 'error');
+    mtCloseNote();
+  };
+
+  window.mtAddExtra = async function(){
+    var t = find(window.MG_TD_EDIT_ID);
+    if (!t) return;
+    var raw = String((el('mgExNote') || {}).value || '').trim();
+    if (!raw){ toastSafe('Extra note text is empty', 'error'); return; }
+    var btn = el('mgExBtn');
+    busy(btn, true, 'Translating…');
+    var tr = await translate(raw);
+    var arr = Array.isArray(t.extra_notes) ? t.extra_notes.slice() : [];
+    arr.push({ t: Date.now(), raw: raw, bn: tr.ok ? tr.bn : '' });
+    t.extra_notes = arr;
+    t.updated_at = nowIso();
+    window.MG_TD_X = window.MG_TD_X || {};
+    window.MG_TD_X[String(t.id)] = true;
+    var ok = await window.mgTdPush(t, ['extra_notes','updated_at']);
+    busy(btn, false);
+    if (typeof renderTodo === 'function') renderTodo();
+    if (!ok) return;
+    toastSafe(tr.ok ? 'Extra note added (Bengali)' : 'Extra note added (without translation)', tr.ok ? 'success' : 'info');
+    window.mtOpenNote(t.id, 'extra');
+  };
+
+  window.mtSetManagerStatus = async function(id, st){
+    var t = find(id);
+    if (!t) return;
+    t.manager_status = (String(t.manager_status || 'none').toLowerCase() === st) ? 'none' : st;
+    t.updated_at = nowIso();
+    await window.mgTdPush(t, ['manager_status','updated_at']);
+    if (typeof renderTodo === 'function') renderTodo();
+    toastSafe('Manager status updated', 'success');
+  };
+
+  window.mtToggleExtras = function(id){
+    window.MG_TD_X = window.MG_TD_X || {};
+    var k = String(id);
+    window.MG_TD_X[k] = !window.MG_TD_X[k];
+    if (typeof renderTodo === 'function') renderTodo();
+  };
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') window.mtCloseNote();
+  });
+})();
 
 /* ============ navigate() wrapper for the To-Do page ============ */
 (function(){
@@ -15528,6 +16217,285 @@ async function translateField(srcId, dstId, btn){
 function translateBtnHTML(srcId, dstId){
   return `<button type="button" class="btn sm" style="margin-top:4px;white-space:nowrap" onclick="translateField('${srcId}','${dstId}',this)">🌐 ${'Translate to Bangla'}</button>`;
 }
+
+/* ===== MG To-Do v3 : Gemini AI (Banglish to Bengali) ===== */
+(function(){
+  if (window.__mgAi) return;
+  window.__mgAi = true;
+
+  var LB = 'display:block;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);margin-bottom:5px';
+  var LS_KEY = 'mghrm_ai';
+
+  var MODELS = [
+    { id: 'gemini-2.5-flash-lite', name: 'gemini-2.5-flash-lite · default, cheapest Flash-Lite' },
+    { id: 'gemini-3.5-flash-lite', name: 'gemini-3.5-flash-lite · newest Flash-Lite generation' },
+    { id: 'gemini-3.1-flash-lite', name: 'gemini-3.1-flash-lite · Flash-Lite' },
+    { id: 'gemini-3.5-flash',      name: 'gemini-3.5-flash · heavier Flash, smarter' },
+    { id: 'gemini-2.5-flash',      name: 'gemini-2.5-flash · heavier Flash' }
+  ];
+
+  function esc(v){ return (typeof escapeHtml === 'function') ? escapeHtml(v) : String(v == null ? '' : v); }
+  function hasBn(s){ return /[\u0980-\u09FF]/.test(String(s || '')); }
+  function nowIso(){ return new Date().toISOString(); }
+  function el(id){ return document.getElementById(id); }
+  function toastSafe(m, k){ if (typeof toast === 'function') toast(m, k || 'success'); }
+
+  function getCfg(){
+    try {
+      var raw = localStorage.getItem(LS_KEY);
+      if (!raw) return { key: '', model: 'gemini-2.5-flash-lite' };
+      if (raw.trim().startsWith('{')) {
+        var o = JSON.parse(raw);
+        return { key: o.key || '', model: o.model || 'gemini-2.5-flash-lite' };
+      }
+      return { key: raw.trim(), model: 'gemini-2.5-flash-lite' };
+    } catch(e) {
+      return { key: '', model: 'gemini-2.5-flash-lite' };
+    }
+  }
+
+  function saveCfg(key, model){
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify({ key: (key || '').trim(), model: model || 'gemini-2.5-flash-lite' }));
+    } catch(e) {}
+  }
+
+  function clearCfg(){
+    try { localStorage.removeItem(LS_KEY); } catch(e) {}
+  }
+
+  window.mgAiDot = function(){
+    var cfg = getCfg();
+    return !!(cfg && cfg.key && cfg.key.trim().length > 5);
+  };
+
+  window.mtOpenAI = function(){
+    var cfg = getCfg();
+    var curKey = cfg.key || '';
+    var curModel = cfg.model || 'gemini-2.5-flash-lite';
+
+    var modelOpts = MODELS.map(function(m){
+      return '<option value="' + esc(m.id) + '"' + (m.id === curModel ? ' selected' : '') + '>' + esc(m.name) + '</option>';
+    }).join('');
+
+    var body = '<label class="fld"><span style="' + LB + '">Gemini API Key</span>' +
+        '<input type="password" class="inp" id="mgAiKey" placeholder="AIzaSy..." value="' + esc(curKey) + '">' +
+      '</label>' +
+      '<label class="fld"><span style="' + LB + '">Model (cheapest Flash-Lite recommended)</span>' +
+        '<select class="inp" id="mgAiModel">' + modelOpts + '</select>' +
+      '</label>' +
+      '<div id="mgAiResult"></div>' +
+      '<div class="mini-note" style="margin-top:10px">The key is stored in this browser only (localStorage key <code>mghrm_ai</code>). It is NOT written into the code and NOT sent to Supabase.</div>';
+
+    var foot = '<button type="button" class="mbtn pri" id="mgAiTestBtn" onclick="mtSaveAndTestAI()">Test connection and save</button>' +
+      (curKey ? '<button type="button" class="mbtn dan" onclick="mtClearAI()">Remove key</button>' : '') +
+      '<button type="button" class="mbtn gho" onclick="mtCloseNote()">Close</button>';
+
+    if (typeof window.mtOpenShell === 'function') {
+      window.mtOpenShell('AI settings (Gemini API)', 'Banglish to Bengali automatic translation', body, foot);
+    }
+    var keyInp = el('mgAiKey');
+    if (keyInp) keyInp.focus();
+  };
+
+  window.mtClearAI = function(){
+    clearCfg();
+    if (typeof renderTodo === 'function') renderTodo();
+    toastSafe('Gemini API key removed', 'info');
+    window.mtOpenAI();
+  };
+
+  window.mtSaveAndTestAI = async function(){
+    var keyEl = el('mgAiKey');
+    var modelEl = el('mgAiModel');
+    var resDiv = el('mgAiResult');
+    var btn = el('mgAiTestBtn');
+
+    var key = keyEl ? keyEl.value.trim() : '';
+    var model = modelEl ? modelEl.value : 'gemini-2.5-flash-lite';
+
+    if (!key) {
+      if (resDiv) resDiv.innerHTML = '<div class="res bad">Please enter a valid Gemini API key.</div>';
+      toastSafe('Please paste your Gemini API key', 'error');
+      return;
+    }
+
+    var t0 = Date.now();
+    if (btn) { btn.disabled = true; btn.textContent = 'Testing…'; }
+    if (resDiv) resDiv.innerHTML = '<div class="res warn"><span class="spin"></span>Connecting to ' + esc(model) + '… (0.0s)</div>';
+
+    var timer = setInterval(function(){
+      var elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+      if (resDiv) {
+        var sp = resDiv.querySelector('.spin');
+        if (sp) resDiv.innerHTML = '<div class="res warn"><span class="spin"></span>Connecting to ' + esc(model) + '… (' + elapsed + 's)</div>';
+      }
+    }, 100);
+
+    try {
+      var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(key);
+      var resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: 'Reply with exactly one word: CONNECTED' }] }],
+          generationConfig: { maxOutputTokens: 12, temperature: 0.1 }
+        })
+      });
+
+      clearInterval(timer);
+      var duration = ((Date.now() - t0) / 1000).toFixed(2);
+      if (btn) { btn.disabled = false; btn.textContent = 'Test connection and save'; }
+
+      if (resp.ok) {
+        var data = await resp.json();
+        var reply = (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text) || 'CONNECTED';
+        reply = reply.trim();
+        saveCfg(key, model);
+        if (typeof renderTodo === 'function') renderTodo();
+        if (resDiv) {
+          resDiv.innerHTML = '<div class="res ok">' +
+            '<div><b>Connected &amp; Saved</b></div>' +
+            '<div class="kv"><span>Reply: <b>' + esc(reply) + '</b></span> · <span>Model: <b>' + esc(model) + '</b></span> · <span>Time: <b>' + duration + 's</b></span></div>' +
+            '</div>';
+        }
+        toastSafe('Gemini AI connected and saved', 'success');
+      } else {
+        var errDetail = '';
+        try {
+          var errData = await resp.json();
+          if (errData && errData.error && errData.error.message) errDetail = errData.error.message;
+        } catch(e){}
+
+        var errMsg = '';
+        if (resp.status === 401 || resp.status === 403) {
+          errMsg = 'HTTP ' + resp.status + ': Bad API key. Please check your Gemini key permissions and validity.';
+        } else if (resp.status === 404) {
+          errMsg = 'HTTP 404: Model "' + esc(model) + '" is not available on this endpoint or key.';
+        } else if (resp.status === 429) {
+          errMsg = 'HTTP 429: Daily quota exhausted or rate limit reached.';
+          var retrySec = 0;
+          var match = errDetail.match(/retry in\s+([\d\.]+)\s*s/i) || errDetail.match(/retry after\s+([\d\.]+)\s*s/i);
+          if (match) retrySec = Math.ceil(parseFloat(match[1]));
+          if (retrySec > 0) {
+            errMsg += ' Please wait ' + retrySec + 's before retrying.';
+            var cd = retrySec;
+            var cdTimer = setInterval(function(){
+              cd--;
+              if (cd <= 0) {
+                clearInterval(cdTimer);
+                if (resDiv) resDiv.innerHTML = '<div class="res bad">' + esc(errMsg) + '<div class="mini-note">Cooldown finished — you may retry now.</div></div>';
+              } else {
+                if (resDiv) resDiv.innerHTML = '<div class="res bad">' + esc(errMsg) + '<div class="mini-note">Cooldown: ' + cd + 's remaining...</div></div>';
+              }
+            }, 1000);
+          }
+        } else {
+          errMsg = 'HTTP ' + resp.status + ': ' + (errDetail || 'Connection failed.');
+        }
+
+        if (resDiv) resDiv.innerHTML = '<div class="res bad"><div><b>Connection Failed</b></div><div>' + esc(errMsg) + '</div></div>';
+        toastSafe('Connection test failed', 'error');
+      }
+    } catch(err) {
+      clearInterval(timer);
+      if (btn) { btn.disabled = false; btn.textContent = 'Test connection and save'; }
+      if (resDiv) resDiv.innerHTML = '<div class="res bad"><div><b>Network Error</b></div><div>' + esc(err.message || String(err)) + '</div></div>';
+      toastSafe('Network error during test', 'error');
+    }
+  };
+
+  window.mgAITranslate = async function(raw){
+    if (!raw) return null;
+    var cfg = getCfg();
+    if (!cfg || !cfg.key) return null;
+    var key = cfg.key.trim();
+    if (!key) return null;
+
+    var modelList = [cfg.model || 'gemini-2.5-flash-lite'];
+    MODELS.forEach(function(m){
+      if (modelList.indexOf(m.id) === -1) modelList.push(m.id);
+    });
+
+    var prompt = 'Translate the following Banglish or English note into natural standard Bengali script (বাংলা). Preserve numbers, names, and original meaning. Output ONLY the Bengali translation and nothing else:\n\n' + raw;
+
+    for (var i = 0; i < modelList.length; i++){
+      var curModel = modelList[i];
+      try {
+        var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(curModel) + ':generateContent?key=' + encodeURIComponent(key);
+        var resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              maxOutputTokens: 400,
+              temperature: 0.2
+            }
+          })
+        });
+
+        if (resp.ok) {
+          var data = await resp.json();
+          var txt = (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text) || '';
+          txt = txt.trim();
+          if (txt) return txt;
+        } else if (resp.status === 404 || resp.status === 429) {
+          console.warn('Gemini model ' + curModel + ' returned status ' + resp.status + ', attempting next fallback model...');
+          continue;
+        } else {
+          console.error('Gemini translation error with ' + curModel + ':', resp.status);
+          break;
+        }
+      } catch(err) {
+        console.error('Gemini request failed for ' + curModel + ':', err);
+        continue;
+      }
+    }
+    return null;
+  };
+
+  (function(){
+    var orig = window.mtQuickAddTodo;
+    if (!orig || orig.__mgAiWrapped) return;
+    var wrapped = async function(event){
+      if (!event || (event.key !== 'Enter' && event.keyCode !== 13 && event.which !== 13)) return null;
+      var createdTask = await orig.apply(this, arguments);
+      var cfg = getCfg();
+      if (!cfg || !cfg.key) return createdTask;
+      var task = createdTask || ((window.DATA && Array.isArray(window.DATA.todos)) ? window.DATA.todos[0] : null);
+      if (!task) return createdTask;
+      var raw = String(task.note_in || task.note || '').trim();
+      if (!raw || hasBn(raw)) return createdTask;
+
+      (async function(){
+        try {
+          var bnText = await window.mgAITranslate(raw);
+          if (bnText) {
+            task.note_in = null;
+            task.note = null;
+            task.note_bn = bnText;
+            task.updated_at = nowIso();
+            if (typeof window.mgTdPush === 'function') {
+              await window.mgTdPush(task, ['note', 'note_in', 'note_bn', 'updated_at']);
+            } else if (typeof persist === 'function') {
+              await persist();
+            }
+            if (typeof renderTodo === 'function') renderTodo();
+            toastSafe('Note translated to Bengali', 'success');
+          } else {
+            toastSafe('Translation failed — please check Gemini API settings from the gear icon', 'error');
+          }
+        } catch(e) {
+          toastSafe('Translation failed — please check Gemini API settings from the gear icon', 'error');
+        }
+      })();
+      return createdTask;
+    };
+    wrapped.__mgAiWrapped = true;
+    window.mtQuickAddTodo = wrapped;
+  })();
+})();
 
 /* ============ PERSISTENCE + ONEDRIVE FOLDER SYNC + DUAL-DEVICE LOCK ============ */
 const LS_KEY = 'mghrm_v6_state';

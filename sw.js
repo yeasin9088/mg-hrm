@@ -2,7 +2,7 @@
    MG Security HRM — Service Worker
    Role: Cache application assets offline
    ===================================================================== */
-const CACHE = 'mghrm-v25';  /* v3.5: bumped v9→v10 (Transfer action buttons + Meeting overhaul + Employee history bug fix + Toast top-right + To-Do reorder + Import module + Wipe DB + Serial columns) */
+const CACHE = 'mghrm-v27';  /* v3.5: bumped v9→v10 (Transfer action buttons + Meeting overhaul + Employee history bug fix + Toast top-right + To-Do reorder + Import module + Wipe DB + Serial columns) */
 const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './bd-geo.json', './config.js', './app-core.js'];
 
 self.addEventListener('install', (e) => {

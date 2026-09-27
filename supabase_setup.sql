@@ -366,8 +366,17 @@ create table if not exists public.designations (
 create table if not exists public.app_settings (
   setting_key   text primary key,
   setting_value jsonb,
+  deleted_at    timestamptz,
   updated_at    timestamptz not null default now()
 );
+
+-- Migration for soft-delete column
+alter table public.app_settings add column if not exists deleted_at timestamptz;
+
+-- Seed default row for ai_config if not exists
+insert into public.app_settings (setting_key, setting_value, updated_at)
+values ('ai_config', '{"key":"","model":"gemini-2.5-flash-lite"}'::jsonb, now())
+on conflict (setting_key) do nothing;
 
 -- ---------------------------------------------------------------------
 -- 13) PROFILES — User Authentication & Role-Based Access Control (RBAC)
@@ -545,6 +554,47 @@ create policy "activity_select" on public.activity_log
 
 create policy "activity_insert" on public.activity_log
   for insert to authenticated with check (true);
+
+-- ---------------------------------------------------------------------
+-- APP SETTINGS — Row Level Security Policies
+-- ---------------------------------------------------------------------
+
+-- =====================================================================
+-- VARIANT 1: AUTHENTICATED ROLE (Active by default via data_tables loop)
+-- =====================================================================
+-- 'app_settings' is included in data_tables array above (lines 501-506),
+-- automatically creating these policies:
+--
+--   1. "app_settings_select" ON public.app_settings
+--      FOR SELECT TO authenticated USING (true);
+--
+--   2. "app_settings_insert" ON public.app_settings
+--      FOR INSERT TO authenticated WITH CHECK (my_role() IN ('admin','owner'));
+--
+--   3. "app_settings_update" ON public.app_settings
+--      FOR UPDATE TO authenticated USING (my_role() IN ('admin','owner'));
+
+-- =====================================================================
+-- VARIANT 2: ANONYMOUS / SESSIONLESS (Uncomment ONLY if running without auth)
+-- =====================================================================
+-- Grants anon clients access strictly scoped to 'ai_config' so Gemini translation
+-- can work if users are not logged in with Supabase Auth credentials.
+--
+-- DROP POLICY IF EXISTS "app_settings_anon_select_ai_config" ON public.app_settings;
+-- CREATE POLICY "app_settings_anon_select_ai_config" ON public.app_settings
+--   FOR SELECT TO anon
+--   USING (setting_key = 'ai_config');
+--
+-- DROP POLICY IF EXISTS "app_settings_anon_insert_ai_config" ON public.app_settings;
+-- CREATE POLICY "app_settings_anon_insert_ai_config" ON public.app_settings
+--   FOR INSERT TO anon
+--   WITH CHECK (setting_key = 'ai_config');
+--
+-- DROP POLICY IF EXISTS "app_settings_anon_update_ai_config" ON public.app_settings;
+-- CREATE POLICY "app_settings_anon_update_ai_config" ON public.app_settings
+--   FOR UPDATE TO anon
+--   USING (setting_key = 'ai_config')
+--   WITH CHECK (setting_key = 'ai_config');
 
 
 

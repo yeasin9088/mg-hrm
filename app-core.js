@@ -440,6 +440,7 @@
       allowed: ['id', 'project', 'who', 'note', 'date', 'status', 'source', 'sourceDate',
                 'is_important', 'remind_on', 'category', 'priority', 'manager_status',
                 'manager_note', 'note_bn', 'solved_at',
+                'reminder_enabled', 'reminder_type', 'reminder_interval', 'reminder_dates', 'next_reminder_at',
                 'created_at', 'updated_at', 'extra_notes'],
       map: {
         'id': 'id',
@@ -471,7 +472,8 @@
     if (tableName === 'todos' || key === 'todos') {
       var allowed = (m && m.allowed) || ['id', 'project', 'who', 'note', 'date', 'status', 'source', 'sourceDate',
                                          'is_important', 'remind_on', 'category', 'priority', 'manager_status',
-                                         'manager_note', 'note_bn', 'solved_at'];
+                                         'manager_note', 'note_bn', 'solved_at',
+                                         'reminder_enabled', 'reminder_type', 'reminder_interval', 'reminder_dates', 'next_reminder_at'];
       var out = {};
       allowed.forEach(function (col) {
         if (rec[col] !== undefined) {

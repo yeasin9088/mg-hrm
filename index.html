@@ -11947,9 +11947,9 @@ function notifActions(n){
   if(n.type==='transfer_join') return `<button class="btn success sm" onclick="confirmJoin('${n.id}')">✓ ${'Joined'}</button> <button class="btn danger sm" onclick="denyJoin('${n.id}')">✗ ${'Cancel order'}</button>`;
   if(n.type==='sc') return `<button class="btn success sm" onclick="markReplied('${n.ref}')">✓ ${'Reply received'}</button> <button class="btn ghost sm" onclick="dismissNotif('${n.id}')">${'Later'}</button>`;
   if(n.type==='todo_rem' || n.type==='todo_salary'){
-    return `<button type="button" class="btn primary sm" onclick="event.stopPropagation();mgTodoNotifOpen('${n.ref}')">Open</button> ` +
-           `<button type="button" class="btn success sm" onclick="event.stopPropagation();mgTodoNotifSolved('${n.ref}')">Done</button> ` +
-           `<button type="button" class="btn ghost sm" onclick="event.stopPropagation();mgTodoNotifSnooze('${n.id}')">Later</button>`;
+    return '<button type="button" class="btn primary sm" onclick="event.stopPropagation();mgTodoNotifOpen(\'' + n.ref + '\')">Open</button> ' +
+           '<button type="button" class="btn success sm" onclick="event.stopPropagation();mgTodoNotifSolved(\'' + n.ref + '\')">Complete</button> ' +
+           '<button type="button" class="btn ghost sm" onclick="event.stopPropagation();mgTodoNotifSnooze(\'' + n.id + '\')">Snooze</button>';
   }
   return `<button class="btn ghost sm" onclick="dismissNotif('${n.id}')">${'Dismiss'}</button>`;
 }
@@ -12201,50 +12201,11 @@ window.handleNotifClick = function(id, type) {
       markNotifAsRead(id);
       navigate('disciplinary');
     } else if (type === 'todo_rem' || type === 'todo_salary') {
-      // 1. Mark read
       if (typeof markNotifAsRead === 'function') markNotifAsRead(id);
       if (typeof updateNotifBadge === 'function') updateNotifBadge();
-
-      // Record seen in this cycle
-      var cardObj = notifs.find(function(x){ return String(x.id) === String(id) || String(x.ref) === String(refId); });
-      var cycleVal = (cardObj && cardObj._cycle) || 1;
-      window.MG_TD_SEEN = window.MG_TD_SEEN || {};
-      window.MG_TD_SEEN[String(refId)] = cycleVal;
-
-      var todos = (window.DATA && Array.isArray(window.DATA.todos)) ? window.DATA.todos : [];
-      var note = todos.find(function(x){ return String(x.id) === String(refId); });
-
-      if (typeof navigate === 'function') navigate('todo');
-
-      if (note && note.deleted_at == null) {
-        var cat = (typeof tdCatOf === 'function') ? tdCatOf(note) : (note.category || 'note');
-        window.MG_TD_CAT_PICK = cat;
-        var sec = (typeof tdSec === 'function') ? tdSec(cat) : { key:'general' };
-        window.tdMainFilter = sec.key;
-        if (typeof tdMainFilter !== 'undefined') tdMainFilter = sec.key;
-
-        window.MG_TD_Q = '';
-        window.MG_TD_SUB = 'all';
-        var sInp = document.getElementById('tdSearch');
-        if (sInp) sInp.value = '';
-
-        window.MG_TD_OPEN = window.MG_TD_OPEN || {};
-        window.MG_TD_OPEN[String(note.id)] = true;
-        if (typeof renderTodo === 'function') renderTodo();
-
-        setTimeout(function(){
-          var row = document.getElementById('td-row-' + note.id) || document.querySelector('.td-row[data-id="' + CSS.escape(String(note.id)) + '"]');
-          if (row && typeof row.scrollIntoView === 'function') {
-            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            row.classList.add('td-highlight-ring');
-            setTimeout(function(){
-              row.classList.remove('td-highlight-ring');
-            }, 2400);
-          }
-        }, 120);
-      } else {
-        if (typeof renderTodo === 'function') renderTodo();
-      }
+      var theNotif = notifs.filter(function(x){ return String(x.id) === String(id); })[0];
+      var theRef = (theNotif && theNotif.ref) ? theNotif.ref : String(id).replace(/^tdr/, '');
+      window.mgTodoNotifOpen(theRef);
     } else {
       markNotifAsRead(id);
       navigate('notifications');
@@ -15752,7 +15713,7 @@ function renderTodo(){
     if(k === 'asked' || k === 'approved' || k === 'rejected' || k === 'verbal') return true;
     return String(t.category || '').toLowerCase() === 'permission';
   };
-  const remFlag = function(t){ return !!t.remind_on; };
+  const remFlag = function(t){ return t && t.reminder_enabled === true; };
   const xsOf = function(t){ return Array.isArray(t.extra_notes) ? t.extra_notes.filter(function(x){ return x && (x.bn || x.raw); }) : []; };
 
   const secList = (typeof TDSEC !== 'undefined' ? TDSEC : (window.TDSEC || [
@@ -15837,8 +15798,11 @@ function renderTodo(){
     const ia = a.is_important ? 0 : 1, ib = b.is_important ? 0 : 1;
     if(ia !== ib) return ia - ib;
     if(mainF === 'reminder'){
-      const ra = dayDiff(a.remind_on), rb = dayDiff(b.remind_on);
-      if(ra !== rb) return ra - rb;
+      const ta = (a.reminder_enabled === true && a.next_reminder_at) ? Date.parse(a.next_reminder_at) : Infinity;
+      const tb = (b.reminder_enabled === true && b.next_reminder_at) ? Date.parse(b.next_reminder_at) : Infinity;
+      const tva = isNaN(ta) ? Infinity : ta;
+      const tvb = isNaN(tb) ? Infinity : tb;
+      if(tva !== tvb) return tva - tvb;
     }
     if(mainF === 'manager' || mainF === 'mgr'){
       const ma = MGRW[String(a.manager_status || 'none').toLowerCase()] || 5;
@@ -15851,15 +15815,22 @@ function renderTodo(){
 
   let groups = [];
   if(mainF === 'reminder'){
-    const RK = ['over','today','tomorrow','week','later'];
-    const RL = { over:'Overdue', today:'Today', tomorrow:'Tomorrow', week:'This week', later:'Later' };
+    const RK = ['over','today','tomorrow','week','later','none'];
+    const RL = { over:'Overdue', today:'Today', tomorrow:'Tomorrow', week:'This week', later:'Later', none:'No reminder' };
     const map = {};
+    const nowMs = Date.now();
     ordered.forEach(function(t){
-      const d = String(t.remind_on || '').slice(0,10);
-      let k = 'later';
-      if(/^\d{4}-\d{2}-\d{2}$/.test(d)){
-        const diff = Math.round((new Date(d + 'T00:00:00') - new Date(today + 'T00:00:00')) / 86400000);
-        k = diff < 0 ? 'over' : (diff === 0 ? 'today' : (diff === 1 ? 'tomorrow' : (diff <= 7 ? 'week' : 'later')));
+      let k = 'none';
+      if (t.reminder_enabled === true && t.next_reminder_at){
+        const nx = Date.parse(t.next_reminder_at);
+        if (!isNaN(nx)){
+          const diffDays = Math.floor((nx - nowMs) / 86400000);
+          if (nx < nowMs) k = 'over';
+          else if (diffDays <= 0) k = 'today';
+          else if (diffDays === 1) k = 'tomorrow';
+          else if (diffDays <= 7) k = 'week';
+          else k = 'later';
+        }
       }
       if(!map[k]) map[k] = [];
       map[k].push(t);
@@ -15932,7 +15903,7 @@ function renderTodo(){
     const id = esc(String(t.id));
     const s = stOf(t);
     const solved = isSolvedT(t);
-    const isOpen = !!(window.MG_TD_OPEN && window.MG_TD_OPEN[String(t.id)]);
+    const isOpen = !!(window.MG_TD_X && window.MG_TD_X[String(t.id)]);
     const isMoveOpen = (window.MG_TD_MOVE === String(t.id));
     const ck = tdCatOf(t);
 
@@ -15967,37 +15938,20 @@ function renderTodo(){
     const orgName = esc(PN(t.project) || t.source || '');
     const showText = t.note_bn || t.note || t.note_in || '';
 
-    const isSalaryNote = (ck === 'salary' || String(t.category || '').toLowerCase() === 'salary');
-    const inSalWindow = (typeof window.mgTdIsSalaryWindow === 'function') ? window.mgTdIsSalaryWindow() : false;
-    let salChip = '';
-    if (isSalaryNote && !solved && inSalWindow) {
-      const nD = new Date();
-      const lastDay = (typeof window.mgTdDaysInMonth === 'function') ? window.mgTdDaysInMonth(nD) : new Date(nD.getFullYear(), nD.getMonth()+1, 0).getDate();
-      const mNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      const lastDayLabel = lastDay + ' ' + mNames[nD.getMonth()];
-      const daysLeft = Math.max(0, lastDay - nD.getDate());
-      const daysLeftText = daysLeft === 0 ? 'today is the last day' : (daysLeft + ' day' + (daysLeft > 1 ? 's' : '') + ' left');
-      salChip = '<span class="td-meta-sal-chip" style="font-size:10.5px;font-weight:700;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;padding:1px 6px;border-radius:4px;white-space:nowrap;">⏰ Deadline ' + esc(lastDayLabel) + ' · ' + esc(daysLeftText) + '</span>';
-    }
-
-    const remChip = t.remind_on ? ('<span class="td-meta-rem" style="color:#d97706;font-weight:600;display:inline-flex;align-items:center;gap:3px;">' + ICON.bell + ' Reminder on</span>') : '';
+    const remChip = (t.reminder_enabled === true) ? ('<span class="td-chip td-due" title="' + esc(window.mgRmSummary(t)) + '">' + ICON.bell + ' ' + esc(window.mgRmSummary(t)) + '</span>') : '';
 
     // COLLAPSED: status pill, relative time chip, Important chip if set, category chip when section is not General
     let thinMeta = '<span>' + stWord + '</span><span>·</span><span title="' + esc(w.full) + '">' + esc(w.txt || 'just now') + '</span>';
     if(t.is_important) thinMeta += '<span>·</span><span class="td-meta-imp">★ Important</span>';
     if(remChip) thinMeta += '<span>·</span>' + remChip;
-    if(salChip) thinMeta += '<span>·</span>' + salChip;
     if(mainF !== 'general'){
       thinMeta += '<span>·</span><span class="td-meta-cat">' + esc(CAT[ck] || ck) + '</span>';
     }
 
-    const isSalCat = (ck === 'salary' || (typeof tdCatOf === 'function' && tdCatOf(t) === 'salary'));
-    const isRemOn = !!(t.remind_on || isSalCat);
-    const remTitle = isSalCat ? 'Salary notes are reminded automatically in the last 2 days of the month' : 'Reminder on/off';
-
-    const remBtn = '<button type="button" class="td-remind' + (isRemOn ? ' on' : '') +
-      '" title="' + esc(remTitle) + '" onclick="event.stopPropagation();mtToggleTodoRemind(\'' + id + '\')">' +
-      ICON.bell + '</button>';
+    const isRemOn  = (t.reminder_enabled === true);
+    const remTitle = isRemOn ? ('Reminder: ' + window.mgRmSummary(t)) : 'Set a reminder';
+    const remBtn   = '<button type="button" class="td-remind' + (isRemOn ? ' on' : '') +
+      '" title="' + esc(remTitle) + '" onclick="event.stopPropagation();mtOpenRemPicker(\'' + id + '\')">' + ICON.bell + '</button>';
 
     let expandedHtml = '';
     if(isOpen){
@@ -16062,7 +16016,9 @@ function renderTodo(){
 
       // 6: the action row: Edit, Extra note, Move, Star, Remind, Delete
       const starBtn = '<button type="button" class="td-btn b-ghost' + (t.is_important ? ' is-imp-on' : '') + '" title="' + (t.is_important ? 'Remove important' : 'Mark as important') + '" onclick="event.stopPropagation();mtToggleTodoImportant(\'' + id + '\')">' + (t.is_important ? ICON.starOn : ICON.star) + ' ' + (t.is_important ? 'Important' : 'Star') + '</button>';
-      const remBtnAct = '<button type="button" class="td-btn b-ghost' + (isRemOn ? ' is-imp-on' : '') + '" title="' + esc(remTitle) + '" onclick="event.stopPropagation();mtToggleTodoRemind(\'' + id + '\')">' + ICON.bell + ' ' + (isRemOn ? 'Reminder on' : 'Remind') + '</button>';
+      const remBtnAct = '<button type="button" class="td-btn b-ghost' + (isRemOn ? ' is-imp-on' : '') +
+        '" title="' + esc(remTitle) + '" onclick="event.stopPropagation();mtOpenRemPicker(\'' + id + '\')">' +
+        ICON.bell + ' ' + (isRemOn ? esc(window.mgRmSummary(t)) : 'Remind') + '</button>';
       const delBtn  = '<button type="button" class="td-btn b-ghost td-del-btn" title="Delete note" style="color:var(--bad, #dc2626);" onclick="event.stopPropagation();delTodo(\'' + id + '\')">' + ICON.trash + ' Delete</button>';
       const moveBtn = '<button type="button" class="td-btn b-ghost' + (isMoveOpen ? ' b-primary' : '') + '" title="Move note" onclick="event.stopPropagation();mtOpenMove(\'' + id + '\')">' + ICON.move + ' Move</button>';
 
@@ -16290,6 +16246,12 @@ function renderTodo(){
       '<label>Type <select id="tdQuickCat" onchange="window.MG_TD_CAT_PICK=this.value;if(typeof window.mtComposerCatChanged===\'function\'){window.mtComposerCatChanged(this.value);}else{renderTodo();}">' +
         catOptsHtml +
       '</select></label>' +
+      '<label class="td-cf">Reminder<select id="tdQuickRemindType">' +
+        '<option value="">Off</option><option value="30m">30 min</option>' +
+        '<option value="1h">1 hour</option><option value="2h">2 hours</option>' +
+        '<option value="today">Once today</option>' +
+        '<option value="custom">Custom (choose dates on the card)</option>' +
+      '</select></label>' +
       '<button type="button" id="tdQuickSend" class="td-fb-send" onclick="mtQuickAddTodo()">Save note</button>' +
     '</div>' +
   '</div>';
@@ -16356,50 +16318,50 @@ window.mtTodoSearch = function(v){
   renderTodo();
 };
 
-window.mtToggleTodoImportant = function(id){
-  DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
-  const t = DATA.todos.find(function(x){ return String(x.id) === String(id); });
-  if(!t) return;
-  t.is_important = !t.is_important;
-  if(window.appData && typeof window.appData.update === 'function'){
-    window.appData.update('todos', t.id, { is_important: t.is_important }).catch(function(err){
-      console.error('Important flag sync failed:', err);
-    });
-  } else if(window.sb){
-    window.sb.from('todos').update({ is_important: t.is_important }).eq('id', t.id).catch(function(err){
-      console.error('Important flag sync failed:', err);
-    });
+window.mgTdFlagWrite = async function(t, patch){
+  if (!t) return false;
+  var keys = [];
+  for (var k in patch){ if (patch.hasOwnProperty(k)) keys.push(k); }
+  var prev = {};
+  keys.forEach(function(k){ prev[k] = t[k]; });
+
+  keys.forEach(function(k){ t[k] = patch[k]; });          /* optimistic UI */
+  if (typeof renderTodo === 'function') renderTodo();
+
+  if (!window.sb){
+    try { if (typeof window.persist === 'function') await window.persist(); } catch(e){}
+    if (typeof toast === 'function') toast('Saved on this device — not synced', 'warning');
+    return true;
   }
-  if (typeof persist === 'function') persist();
-  if (typeof window.checkSalaryReminder === 'function') window.checkSalaryReminder(true);
-  renderTodo();
+
+  var ok = false;
+  try {
+    /* RLS: todos_update allows admin/editor only. A denied update returns 0 rows and NO error,
+       so we ask for the id back and count the rows. */
+    var res = await window.sb.from('todos').update(patch).eq('id', t.id).select('id');
+    if (res && res.error) throw res.error;
+    if (!res || !res.data || !res.data.length) throw new Error('No row updated (permission or missing row)');
+    ok = true;
+  } catch(err){
+    keys.forEach(function(k){ t[k] = prev[k]; });         /* roll the UI back */
+    if (typeof renderTodo === 'function') renderTodo();
+    if (typeof toast === 'function') toast('Could not save — your account may not have edit permission', 'error');
+    console.error('To-Do flag write failed:', err);
+    return false;
+  }
+
+  try { if (typeof window.persist === 'function') await window.persist(); } catch(e){}
+  return ok;
 };
 
-window.mtToggleTodoRemind = function(id){
+window.mtToggleTodoImportant = function(id){
   DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
-  const t = DATA.todos.find(function(x){ return String(x.id) === String(id); });
-  if(!t) return;
-  var cat = (typeof tdCatOf === 'function') ? tdCatOf(t) : (t.category || 'note');
-  if (cat === 'salary') {
-    if (typeof toast === 'function') {
-      toast('Salary notes are reminded automatically in the last 2 days of the month', 'info');
-    }
-    return;
-  }
-  const today = (typeof todayISO === 'function') ? todayISO() : new Date().toISOString().slice(0, 10);
-  t.remind_on = t.remind_on ? null : today;
-  if(window.appData && typeof window.appData.update === 'function'){
-    window.appData.update('todos', t.id, { remind_on: t.remind_on }).catch(function(err){
-      console.error('Reminder flag sync failed:', err);
-    });
-  } else if(window.sb){
-    window.sb.from('todos').update({ remind_on: t.remind_on }).eq('id', t.id).catch(function(err){
-      console.error('Reminder flag sync failed:', err);
-    });
-  }
-  if (typeof persist === 'function') persist();
-  if (typeof window.checkSalaryReminder === 'function') window.checkSalaryReminder(true);
-  renderTodo();
+  var t = DATA.todos.find(function(x){ return String(x.id) === String(id); });
+  if (!t) return;
+  var next = !t.is_important;
+  window.mgTdFlagWrite(t, { is_important: next }).then(function(ok){
+    if (ok && typeof updateTodoBadge === 'function') updateTodoBadge();
+  });
 };
 
 window.mtQuickAddTodo = async function(event) {
@@ -16413,6 +16375,8 @@ window.mtQuickAddTodo = async function(event) {
   if (!input) return null;
   const raw = input.value.trim();
   if (!raw) return null;
+
+  var remTypeEl = document.getElementById('tdQuickRemindType');
 
   const catEl = document.getElementById('tdQuickCat');
   const catVal = (catEl && catEl.value) ? catEl.value : (window.MG_TD_CAT_PICK || 'note');
@@ -16445,18 +16409,35 @@ window.mtQuickAddTodo = async function(event) {
       sourceDate: d,
       category: catVal,
       manager_status: (catVal === 'permission' ? 'asked' : 'none'),
+      reminder_enabled: false,
+      reminder_type: null,
+      reminder_interval: null,
+      reminder_dates: [],
+      next_reminder_at: null,
       created_at: nowIso,
       updated_at: nowIso
     };
 
     DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
     DATA.todos.unshift(task);
+
+    var remChoice = remTypeEl ? String(remTypeEl.value || '') : '';
+    if (remChoice && remChoice !== 'custom' && window.MG_RM_TYPES[remChoice]){
+      task.reminder_enabled  = true;
+      task.reminder_type     = remChoice;
+      task.reminder_interval = window.MG_RM_TYPES[remChoice].interval;
+      task.next_reminder_at  = null;            /* the engine computes it on the next tick */
+    } else if (remChoice === 'custom'){
+      if (typeof toast === 'function') toast('Open the bell on the card to pick custom dates', 'info');
+    }
+    if (remTypeEl) remTypeEl.value = '';
+
     renderTodo();
     if (typeof updateTodoBadge === 'function') updateTodoBadge();
 
     try {
       if (typeof window.mgTdPush === 'function') {
-        await window.mgTdPush(task, ['note', 'note_bn', 'date', 'who', 'status', 'source', 'sourceDate', 'category', 'manager_status', 'created_at', 'updated_at']);
+        await window.mgTdPush(task, ['note', 'note_bn', 'date', 'who', 'status', 'source', 'sourceDate', 'category', 'manager_status', 'reminder_enabled', 'reminder_type', 'reminder_interval', 'reminder_dates', 'next_reminder_at', 'created_at', 'updated_at']);
       } else if (typeof persist === 'function') {
         await persist();
       }
@@ -16771,7 +16752,7 @@ window.printTodos = function(mode) {
       var noteTxt = escP(t.note_bn || t.note || t.note_in || '');
       var noteStyle = solved ? 'text-decoration:line-through;color:#64748b;' : 'color:#0f172a;';
       var imp = t.is_important ? '<span style="color:#b45309;font-weight:700;"> \u2605</span>' : '';
-      var rem = t.remind_on ? '<div style="font-size:8pt;color:#475569;margin-top:2px;">Remind on ' + escP(dateP(t.remind_on)) + '</div>' : '';
+      var rem = (t.reminder_enabled === true) ? '<div style="font-size:8pt;color:#475569;margin-top:2px;">Reminder: ' + escP(window.mgRmSummary(t)) + '</div>' : '';
       var mgr = (t.manager_status && t.manager_status !== 'none') ? '<div style="font-size:8pt;color:#475569;margin-top:2px;">Manager: ' + escP(t.manager_status) + '</div>' : '';
       var mgrNote = t.manager_note ? '<div style="font-size:8pt;color:#475569;margin-top:2px;">' + escP(t.manager_note) + '</div>' : '';
 
@@ -16842,17 +16823,6 @@ window.updateTodoBadge = function(){
   b.textContent = (typeof num === 'function' ? num(open) : String(open));
 };
 
-/* ===== MG To-Do : Salary Deadline & Repeat Reminder Notification Engine ===== */
-window.mgTdDaysInMonth = function(d){
-  d = d || new Date();
-  return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-};
-
-window.mgTdIsSalaryWindow = function(d){
-  d = d || new Date();
-  return d.getDate() >= (window.mgTdDaysInMonth(d) - 1);
-};
-
 window.mgTdIsSolved = function(t){
   if (!t) return false;
   if (t.solved_at) return true;
@@ -16860,50 +16830,557 @@ window.mgTdIsSolved = function(t){
   return s === 'solved_approved' || s === 'solved_rejected' || s === 'solved' || s === 'done';
 };
 
-window.MG_TD_CFG_DEFAULTS = {
-  aMinutes:   60,      /* Group A window: important / bell-on notes          */
-  bMinutes:   30,      /* Group B window: salary notes in the deadline window */
-  toast:      true,    /* quiet toasts on/off                                  */
-  toastMax:   2,       /* most note toasts visible at once (1-3)               */
-  toastGapSec: 60,     /* at most one note toast per this many seconds         */
-  quietOn:    false,   /* quiet hours DISABLED by default                      */
-  quietStart: '22:00',
-  quietEnd:   '07:00',
-  remOn:      true,    /* group A enabled  */
-  salOn:      true,    /* group B enabled  */
-  master:     true,    /* all in-app reminders enabled */
-  savedAt:    0
+/* ==========================================================================
+   MG REMINDER SYSTEM v2 — per-note, database-driven schedules
+   ========================================================================== */
+window.MG_RM_TYPE_ORDER = ['30m', '1h', '2h', 'today', 'custom'];
+
+window.MG_RM_TYPES = {
+  '30m':    { label: 'Every 30 minutes', interval: 30,   hint: 'Repeats all day, every day' },
+  '1h':     { label: 'Every 1 hour',     interval: 60,   hint: 'Repeats all day, every day' },
+  '2h':     { label: 'Every 2 hours',    interval: 120,  hint: 'Repeats all day, every day' },
+  'today':  { label: 'Once Today',       interval: 1440, hint: 'Shows once now, then once a day at the same time' },
+  'custom': { label: 'Custom dates',     interval: 60,   hint: 'Pick dates and an interval for each date' }
 };
-window.MG_TD_CFG = Object.assign({}, window.MG_TD_CFG_DEFAULTS);
+
+window.MG_RM_INTERVALS   = [15, 30, 60, 120, 180, 240, 360, 480, 720];
+window.MG_RM_TOAST_Q     = window.MG_RM_TOAST_Q || [];
+window.MG_RM_Q_MAX       = 40;
+window.MG_RM_WRITE_WARNED = false;
+window.MG_RM_WQ          = window.MG_RM_WQ || Promise.resolve();
+
+window.mgRmQueue = function(fn){
+  window.MG_RM_WQ = window.MG_RM_WQ.then(fn).catch(function(e){ console.error('MG_RM queue error:', e); });
+  return window.MG_RM_WQ;
+};
+
+window.mgRmActiveTodos = function(){
+  var list = (window.DATA && Array.isArray(window.DATA.todos)) ? window.DATA.todos : [];
+  return list.filter(function(t){ return !!t && t.deleted_at == null; });
+};
+
+window.mgTdFindTodo = function(id){
+  var all = window.mgRmActiveTodos();
+  for (var i = 0; i < all.length; i++){ if (String(all[i].id) === String(id)) return all[i]; }
+  return null;
+};
+
+window.mgRmIsClosed = function(t){
+  if (!t || t.deleted_at) return true;
+  if (t.solved_at) return true;
+  var s = String(t.status || 'pending').toLowerCase();
+  return (s === 'solved' || s === 'solved_approved' || s === 'solved_rejected' || s === 'done');
+};
+
+window.mgRmTypeOf = function(t){
+  var k = String((t && t.reminder_type) || '1h');
+  return window.MG_RM_TYPES[k] ? k : '1h';
+};
+
+window.mgRmIntervalOf = function(t){
+  var iv = Number(t && t.reminder_interval);
+  if (!iv || iv < 5) iv = window.MG_RM_TYPES[window.mgRmTypeOf(t)].interval;
+  return Math.max(5, Math.min(1440, iv));
+};
+
+window.mgRmDates = function(t){
+  var raw = (t && t.reminder_dates) || [];
+  if (typeof raw === 'string'){ try { raw = JSON.parse(raw); } catch(e){ raw = []; } }
+  if (!Array.isArray(raw)) return [];
+  var out = [];
+  for (var i = 0; i < raw.length; i++){
+    var x = raw[i];
+    var d = (x && typeof x === 'object' && !Array.isArray(x)) ? String(x.date || '') : String(x || '');
+    d = d.slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+    var iv = (x && typeof x === 'object') ? Number(x.interval) : NaN;
+    if (!iv || iv < 5) iv = window.mgRmIntervalOf(t);
+    out.push({ date: d, interval: Math.max(5, Math.min(1440, iv)) });
+  }
+  out.sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+  return out.slice(0, 20);
+};
+
+window.mgRmMonthName = function(m){
+  var n = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return n[(Number(m) || 1) - 1];
+};
+
+window.mgRmIvLabel = function(v){
+  v = Number(v) || 60;
+  if (v < 60) return 'every ' + v + ' min';
+  var h = v / 60;
+  if (h === 1) return 'every 1 hour';
+  return 'every ' + (h % 1 === 0 ? h : h.toFixed(1)) + ' hours';
+};
+
+/* human text used on the card, in the picker and inside the notification meta */
+window.mgRmSummary = function(t){
+  if (!t || t.reminder_enabled !== true) return 'No reminder';
+  var type = window.mgRmTypeOf(t);
+  if (type !== 'custom') return window.MG_RM_TYPES[type].label;
+  var defs = window.mgRmDates(t);
+  if (!defs.length) return 'Custom dates';
+  var parts = [];
+  for (var i = 0; i < defs.length && i < 3; i++){
+    var p = defs[i].date.split('-');
+    parts.push(p[2] + ' ' + window.mgRmMonthName(p[1]) + ' ' + window.mgRmIvLabel(defs[i].interval));
+  }
+  return parts.join(' | ') + (defs.length > 3 ? ' +' + (defs.length - 3) + ' more' : '');
+};
+
+/* THE schedule calculator. Returns an epoch ms, or null when nothing is left to fire. */
+window.mgRmNextAt = function(t, fromMs){
+  if (!t || t.reminder_enabled !== true) return null;
+  if (window.mgRmIsClosed(t)) return null;
+  fromMs = fromMs || Date.now();
+
+  var type = window.mgRmTypeOf(t);
+  var cur  = t.next_reminder_at ? Date.parse(t.next_reminder_at) : NaN;
+  if (isNaN(cur)) cur = null;
+  if (cur !== null && cur > fromMs) return cur;        /* honour stored value (incl. snooze) */
+
+  if (type === 'custom'){
+    var defs = window.mgRmDates(t);
+    var best = null;
+    for (var i = 0; i < defs.length; i++){
+      var start = new Date(defs[i].date + 'T00:00:00').getTime();
+      if (isNaN(start)) continue;
+      var step = defs[i].interval * 60000;
+      var slot = (fromMs < start) ? start
+                                 : start + (Math.floor((fromMs - start) / step) + 1) * step;
+      if (slot >= start + 86400000) continue;           /* that day is over */
+      if (best === null || slot < best) best = slot;
+    }
+    return best;
+  }
+
+  if (type === 'today'){
+    if (cur === null) return fromMs;                    /* first time: fire now */
+    return cur + (Math.floor((fromMs - cur) / 86400000) + 1) * 86400000;
+  }
+
+  var step2 = window.mgRmIntervalOf(t) * 60000;
+  if (cur === null) return fromMs + step2;              /* first alert after one interval */
+  return cur + (Math.floor((fromMs - cur) / step2) + 1) * step2;
+};
+
+/* write the whole schedule to Supabase, with optimistic UI + rollback */
+window.mgRmApply = function(t, patch){
+  if (!t) return Promise.resolve(false);
+  var keys = [], prev = {}, k;
+  for (k in patch){ if (patch.hasOwnProperty(k)) keys.push(k); }
+  keys.forEach(function(kk){ prev[kk] = t[kk]; t[kk] = patch[kk]; });
+  if (typeof window.persist === 'function'){ try { window.persist(); } catch(e){} }
+  if (!window.sb){
+    if (typeof toast === 'function') toast('Saved on this device — not synced', 'warning');
+    return Promise.resolve(true);
+  }
+  return window.sb.from('todos').update(patch).eq('id', t.id).select('id')
+    .then(function(res){
+      if (res && res.error) throw res.error;
+      if (!res || !res.data || !res.data.length) throw new Error('0 rows updated');
+      return true;
+    })
+    .catch(function(err){
+      keys.forEach(function(kk){ t[kk] = prev[kk]; });
+      if (typeof renderTodo === 'function') renderTodo();
+      console.error('Reminder save failed:', err);
+      if (typeof toast === 'function') toast('Could not save — your account may not have edit permission', 'error');
+      return false;
+    });
+};
+
+/* hot path: store the next due time. Sets memory first so the tick cannot double-fire */
+window.mgRmWriteNext = function(t, ms){
+  if (!t) return;
+  var iso     = ms ? new Date(ms).toISOString() : null;
+  var prevIso = t.next_reminder_at || null;
+  if (String(prevIso || '') === String(iso || '')) return;
+  t.next_reminder_at = iso;
+  if (!window.sb) return;
+  window.mgRmQueue(function(){
+    return window.sb.from('todos').update({ next_reminder_at: iso }).eq('id', t.id).select('id')
+      .then(function(res){
+        if (res && res.error) throw res.error;
+        if (!res || !res.data || !res.data.length) throw new Error('0 rows updated');
+      })
+      .catch(function(err){
+        t.next_reminder_at = prevIso;
+        console.error('next_reminder_at write failed:', err);
+        if (!window.MG_RM_WRITE_WARNED && typeof toast === 'function'){
+          window.MG_RM_WRITE_WARNED = true;
+          toast('Reminder could not be saved — your account may not have edit permission', 'error');
+        }
+      });
+  });
+};
+
+window.mgRmIsQuietNow = function(qStart, qEnd){
+  if (!qStart || !qEnd) return false;
+  var d = new Date();
+  var cur = d.getHours() * 60 + d.getMinutes();
+  var sp = String(qStart).split(':'), ep = String(qEnd).split(':');
+  var s = (Number(sp[0]) || 0) * 60 + (Number(sp[1]) || 0);
+  var e = (Number(ep[0]) || 0) * 60 + (Number(ep[1]) || 0);
+  if (s <= e) return cur >= s && cur < e;
+  return cur >= s || cur < e;
+};
+
+/* verified against this file: the generic modal is #modal, the note modal is #mgTdModal,
+   the print preview is #printModal */
+window.mgRmUiBusy = function(){
+  try {
+    var m = document.getElementById('modal');
+    if (m && m.classList.contains('open')) return true;
+    var tm = document.getElementById('mgTdModal');
+    if (tm && tm.classList.contains('open')) return true;
+    var pm = document.getElementById('printModal');
+    if (pm && pm.classList.contains('open')) return true;
+  } catch(e){}
+  return false;
+};
+
+window.mgRmToastBody = function(t){
+  var raw    = String(t.note_bn || t.note || t.note_in || '').trim();
+  var cat    = (typeof tdCatOf === 'function') ? tdCatOf(t) : (t.category || 'note');
+  var secObj = (typeof tdSec === 'function') ? tdSec(cat) : null;
+  var label  = (secObj && secObj.label) ? secObj.label : 'General';
+  var pName  = (typeof projName === 'function' && t.project) ? projName(t.project) : (t.project || '');
+  return '<div style="display:flex;flex-direction:column;gap:4px;font-family:inherit;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:2px;">' +
+        '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--primary,#4f46e5);background:var(--primary-soft,#eef2ff);padding:2px 7px;border-radius:4px;line-height:1.2;">' + escapeHtml(label) + '</span>' +
+        '<span style="font-size:11px;color:var(--text-mute);font-weight:500;">' + escapeHtml(window.mgRmSummary(t)) + '</span>' +
+      '</div>' +
+      '<div style="font-size:13.5px;font-weight:600;color:var(--text-main);line-height:1.45;word-break:break-word;">' + escapeHtml(raw || 'Untitled note') + '</div>' +
+      (pName ? '<div style="font-size:11.5px;color:var(--text-mute);margin-top:2px;font-weight:500;">' + escapeHtml(pName) + '</div>' : '') +
+    '</div>';
+};
+
+window.mgRmQueueToast = function(id){
+  var q = window.MG_RM_TOAST_Q = window.MG_RM_TOAST_Q || [];
+  for (var i = q.length - 1; i >= 0; i--){ if (String(q[i]) === String(id)) q.splice(i, 1); }
+  q.push(String(id));
+  while (q.length > (window.MG_RM_Q_MAX || 40)) q.shift();
+};
+
+window.mgRmDrainToastQ = function(){
+  try {
+    var q = window.MG_RM_TOAST_Q;
+    if (!q || !q.length) return;
+    if (document.hidden) return;
+    var cfg = window.MG_TD_CFG || window.MG_TD_CFG_DEFAULTS || {};
+    if (cfg.toast === false) return;
+    if (cfg.quietOn && window.mgRmIsQuietNow(cfg.quietStart, cfg.quietEnd)) return;
+    if (window.mgRmUiBusy()) return;
+    var wrap = document.getElementById('toastWrap');
+    if (!wrap) return;
+    if (wrap.querySelectorAll('.toast').length >= (cfg.toastMax || 2)) return;
+    if (Date.now() - (window._mgLastToastAt || 0) < (cfg.toastGapSec || 60) * 1000) return;
+    var id = q.shift();
+    var t = window.mgTdFindTodo(id);
+    if (!t || t.reminder_enabled !== true || window.mgRmIsClosed(t)) return;
+    window._mgLastToastAt = Date.now();
+    if (typeof toast === 'function'){
+      toast(window.mgRmToastBody(t), 'info', function(){
+        if (typeof window.mgTodoNotifOpen === 'function') window.mgTodoNotifOpen(String(t.id));
+      });
+    }
+  } catch(e){ console.error('mgRmDrainToastQ error:', e); }
+};
+
+/* one live in-app card per note: refreshed (never duplicated) on every fire */
+window.mgRmFire = function(t){
+  var notifs = window.NOTIFICATIONS || NOTIFICATIONS || [];
+  var nid = 'tdr' + t.id;
+  var card = null;
+  for (var i = 0; i < notifs.length; i++){ if (String(notifs[i].id) === nid){ card = notifs[i]; break; } }
+  var raw    = String(t.note_bn || t.note || t.note_in || '').trim();
+  var cat    = (typeof tdCatOf === 'function') ? tdCatOf(t) : (t.category || 'note');
+  var secObj = (typeof tdSec === 'function') ? tdSec(cat) : null;
+  var pName  = (typeof projName === 'function' && t.project) ? projName(t.project) : (t.project || '');
+  var title  = raw ? (raw.length > 120 ? raw.slice(0, 119) + '…' : raw) : 'Untitled note';
+  var meta   = ((secObj && secObj.label) ? secObj.label : 'General') +
+               (pName ? ' · ' + pName : '') + ' · ' + window.mgRmSummary(t);
+  if (!card){
+    card = { id: nid, type: 'todo_rem', ref: String(t.id), severity: 'info', title: title,
+             meta: meta, detail: '', isRead: false, createdAt: Date.now() };
+    notifs.unshift(card);
+  } else {
+    card.type = 'todo_rem'; card.severity = 'info';
+    card.title = title; card.meta = meta;
+    card.createdAt = Date.now(); card.isRead = false;
+    var idx = notifs.indexOf(card);
+    if (idx > 0){ notifs.splice(idx, 1); notifs.unshift(card); }
+  }
+  window.mgRmQueueToast(t.id);
+};
+
+/* THE ENGINE — the only scheduler in the app */
+window.mgReminderTick = function(){
+  try {
+    var cfg    = window.MG_TD_CFG || window.MG_TD_CFG_DEFAULTS || {};
+    var notifs = window.NOTIFICATIONS || NOTIFICATIONS || [];
+    var now    = Date.now();
+    var list   = window.mgRmActiveTodos();
+    var map    = {};
+    list.forEach(function(x){ map[String(x.id)] = x; });
+    var changed = false;
+
+    /* 1. drop reminder cards whose note is gone, solved or bell-off */
+    for (var i = notifs.length - 1; i >= 0; i--){
+      var n = notifs[i];
+      if (n.type !== 'todo_rem') continue;
+      var note = map[String(n.ref)];
+      var live = !!note && note.reminder_enabled === true && !window.mgRmIsClosed(note);
+      if (!live){ notifs.splice(i, 1); changed = true; }
+    }
+
+    /* 2. due scan — one check per note, nothing global */
+    if (cfg.master !== false){
+      list.forEach(function(t){
+        if (t.reminder_enabled !== true) return;
+        var cur = t.next_reminder_at ? Date.parse(t.next_reminder_at) : NaN;
+        if (isNaN(cur)) cur = null;
+
+        if (window.mgRmIsClosed(t)){
+          if (cur !== null) window.mgRmWriteNext(t, null);
+          return;
+        }
+        if (cur === null){
+          var first = window.mgRmNextAt(t, now);
+          window.mgRmWriteNext(t, first);
+          if (first === null || first > now) return;
+          cur = first;
+        }
+        if (cur > now) return;
+
+        window.mgRmFire(t);                                 /* due now */
+        window.mgRmWriteNext(t, window.mgRmNextAt(t, now));  /* schedule the next one */
+        changed = true;
+      });
+    }
+
+    if (changed){
+      if (typeof updateNotifBadge === 'function') updateNotifBadge();
+      var np = document.getElementById('page-notifications');
+      if (np && np.style.display !== 'none' && typeof renderNotifications === 'function') renderNotifications();
+      var nd = document.getElementById('notifDropdown');
+      if (nd && nd.classList.contains('open') && typeof renderNotifDropdown === 'function') renderNotifDropdown();
+    }
+    window.mgRmDrainToastQ();
+  } catch(err){ console.error('mgReminderTick error:', err); }
+};
+
+window.mgTodoNotifyTick = window.mgReminderTick;   /* alias — old callers keep working */
+
+/* THE SCHEDULE PICKER */
+window.mgRmRenderPicker = function(){
+  var d = window.MG_RM_DRAFT;
+  if (!d) return;
+  var t = window.mgTdFindTodo(d.id);
+  var raw = t ? String(t.note_bn || t.note || t.note_in || '').trim() : '';
+  var preview = raw ? (raw.length > 90 ? raw.slice(0, 89) + '…' : raw) : 'Untitled note';
+
+  var html = '<div style="display:flex;flex-direction:column;gap:14px;">' +
+    '<div style="font-size:12.5px;color:var(--text-mute);background:var(--bg-dim);padding:8px 10px;border-radius:6px;border:1px dashed var(--border);">' + escapeHtml(preview) + '</div>' +
+    '<div style="display:flex;flex-direction:column;gap:6px;">';
+
+  window.MG_RM_TYPE_ORDER.forEach(function(key){
+    var m = window.MG_RM_TYPES[key];
+    var on = (d.type === key);
+    html += '<label style="display:flex;align-items:flex-start;gap:9px;padding:8px 10px;border-radius:8px;cursor:pointer;border:1px solid ' + (on ? 'var(--primary)' : 'var(--border)') + ';background:' + (on ? 'var(--primary-soft,#eef2ff)' : 'transparent') + ';">' +
+      '<input type="radio" name="mgRmType" value="' + key + '" ' + (on ? 'checked' : '') + ' onchange="mtRemPickType(\'' + key + '\')" style="margin-top:2px;accent-color:var(--primary);">' +
+      '<span><span style="display:block;font-size:13px;font-weight:600;color:var(--text-main);">' + escapeHtml(m.label) + '</span>' +
+      '<span style="display:block;font-size:11.5px;color:var(--text-mute);">' + escapeHtml(m.hint) + '</span></span></label>';
+  });
+  html += '</div>';
+
+  if (d.type === 'custom'){
+    html += '<div style="border:1px solid var(--border);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px;">' +
+      '<div style="font-size:12px;font-weight:700;color:var(--text-main);">Dates and their intervals</div>';
+    d.dates.forEach(function(r, i){
+      html += '<div style="display:flex;gap:6px;align-items:center;">' +
+        '<input type="date" value="' + escapeHtml(r.date) + '" onchange="mtRemSetDate(' + i + ',this.value)" style="flex:1;min-width:0;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text-main);">' +
+        '<select onchange="mtRemSetIv(' + i + ',this.value)" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text-main);">' +
+          window.MG_RM_INTERVALS.map(function(v){
+            return '<option value="' + v + '"' + (Number(r.interval) === v ? ' selected' : '') + '>' + window.mgRmIvLabel(v) + '</option>';
+          }).join('') +
+        '</select>' +
+        '<button type="button" class="btn ghost sm" onclick="mtRemDelDate(' + i + ')">x</button>' +
+      '</div>';
+    });
+    html += '<button type="button" class="btn ghost sm" onclick="mtRemAddDate()">+ Add another date</button>' +
+      '<div style="font-size:11px;color:var(--text-mute);">Example: 28 September every 1 hour, 30 September every 2 hours. On each date the reminder repeats inside that day.</div>' +
+    '</div>';
+  }
+
+  html += '<div style="font-size:11.5px;color:var(--text-mute);line-height:1.5;">' +
+    'The schedule is stored in the database with this note, so it survives refresh, browser restart and logout. ' +
+    'A solved or deleted note stops reminding automatically.</div></div>';
+
+  var actions = ((t && t.reminder_enabled === true)
+      ? '<button type="button" class="btn ghost sm" onclick="mtRemOff()">Turn off reminder</button>' : '') +
+    '<button type="button" class="btn ghost sm" onclick="closeModal()">Cancel</button>' +
+    '<button type="button" class="btn primary sm" onclick="mtRemSave()">Save reminder</button>';
+
+  if (typeof openModal === 'function') openModal('Reminder schedule', html, actions);
+};
+
+window.mtOpenRemPicker = function(id){
+  var t = window.mgTdFindTodo(id);
+  if (!t){ if (typeof toast === 'function') toast('Note not found', 'error'); return; }
+  var type  = (t.reminder_enabled === true) ? window.mgRmTypeOf(t) : '1h';
+  var dates = window.mgRmDates(t);
+  if (!dates.length){
+    dates = [{ date: ((typeof todayISO === 'function') ? todayISO() : new Date().toISOString().slice(0, 10)),
+               interval: window.MG_RM_TYPES[type].interval }];
+  }
+  window.MG_RM_DRAFT = { id: String(t.id), type: type, dates: dates };
+  window.mgRmRenderPicker();
+};
+
+window.mtRemPickType = function(key){ if (!window.MG_RM_DRAFT) return; window.MG_RM_DRAFT.type = key; window.mgRmRenderPicker(); };
+window.mtRemAddDate  = function(){
+  var d = window.MG_RM_DRAFT; if (!d) return;
+  if (d.dates.length >= 20){ if (typeof toast === 'function') toast('Maximum 20 dates', 'info'); return; }
+  var last = d.dates.length ? d.dates[d.dates.length - 1] : null;
+  d.dates.push({ date: (last ? last.date : new Date().toISOString().slice(0, 10)), interval: (last ? last.interval : 60) });
+  window.mgRmRenderPicker();
+};
+window.mtRemDelDate = function(i){
+  var d = window.MG_RM_DRAFT; if (!d) return;
+  if (d.dates.length <= 1) d.dates = []; else d.dates.splice(i, 1);
+  window.mgRmRenderPicker();
+};
+window.mtRemSetDate = function(i, v){ var d = window.MG_RM_DRAFT; if (d && d.dates[i]) d.dates[i].date = String(v || '').slice(0, 10); };
+window.mtRemSetIv   = function(i, v){ var d = window.MG_RM_DRAFT; if (d && d.dates[i]) d.dates[i].interval = Math.max(5, Math.min(1440, Number(v) || 60)); };
+
+window.mtRemSave = async function(){
+  var d = window.MG_RM_DRAFT;
+  if (!d) return;
+  var t = window.mgTdFindTodo(d.id);
+  if (!t) return;
+  var type  = window.MG_RM_TYPES[d.type] ? d.type : '1h';
+  var patch = { reminder_enabled: true, reminder_type: type,
+                reminder_interval: window.MG_RM_TYPES[type].interval };
+  if (type === 'custom'){
+    var clean = [];
+    d.dates.forEach(function(r){
+      if (r && /^\d{4}-\d{2}-\d{2}$/.test(String(r.date))){
+        clean.push({ date: String(r.date).slice(0, 10), interval: Math.max(5, Math.min(1440, Number(r.interval) || 60)) });
+      }
+    });
+    if (!clean.length){ if (typeof toast === 'function') toast('Add at least one date', 'error'); return; }
+    patch.reminder_dates = clean;
+  }
+  var tmp = {};
+  for (var k in t){ if (t.hasOwnProperty(k)) tmp[k] = t[k]; }
+  for (var k2 in patch){ if (patch.hasOwnProperty(k2)) tmp[k2] = patch[k2]; }
+  tmp.next_reminder_at = null;
+  var next = window.mgRmNextAt(tmp, Date.now());
+  patch.next_reminder_at = next ? new Date(next).toISOString() : null;
+
+  if (typeof closeModal === 'function') closeModal();
+  window.MG_RM_DRAFT = null;
+  var ok = await window.mgRmApply(t, patch);
+  if (typeof renderTodo === 'function') renderTodo();
+  if (!ok) return;
+  if (typeof toast === 'function') toast('Reminder set - ' + window.mgRmSummary(t), 'success');
+  window.mgReminderTick();
+};
+
+window.mtRemOff = async function(){
+  var d = window.MG_RM_DRAFT;
+  if (!d) return;
+  var t = window.mgTdFindTodo(d.id);
+  if (!t) return;
+  if (typeof closeModal === 'function') closeModal();
+  window.MG_RM_DRAFT = null;
+  var ok = await window.mgRmApply(t, { reminder_enabled: false, next_reminder_at: null });
+  var notifs = window.NOTIFICATIONS || NOTIFICATIONS || [];
+  var nid = 'tdr' + t.id;
+  for (var i = notifs.length - 1; i >= 0; i--){ if (String(notifs[i].id) === nid) notifs.splice(i, 1); }
+  if (typeof updateNotifBadge === 'function') updateNotifBadge();
+  if (typeof renderTodo === 'function') renderTodo();
+  if (ok && typeof toast === 'function') toast('Reminder turned off', 'info');
+};
+
+/* NOTIFICATION ACTIONS (TASK 3) */
+window.mgTodoNotifOpen = function(ref){
+  var t = window.mgTdFindTodo(ref);
+  if (typeof navigate === 'function') navigate('todo');
+  if (!t){ if (typeof renderTodo === 'function') renderTodo(); return; }
+  var cat = (typeof tdCatOf === 'function') ? tdCatOf(t) : (t.category || 'note');
+  window.MG_TD_CAT_PICK = cat;                    /* section tab picker reads this */
+  window.MT_TODO_FILTER = 'all';                  /* status filter reads this */
+  window.MG_TD_Q = '';
+  window.MG_TD_SUB = 'all';
+  window.MG_TD_FOCUS = '';
+  var sInp = document.getElementById('tdSearch');
+  if (sInp) sInp.value = '';
+  window.MG_TD_X = window.MG_TD_X || {};
+  window.MG_TD_X[String(t.id)] = true;
+  if (typeof renderTodo === 'function') renderTodo();
+  setTimeout(function(){
+    var row = document.getElementById('td-row-' + t.id) ||
+              document.querySelector('.td-row[data-id="' + String(t.id).replace(/"/g, '') + '"]');
+    if (row && row.scrollIntoView){
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      row.classList.add('td-highlight-ring');
+      setTimeout(function(){ row.classList.remove('td-highlight-ring'); }, 2400);
+    }
+  }, 120);
+};
+
+window.mgTodoNotifSolved = function(ref){
+  var t = window.mgTdFindTodo(ref);
+  if (!t) return;
+  if (typeof window.mtSetTodoStatus === 'function') window.mtSetTodoStatus(t.id, 'solved_approved');
+  else if (typeof window.mtToggleTodoStatus === 'function') window.mtToggleTodoStatus(t.id);
+  setTimeout(function(){
+    if (typeof window.mgReminderTick === 'function') window.mgReminderTick();
+    if (typeof renderTodo === 'function') renderTodo();
+  }, 500);
+  if (typeof toast === 'function') toast('Note completed — reminder stopped', 'success');
+};
+
+window.mgTodoNotifSnooze = function(notifId){
+  var notifs = window.NOTIFICATIONS || NOTIFICATIONS || [];
+  var notif = null;
+  for (var i = 0; i < notifs.length; i++){ if (String(notifs[i].id) === String(notifId)){ notif = notifs[i]; break; } }
+  var ref = notif ? notif.ref : String(notifId).replace(/^tdr/, '');
+  var t = window.mgTdFindTodo(ref);
+  if (!t) return;
+  var cfg = window.MG_TD_CFG || window.MG_TD_CFG_DEFAULTS || {};
+  var mins = Math.max(1, Number(cfg.snoozeMin) || 15);
+  window.mgRmWriteNext(t, Date.now() + mins * 60000);     /* DB-driven snooze */
+  if (notif) notif.isRead = true;
+  if (typeof updateNotifBadge === 'function') updateNotifBadge();
+  if (typeof toast === 'function') toast('Snoozed for ' + mins + ' minutes', 'info');
+};
+
+/* SETTINGS (TASK 6) */
+window.MG_TD_CFG_DEFAULTS = {
+  master: true, toast: true, toastMax: 2, toastGapSec: 60, snoozeMin: 15,
+  quietOn: false, quietStart: '22:00', quietEnd: '07:00', savedAt: 0
+};
+window.MG_TD_CFG = Object.assign({}, window.MG_TD_CFG_DEFAULTS, window.MG_TD_CFG || {});
 
 window.mgNotifCfgLoad = async function(){
   try {
     var raw = localStorage.getItem('mghrm_notif_cfg');
-    if (raw) {
-      var parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') {
-        window.MG_TD_CFG = Object.assign({}, window.MG_TD_CFG_DEFAULTS, parsed);
-      }
-    }
-  } catch(e) {
-    console.warn('[mgNotifCfgLoad] local parse error:', e);
-  }
-
-  if (window.sb) {
+    if (raw){ var p = JSON.parse(raw); if (p && typeof p === 'object') window.MG_TD_CFG = Object.assign({}, window.MG_TD_CFG_DEFAULTS, p); }
+  } catch(e){ console.warn('[mgNotifCfgLoad] local parse error:', e); }
+  if (window.sb){
     try {
       var res = await window.sb.from('app_settings').select('setting_value').eq('setting_key', 'notif_config').maybeSingle();
-      if (res && res.data && res.data.setting_value) {
-        var remote = res.data.setting_value;
-        if (remote && (remote.savedAt || 0) > (window.MG_TD_CFG.savedAt || 0)) {
-          window.MG_TD_CFG = Object.assign({}, window.MG_TD_CFG_DEFAULTS, remote);
-          try {
-            localStorage.setItem('mghrm_notif_cfg', JSON.stringify(window.MG_TD_CFG));
-          } catch(e){}
-        }
+      var remote = (res && res.data) ? res.data.setting_value : null;
+      if (remote && (remote.savedAt || 0) > (window.MG_TD_CFG.savedAt || 0)){
+        window.MG_TD_CFG = Object.assign({}, window.MG_TD_CFG_DEFAULTS, remote);
+        try { localStorage.setItem('mghrm_notif_cfg', JSON.stringify(window.MG_TD_CFG)); } catch(e){}
       }
-    } catch(e) {
-      console.warn('[mgNotifCfgLoad] remote fetch error:', e);
-    }
+    } catch(e){ console.warn('[mgNotifCfgLoad] remote error:', e); }
   }
 };
 
@@ -16911,305 +17388,100 @@ window.mgNotifCfgSave = async function(patch){
   patch = patch || {};
   window.MG_TD_CFG = Object.assign({}, window.MG_TD_CFG || window.MG_TD_CFG_DEFAULTS, patch);
   window.MG_TD_CFG.savedAt = Date.now();
+  try { localStorage.setItem('mghrm_notif_cfg', JSON.stringify(window.MG_TD_CFG)); } catch(e){}
+  if (!window.sb) return;
   try {
-    localStorage.setItem('mghrm_notif_cfg', JSON.stringify(window.MG_TD_CFG));
-  } catch(e){}
-
-  if (window.sb) {
-    try {
-      var payload = {
-        setting_key: 'notif_config',
-        setting_value: window.MG_TD_CFG,
-        updated_at: new Date().toISOString()
-      };
-      var res = await window.sb.from('app_settings').upsert(payload, { onConflict: 'setting_key' });
-      if (res && res.error) {
-        if (typeof toast === 'function') toast('Saved on this device — could not sync settings', 'warning');
-      }
-    } catch(e) {
-      console.warn('[mgNotifCfgSave] remote upsert error:', e);
-      if (typeof toast === 'function') toast('Saved on this device — could not sync settings', 'warning');
-    }
+    var res = await window.sb.from('app_settings').upsert(
+      { setting_key: 'notif_config', setting_value: window.MG_TD_CFG, updated_at: new Date().toISOString() },
+      { onConflict: 'setting_key' });
+    if (res && res.error) throw res.error;
+  } catch(e){
+    console.warn('[mgNotifCfgSave] remote error:', e);
+    if (typeof toast === 'function') toast('Saved on this device — could not sync settings', 'warning');
   }
 };
 
 window.mtOpenNotifSettings = function(){
   var cfg = window.MG_TD_CFG || window.MG_TD_CFG_DEFAULTS;
-  var aMin = cfg.aMinutes || 60;
-  var bMin = cfg.bMinutes || 30;
-  var isMaster = (cfg.master !== false);
-  var isRemOn = (cfg.remOn !== false);
-  var isSalOn = (cfg.salOn !== false);
-  var isToast = (cfg.toast !== false);
-  var toastMax = cfg.toastMax || 2;
-  var toastGapSec = cfg.toastGapSec || 60;
-  var isQuiet = !!cfg.quietOn;
-  var qStart = cfg.quietStart || '22:00';
-  var qEnd = cfg.quietEnd || '07:00';
-
-  var todos = (window.DATA && Array.isArray(window.DATA.todos)) ? window.DATA.todos : [];
-  var isSolved = function(t){
-    if (!t) return false;
-    if (t.solved_at) return true;
-    var s = String(t.status || '').toLowerCase();
-    return s === 'solved_approved' || s === 'solved_rejected' || s === 'solved' || s === 'done';
-  };
-  var getCat = (typeof tdCatOf === 'function' ? tdCatOf : (window.tdCatOf || function(t){ return (t && t.category) || 'note'; }));
-  var countA = todos.filter(function(t){ return t && t.deleted_at == null && !isSolved(t) && (t.is_important || t.remind_on); }).length;
-  var countB = todos.filter(function(t){ return t && t.deleted_at == null && !isSolved(t) && getCat(t) === 'salary'; }).length;
-
-  var gapA = countA > 0 ? Math.round(aMin / countA) : aMin;
-  var gapB = countB > 0 ? Math.round(bMin / countB) : bMin;
-
-  var previewA = countA > 0 ? (countA + ' important / reminder notes &rarr; about every ' + gapA + ' min') : 'No active important notes right now';
-  var previewB = countB > 0 ? (countB + ' salary notes &rarr; about every ' + gapB + ' min (last 2 days)') : 'No active salary notes right now';
-
-  var bodyHtml = '<div style="display:flex; flex-direction:column; gap:16px;">' +
-    '<label style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:10px 14px; background:var(--primary-soft, #eef2ff); border-radius:8px; border:1px solid rgba(79,70,229,0.2);">' +
-      '<input type="checkbox" id="cfgMaster" ' + (isMaster ? 'checked' : '') + ' style="width:18px; height:18px; accent-color:var(--primary); cursor:pointer;" />' +
-      '<div>' +
-        '<div style="font-weight:700; color:var(--text-main); font-size:14px;">Enable In-App Reminders</div>' +
-        '<div style="font-size:12px; color:var(--text-mute);">Master switch for all periodic note and salary alerts</div>' +
+  var box = 'width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text-main);';
+  var html = '<div style="display:flex;flex-direction:column;gap:14px;">' +
+    '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 14px;background:var(--primary-soft,#eef2ff);border-radius:8px;border:1px solid rgba(79,70,229,0.2);">' +
+      '<input type="checkbox" id="cfgMaster" ' + (cfg.master !== false ? 'checked' : '') + ' style="width:18px;height:18px;accent-color:var(--primary);">' +
+      '<span><span style="display:block;font-weight:700;font-size:14px;color:var(--text-main);">Enable in-app reminders</span>' +
+      '<span style="display:block;font-size:12px;color:var(--text-mute);">Master switch — reminder schedules stay saved in the database</span></span></label>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">' +
+      '<div style="border:1px solid var(--border);border-radius:8px;padding:12px;">' +
+        '<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--text-main);margin-bottom:8px;"><input type="checkbox" id="cfgToast" ' + (cfg.toast !== false ? 'checked' : '') + ' style="accent-color:var(--primary);"> Pop-up toasts</label>' +
+        '<label style="font-size:11px;color:var(--text-mute);">Max visible (1-3)</label>' +
+        '<input type="number" id="cfgToastMax" min="1" max="3" value="' + (cfg.toastMax || 2) + '" style="' + box + 'margin-bottom:6px;">' +
+        '<label style="font-size:11px;color:var(--text-mute);">Minimum seconds between toasts</label>' +
+        '<input type="number" id="cfgToastGap" min="10" max="600" value="' + (cfg.toastGapSec || 60) + '" style="' + box + '">' +
       '</div>' +
-    '</label>' +
-
-    '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:16px;">' +
-      '<div style="border:1px solid var(--border); border-radius:8px; padding:12px; background:var(--bg-elev);">' +
-        '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">' +
-          '<span style="font-weight:700; font-size:13px; color:var(--text-main);">Group A: Important Notes</span>' +
-          '<label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer;">' +
-            '<input type="checkbox" id="cfgRemOn" ' + (isRemOn ? 'checked' : '') + ' style="accent-color:var(--primary);" /> Active' +
-          '</label>' +
-        '</div>' +
-        '<div class="field" style="margin-bottom:8px;">' +
-          '<label style="font-size:12px; color:var(--text-mute);">Repeat Window (minutes: 10 - 720)</label>' +
-          '<input type="number" id="cfgAMin" min="10" max="720" value="' + aMin + '" style="width:100%; box-sizing:border-box; padding:7px 10px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text-main);" />' +
-        '</div>' +
-        '<div style="font-size:11.5px; color:var(--primary); font-weight:600;">' + previewA + '</div>' +
+      '<div style="border:1px solid var(--border);border-radius:8px;padding:12px;">' +
+        '<label style="font-size:13px;font-weight:600;color:var(--text-main);display:block;margin-bottom:8px;">Snooze</label>' +
+        '<label style="font-size:11px;color:var(--text-mute);">Default snooze minutes</label>' +
+        '<input type="number" id="cfgSnoozeMin" min="1" max="240" value="' + (cfg.snoozeMin || 15) + '" style="' + box + '">' +
+        '<div style="font-size:11px;color:var(--text-mute);margin-top:8px;">Snooze writes a new time into the note\'s next_reminder_at.</div>' +
       '</div>' +
-
-      '<div style="border:1px solid var(--border); border-radius:8px; padding:12px; background:var(--bg-elev);">' +
-        '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">' +
-          '<span style="font-weight:700; font-size:13px; color:var(--text-main);">Group B: Salary Notes</span>' +
-          '<label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer;">' +
-            '<input type="checkbox" id="cfgSalOn" ' + (isSalOn ? 'checked' : '') + ' style="accent-color:var(--primary);" /> Active' +
-          '</label>' +
-        '</div>' +
-        '<div class="field" style="margin-bottom:8px;">' +
-          '<label style="font-size:12px; color:var(--text-mute);">Repeat Window (minutes: 5 - 360)</label>' +
-          '<input type="number" id="cfgBMin" min="5" max="360" value="' + bMin + '" style="width:100%; box-sizing:border-box; padding:7px 10px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text-main);" />' +
-        '</div>' +
-        '<div style="font-size:11.5px; color:var(--warning, #d97706); font-weight:600;">' + previewB + '</div>' +
-      '</div>' +
-
-      '<div style="border:1px solid var(--border); border-radius:8px; padding:12px; background:var(--bg-elev);">' +
-        '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">' +
-          '<span style="font-weight:700; font-size:13px; color:var(--text-main);">Pop-up Toasts</span>' +
-          '<label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer;">' +
-            '<input type="checkbox" id="cfgToast" ' + (isToast ? 'checked' : '') + ' style="accent-color:var(--primary);" /> Enabled' +
-          '</label>' +
-        '</div>' +
-        '<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">' +
-          '<div class="field">' +
-            '<label style="font-size:11px; color:var(--text-mute);">Max visible (1-3)</label>' +
-            '<input type="number" id="cfgToastMax" min="1" max="3" value="' + toastMax + '" style="width:100%; box-sizing:border-box; padding:6px 8px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text-main);" />' +
-          '</div>' +
-          '<div class="field">' +
-            '<label style="font-size:11px; color:var(--text-mute);">Min seconds gap</label>' +
-            '<input type="number" id="cfgToastGap" min="10" max="300" value="' + toastGapSec + '" style="width:100%; box-sizing:border-box; padding:6px 8px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text-main);" />' +
-          '</div>' +
-        '</div>' +
-      '</div>' +
-
-      '<div style="border:1px solid var(--border); border-radius:8px; padding:12px; background:var(--bg-elev);">' +
-        '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">' +
-          '<span style="font-weight:700; font-size:13px; color:var(--text-main);">Quiet Hours</span>' +
-          '<label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer;">' +
-            '<input type="checkbox" id="cfgQuietOn" ' + (isQuiet ? 'checked' : '') + ' style="accent-color:var(--primary);" /> Suppress toasts' +
-          '</label>' +
-        '</div>' +
-        '<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">' +
-          '<div class="field">' +
-            '<label style="font-size:11px; color:var(--text-mute);">Start time</label>' +
-            '<input type="time" id="cfgQuietStart" value="' + escapeHtml(qStart) + '" style="width:100%; box-sizing:border-box; padding:6px 8px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text-main);" />' +
-          '</div>' +
-          '<div class="field">' +
-            '<label style="font-size:11px; color:var(--text-mute);">End time</label>' +
-            '<input type="time" id="cfgQuietEnd" value="' + escapeHtml(qEnd) + '" style="width:100%; box-sizing:border-box; padding:6px 8px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text-main);" />' +
-          '</div>' +
-        '</div>' +
+      '<div style="border:1px solid var(--border);border-radius:8px;padding:12px;">' +
+        '<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--text-main);margin-bottom:8px;"><input type="checkbox" id="cfgQuietOn" ' + (cfg.quietOn ? 'checked' : '') + ' style="accent-color:var(--primary);"> Quiet hours</label>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+          '<input type="time" id="cfgQuietStart" value="' + escapeHtml(cfg.quietStart || '22:00') + '" style="' + box + '">' +
+          '<input type="time" id="cfgQuietEnd" value="' + escapeHtml(cfg.quietEnd || '07:00') + '" style="' + box + '">' +
+        '</div><div style="font-size:11px;color:var(--text-mute);margin-top:8px;">Alerts skipped in this range stay queued — they are not lost.</div>' +
       '</div>' +
     '</div>' +
-
-    '<div style="font-size:12px; color:var(--text-mute); line-height:1.45; background:var(--bg-dim); padding:10px 12px; border-radius:6px; border:1px dashed var(--border);">' +
-      'Notes in a group share the window: 10 notes in a 60-minute window are shown about 6 minutes apart, one by one, then the cycle repeats. Fewer notes = wider gap.' +
-    '</div>' +
+    '<div style="font-size:12px;color:var(--text-mute);line-height:1.45;background:var(--bg-dim);padding:10px 12px;border-radius:6px;border:1px dashed var(--border);">' +
+      'Every note has its own schedule. There is no global cycle: a note set to every 1 hour reminds hourly, a note set to custom dates reminds only on those dates.</div>' +
   '</div>';
 
-  var actionsHtml = '<button type="button" class="btn ghost sm" onclick="mtResetNotifSettings()">' + (typeof ico==='function'?ico('refresh', 14):'') + ' Reset to defaults</button>' +
-    '<button type="button" class="btn primary sm" onclick="mtSaveNotifSettings()">' + (typeof ico==='function'?ico('check', 14):'') + ' Save</button>';
+  var actions = '<button type="button" class="btn ghost sm" onclick="mtResetNotifSettings()">Reset to defaults</button>' +
+                '<button type="button" class="btn primary sm" onclick="mtSaveNotifSettings()">Save</button>';
+  if (typeof openModal === 'function') openModal('Reminder settings', html, actions);
+};
 
-  if (typeof openModal === 'function') {
-    openModal('Reminder settings', bodyHtml, actionsHtml);
-  }
+window.mtSaveNotifSettings = function(){
+  function v(id, fb){ var e = document.getElementById(id); return e ? e.value : fb; }
+  function c(id){ var e = document.getElementById(id); return !!(e && e.checked); }
+  window.mgNotifCfgSave({
+    master:      c('cfgMaster'),
+    toast:       c('cfgToast'),
+    toastMax:    Math.max(1, Math.min(3, Number(v('cfgToastMax', 2)) || 2)),
+    toastGapSec: Math.max(10, Math.min(600, Number(v('cfgToastGap', 60)) || 60)),
+    snoozeMin:   Math.max(1, Math.min(240, Number(v('cfgSnoozeMin', 15)) || 15)),
+    quietOn:     c('cfgQuietOn'),
+    quietStart:  String(v('cfgQuietStart', '22:00')),
+    quietEnd:    String(v('cfgQuietEnd', '07:00'))
+  });
+  if (typeof closeModal === 'function') closeModal();
+  if (typeof toast === 'function') toast('Reminder settings saved', 'success');
+  window.mgReminderTick();
 };
 
 window.mtResetNotifSettings = function(){
-  var d = window.MG_TD_CFG_DEFAULTS;
-  var elM = document.getElementById('cfgMaster'); if(elM) elM.checked = (d.master !== false);
-  var elA = document.getElementById('cfgAMin'); if(elA) elA.value = d.aMinutes;
-  var elB = document.getElementById('cfgBMin'); if(elB) elB.value = d.bMinutes;
-  var elR = document.getElementById('cfgRemOn'); if(elR) elR.checked = (d.remOn !== false);
-  var elS = document.getElementById('cfgSalOn'); if(elS) elS.checked = (d.salOn !== false);
-  var elT = document.getElementById('cfgToast'); if(elT) elT.checked = (d.toast !== false);
-  var elTM = document.getElementById('cfgToastMax'); if(elTM) elTM.value = d.toastMax;
-  var elTG = document.getElementById('cfgToastGap'); if(elTG) elTG.value = d.toastGapSec;
-  var elQO = document.getElementById('cfgQuietOn'); if(elQO) elQO.checked = !!d.quietOn;
-  var elQS = document.getElementById('cfgQuietStart'); if(elQS) elQS.value = d.quietStart;
-  var elQE = document.getElementById('cfgQuietEnd'); if(elQE) elQE.value = d.quietEnd;
+  window.MG_TD_CFG = Object.assign({}, window.MG_TD_CFG_DEFAULTS);
+  window.MG_TD_CFG.savedAt = Date.now();
+  try { localStorage.setItem('mghrm_notif_cfg', JSON.stringify(window.MG_TD_CFG)); } catch(e){}
+  window.mtOpenNotifSettings();
 };
 
-window.mtSaveNotifSettings = async function(){
-  var elM = document.getElementById('cfgMaster');
-  var elA = document.getElementById('cfgAMin');
-  var elB = document.getElementById('cfgBMin');
-  var elR = document.getElementById('cfgRemOn');
-  var elS = document.getElementById('cfgSalOn');
-  var elT = document.getElementById('cfgToast');
-  var elTM = document.getElementById('cfgToastMax');
-  var elTG = document.getElementById('cfgToastGap');
-  var elQO = document.getElementById('cfgQuietOn');
-  var elQS = document.getElementById('cfgQuietStart');
-  var elQE = document.getElementById('cfgQuietEnd');
-
-  var aMinVal = parseInt(elA ? elA.value : '60', 10);
-  if (isNaN(aMinVal) || aMinVal < 10) aMinVal = 10;
-  if (aMinVal > 720) aMinVal = 720;
-
-  var bMinVal = parseInt(elB ? elB.value : '30', 10);
-  if (isNaN(bMinVal) || bMinVal < 5) bMinVal = 5;
-  if (bMinVal > 360) bMinVal = 360;
-
-  var tMaxVal = parseInt(elTM ? elTM.value : '2', 10);
-  if (isNaN(tMaxVal) || tMaxVal < 1) tMaxVal = 1;
-  if (tMaxVal > 3) tMaxVal = 3;
-
-  var tGapVal = parseInt(elTG ? elTG.value : '60', 10);
-  if (isNaN(tGapVal) || tGapVal < 10) tGapVal = 10;
-  if (tGapVal > 300) tGapVal = 300;
-
-  var patch = {
-    master: elM ? elM.checked : true,
-    aMinutes: aMinVal,
-    bMinutes: bMinVal,
-    remOn: elR ? elR.checked : true,
-    salOn: elS ? elS.checked : true,
-    toast: elT ? elT.checked : true,
-    toastMax: tMaxVal,
-    toastGapSec: tGapVal,
-    quietOn: elQO ? elQO.checked : false,
-    quietStart: (elQS && elQS.value) ? elQS.value : '22:00',
-    quietEnd: (elQE && elQE.value) ? elQE.value : '07:00'
-  };
-
-  await window.mgNotifCfgSave(patch);
-  if (typeof closeModal === 'function') closeModal('modal');
-  if (typeof toast === 'function') toast('Reminder settings saved', 'success');
-
-  try {
-    if (typeof window.mgTodoNotifyTick === 'function') window.mgTodoNotifyTick();
-  } catch(e){}
-  if (typeof renderNotifications === 'function') renderNotifications();
-  if (typeof renderTodo === 'function') renderTodo();
-};
-
-/* Phase 9 Retention Prune */
+/* RETENTION PRUNE (TASK 7) */
 window.mgNotifPrune = function(){
   try {
     var notifs = window.NOTIFICATIONS || NOTIFICATIONS || [];
-    if (!Array.isArray(notifs) || notifs.length === 0) return;
-
-    var actionable = ['transfer_join', 'sc', 'rec', 'prob', 'rehire'];
-    var todos = (window.DATA && Array.isArray(window.DATA.todos)) ? window.DATA.todos : [];
-    var todoMap = {};
-    todos.forEach(function(t){ if (t) todoMap[String(t.id)] = t; });
-
-    // 1. Dedupe: if two entries share same id, keep NEWER createdAt
-    var seenMap = {};
-    for (var i = 0; i < notifs.length; i++) {
-      var n = notifs[i];
-      if (!n || !n.id) continue;
-      var key = String(n.id);
-      if (!seenMap[key] || (n.createdAt || 0) > (seenMap[key].createdAt || 0)) {
-        seenMap[key] = n;
-      }
-    }
-    var deduped = [];
-    var addedKeys = {};
-    for (var j = 0; j < notifs.length; j++) {
-      var item = notifs[j];
-      if (!item || !item.id) continue;
-      var k = String(item.id);
-      if (!addedKeys[k] && seenMap[k] === item) {
-        deduped.push(item);
-        addedKeys[k] = true;
-      }
-    }
-    notifs.length = 0;
-    deduped.forEach(function(x){ notifs.push(x); });
-
     var now = Date.now();
-    var maxAgeMs = 14 * 24 * 60 * 60 * 1000; // 14 days
-
-    function canDrop(n) {
-      if (!n || !n.isRead) return false;
-      if (n.type === 'todo_rem' || n.type === 'todo_salary') {
-        var t = todoMap[String(n.ref)];
-        if (t && t.deleted_at == null && !(typeof mgTdIsSolved === 'function' && mgTdIsSolved(t))) {
-          return false;
-        }
+    for (var i = notifs.length - 1; i >= 0; i--){
+      var n = notifs[i];
+      if (n.type === 'todo_rem'){
+        var t = window.mgTdFindTodo(n.ref);
+        if (!t || t.reminder_enabled !== true || window.mgRmIsClosed(t)){ notifs.splice(i, 1); }
+        continue;
       }
-      if (actionable.indexOf(n.type) !== -1) {
-        return false;
-      }
-      return true;
+      if (n.isRead && n.createdAt && (now - n.createdAt) > 7 * 86400000){ notifs.splice(i, 1); }
     }
-
-    // 2. Drop READ entries older than 14 days
-    for (var d = notifs.length - 1; d >= 0; d--) {
-      var notif = notifs[d];
-      if (canDrop(notif) && (now - (notif.createdAt || 0)) > maxAgeMs) {
-        notifs.splice(d, 1);
-      }
-    }
-
-    // 3. If more than 300 entries remain, drop OLDEST READ entries until 300 remain
-    if (notifs.length > 300) {
-      var readDroppableIndices = [];
-      for (var r = 0; r < notifs.length; r++) {
-        if (canDrop(notifs[r])) {
-          readDroppableIndices.push({ idx: r, createdAt: notifs[r].createdAt || 0 });
-        }
-      }
-      readDroppableIndices.sort(function(a, b){ return a.createdAt - b.createdAt; });
-      var excess = notifs.length - 300;
-      var toDropIndices = {};
-      for (var x = 0; x < Math.min(excess, readDroppableIndices.length); x++) {
-        toDropIndices[readDroppableIndices[x].idx] = true;
-      }
-      var prunedList = [];
-      for (var p = 0; p < notifs.length; p++) {
-        if (!toDropIndices[p]) prunedList.push(notifs[p]);
-      }
-      notifs.length = 0;
-      prunedList.forEach(function(item){ notifs.push(item); });
-    }
-
-    if (typeof persist === 'function') persist();
+    if (notifs.length > 200) notifs.length = 200;
     if (typeof updateNotifBadge === 'function') updateNotifBadge();
-  } catch(e) {
-    console.error('Error in mgNotifPrune:', e);
-  }
+  } catch(e){ console.error('mgNotifPrune error:', e); }
 };
 
 if (!window.__mgNotifPruneTimer) {
@@ -17218,406 +17490,9 @@ if (!window.__mgNotifPruneTimer) {
   }, 3600000);
 }
 
-window.MG_TD_SNOOZE  = window.MG_TD_SNOOZE || {};   // session-only: notification id -> timestamp
-window.MG_TD_SEEN    = window.MG_TD_SEEN || {};     // session-only: note id -> cycle index
-window.MG_TD_REM_MS  = 60 * 60 * 1000;              // fallback window A
-window.MG_TD_SAL_MS  = 30 * 60 * 1000;              // fallback window B
-window.MG_TD_REM_CAP = 10;                          // max live 'todo_rem' cards
-
-window.mgTodoNotifOpen = function(ref){
-  if (typeof markNotifAsRead === 'function') markNotifAsRead('tdr' + ref);
-  var dd = document.getElementById('notifDropdown');
-  if (dd) dd.classList.remove('open');
-
-  // Mark seen this cycle
-  var notifs = window.NOTIFICATIONS || NOTIFICATIONS || [];
-  var cardObj = notifs.find(function(x){ return String(x.id) === ('tdr' + ref) || String(x.ref) === String(ref); });
-  var cycleVal = (cardObj && cardObj._cycle) || Math.floor(Date.now() / (60 * 60 * 1000));
-  window.MG_TD_SEEN = window.MG_TD_SEEN || {};
-  window.MG_TD_SEEN[String(ref)] = cycleVal;
-
-  var todos = (window.DATA && Array.isArray(window.DATA.todos)) ? window.DATA.todos : [];
-  var t = todos.find(function(x){ return String(x.id) === String(ref); });
-
-  if (typeof navigate === 'function') navigate('todo');
-
-  if (t) {
-    var cat = (typeof tdCatOf === 'function' ? tdCatOf(t) : (t.category || 'note'));
-    var secKey = (cat === 'task' ? 'task' : (cat === 'permission' ? 'mgr' : (cat === 'salary' ? 'salary' : 'general')));
-    if (typeof window.mtSetTodoFilter === 'function') window.mtSetTodoFilter(secKey);
-  }
-
-  if (typeof window.mtTodoSearch === 'function') window.mtTodoSearch('');
-  window.MG_TD_Q = '';
-  var sInp = document.getElementById('tdSearch');
-  if (sInp) sInp.value = '';
-
-  if (typeof window.mtSetTodoSub === 'function') window.mtSetTodoSub('all');
-
-  window.MG_TD_OPEN = window.MG_TD_OPEN || {};
-  window.MG_TD_OPEN[String(ref)] = true;
-  if (typeof renderTodo === 'function') renderTodo();
-
-  setTimeout(function(){
-    var row = document.querySelector('.td-row[data-id="' + CSS.escape(String(ref)) + '"]') || document.getElementById('td-row-' + ref);
-    if (row && typeof row.scrollIntoView === 'function') {
-      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      row.classList.add('td-highlight-ring');
-      setTimeout(function(){
-        row.classList.remove('td-highlight-ring');
-      }, 2400);
-    }
-  }, 100);
-};
-
-window.mgTodoNotifSolved = async function(ref){
-  if (typeof window.mtSetTodoStatus === 'function') {
-    await window.mtSetTodoStatus(ref, 'solved');
-  } else {
-    var todos = (window.DATA && Array.isArray(window.DATA.todos)) ? window.DATA.todos : [];
-    var t = todos.find(function(x){ return String(x.id) === String(ref); });
-    if (t) {
-      t.status = 'solved';
-      t.solved_at = new Date().toISOString();
-      t.updated_at = new Date().toISOString();
-      if (typeof window.mgTdPush === 'function') {
-        await window.mgTdPush(t, ['status', 'solved_at', 'updated_at']);
-      }
-      if (typeof renderTodo === 'function') renderTodo();
-    }
-  }
-  if (typeof dismissNotif === 'function') {
-    dismissNotif('tdr' + ref);
-  } else {
-    var notifs = window.NOTIFICATIONS || NOTIFICATIONS || [];
-    var idx = notifs.findIndex(function(x){ return x.id === ('tdr' + ref) || x.ref === String(ref); });
-    if (idx !== -1) notifs.splice(idx, 1);
-    if (typeof updateNotifBadge === 'function') updateNotifBadge();
-  }
-};
-
-window.mgTodoNotifSnooze = function(nid){
-  window.MG_TD_SNOOZE = window.MG_TD_SNOOZE || {};
-  window.MG_TD_SNOOZE[nid] = Date.now();
-  var notifs = window.NOTIFICATIONS || NOTIFICATIONS || [];
-  var idx = notifs.findIndex(function(x){ return x.id === nid; });
-  if (idx !== -1) {
-    notifs.splice(idx, 1);
-  }
-  if (typeof updateNotifBadge === 'function') updateNotifBadge();
-  var notifPage = document.getElementById('page-notifications');
-  if (notifPage && notifPage.style.display !== 'none' && typeof renderNotifications === 'function') {
-    renderNotifications();
-  }
-  var notifDd = document.getElementById('notifDropdown');
-  if (notifDd && notifDd.classList.contains('open') && typeof renderNotifDropdown === 'function') {
-    renderNotifDropdown();
-  }
-  if (typeof toast === 'function') toast('Reminder snoozed', 'info');
-};
-
-window.mgTodoNotifyTick = function(){
-  try {
-    var cfg = window.MG_TD_CFG || window.MG_TD_CFG_DEFAULTS || {};
-    var isMaster = (cfg.master !== false);
-    var remOn = (cfg.remOn !== false);
-    var salOn = (cfg.salOn !== false);
-    var aMinutes = Math.max(10, Math.min(720, Number(cfg.aMinutes) || 60));
-    var bMinutes = Math.max(5, Math.min(360, Number(cfg.bMinutes) || 30));
-    var intervalA = aMinutes * 60 * 1000;
-    var intervalB = bMinutes * 60 * 1000;
-
-    var todos = (window.DATA && Array.isArray(window.DATA.todos)) ? window.DATA.todos : ((typeof DATA !== 'undefined' && Array.isArray(DATA.todos)) ? DATA.todos : []);
-    var activeTodos = todos.filter(function(t){ return !!t && t.deleted_at == null; });
-    var todoMap = {};
-    activeTodos.forEach(function(t){ todoMap[String(t.id)] = t; });
-
-    var inWindow = window.mgTdIsSalaryWindow();
-
-    var getCat = (typeof tdCatOf === 'function' ? tdCatOf : (window.tdCatOf || function(t){
-      var c = String((t && t.category) || 'note').toLowerCase();
-      if (c === 'task' || c === 'permission' || c === 'salary') return c;
-      return 'note';
-    }));
-
-    var notifs = window.NOTIFICATIONS || NOTIFICATIONS || [];
-    var changed = false;
-
-    // 2. PURGE stale cards
-    for (var i = notifs.length - 1; i >= 0; i--){
-      var n = notifs[i];
-      if (n.type === 'todo_rem' || n.type === 'todo_salary'){
-        var targetNote = todoMap[String(n.ref)];
-        if (!targetNote || targetNote.deleted_at != null || window.mgTdIsSolved(targetNote)){
-          notifs.splice(i, 1);
-          changed = true;
-          continue;
-        }
-        var cat = getCat(targetNote);
-        if (n.type === 'todo_salary' && (!inWindow || cat !== 'salary' || !salOn)){
-          notifs.splice(i, 1);
-          changed = true;
-          continue;
-        }
-        if (n.type === 'todo_rem' && (!targetNote.is_important && !targetNote.remind_on || !remOn)){
-          notifs.splice(i, 1);
-          changed = true;
-          continue;
-        }
-      }
-    }
-
-    // If master is OFF, stop here: create NO new cards and refresh none; existing cards stay until solved
-    if (!isMaster) {
-      if (changed) {
-        if (typeof updateNotifBadge === 'function') updateNotifBadge();
-      }
-      return;
-    }
-
-    // 3. WHO GETS WHAT (one card per note)
-    var nowMs = Date.now();
-
-    function isQuietNow(qStart, qEnd){
-      if(!qStart || !qEnd) return false;
-      var d = new Date();
-      var cur = d.getHours() * 60 + d.getMinutes();
-      var sp = qStart.split(':').map(Number);
-      var ep = qEnd.split(':').map(Number);
-      var s = sp[0] * 60 + (sp[1] || 0);
-      var e = ep[0] * 60 + (ep[1] || 0);
-      if(s <= e) return cur >= s && cur < e;
-      return cur >= s || cur < e;
-    }
-
-    var canToast = (cfg.toast !== false && !document.hidden && !(cfg.quietOn && isQuietNow(cfg.quietStart, cfg.quietEnd)));
-
-    activeTodos.forEach(function(t){
-      if (window.mgTdIsSolved(t)) return;
-
-      var cat = getCat(t);
-      var isSalary = (cat === 'salary');
-      var isImpOrRem = !!(t.is_important || t.remind_on);
-
-      var type = null;
-      var interval = null;
-      var sev = null;
-
-      if (isSalary && inWindow && salOn) {
-        type = 'todo_salary';
-        interval = intervalB;
-        sev = 'warning';
-      } else if (isImpOrRem && remOn) {
-        type = 'todo_rem';
-        interval = intervalA;
-        sev = 'info';
-      }
-
-      if (!type) return;
-
-      var rawNote = String(t.note_bn || t.note || '').trim();
-      var noteTitle = rawNote ? (rawNote.length > 120 ? (rawNote.slice(0, 119) + '…') : rawNote) : 'Untitled note';
-      var secObj = (typeof tdSec === 'function' ? tdSec(cat) : (window.tdSec ? window.tdSec(cat) : null));
-      var secLabel = (secObj && secObj.label) ? secObj.label : 'General';
-      var pName = (typeof projName === 'function' && t.project) ? projName(t.project) : (t.project || '');
-      var noteMeta = secLabel + (pName ? ' · ' + pName : '');
-      var noteDetail = '';
-
-      var nid = 'tdr' + t.id;
-      var existingIdx = notifs.findIndex(function(x){ return x.id === nid; });
-
-      var cycleVal = Math.floor(nowMs / interval);
-
-      // 5. SNOOZE check
-      var snoozedAt = (window.MG_TD_SNOOZE && window.MG_TD_SNOOZE[nid]) || 0;
-
-      if (existingIdx === -1) {
-        if (snoozedAt > 0 && (nowMs < snoozedAt + interval)) {
-          return;
-        }
-        var newCard = {
-          id: nid,
-          type: type,
-          ref: String(t.id),
-          severity: sev,
-          title: noteTitle,
-          meta: noteMeta,
-          detail: noteDetail,
-          isRead: false,
-          createdAt: nowMs,
-          _lastPush: nowMs,
-          _cycle: cycleVal
-        };
-        notifs.unshift(newCard);
-        changed = true;
-
-        // Toast evaluation
-        if (canToast && window.MG_TD_SEEN[String(t.id)] !== cycleVal) {
-          var nowT = Date.now();
-          var gapMs = (cfg.toastGapSec || 60) * 1000;
-          var maxToasts = cfg.toastMax || 2;
-          window._mgLastToastAt = window._mgLastToastAt || 0;
-          var curToastCount = document.querySelectorAll('#toastWrap .toast').length;
-          if (curToastCount < maxToasts && (nowT - window._mgLastToastAt >= gapMs)) {
-            window._mgLastToastAt = nowT;
-            if (typeof toast === 'function') {
-              var timeText = (function(){
-                var ts = t.created_at ? new Date(t.created_at).getTime() : (t.date ? new Date(t.date).getTime() : null);
-                if (!ts || isNaN(ts)) return '';
-                var nowN = Date.now();
-                var diffSec = Math.floor((nowN - ts) / 1000);
-                if (diffSec < 60) return 'Just now';
-                var diffMin = Math.floor(diffSec / 60);
-                if (diffMin < 60) return diffMin + 'm ago';
-                var diffHours = Math.floor(diffMin / 60);
-                if (diffHours < 24) return diffHours + 'h ago';
-                var diffDays = Math.floor(diffHours / 24);
-                if (diffDays === 1) return 'Yesterday';
-                if (diffDays < 7) return diffDays + 'd ago';
-                var dObj = new Date(ts);
-                var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-                return dObj.getDate() + ' ' + months[dObj.getMonth()] + (dObj.getFullYear() !== new Date().getFullYear() ? ' ' + dObj.getFullYear() : '');
-              })();
-              var isSalaryToast = (type === 'todo_salary');
-              var secBg = isSalaryToast ? 'rgba(217,119,6,0.12)' : 'var(--primary-soft, #eef2ff)';
-              var secColor = isSalaryToast ? '#b45309' : 'var(--primary, #4f46e5)';
-
-              var toastMsgHtml = '<div style="display:flex; flex-direction:column; gap:4px; font-family:inherit;">' +
-                '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:2px;">' +
-                  '<span style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:' + secColor + '; background:' + secBg + '; padding:2px 7px; border-radius:4px; line-height:1.2;">' + escapeHtml(secLabel) + '</span>' +
-                  (timeText ? '<span style="font-size:11px; color:var(--text-mute); font-weight:500; letter-spacing:-0.1px;">' + escapeHtml(timeText) + '</span>' : '') +
-                '</div>' +
-                '<div style="font-size:13.5px; font-weight:600; color:var(--text-main); line-height:1.45; word-break:break-word;">' + escapeHtml(rawNote || 'Untitled note') + '</div>' +
-                (pName ? '<div style="font-size:11.5px; color:var(--text-mute); margin-top:2px; font-weight:500;">' + escapeHtml(pName) + '</div>' : '') +
-              '</div>';
-
-              toast(toastMsgHtml, (type === 'todo_salary' ? 'warning' : 'info'), function(){
-                if (typeof mgTodoNotifOpen === 'function') mgTodoNotifOpen(String(t.id));
-              });
-            }
-          }
-        }
-      } else {
-        var card = notifs[existingIdx];
-        if (snoozedAt > (card._lastPush || 0) && (nowMs < snoozedAt + interval)) {
-          return;
-        }
-        var elapsed = nowMs - (card._lastPush || 0);
-        if (elapsed >= interval) {
-          card.createdAt = nowMs;
-          card._lastPush = nowMs;
-          card._cycle = cycleVal;
-          card.isRead = false;
-          card.title = noteTitle;
-          card.meta = noteMeta;
-          card.detail = noteDetail;
-          card.severity = sev;
-          card.type = type;
-          if (existingIdx > 0) {
-            notifs.splice(existingIdx, 1);
-            notifs.unshift(card);
-          }
-          changed = true;
-
-          // Toast evaluation
-          if (canToast && window.MG_TD_SEEN[String(t.id)] !== cycleVal) {
-            var nowT2 = Date.now();
-            var gapMs2 = (cfg.toastGapSec || 60) * 1000;
-            var maxToasts2 = cfg.toastMax || 2;
-            window._mgLastToastAt = window._mgLastToastAt || 0;
-            var curToastCount2 = document.querySelectorAll('#toastWrap .toast').length;
-            if (curToastCount2 < maxToasts2 && (nowT2 - window._mgLastToastAt >= gapMs2)) {
-              window._mgLastToastAt = nowT2;
-              if (typeof toast === 'function') {
-                var timeText2 = (function(){
-                  var ts2 = t.created_at ? new Date(t.created_at).getTime() : (t.date ? new Date(t.date).getTime() : null);
-                  if (!ts2 || isNaN(ts2)) return '';
-                  var nowN2 = Date.now();
-                  var diffSec2 = Math.floor((nowN2 - ts2) / 1000);
-                  if (diffSec2 < 60) return 'Just now';
-                  var diffMin2 = Math.floor(diffSec2 / 60);
-                  if (diffMin2 < 60) return diffMin2 + 'm ago';
-                  var diffHours2 = Math.floor(diffMin2 / 60);
-                  if (diffHours2 < 24) return diffHours2 + 'h ago';
-                  var diffDays2 = Math.floor(diffHours2 / 24);
-                  if (diffDays2 === 1) return 'Yesterday';
-                  if (diffDays2 < 7) return diffDays2 + 'd ago';
-                  var dObj2 = new Date(ts2);
-                  var months2 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-                  return dObj2.getDate() + ' ' + months2[dObj2.getMonth()] + (dObj2.getFullYear() !== new Date().getFullYear() ? ' ' + dObj2.getFullYear() : '');
-                })();
-                var isSalaryToast2 = (type === 'todo_salary');
-                var secBg2 = isSalaryToast2 ? 'rgba(217,119,6,0.12)' : 'var(--primary-soft, #eef2ff)';
-                var secColor2 = isSalaryToast2 ? '#b45309' : 'var(--primary, #4f46e5)';
-
-                var toastMsgHtml2 = '<div style="display:flex; flex-direction:column; gap:4px; font-family:inherit;">' +
-                  '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:2px;">' +
-                    '<span style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:' + secColor2 + '; background:' + secBg2 + '; padding:2px 7px; border-radius:4px; line-height:1.2;">' + escapeHtml(secLabel) + '</span>' +
-                    (timeText2 ? '<span style="font-size:11px; color:var(--text-mute); font-weight:500; letter-spacing:-0.1px;">' + escapeHtml(timeText2) + '</span>' : '') +
-                  '</div>' +
-                  '<div style="font-size:13.5px; font-weight:600; color:var(--text-main); line-height:1.45; word-break:break-word;">' + escapeHtml(rawNote || 'Untitled note') + '</div>' +
-                  (pName ? '<div style="font-size:11.5px; color:var(--text-mute); margin-top:2px; font-weight:500;">' + escapeHtml(pName) + '</div>' : '') +
-                '</div>';
-
-                toast(toastMsgHtml2, (type === 'todo_salary' ? 'warning' : 'info'), function(){
-                  if (typeof mgTodoNotifOpen === 'function') mgTodoNotifOpen(String(t.id));
-                });
-              }
-            }
-          }
-        } else {
-          if (card.title !== noteTitle || card.meta !== noteMeta || card.type !== type || card.severity !== sev || card.detail !== noteDetail) {
-            card.title = noteTitle;
-            card.meta = noteMeta;
-            card.detail = noteDetail;
-            card.type = type;
-            card.severity = sev;
-            changed = true;
-          }
-        }
-      }
-    });
-
-    // 6. CAP
-    var remCards = notifs.filter(function(x){ return x.type === 'todo_rem'; });
-    if (remCards.length > window.MG_TD_REM_CAP) {
-      remCards.sort(function(a, b){
-        var ta = todoMap[String(a.ref)];
-        var tb = todoMap[String(b.ref)];
-        var da = (ta && (ta.remind_on || ta.date)) || '9999';
-        var db = (tb && (tb.remind_on || tb.date)) || '9999';
-        return String(da).localeCompare(String(db));
-      });
-      var keepSet = {};
-      remCards.slice(0, window.MG_TD_REM_CAP).forEach(function(c){ keepSet[c.id] = true; });
-      for (var j = notifs.length - 1; j >= 0; j--){
-        if (notifs[j].type === 'todo_rem' && !keepSet[notifs[j].id]){
-          notifs.splice(j, 1);
-          changed = true;
-        }
-      }
-    }
-
-    // 7. Update UI
-    if (changed) {
-      if (typeof updateNotifBadge === 'function') updateNotifBadge();
-      var notifPage = document.getElementById('page-notifications');
-      if (notifPage && notifPage.style.display !== 'none' && typeof renderNotifications === 'function') {
-        renderNotifications();
-      }
-      var notifDd = document.getElementById('notifDropdown');
-      if (notifDd && notifDd.classList.contains('open') && typeof renderNotifDropdown === 'function') {
-        renderNotifDropdown();
-      }
-    }
-  } catch(err) {
-    console.error('Error in mgTodoNotifyTick:', err);
-  }
-};
-
 window.checkSalaryReminder = function(force){
-  if (typeof window.mgTodoNotifyTick === 'function') {
-    try { window.mgTodoNotifyTick(); } catch(e){}
+  if (typeof window.mgReminderTick === 'function') {
+    try { window.mgReminderTick(); } catch(e){}
   }
 };
 
@@ -18061,7 +17936,10 @@ window.cycleTodo = window.mtToggleTodoStatus;
       '</div>' +
       '<div class="two">' +
         '<label class="fld"><span style="' + LB + '">Type</span><select class="inp" id="mgEdCat">' + catOptions(t.category) + '</select></label>' +
-        '<label class="fld"><span style="' + LB + '">Reminder</span><input type="date" class="inp" id="mgEdRemind" value="' + dval(t.remind_on) + '"></label>' +
+        '<label class="fld"><span style="' + LB + '">Reminder</span><div style="display:flex;align-items:center;gap:8px;">' +
+          '<span style="flex:1;font-size:13px;color:var(--text-main);">' + esc(window.mgRmSummary(t)) + '</span>' +
+          '<button type="button" class="btn ghost sm" onclick="event.preventDefault();mtCloseNote();setTimeout(function(){mtOpenRemPicker(\'' + t.id + '\');},80);">Change</button>' +
+        '</div></label>' +
       '</div>' +
       '<label class="sw"><input type="checkbox" id="mgEdImp"' + (t.is_important ? ' checked' : '') + '> Important (star)</label>' +
       '<label class="sw"><input type="checkbox" id="mgEdMgr"' + (mk !== 'none' ? ' checked' : '') + '> Inform to manager</label>' +
@@ -18130,14 +18008,13 @@ window.cycleTodo = window.mtToggleTodoStatus;
     t.project = (el('mgEdProj') || {}).value || '';
     t.date = (el('mgEdDate') || {}).value || t.date;
     t.category = (el('mgEdCat') || {}).value || 'note';
-    t.remind_on = (el('mgEdRemind') || {}).value || null;
     t.is_important = !!(el('mgEdImp') && el('mgEdImp').checked);
     var wantMgr = !!(el('mgEdMgr') && el('mgEdMgr').checked);
     var mk = String(t.manager_status || 'none').toLowerCase();
     if (wantMgr && mk === 'none') t.manager_status = 'asked';
     if (!wantMgr) t.manager_status = 'none';
     t.updated_at = nowIso();
-    var ok = await window.mgTdPush(t, ['note','note_bn','project','date','category','remind_on','is_important','manager_status','updated_at']);
+    var ok = await window.mgTdPush(t, ['note','note_bn','project','date','category','is_important','manager_status','updated_at']);
     busy(btn, false);
     if (typeof renderTodo === 'function') renderTodo();
     if (!ok) return;
@@ -19728,17 +19605,21 @@ applyScheduledTransfers().catch(function(e){ console.warn('[autoTransfer] boot r
 setInterval(function(){ if(!document.hidden) applyScheduledTransfers().catch(function(){}); }, 300000);
 window.addEventListener('focus', function(){ applyScheduledTransfers().catch(function(){}); });
 buildNotifications();
-try { if (typeof window.mgTodoNotifyTick === 'function') window.mgTodoNotifyTick(); } catch(e){}
-setInterval(function(){
-  try {
-    if (!document.hidden && typeof window.mgTodoNotifyTick === 'function') {
-      window.mgTodoNotifyTick();
-    }
-  } catch(e){}
-}, 60000);
-window.addEventListener('focus', function(){
-  try { if (typeof window.mgTodoNotifyTick === 'function') window.mgTodoNotifyTick(); } catch(e){}
-});
+try { if (typeof window.mgReminderTick === 'function') window.mgReminderTick(); } catch(e){}
+if (!window.__mgRemTickTimer){
+  window.__mgRemTickTimer = setInterval(function(){
+    try { if (typeof window.mgReminderTick === 'function') window.mgReminderTick(); } catch(e){}
+  }, 30000);
+}
+if (!window.__mgRemCatchup){
+  window.__mgRemCatchup = true;
+  document.addEventListener('visibilitychange', function(){
+    if (!document.hidden){ try { window.mgReminderTick(); } catch(e){} }
+  });
+  window.addEventListener('focus', function(){
+    try { window.mgReminderTick(); } catch(e){}
+  });
+}
 renderAll();
 renderBrandLogo(); renderGateLogos();
 

@@ -15903,7 +15903,7 @@ function renderTodo(){
     const id = esc(String(t.id));
     const s = stOf(t);
     const solved = isSolvedT(t);
-    const isOpen = !!(window.MG_TD_X && window.MG_TD_X[String(t.id)]);
+    const isOpen = !!((window.MG_TD_X && window.MG_TD_X[String(t.id)]) || (window.MG_TD_OPEN && window.MG_TD_OPEN[String(t.id)]));
     const isMoveOpen = (window.MG_TD_MOVE === String(t.id));
     const ck = tdCatOf(t);
 
@@ -15974,7 +15974,6 @@ function renderTodo(){
       if(t.who) details.push('By: <b>' + esc(t.who) + '</b>');
       if(ck) details.push('Type: <b>' + esc(CAT[ck] || ck) + '</b>');
       if(remChip) details.push(remChip);
-      if(salChip) details.push(salChip);
       if(t.manager_status && t.manager_status !== 'none'){
         const mLabels = { asked:'Waiting reply', approved:'Approved', rejected:'Declined', verbal:'Verbal consent' };
         details.push('Manager: <b>' + esc(mLabels[t.manager_status] || t.manager_status) + '</b>');
@@ -17790,12 +17789,12 @@ window.cycleTodo = window.mtToggleTodoStatus;
 
   window.mtToggleTodoOpen = function(id){
     var k = String(id);
-    if (window.MG_TD_OPEN[k]) {
-      delete window.MG_TD_OPEN[k];
-    } else {
-      window.MG_TD_OPEN[k] = true;
-    }
-    renderTodo();
+    window.MG_TD_OPEN = window.MG_TD_OPEN || {};
+    window.MG_TD_X = window.MG_TD_X || {};
+    var next = !(window.MG_TD_OPEN[k] || window.MG_TD_X[k]);
+    window.MG_TD_OPEN[k] = next;
+    window.MG_TD_X[k] = next;
+    if (typeof renderTodo === 'function') renderTodo();
   };
 
   window.MG_TD_MOVE = null;

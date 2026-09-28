@@ -437,6 +437,16 @@ tbody tr.clickable { cursor: pointer; }
 .toast.success { border-left-color: var(--success); }
 .toast.error   { border-left-color: var(--danger); }
 .toast.warning { border-left-color: var(--warning); }
+.toast.toast-todo-note { max-width: 380px; text-decoration: none !important; }
+.toast.toast-todo-note span.toast-todo-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+  word-break: break-word;
+}
 @keyframes slideDown { from { transform: translateY(-20px); opacity: 0; } to { transform: none; opacity: 1; } }
 
 /* ============ PAGES ============ */
@@ -942,6 +952,24 @@ body.sidebar-open {
   display: grid; place-items: center;
 }
 .notif-empty .ne-ring svg { width: 30px; height: 30px; }
+
+/* Phase 9: Notification filter chips & accessibility */
+.mg-notif-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; align-items: center; }
+.mg-notif-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px;
+  background: var(--bg-dim, #f1f5f9); color: var(--text-2, #475569); font-size: 13px; font-weight: 500;
+  border: 1px solid var(--border, #e2e8f0); cursor: pointer; transition: all 0.15s ease;
+}
+.mg-notif-chip:hover { border-color: var(--primary); color: var(--primary); }
+.mg-notif-chip.active { background: var(--primary, #4f46e5); color: #fff; border-color: var(--primary); font-weight: 600; }
+.mg-notif-chip .count {
+  font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 10px;
+  background: rgba(0,0,0,0.07); color: inherit;
+}
+.mg-notif-chip.active .count { background: rgba(255,255,255,0.25); color: #fff; }
+.mg-notif-card:focus-visible, .notif-dropdown [role="button"]:focus-visible {
+  outline: 2px solid var(--primary); outline-offset: 2px;
+}
 
 /* ============ MEETING ATTENDANCE ============ */
 .mt-tile {
@@ -2047,6 +2075,7 @@ input:focus, select:focus, textarea:focus {
 #page-todo .td-row.is-important{border-color:var(--border-strong)}
 #page-todo .td-row.is-solved{background:var(--bg-dim);opacity:.78}
 #page-todo .td-row.is-solved .td-note{text-decoration:line-through;opacity:.6}
+#page-todo .td-row.td-highlight-ring{outline:2px solid var(--primary);outline-offset:2px;box-shadow:0 0 0 4px var(--primary-soft);transition:outline .2s ease,box-shadow .2s ease}
 
 /* Status round toggle */
 #page-todo .td-toggle{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;cursor:pointer;background:transparent;border:0;padding:0;color:var(--text-muted);transition:transform .15s ease,color .15s ease}
@@ -2812,7 +2841,7 @@ input:focus, select:focus, textarea:focus {
     <div class="nav-item" data-nav="notifications">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
       <span data-i18n="nav_notifications">Notifications</span>
-      <span class="badge" id="navNotifBadge" style="display:none"></span>
+      <span class="badge" id="navNotifBadge" style="display:none" aria-live="polite"></span>
     </div>
     <div class="nav-item" data-nav="todo">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
@@ -2913,7 +2942,7 @@ input:focus, select:focus, textarea:focus {
       <div class="topbar-right">
         <div class="notif-bell" id="notifBell" onclick="toggleNotifDropdown(event)" title="Notifications">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          <span class="notif-badge" id="notifBadge" style="display:none">0</span>
+          <span class="notif-badge" id="notifBadge" style="display:none" aria-live="polite">0</span>
           <div class="notif-dropdown" id="notifDropdown"></div>
         </div>
       </div>
@@ -3173,19 +3202,27 @@ window.escapeHtml = escapeHtml;
 /* ============ Toast + Modal ============ */
 function toast(msg,type='info',onClick,sticky=false){
   const el=document.createElement('div'); el.className='toast '+type;
-  const txt=document.createElement('span'); txt.textContent=msg; el.appendChild(txt);
+  const txt=document.createElement('div'); txt.style.cssText='flex:1; min-width:0;';
+  if (typeof msg === 'string' && (msg.indexOf('<div') !== -1 || msg.indexOf('<span') !== -1)) {
+    txt.innerHTML = msg;
+  } else {
+    txt.textContent = msg;
+  }
+  el.appendChild(txt);
   const x=document.createElement('span'); x.textContent='✕';
-  x.style.cssText='margin-left:10px;opacity:.7;cursor:pointer;font-weight:700;flex-shrink:0';
+  x.style.cssText='margin-left:8px; opacity:.55; cursor:pointer; font-weight:700; flex-shrink:0; font-size:13px; padding:2px; line-height:1; transition:opacity 0.2s;';
   x.title='Close';
+  x.onmouseover = function(){ this.style.opacity = '1'; };
+  x.onmouseout = function(){ this.style.opacity = '0.55'; };
   x.onclick=e=>{ e.stopPropagation(); el.remove(); };
   el.appendChild(x);
   if(onClick){
-    el.style.cursor='pointer'; el.style.textDecoration='underline';
-    el.title = 'Click to act';
+    el.style.cursor='pointer';
+    el.title = 'Click to view';
     el.onclick=()=>{ try{onClick();}catch(e){} el.remove(); };
   }
   document.getElementById('toastWrap').appendChild(el);
-  if(!sticky) setTimeout(()=>{ if(el.parentNode) el.remove(); }, onClick?6500:3500);
+  if(!sticky) setTimeout(()=>{ if(el.parentNode) el.remove(); }, onClick?7000:3500);
   return el;
 }
 function openModal(title, body, actions = '') {
@@ -3426,7 +3463,11 @@ window.addEventListener('keydown', e=>{
     const gs = document.getElementById('globalSearch') || document.getElementById('empSearch');
     if (gs) { e.preventDefault(); gs.focus(); }
   }
-  if(e.key==='Escape'){ closeModal(); closeModal('printModal'); }
+  if(e.key==='Escape'){
+    closeModal(); closeModal('printModal');
+    const dd = document.getElementById('notifDropdown');
+    if (dd && dd.classList.contains('open')) dd.classList.remove('open');
+  }
 });
 function globalSearch(){
   const gs = document.getElementById('globalSearch');
@@ -3458,9 +3499,10 @@ function ico(name, size){
     calendar:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
     settings:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg>',
   };
-  let res = map[name]||'';
-  if(size && res){
-    res = res.replace('<svg ', `<svg width="${size}" height="${size}" `);
+  var res = map[name] || '';
+  if(res){
+    var sz = (size != null && size !== '') ? size : 18;
+    res = res.replace('<svg ', '<svg width="' + sz + '" height="' + sz + '" ');
   }
   return res;
 }
@@ -11836,135 +11878,388 @@ function buildNotifications(){
   });
 }
 const NOTIF_META = {
-  sc:            { icon:'warn',  tag:'Show-cause' },
-  rec:           { icon:'users', tag:'Recruitment' },
-  prob:          { icon:'cake',  tag:'Probation' },
-  transfer_join: { icon:'refresh', tag:'Transfer Join' },
-  rehire:        { icon:'check', tag:'Re-hire' },
-  todo_rem:      { icon:'bell',  tag:'To-Do' },
-  todo_salary:   { icon:'warn',  tag:'Salary Note' },
+  sc:            { icon:'warn',    tag:'Show-cause',    bg:'#fef3c7', color:'#d97706' },
+  rec:           { icon:'users',   tag:'Recruitment',   bg:'#e0e7ff', color:'#4f46e5' },
+  prob:          { icon:'cake',    tag:'Probation',     bg:'#fce7f3', color:'#db2777' },
+  transfer_join: { icon:'refresh', tag:'Transfer Join', bg:'#dcfce7', color:'#16a34a' },
+  rehire:        { icon:'check',   tag:'Re-hire',       bg:'#e0f2fe', color:'#0284c7' },
+  todo_rem:      { icon:'bell',    tag:'To-Do',         bg:'#fef3c7', color:'#d97706' },
+  todo_salary:   { icon:'warn',    tag:'Salary Note',   bg:'#fee2e2', color:'#dc2626' }
 };
-function notifCardHTML(n, compact){
-  const meta = NOTIF_META[n.type] || { icon:'bell', tag:'General' };
-  return `<div class="notif-card ${n.severity||'info'}" ${compact?'style="padding:11px 13px;margin-bottom:8px"':''}>
-    <div class="nc-ico">${ico(meta.icon)}</div>
-    <div style="flex:1;min-width:0">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-        <h5>${escapeHtml(n.title || '')}</h5><span class="nc-tag">${meta.tag}</span>
-      </div>
-      <p>${escapeHtml(n.detail || '')}</p>
-      <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${notifActions(n)}</div>
-    </div>
-  </div>`;
-}
+
+window.mgNotifCardHtml = function(n, opts){
+  opts = opts || {};
+  var compact = !!opts.compact;
+  var meta = (typeof NOTIF_META !== 'undefined' && NOTIF_META[n.type]) ? NOTIF_META[n.type] : ((window.NOTIF_META && window.NOTIF_META[n.type]) ? window.NOTIF_META[n.type] : { icon:'bell', tag:'General' });
+  var chipSize = compact ? 30 : 36;
+  var icoSize = compact ? 16 : 17;
+  var metaBg = meta.bg || (n.severity === 'warning' ? '#fee2e2' : '#f0f7ff');
+  var metaColor = meta.color || (n.severity === 'warning' ? '#dc2626' : 'var(--primary)');
+  var chipHtml = '<div style="width:' + chipSize + 'px; height:' + chipSize + 'px; border-radius:' + (compact ? '6px' : '8px') + '; background:' + metaBg + '; color:' + metaColor + '; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">' + (typeof ico === 'function' ? ico(meta.icon, icoSize) : '') + '</div>';
+
+  var bg = !n.isRead 
+    ? 'background:#f0f7ff; border-left:' + (compact ? '3px' : '4px') + ' solid var(--primary);' 
+    : 'background:' + (compact ? 'transparent' : 'var(--bg-elev)') + '; border-left:' + (compact ? '3px' : '4px') + ' solid transparent; opacity:' + (compact ? '0.85' : '0.88') + ';';
+  var dot = !n.isRead 
+    ? '<div style="width:' + (compact ? '8px' : '10px') + '; height:' + (compact ? '8px' : '10px') + '; border-radius:50%; background:var(--primary); flex-shrink:0; margin-top:5px; box-shadow:0 0 0 4px rgba(79,70,229,0.1);"></div>' 
+    : '';
+
+  var isTodo = (n.type === 'todo_rem' || n.type === 'todo_salary');
+  var titleHtml = '';
+  var metaHtml = '';
+  var detailHtml = '';
+
+  if (isTodo) {
+    titleHtml = '<h5 style="margin:0; font-size:' + (compact ? '0.9rem' : '1.02rem') + '; color:var(--text-main); font-weight:' + (!n.isRead ? '700' : '600') + '; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; text-overflow:ellipsis; word-break:break-word;">' + escapeHtml(n.title || 'Untitled note') + '</h5>';
+    if (n.meta) {
+      metaHtml = '<div style="font-size:' + (compact ? '0.75rem' : '0.8rem') + '; color:var(--text-mute); margin-top:3px; line-height:1.3;">' + escapeHtml(n.meta) + '</div>';
+    }
+  } else {
+    titleHtml = '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">' +
+      '<h5 style="margin:0; font-size:' + (compact ? '0.9rem' : '1.02rem') + '; color:var(--text-main); font-weight:' + (!n.isRead ? '700' : '600') + '; letter-spacing:-0.2px;">' + escapeHtml(n.title || '') + '</h5>' +
+      (!compact && meta.tag ? '<span class="nc-tag">' + escapeHtml(meta.tag) + '</span>' : '') +
+    '</div>';
+    if (n.detail) {
+      detailHtml = '<p style="margin:' + (compact ? '5px' : '6px') + ' 0 0 0; font-size:' + (compact ? '0.82rem' : '0.92rem') + '; color:var(--text-mute); line-height:1.45;">' + escapeHtml(n.detail) + '</p>';
+    }
+  }
+
+  var actionsHtml = (typeof notifActions === 'function') ? notifActions(n).replace(/onclick="/g, 'onclick="event.stopPropagation(); ') : '';
+
+  return '<div class="mg-notif-card" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();handleNotifClick(\'' + n.id + '\', \'' + n.type + '\');}" style="padding:' + (compact ? '12px 14px' : '16px 20px') + '; margin-bottom:' + (compact ? '0' : '10px') + '; border:' + (compact ? 'none' : '1px solid var(--border)') + '; ' + (compact ? 'border-bottom:1px solid var(--border);' : '') + ' border-radius:' + (compact ? '0' : '10px') + '; cursor:pointer; transition:all 0.15s ease; display:flex; gap:' + (compact ? '12px' : '14px') + '; align-items:flex-start; ' + bg + '" onclick="handleNotifClick(\'' + n.id + '\', \'' + n.type + '\')" onmouseover="this.style.backgroundColor=\'' + (!n.isRead ? '#eaf3ff' : '#f8fafc') + '\'" onmouseout="this.style.backgroundColor=\'' + (!n.isRead ? '#f0f7ff' : (compact ? 'transparent' : 'var(--bg-elev)')) + '\'">' +
+    chipHtml +
+    '<div style="flex:1; min-width:0;">' +
+      '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">' +
+        '<div style="flex:1; min-width:0;">' + titleHtml + metaHtml + detailHtml + '</div>' +
+        '<span style="font-size:0.75rem; color:var(--text-mute); white-space:nowrap; margin-left:6px; flex-shrink:0;">' + (typeof timeAgo === 'function' ? timeAgo(n.createdAt) : '') + '</span>' +
+      '</div>' +
+      (actionsHtml ? '<div style="margin-top:' + (compact ? '8px' : '10px') + '; display:flex; gap:6px; flex-wrap:wrap;">' + actionsHtml + '</div>' : '') +
+    '</div>' +
+    dot +
+  '</div>';
+};
+
+window.notifCardHTML = function(n, compact){
+  return window.mgNotifCardHtml(n, { compact: !!compact });
+};
+
 function notifActions(n){
   if(n.type==='transfer_join') return `<button class="btn success sm" onclick="confirmJoin('${n.id}')">✓ ${'Joined'}</button> <button class="btn danger sm" onclick="denyJoin('${n.id}')">✗ ${'Cancel order'}</button>`;
   if(n.type==='sc') return `<button class="btn success sm" onclick="markReplied('${n.ref}')">✓ ${'Reply received'}</button> <button class="btn ghost sm" onclick="dismissNotif('${n.id}')">${'Later'}</button>`;
   if(n.type==='todo_rem' || n.type==='todo_salary'){
     return `<button type="button" class="btn primary sm" onclick="event.stopPropagation();mgTodoNotifOpen('${n.ref}')">Open</button> ` +
-           `<button type="button" class="btn success sm" onclick="event.stopPropagation();mgTodoNotifSolved('${n.ref}')">✓ Solved</button> ` +
+           `<button type="button" class="btn success sm" onclick="event.stopPropagation();mgTodoNotifSolved('${n.ref}')">Done</button> ` +
            `<button type="button" class="btn ghost sm" onclick="event.stopPropagation();mgTodoNotifSnooze('${n.id}')">Later</button>`;
   }
   return `<button class="btn ghost sm" onclick="dismissNotif('${n.id}')">${'Dismiss'}</button>`;
 }
+
 /* Modern Inbox Feed — v4.0: linear-style unread vs previously read feed */
+window.MG_NOTIF_FILTER = window.MG_NOTIF_FILTER || 'all';
+window.MG_NOTIF_Q = window.MG_NOTIF_Q || '';
+window.MG_NOTIF_SHOWN = window.MG_NOTIF_SHOWN || 50;
+
+window.mgSetNotifFilter = function(f){
+  window.MG_NOTIF_FILTER = f;
+  window.MG_NOTIF_SHOWN = 50;
+  if (typeof renderNotifications === 'function') renderNotifications();
+};
+
+window.mgClearReadNotifs = function(){
+  if (!confirm('Clear all read notifications?')) return;
+  var notifs = window.NOTIFICATIONS || NOTIFICATIONS || [];
+  for (var i = notifs.length - 1; i >= 0; i--){
+    if (notifs[i] && notifs[i].isRead) {
+      notifs.splice(i, 1);
+    }
+  }
+  if (typeof persist === 'function') persist();
+  if (typeof updateNotifBadge === 'function') updateNotifBadge();
+  if (typeof renderNotifications === 'function') renderNotifications();
+  if (typeof renderNotifDropdown === 'function') renderNotifDropdown();
+  if (typeof toast === 'function') toast('Read notifications cleared', 'info');
+};
+
+/* Modern Inbox Feed — v5.0: filter chips, search, day grouping, bulk clear & lazy render */
 window.renderNotifications = function() {
     const page = document.getElementById('page-notifications');
     if (!page) return;
 
-    const unreadCount = getUnreadNotifCount();
-    const urgentCount = NOTIFICATIONS.filter(n => n.severity === 'danger' && !n.isRead).length;
+    const notifs = window.NOTIFICATIONS || NOTIFICATIONS || [];
+    const activeFilter = window.MG_NOTIF_FILTER || 'all';
+    const q = String(window.MG_NOTIF_Q || '').toLowerCase().trim();
 
-    // Header Section
+    // 1. Filter counts for chips
+    const filterCounts = {
+      all: notifs.length,
+      unread: notifs.filter(n => !n.isRead).length,
+      todo: notifs.filter(n => n.type === 'todo_rem').length,
+      salary: notifs.filter(n => n.type === 'todo_salary').length,
+      transfer: notifs.filter(n => n.type === 'transfer_join').length,
+      rec: notifs.filter(n => n.type === 'rec').length,
+      sc: notifs.filter(n => n.type === 'sc').length,
+      prob: notifs.filter(n => n.type === 'prob' || n.type === 'rehire').length
+    };
+
+    // 2. Filter chips row
+    const chipsData = [
+      { key: 'all', label: 'All' },
+      { key: 'unread', label: 'Unread' },
+      { key: 'todo', label: 'To-Do' },
+      { key: 'salary', label: 'Salary' },
+      { key: 'transfer', label: 'Transfers' },
+      { key: 'rec', label: 'Recruitment' },
+      { key: 'sc', label: 'Show-cause' },
+      { key: 'prob', label: 'Probation' }
+    ];
+
+    const chipsHtml = '<div class="mg-notif-chips">' +
+      chipsData.map(c => {
+        const count = filterCounts[c.key] || 0;
+        const isActive = (activeFilter === c.key);
+        return `<button type="button" class="mg-notif-chip${isActive ? ' active' : ''}" onclick="mgSetNotifFilter('${c.key}')">` +
+          `${escapeHtml(c.label)} <span class="count">${count}</span>` +
+        `</button>`;
+      }).join('') +
+    '</div>';
+
+    // 3. Search input
+    const searchHtml = `<div style="margin-bottom:24px; position:relative; max-width:420px;">` +
+      `<input type="text" id="notifSearchInput" placeholder="Search title, section, details…" value="${escapeHtml(window.MG_NOTIF_Q || '')}" oninput="window.MG_NOTIF_Q = this.value; renderNotifications();" style="width:100%; box-sizing:border-box; padding:9px 12px 9px 36px; border:1px solid var(--border); border-radius:8px; font-size:13.5px; background:var(--bg-elev); color:var(--text-main);" />` +
+      `<div style="position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--text-mute); pointer-events:none;">` +
+        (typeof ico === 'function' ? ico('users', 15) : '🔍') +
+      `</div>` +
+      (window.MG_NOTIF_Q ? `<button type="button" onclick="window.MG_NOTIF_Q=''; renderNotifications();" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); border:none; background:transparent; cursor:pointer; color:var(--text-mute); font-size:14px; padding:4px;">✕</button>` : '') +
+    `</div>`;
+
+    // 4. Filter records
+    const filtered = notifs.filter(n => {
+      if (!n) return false;
+      if (activeFilter === 'unread' && n.isRead) return false;
+      if (activeFilter === 'todo' && n.type !== 'todo_rem') return false;
+      if (activeFilter === 'salary' && n.type !== 'todo_salary') return false;
+      if (activeFilter === 'transfer' && n.type !== 'transfer_join') return false;
+      if (activeFilter === 'rec' && n.type !== 'rec') return false;
+      if (activeFilter === 'sc' && n.type !== 'sc') return false;
+      if (activeFilter === 'prob' && n.type !== 'prob' && n.type !== 'rehire') return false;
+
+      if (q) {
+        const txt = [n.title, n.meta, n.detail].filter(Boolean).join(' ').toLowerCase();
+        if (txt.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+
+    const unreadNotifs = filtered.filter(n => !n.isRead).sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const readNotifs = filtered.filter(n => n.isRead).sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+    const totalFilteredUnread = unreadNotifs.length;
+    const totalFilteredRead = readNotifs.length;
+    const urgentCount = unreadNotifs.filter(n => n.severity === 'danger' || n.severity === 'warning').length;
+
+    // 5. Header summary text
+    let summaryText = '';
+    if (totalFilteredUnread === 0) {
+      summaryText = 'You are all caught up.';
+    } else {
+      const filterNameMap = {
+        all: '',
+        unread: 'unread',
+        todo: 'To-Do reminder',
+        salary: 'salary note',
+        transfer: 'transfer',
+        rec: 'recruitment',
+        sc: 'show-cause',
+        prob: 'probation'
+      };
+      const nameLabel = filterNameMap[activeFilter] ? (filterNameMap[activeFilter] + ' ') : '';
+      summaryText = `You have <strong style="color:var(--text-main);">${totalFilteredUnread} unread</strong> ${nameLabel}${totalFilteredUnread === 1 ? 'message' : 'messages'}${urgentCount > 0 ? ` (<span style="color:var(--danger); font-weight:600;">${urgentCount} urgent</span>)` : ''}`;
+    }
+
     const headHtml = `
-      <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:32px; padding-bottom:16px; border-bottom:1px solid var(--border);">
+      <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:24px; padding-bottom:16px; border-bottom:1px solid var(--border); flex-wrap:wrap; gap:16px;">
         <div>
           <h2 style="margin:0 0 6px 0; color:var(--text-main); font-size:1.6rem; font-weight:700; letter-spacing:-0.5px;">Inbox</h2>
-          <p style="margin:0; color:var(--text-mute); font-size:0.95rem;">
-            ${unreadCount === 0 ? 'You are all caught up.' : `You have <strong style="color:var(--text-main);">${unreadCount} unread</strong> messages${urgentCount > 0 ? ` (<span style="color:var(--danger); font-weight:600;">${urgentCount} urgent</span>)` : ''}`}
-          </p>
+          <p style="margin:0; color:var(--text-mute); font-size:0.95rem;">${summaryText}</p>
         </div>
-        <div>
-          ${unreadCount > 0 ? `<button class="btn outline" style="font-weight:600; padding:8px 16px; border-radius:6px;" onclick="markAllNotifsAsRead(); renderNotifications();">${typeof ico==='function'?ico('check'):''} Mark all as read</button>` : ''}
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <button type="button" class="btn ghost sm" style="font-weight:600; padding:8px 12px; border-radius:6px;" onclick="mtOpenNotifSettings()">${typeof ico==='function'?ico('settings', 15):''} Reminder settings</button>
+          ${totalFilteredUnread > 0 ? `<button type="button" class="btn outline" style="font-weight:600; padding:8px 16px; border-radius:6px;" onclick="markAllNotifsAsRead(); renderNotifications();">${typeof ico==='function'?ico('check'):''} Mark all as read</button>` : ''}
+          ${totalFilteredRead > 0 ? `<button type="button" class="btn ghost sm" style="font-weight:600; color:var(--danger, #dc2626); padding:8px 12px; border-radius:6px;" onclick="mgClearReadNotifs();">${typeof ico==='function'?ico('x', 14):''} Clear read</button>` : ''}
         </div>
       </div>
     `;
 
-    // Data Separation & Sorting
-    const unreadNotifs = NOTIFICATIONS.filter(n => !n.isRead).sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
-    const readNotifs = NOTIFICATIONS.filter(n => n.isRead).sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
-
-    // Unified Card Builder
-    function buildCard(n) {
-         const meta = (typeof NOTIF_META !== 'undefined' && NOTIF_META[n.type]) ? NOTIF_META[n.type] : (window.NOTIF_META ? (window.NOTIF_META[n.type] || {icon:'bell'}) : {icon:'bell'});
-         const bg = !n.isRead ? 'background:#f0f7ff; border-left:4px solid var(--primary);' : 'background:var(--bg-elev); border-left:4px solid transparent; opacity:0.85;';
-         const dot = !n.isRead ? `<div style="width:10px; height:10px; border-radius:50%; background:var(--primary); flex-shrink:0; margin-top:5px; box-shadow:0 0 0 4px rgba(var(--primary-rgb), 0.1);"></div>` : '';
-         
-         // Isolate button clicks from parent card routing
-         const actionsHtml = (typeof notifActions === 'function') ? notifActions(n).replace(/onclick="/g, 'onclick="event.stopPropagation(); ') : '';
-
-         return `
-         <div style="padding:18px 24px; margin-bottom:10px; border:1px solid var(--border); border-radius:10px; cursor:pointer; transition:all 0.2s ease; display:flex; gap:16px; align-items:flex-start; ${bg}" onclick="handleNotifClick('${n.id}', '${n.type}')" onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.05)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-             <div style="color:var(--primary); padding-top:2px; transform:scale(1.1);">${typeof ico==='function'?ico(meta.icon):''}</div>
-             <div style="flex:1; min-width:0;">
-                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                     <h5 style="margin:0; font-size:1.05rem; color:var(--text-main); font-weight:${!n.isRead?'700':'500'}; letter-spacing:-0.2px;">${escapeHtml(n.title || '')}</h5>
-                     <span style="font-size:0.85rem; color:var(--text-mute); font-weight:500;">${timeAgo(n.createdAt)}</span>
-                 </div>
-                 <p style="margin:0; font-size:0.95rem; color:var(--text-mute); line-height:1.5;">${escapeHtml(n.detail || '')}</p>
-                 ${actionsHtml ? `<div style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;">${actionsHtml}</div>` : ''}
-             </div>
-             ${dot}
-         </div>`;
+    // 6. Day grouping and lazy render helper
+    function getDayBucket(ts){
+      if (!ts) return 'Earlier';
+      const d = new Date(ts);
+      const now = new Date();
+      const todayMid = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      const itemMid = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+      const diff = Math.round((todayMid - itemMid) / (86400000));
+      if (diff <= 0) return 'Today';
+      if (diff === 1) return 'Yesterday';
+      return 'Earlier';
     }
 
-    // Compile Sections
+    function renderGroupedCards(cardsList, maxCount){
+      const visibleCards = cardsList.slice(0, maxCount);
+      const buckets = { 'Today': [], 'Yesterday': [], 'Earlier': [] };
+      visibleCards.forEach(c => {
+        const b = getDayBucket(c.createdAt);
+        buckets[b].push(c);
+      });
+
+      let html = '';
+      ['Today', 'Yesterday', 'Earlier'].forEach(bucketName => {
+        const items = buckets[bucketName];
+        if (items.length > 0) {
+          html += `<div style="margin:16px 0 8px 0; font-size:0.75rem; font-weight:700; color:var(--text-mute); text-transform:uppercase; letter-spacing:0.5px;">${bucketName}</div>`;
+          html += items.map(n => window.mgNotifCardHtml(n, { compact: false })).join('');
+        }
+      });
+
+      if (cardsList.length > maxCount) {
+        const remaining = cardsList.length - maxCount;
+        html += `<div style="margin-top:16px; text-align:center;">` +
+          `<button type="button" class="btn outline sm" style="width:100%; justify-content:center;" onclick="window.MG_NOTIF_SHOWN = (window.MG_NOTIF_SHOWN || 50) + 50; renderNotifications();">` +
+            `Show more (${remaining} remaining)` +
+          `</button>` +
+        `</div>`;
+      }
+      return html;
+    }
+
     const unreadHtml = unreadNotifs.length 
-        ? `<div style="margin-bottom:40px;"><h4 style="margin-bottom:16px; color:var(--text-main); font-size:1.1rem; font-weight:600; display:flex; align-items:center; gap:8px;">${typeof ico==='function'?ico('bell'):''} New & Unread</h4>${unreadNotifs.map(buildCard).join('')}</div>` 
-        : '';
+      ? `<div style="margin-bottom:40px;"><h4 style="margin-bottom:12px; color:var(--text-main); font-size:1.1rem; font-weight:600; display:flex; align-items:center; gap:8px;">${typeof ico==='function'?ico('bell', 16):''} New &amp; Unread</h4>${renderGroupedCards(unreadNotifs, window.MG_NOTIF_SHOWN || 50)}</div>` 
+      : '';
 
     const readHtml = readNotifs.length 
-        ? `<div><h4 style="margin-bottom:16px; color:var(--text-mute); font-size:1rem; font-weight:500;">Previously Read</h4>${readNotifs.map(buildCard).join('')}</div>` 
-        : '';
+      ? `<div><h4 style="margin-bottom:12px; color:var(--text-mute); font-size:1rem; font-weight:500;">Previously Read</h4>${renderGroupedCards(readNotifs, window.MG_NOTIF_SHOWN || 50)}</div>` 
+      : '';
+
+    // 7. Empty state
+    let emptyMessage = 'Your inbox is clear';
+    let emptySub = 'You don\'t have any notifications right now.';
+    if (activeFilter === 'todo') { emptyMessage = 'Nothing in To-Do right now'; emptySub = 'No To-Do follow-up reminders.'; }
+    else if (activeFilter === 'salary') { emptyMessage = 'Nothing in Salary Notes right now'; emptySub = 'No salary notes deadline reminders.'; }
+    else if (activeFilter === 'transfer') { emptyMessage = 'No pending transfer joins'; emptySub = 'All transfers have been processed.'; }
+    else if (activeFilter === 'rec') { emptyMessage = 'No recruitment reminders'; emptySub = 'No applicants currently waiting for action.'; }
+    else if (activeFilter === 'sc') { emptyMessage = 'No show-cause reminders'; emptySub = 'No outstanding show-cause reply alerts.'; }
+    else if (activeFilter === 'prob') { emptyMessage = 'No probation reminders'; emptySub = 'No employees nearing end of probation.'; }
+    else if (activeFilter === 'unread') { emptyMessage = 'No unread notifications'; emptySub = 'All notifications have been reviewed.'; }
+    else if (q) { emptyMessage = 'No notifications matched your search'; emptySub = 'Try clearing the search box to see all.'; }
 
     const emptyHtml = (!unreadNotifs.length && !readNotifs.length) 
-        ? `<div class="notif-empty" style="padding:80px 24px; text-align:center; border:1px dashed var(--border); border-radius:16px; background:var(--bg-dim);">
-            <div style="width:64px; height:64px; margin:0 auto 20px auto; color:var(--text-mute); opacity:0.4;">
-                ${typeof ico === 'function' ? ico('check', 64) : '✓'}
-            </div>
-            <h3 style="color:var(--text-main); margin-bottom:8px; font-size:1.2rem;">Your inbox is clear</h3>
-            <p style="color:var(--text-mute); font-size:0.95rem;">You don't have any notifications right now.</p>
-          </div>` 
-        : '';
+      ? `<div class="notif-empty" style="padding:70px 24px; text-align:center; border:1px dashed var(--border); border-radius:16px; background:var(--bg-dim);">
+          <div style="width:54px; height:54px; margin:0 auto 16px auto; color:var(--text-mute); opacity:0.4;">
+            ${typeof ico === 'function' ? ico('check', 54) : '✓'}
+          </div>
+          <h3 style="color:var(--text-main); margin-bottom:6px; font-size:1.15rem;">${emptyMessage}</h3>
+          <p style="color:var(--text-mute); font-size:0.9rem; margin:0;">${emptySub}</p>
+        </div>` 
+      : '';
 
-    // Inject into Page (centered, max-width layout for readability)
-    page.innerHTML = `<div style="max-width:850px; margin:0 auto; padding:20px 0 60px 0; animation: fadeIn 0.3s ease;">${headHtml}${emptyHtml}${unreadHtml}${readHtml}</div>`;
+    // Remember search input focus & cursor
+    const searchInputEl = document.getElementById('notifSearchInput');
+    const hadFocus = (document.activeElement && document.activeElement.id === 'notifSearchInput');
+    const cursor = searchInputEl ? searchInputEl.selectionStart : null;
+
+    page.innerHTML = `<div style="max-width:850px; margin:0 auto; padding:20px 0 60px 0; animation: fadeIn 0.3s ease;">${headHtml}${chipsHtml}${searchHtml}${emptyHtml}${unreadHtml}${readHtml}</div>`;
+
+    if (hadFocus) {
+      const newEl = document.getElementById('notifSearchInput');
+      if (newEl) {
+        newEl.focus();
+        if (cursor != null && newEl.setSelectionRange) {
+          newEl.setSelectionRange(cursor, cursor);
+        }
+      }
+    }
 };
+
 window.handleNotifClick = function(id, type) {
-    markNotifAsRead(id);
+    var notifs = window.NOTIFICATIONS || NOTIFICATIONS || [];
+    var notifObj = notifs.find(function(x){ return String(x.id) === String(id); });
+    var refId = (notifObj && notifObj.ref) || String(id).replace(/^tdr/, '');
+
     const dd = document.getElementById('notifDropdown');
     if (dd) dd.classList.remove('open');
     
     // Deep routing based on notification type
-    if (type === 'transfer_join') navigate('transfer');
-    else if (type === 'rec') navigate('recruitment');
-    else if (type === 'prob' || type === 'rehire') navigate('employees');
-    else if (type === 'sc') navigate('disciplinary');
-    else if (type === 'todo_rem' || type === 'todo_salary') {
-      var notifObj = (window.NOTIFICATIONS || []).find(function(x){ return x.id === id; });
-      var refId = (notifObj && notifObj.ref) || id.replace(/^tdr/, '');
-      if (typeof window.mgTodoNotifOpen === 'function') window.mgTodoNotifOpen(refId);
-      else navigate('todo');
+    if (type === 'transfer_join') {
+      markNotifAsRead(id);
+      navigate('transfer');
+    } else if (type === 'rec') {
+      markNotifAsRead(id);
+      navigate('recruitment');
+    } else if (type === 'prob' || type === 'rehire') {
+      markNotifAsRead(id);
+      navigate('employees');
+    } else if (type === 'sc') {
+      markNotifAsRead(id);
+      navigate('disciplinary');
+    } else if (type === 'todo_rem' || type === 'todo_salary') {
+      // 1. Mark read
+      if (typeof markNotifAsRead === 'function') markNotifAsRead(id);
+      if (typeof updateNotifBadge === 'function') updateNotifBadge();
+
+      // Record seen in this cycle
+      var cardObj = notifs.find(function(x){ return String(x.id) === String(id) || String(x.ref) === String(refId); });
+      var cycleVal = (cardObj && cardObj._cycle) || 1;
+      window.MG_TD_SEEN = window.MG_TD_SEEN || {};
+      window.MG_TD_SEEN[String(refId)] = cycleVal;
+
+      var todos = (window.DATA && Array.isArray(window.DATA.todos)) ? window.DATA.todos : [];
+      var note = todos.find(function(x){ return String(x.id) === String(refId); });
+
+      if (typeof navigate === 'function') navigate('todo');
+
+      if (note && note.deleted_at == null) {
+        var cat = (typeof tdCatOf === 'function') ? tdCatOf(note) : (note.category || 'note');
+        window.MG_TD_CAT_PICK = cat;
+        var sec = (typeof tdSec === 'function') ? tdSec(cat) : { key:'general' };
+        window.tdMainFilter = sec.key;
+        if (typeof tdMainFilter !== 'undefined') tdMainFilter = sec.key;
+
+        window.MG_TD_Q = '';
+        window.MG_TD_SUB = 'all';
+        var sInp = document.getElementById('tdSearch');
+        if (sInp) sInp.value = '';
+
+        window.MG_TD_OPEN = window.MG_TD_OPEN || {};
+        window.MG_TD_OPEN[String(note.id)] = true;
+        if (typeof renderTodo === 'function') renderTodo();
+
+        setTimeout(function(){
+          var row = document.getElementById('td-row-' + note.id) || document.querySelector('.td-row[data-id="' + CSS.escape(String(note.id)) + '"]');
+          if (row && typeof row.scrollIntoView === 'function') {
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            row.classList.add('td-highlight-ring');
+            setTimeout(function(){
+              row.classList.remove('td-highlight-ring');
+            }, 2400);
+          }
+        }, 120);
+      } else {
+        if (typeof renderTodo === 'function') renderTodo();
+      }
+    } else {
+      markNotifAsRead(id);
+      navigate('notifications');
     }
-    else navigate('notifications');
 };
 
 function renderNotifDropdown(){
     const dd = document.getElementById('notifDropdown'); 
     if(!dd) return;
     
+    const unread = getUnreadNotifCount();
+    const badgeHtml = unread > 0 ? `<span style="font-size:0.75rem; font-weight:700; color:var(--primary); background:var(--primary-soft, #eef2ff); padding:2px 7px; border-radius:10px; margin-left:6px;">(${unread})</span>` : '';
+
     const head = `<div class="nd-head" style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border);">
-        <h4 style="margin:0; font-size:1rem; color:var(--text-main);">Notifications</h4>
+        <h4 style="margin:0; font-size:1rem; color:var(--text-main); display:flex; align-items:center;">Notifications${badgeHtml}</h4>
         <div style="display:flex; gap:12px; font-size:0.8rem;">
             <span style="cursor:pointer; color:var(--text-mute); transition:color 0.2s;" onmouseover="this.style.color='var(--text-main)'" onmouseout="this.style.color='var(--text-mute)'" onclick="event.stopPropagation(); markAllNotifsAsRead(); renderNotifDropdown();">Mark all read</span>
             <span style="cursor:pointer; color:var(--primary); font-weight:600;" onclick="event.stopPropagation(); document.getElementById('notifDropdown').classList.remove('open'); navigate('notifications');">See all &rarr;</span>
@@ -11978,28 +12273,7 @@ function renderNotifDropdown(){
     }).slice(0, 10); 
     
     const body = sorted.length
-        ? `<div style="max-height:420px; overflow-y:auto; display:flex; flex-direction:column;">` + sorted.map(n => {
-            const meta = (typeof NOTIF_META !== 'undefined' && NOTIF_META[n.type]) ? NOTIF_META[n.type] : ((window.NOTIF_META && window.NOTIF_META[n.type]) ? window.NOTIF_META[n.type] : {icon:'bell'});
-            const unreadStyle = !n.isRead ? 'background:#f0f7ff; border-left:3px solid var(--primary);' : 'background:transparent; border-left:3px solid transparent; opacity:0.85;';
-            const dot = !n.isRead ? `<div style="width:8px; height:8px; border-radius:50%; background:var(--primary); margin-top:4px; flex-shrink:0;"></div>` : '';
-            
-            // Intercept quick action clicks so they don't trigger the card's deep link
-            const actionsHtml = (typeof notifActions === 'function') ? notifActions(n).replace(/onclick="/g, 'onclick="event.stopPropagation(); ') : '';
-
-            return `
-            <div style="padding:14px 16px; border-bottom:1px solid var(--border); cursor:pointer; transition:all 0.2s; display:flex; gap:12px; ${unreadStyle}" onclick="handleNotifClick('${n.id}', '${n.type}')" onmouseover="this.style.backgroundColor='#f8fafc'" onmouseout="this.style.backgroundColor='${!n.isRead ? '#f0f7ff' : 'transparent'}'">
-                <div style="color:var(--primary); padding-top:2px;">${typeof ico==='function'?ico(meta.icon):''}</div>
-                <div style="flex:1; min-width:0;">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
-                        <h5 style="margin:0; font-size:0.9rem; color:var(--text-main); font-weight:${!n.isRead?'700':'500'}; line-height:1.3;">${escapeHtml(n.title || '')}</h5>
-                        <span style="font-size:0.75rem; color:var(--text-mute); white-space:nowrap; margin-left:auto;">${timeAgo(n.createdAt)}</span>
-                    </div>
-                    <p style="margin:6px 0 0 0; font-size:0.82rem; color:var(--text-mute); line-height:1.4;">${escapeHtml(n.detail || '')}</p>
-                    ${actionsHtml ? `<div style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap;">${actionsHtml}</div>` : ''}
-                </div>
-                ${dot}
-            </div>`;
-        }).join('') + `</div>`
+        ? `<div style="max-height:420px; overflow-y:auto; display:flex; flex-direction:column;">` + sorted.map(n => window.mgNotifCardHtml(n, { compact: true })).join('') + `</div>`
         : `<div class="notif-empty" style="padding:40px 24px; text-align:center;"><div style="color:var(--success); margin-bottom:12px; transform:scale(1.5);">${typeof ico==='function'?ico('check'):'✓'}</div><h4 style="margin:0 0 4px 0; color:var(--text-main); font-size:1rem;">All caught up!</h4><p style="color:var(--text-mute); font-size:0.85rem; margin:0;">No new notifications to review.</p></div>`;
     
     dd.innerHTML = head + body;
@@ -12021,6 +12295,15 @@ document.addEventListener('click', e=>{
   const dd = document.getElementById('notifDropdown');
   if(dd && dd.classList.contains('open') && !dd.contains(e.target)) dd.classList.remove('open');
 });
+if (!window.__mgNotifEscBound) {
+  window.__mgNotifEscBound = true;
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' || e.key === 'Esc') {
+      const dd = document.getElementById('notifDropdown');
+      if (dd && dd.classList.contains('open')) dd.classList.remove('open');
+    }
+  });
+}
 function renderSchedPanelHTML(){
   const todayObj = new Date();
   todayObj.setHours(0,0,0,0);
@@ -15708,8 +15991,12 @@ function renderTodo(){
       thinMeta += '<span>·</span><span class="td-meta-cat">' + esc(CAT[ck] || ck) + '</span>';
     }
 
-    const remBtn = '<button type="button" class="td-remind' + (t.remind_on ? ' on' : '') +
-      '" title="Reminder on/off" onclick="event.stopPropagation();mtToggleTodoRemind(\'' + id + '\')">' +
+    const isSalCat = (ck === 'salary' || (typeof tdCatOf === 'function' && tdCatOf(t) === 'salary'));
+    const isRemOn = !!(t.remind_on || isSalCat);
+    const remTitle = isSalCat ? 'Salary notes are reminded automatically in the last 2 days of the month' : 'Reminder on/off';
+
+    const remBtn = '<button type="button" class="td-remind' + (isRemOn ? ' on' : '') +
+      '" title="' + esc(remTitle) + '" onclick="event.stopPropagation();mtToggleTodoRemind(\'' + id + '\')">' +
       ICON.bell + '</button>';
 
     let expandedHtml = '';
@@ -15775,7 +16062,7 @@ function renderTodo(){
 
       // 6: the action row: Edit, Extra note, Move, Star, Remind, Delete
       const starBtn = '<button type="button" class="td-btn b-ghost' + (t.is_important ? ' is-imp-on' : '') + '" title="' + (t.is_important ? 'Remove important' : 'Mark as important') + '" onclick="event.stopPropagation();mtToggleTodoImportant(\'' + id + '\')">' + (t.is_important ? ICON.starOn : ICON.star) + ' ' + (t.is_important ? 'Important' : 'Star') + '</button>';
-      const remBtnAct = '<button type="button" class="td-btn b-ghost' + (t.remind_on ? ' is-imp-on' : '') + '" title="' + (t.remind_on ? 'Remove reminder' : 'Set reminder') + '" onclick="event.stopPropagation();mtToggleTodoRemind(\'' + id + '\')">' + ICON.bell + ' ' + (t.remind_on ? 'Reminder on' : 'Remind') + '</button>';
+      const remBtnAct = '<button type="button" class="td-btn b-ghost' + (isRemOn ? ' is-imp-on' : '') + '" title="' + esc(remTitle) + '" onclick="event.stopPropagation();mtToggleTodoRemind(\'' + id + '\')">' + ICON.bell + ' ' + (isRemOn ? 'Reminder on' : 'Remind') + '</button>';
       const delBtn  = '<button type="button" class="td-btn b-ghost td-del-btn" title="Delete note" style="color:var(--bad, #dc2626);" onclick="event.stopPropagation();delTodo(\'' + id + '\')">' + ICON.trash + ' Delete</button>';
       const moveBtn = '<button type="button" class="td-btn b-ghost' + (isMoveOpen ? ' b-primary' : '') + '" title="Move note" onclick="event.stopPropagation();mtOpenMove(\'' + id + '\')">' + ICON.move + ' Move</button>';
 
@@ -16014,6 +16301,7 @@ function renderTodo(){
   const headHtml = '<div class="td-head">' +
     '<div><h3>' + esc(curSec.label) + '</h3><div class="td-sub">' + headSub + '</div></div>' +
     '<div class="td-right">' +
+      '<button type="button" class="td-icb" title="Reminder settings" onclick="mtOpenNotifSettings()">' + (ICON.bellBig || ICON.bell) + '</button>' +
       '<button type="button" class="td-icb g-ai' + gearOn + '" title="AI settings (Gemini API)" onclick="mtOpenAI()">' + ICON.gear + '</button>' +
       '<button type="button" class="td-btn td-print" title="Print this section" onclick="mtPrintSection()">' + ICON.prn + ' Print</button>' +
     '</div>' +
@@ -16091,6 +16379,13 @@ window.mtToggleTodoRemind = function(id){
   DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
   const t = DATA.todos.find(function(x){ return String(x.id) === String(id); });
   if(!t) return;
+  var cat = (typeof tdCatOf === 'function') ? tdCatOf(t) : (t.category || 'note');
+  if (cat === 'salary') {
+    if (typeof toast === 'function') {
+      toast('Salary notes are reminded automatically in the last 2 days of the month', 'info');
+    }
+    return;
+  }
   const today = (typeof todayISO === 'function') ? todayISO() : new Date().toISOString().slice(0, 10);
   t.remind_on = t.remind_on ? null : today;
   if(window.appData && typeof window.appData.update === 'function'){
@@ -16565,15 +16860,381 @@ window.mgTdIsSolved = function(t){
   return s === 'solved_approved' || s === 'solved_rejected' || s === 'solved' || s === 'done';
 };
 
+window.MG_TD_CFG_DEFAULTS = {
+  aMinutes:   60,      /* Group A window: important / bell-on notes          */
+  bMinutes:   30,      /* Group B window: salary notes in the deadline window */
+  toast:      true,    /* quiet toasts on/off                                  */
+  toastMax:   2,       /* most note toasts visible at once (1-3)               */
+  toastGapSec: 60,     /* at most one note toast per this many seconds         */
+  quietOn:    false,   /* quiet hours DISABLED by default                      */
+  quietStart: '22:00',
+  quietEnd:   '07:00',
+  remOn:      true,    /* group A enabled  */
+  salOn:      true,    /* group B enabled  */
+  master:     true,    /* all in-app reminders enabled */
+  savedAt:    0
+};
+window.MG_TD_CFG = Object.assign({}, window.MG_TD_CFG_DEFAULTS);
+
+window.mgNotifCfgLoad = async function(){
+  try {
+    var raw = localStorage.getItem('mghrm_notif_cfg');
+    if (raw) {
+      var parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        window.MG_TD_CFG = Object.assign({}, window.MG_TD_CFG_DEFAULTS, parsed);
+      }
+    }
+  } catch(e) {
+    console.warn('[mgNotifCfgLoad] local parse error:', e);
+  }
+
+  if (window.sb) {
+    try {
+      var res = await window.sb.from('app_settings').select('setting_value').eq('setting_key', 'notif_config').maybeSingle();
+      if (res && res.data && res.data.setting_value) {
+        var remote = res.data.setting_value;
+        if (remote && (remote.savedAt || 0) > (window.MG_TD_CFG.savedAt || 0)) {
+          window.MG_TD_CFG = Object.assign({}, window.MG_TD_CFG_DEFAULTS, remote);
+          try {
+            localStorage.setItem('mghrm_notif_cfg', JSON.stringify(window.MG_TD_CFG));
+          } catch(e){}
+        }
+      }
+    } catch(e) {
+      console.warn('[mgNotifCfgLoad] remote fetch error:', e);
+    }
+  }
+};
+
+window.mgNotifCfgSave = async function(patch){
+  patch = patch || {};
+  window.MG_TD_CFG = Object.assign({}, window.MG_TD_CFG || window.MG_TD_CFG_DEFAULTS, patch);
+  window.MG_TD_CFG.savedAt = Date.now();
+  try {
+    localStorage.setItem('mghrm_notif_cfg', JSON.stringify(window.MG_TD_CFG));
+  } catch(e){}
+
+  if (window.sb) {
+    try {
+      var payload = {
+        setting_key: 'notif_config',
+        setting_value: window.MG_TD_CFG,
+        updated_at: new Date().toISOString()
+      };
+      var res = await window.sb.from('app_settings').upsert(payload, { onConflict: 'setting_key' });
+      if (res && res.error) {
+        if (typeof toast === 'function') toast('Saved on this device — could not sync settings', 'warning');
+      }
+    } catch(e) {
+      console.warn('[mgNotifCfgSave] remote upsert error:', e);
+      if (typeof toast === 'function') toast('Saved on this device — could not sync settings', 'warning');
+    }
+  }
+};
+
+window.mtOpenNotifSettings = function(){
+  var cfg = window.MG_TD_CFG || window.MG_TD_CFG_DEFAULTS;
+  var aMin = cfg.aMinutes || 60;
+  var bMin = cfg.bMinutes || 30;
+  var isMaster = (cfg.master !== false);
+  var isRemOn = (cfg.remOn !== false);
+  var isSalOn = (cfg.salOn !== false);
+  var isToast = (cfg.toast !== false);
+  var toastMax = cfg.toastMax || 2;
+  var toastGapSec = cfg.toastGapSec || 60;
+  var isQuiet = !!cfg.quietOn;
+  var qStart = cfg.quietStart || '22:00';
+  var qEnd = cfg.quietEnd || '07:00';
+
+  var todos = (window.DATA && Array.isArray(window.DATA.todos)) ? window.DATA.todos : [];
+  var isSolved = function(t){
+    if (!t) return false;
+    if (t.solved_at) return true;
+    var s = String(t.status || '').toLowerCase();
+    return s === 'solved_approved' || s === 'solved_rejected' || s === 'solved' || s === 'done';
+  };
+  var getCat = (typeof tdCatOf === 'function' ? tdCatOf : (window.tdCatOf || function(t){ return (t && t.category) || 'note'; }));
+  var countA = todos.filter(function(t){ return t && t.deleted_at == null && !isSolved(t) && (t.is_important || t.remind_on); }).length;
+  var countB = todos.filter(function(t){ return t && t.deleted_at == null && !isSolved(t) && getCat(t) === 'salary'; }).length;
+
+  var gapA = countA > 0 ? Math.round(aMin / countA) : aMin;
+  var gapB = countB > 0 ? Math.round(bMin / countB) : bMin;
+
+  var previewA = countA > 0 ? (countA + ' important / reminder notes &rarr; about every ' + gapA + ' min') : 'No active important notes right now';
+  var previewB = countB > 0 ? (countB + ' salary notes &rarr; about every ' + gapB + ' min (last 2 days)') : 'No active salary notes right now';
+
+  var bodyHtml = '<div style="display:flex; flex-direction:column; gap:16px;">' +
+    '<label style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:10px 14px; background:var(--primary-soft, #eef2ff); border-radius:8px; border:1px solid rgba(79,70,229,0.2);">' +
+      '<input type="checkbox" id="cfgMaster" ' + (isMaster ? 'checked' : '') + ' style="width:18px; height:18px; accent-color:var(--primary); cursor:pointer;" />' +
+      '<div>' +
+        '<div style="font-weight:700; color:var(--text-main); font-size:14px;">Enable In-App Reminders</div>' +
+        '<div style="font-size:12px; color:var(--text-mute);">Master switch for all periodic note and salary alerts</div>' +
+      '</div>' +
+    '</label>' +
+
+    '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:16px;">' +
+      '<div style="border:1px solid var(--border); border-radius:8px; padding:12px; background:var(--bg-elev);">' +
+        '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">' +
+          '<span style="font-weight:700; font-size:13px; color:var(--text-main);">Group A: Important Notes</span>' +
+          '<label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer;">' +
+            '<input type="checkbox" id="cfgRemOn" ' + (isRemOn ? 'checked' : '') + ' style="accent-color:var(--primary);" /> Active' +
+          '</label>' +
+        '</div>' +
+        '<div class="field" style="margin-bottom:8px;">' +
+          '<label style="font-size:12px; color:var(--text-mute);">Repeat Window (minutes: 10 - 720)</label>' +
+          '<input type="number" id="cfgAMin" min="10" max="720" value="' + aMin + '" style="width:100%; box-sizing:border-box; padding:7px 10px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text-main);" />' +
+        '</div>' +
+        '<div style="font-size:11.5px; color:var(--primary); font-weight:600;">' + previewA + '</div>' +
+      '</div>' +
+
+      '<div style="border:1px solid var(--border); border-radius:8px; padding:12px; background:var(--bg-elev);">' +
+        '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">' +
+          '<span style="font-weight:700; font-size:13px; color:var(--text-main);">Group B: Salary Notes</span>' +
+          '<label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer;">' +
+            '<input type="checkbox" id="cfgSalOn" ' + (isSalOn ? 'checked' : '') + ' style="accent-color:var(--primary);" /> Active' +
+          '</label>' +
+        '</div>' +
+        '<div class="field" style="margin-bottom:8px;">' +
+          '<label style="font-size:12px; color:var(--text-mute);">Repeat Window (minutes: 5 - 360)</label>' +
+          '<input type="number" id="cfgBMin" min="5" max="360" value="' + bMin + '" style="width:100%; box-sizing:border-box; padding:7px 10px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text-main);" />' +
+        '</div>' +
+        '<div style="font-size:11.5px; color:var(--warning, #d97706); font-weight:600;">' + previewB + '</div>' +
+      '</div>' +
+
+      '<div style="border:1px solid var(--border); border-radius:8px; padding:12px; background:var(--bg-elev);">' +
+        '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">' +
+          '<span style="font-weight:700; font-size:13px; color:var(--text-main);">Pop-up Toasts</span>' +
+          '<label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer;">' +
+            '<input type="checkbox" id="cfgToast" ' + (isToast ? 'checked' : '') + ' style="accent-color:var(--primary);" /> Enabled' +
+          '</label>' +
+        '</div>' +
+        '<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">' +
+          '<div class="field">' +
+            '<label style="font-size:11px; color:var(--text-mute);">Max visible (1-3)</label>' +
+            '<input type="number" id="cfgToastMax" min="1" max="3" value="' + toastMax + '" style="width:100%; box-sizing:border-box; padding:6px 8px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text-main);" />' +
+          '</div>' +
+          '<div class="field">' +
+            '<label style="font-size:11px; color:var(--text-mute);">Min seconds gap</label>' +
+            '<input type="number" id="cfgToastGap" min="10" max="300" value="' + toastGapSec + '" style="width:100%; box-sizing:border-box; padding:6px 8px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text-main);" />' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div style="border:1px solid var(--border); border-radius:8px; padding:12px; background:var(--bg-elev);">' +
+        '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">' +
+          '<span style="font-weight:700; font-size:13px; color:var(--text-main);">Quiet Hours</span>' +
+          '<label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer;">' +
+            '<input type="checkbox" id="cfgQuietOn" ' + (isQuiet ? 'checked' : '') + ' style="accent-color:var(--primary);" /> Suppress toasts' +
+          '</label>' +
+        '</div>' +
+        '<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">' +
+          '<div class="field">' +
+            '<label style="font-size:11px; color:var(--text-mute);">Start time</label>' +
+            '<input type="time" id="cfgQuietStart" value="' + escapeHtml(qStart) + '" style="width:100%; box-sizing:border-box; padding:6px 8px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text-main);" />' +
+          '</div>' +
+          '<div class="field">' +
+            '<label style="font-size:11px; color:var(--text-mute);">End time</label>' +
+            '<input type="time" id="cfgQuietEnd" value="' + escapeHtml(qEnd) + '" style="width:100%; box-sizing:border-box; padding:6px 8px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text-main);" />' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+
+    '<div style="font-size:12px; color:var(--text-mute); line-height:1.45; background:var(--bg-dim); padding:10px 12px; border-radius:6px; border:1px dashed var(--border);">' +
+      'Notes in a group share the window: 10 notes in a 60-minute window are shown about 6 minutes apart, one by one, then the cycle repeats. Fewer notes = wider gap.' +
+    '</div>' +
+  '</div>';
+
+  var actionsHtml = '<button type="button" class="btn ghost sm" onclick="mtResetNotifSettings()">' + (typeof ico==='function'?ico('refresh', 14):'') + ' Reset to defaults</button>' +
+    '<button type="button" class="btn primary sm" onclick="mtSaveNotifSettings()">' + (typeof ico==='function'?ico('check', 14):'') + ' Save</button>';
+
+  if (typeof openModal === 'function') {
+    openModal('Reminder settings', bodyHtml, actionsHtml);
+  }
+};
+
+window.mtResetNotifSettings = function(){
+  var d = window.MG_TD_CFG_DEFAULTS;
+  var elM = document.getElementById('cfgMaster'); if(elM) elM.checked = (d.master !== false);
+  var elA = document.getElementById('cfgAMin'); if(elA) elA.value = d.aMinutes;
+  var elB = document.getElementById('cfgBMin'); if(elB) elB.value = d.bMinutes;
+  var elR = document.getElementById('cfgRemOn'); if(elR) elR.checked = (d.remOn !== false);
+  var elS = document.getElementById('cfgSalOn'); if(elS) elS.checked = (d.salOn !== false);
+  var elT = document.getElementById('cfgToast'); if(elT) elT.checked = (d.toast !== false);
+  var elTM = document.getElementById('cfgToastMax'); if(elTM) elTM.value = d.toastMax;
+  var elTG = document.getElementById('cfgToastGap'); if(elTG) elTG.value = d.toastGapSec;
+  var elQO = document.getElementById('cfgQuietOn'); if(elQO) elQO.checked = !!d.quietOn;
+  var elQS = document.getElementById('cfgQuietStart'); if(elQS) elQS.value = d.quietStart;
+  var elQE = document.getElementById('cfgQuietEnd'); if(elQE) elQE.value = d.quietEnd;
+};
+
+window.mtSaveNotifSettings = async function(){
+  var elM = document.getElementById('cfgMaster');
+  var elA = document.getElementById('cfgAMin');
+  var elB = document.getElementById('cfgBMin');
+  var elR = document.getElementById('cfgRemOn');
+  var elS = document.getElementById('cfgSalOn');
+  var elT = document.getElementById('cfgToast');
+  var elTM = document.getElementById('cfgToastMax');
+  var elTG = document.getElementById('cfgToastGap');
+  var elQO = document.getElementById('cfgQuietOn');
+  var elQS = document.getElementById('cfgQuietStart');
+  var elQE = document.getElementById('cfgQuietEnd');
+
+  var aMinVal = parseInt(elA ? elA.value : '60', 10);
+  if (isNaN(aMinVal) || aMinVal < 10) aMinVal = 10;
+  if (aMinVal > 720) aMinVal = 720;
+
+  var bMinVal = parseInt(elB ? elB.value : '30', 10);
+  if (isNaN(bMinVal) || bMinVal < 5) bMinVal = 5;
+  if (bMinVal > 360) bMinVal = 360;
+
+  var tMaxVal = parseInt(elTM ? elTM.value : '2', 10);
+  if (isNaN(tMaxVal) || tMaxVal < 1) tMaxVal = 1;
+  if (tMaxVal > 3) tMaxVal = 3;
+
+  var tGapVal = parseInt(elTG ? elTG.value : '60', 10);
+  if (isNaN(tGapVal) || tGapVal < 10) tGapVal = 10;
+  if (tGapVal > 300) tGapVal = 300;
+
+  var patch = {
+    master: elM ? elM.checked : true,
+    aMinutes: aMinVal,
+    bMinutes: bMinVal,
+    remOn: elR ? elR.checked : true,
+    salOn: elS ? elS.checked : true,
+    toast: elT ? elT.checked : true,
+    toastMax: tMaxVal,
+    toastGapSec: tGapVal,
+    quietOn: elQO ? elQO.checked : false,
+    quietStart: (elQS && elQS.value) ? elQS.value : '22:00',
+    quietEnd: (elQE && elQE.value) ? elQE.value : '07:00'
+  };
+
+  await window.mgNotifCfgSave(patch);
+  if (typeof closeModal === 'function') closeModal('modal');
+  if (typeof toast === 'function') toast('Reminder settings saved', 'success');
+
+  try {
+    if (typeof window.mgTodoNotifyTick === 'function') window.mgTodoNotifyTick();
+  } catch(e){}
+  if (typeof renderNotifications === 'function') renderNotifications();
+  if (typeof renderTodo === 'function') renderTodo();
+};
+
+/* Phase 9 Retention Prune */
+window.mgNotifPrune = function(){
+  try {
+    var notifs = window.NOTIFICATIONS || NOTIFICATIONS || [];
+    if (!Array.isArray(notifs) || notifs.length === 0) return;
+
+    var actionable = ['transfer_join', 'sc', 'rec', 'prob', 'rehire'];
+    var todos = (window.DATA && Array.isArray(window.DATA.todos)) ? window.DATA.todos : [];
+    var todoMap = {};
+    todos.forEach(function(t){ if (t) todoMap[String(t.id)] = t; });
+
+    // 1. Dedupe: if two entries share same id, keep NEWER createdAt
+    var seenMap = {};
+    for (var i = 0; i < notifs.length; i++) {
+      var n = notifs[i];
+      if (!n || !n.id) continue;
+      var key = String(n.id);
+      if (!seenMap[key] || (n.createdAt || 0) > (seenMap[key].createdAt || 0)) {
+        seenMap[key] = n;
+      }
+    }
+    var deduped = [];
+    var addedKeys = {};
+    for (var j = 0; j < notifs.length; j++) {
+      var item = notifs[j];
+      if (!item || !item.id) continue;
+      var k = String(item.id);
+      if (!addedKeys[k] && seenMap[k] === item) {
+        deduped.push(item);
+        addedKeys[k] = true;
+      }
+    }
+    notifs.length = 0;
+    deduped.forEach(function(x){ notifs.push(x); });
+
+    var now = Date.now();
+    var maxAgeMs = 14 * 24 * 60 * 60 * 1000; // 14 days
+
+    function canDrop(n) {
+      if (!n || !n.isRead) return false;
+      if (n.type === 'todo_rem' || n.type === 'todo_salary') {
+        var t = todoMap[String(n.ref)];
+        if (t && t.deleted_at == null && !(typeof mgTdIsSolved === 'function' && mgTdIsSolved(t))) {
+          return false;
+        }
+      }
+      if (actionable.indexOf(n.type) !== -1) {
+        return false;
+      }
+      return true;
+    }
+
+    // 2. Drop READ entries older than 14 days
+    for (var d = notifs.length - 1; d >= 0; d--) {
+      var notif = notifs[d];
+      if (canDrop(notif) && (now - (notif.createdAt || 0)) > maxAgeMs) {
+        notifs.splice(d, 1);
+      }
+    }
+
+    // 3. If more than 300 entries remain, drop OLDEST READ entries until 300 remain
+    if (notifs.length > 300) {
+      var readDroppableIndices = [];
+      for (var r = 0; r < notifs.length; r++) {
+        if (canDrop(notifs[r])) {
+          readDroppableIndices.push({ idx: r, createdAt: notifs[r].createdAt || 0 });
+        }
+      }
+      readDroppableIndices.sort(function(a, b){ return a.createdAt - b.createdAt; });
+      var excess = notifs.length - 300;
+      var toDropIndices = {};
+      for (var x = 0; x < Math.min(excess, readDroppableIndices.length); x++) {
+        toDropIndices[readDroppableIndices[x].idx] = true;
+      }
+      var prunedList = [];
+      for (var p = 0; p < notifs.length; p++) {
+        if (!toDropIndices[p]) prunedList.push(notifs[p]);
+      }
+      notifs.length = 0;
+      prunedList.forEach(function(item){ notifs.push(item); });
+    }
+
+    if (typeof persist === 'function') persist();
+    if (typeof updateNotifBadge === 'function') updateNotifBadge();
+  } catch(e) {
+    console.error('Error in mgNotifPrune:', e);
+  }
+};
+
+if (!window.__mgNotifPruneTimer) {
+  window.__mgNotifPruneTimer = setInterval(function(){
+    if (typeof window.mgNotifPrune === 'function') window.mgNotifPrune();
+  }, 3600000);
+}
+
 window.MG_TD_SNOOZE  = window.MG_TD_SNOOZE || {};   // session-only: notification id -> timestamp
-window.MG_TD_REM_MS  = 30 * 60 * 1000;              // important / reminder-on cadence
-window.MG_TD_SAL_MS  = 10 * 60 * 1000;              // salary cadence in the deadline window
+window.MG_TD_SEEN    = window.MG_TD_SEEN || {};     // session-only: note id -> cycle index
+window.MG_TD_REM_MS  = 60 * 60 * 1000;              // fallback window A
+window.MG_TD_SAL_MS  = 30 * 60 * 1000;              // fallback window B
 window.MG_TD_REM_CAP = 10;                          // max live 'todo_rem' cards
 
 window.mgTodoNotifOpen = function(ref){
   if (typeof markNotifAsRead === 'function') markNotifAsRead('tdr' + ref);
   var dd = document.getElementById('notifDropdown');
   if (dd) dd.classList.remove('open');
+
+  // Mark seen this cycle
+  var notifs = window.NOTIFICATIONS || NOTIFICATIONS || [];
+  var cardObj = notifs.find(function(x){ return String(x.id) === ('tdr' + ref) || String(x.ref) === String(ref); });
+  var cycleVal = (cardObj && cardObj._cycle) || Math.floor(Date.now() / (60 * 60 * 1000));
+  window.MG_TD_SEEN = window.MG_TD_SEEN || {};
+  window.MG_TD_SEEN[String(ref)] = cycleVal;
 
   var todos = (window.DATA && Array.isArray(window.DATA.todos)) ? window.DATA.todos : [];
   var t = todos.find(function(x){ return String(x.id) === String(ref); });
@@ -16601,6 +17262,10 @@ window.mgTodoNotifOpen = function(ref){
     var row = document.querySelector('.td-row[data-id="' + CSS.escape(String(ref)) + '"]') || document.getElementById('td-row-' + ref);
     if (row && typeof row.scrollIntoView === 'function') {
       row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      row.classList.add('td-highlight-ring');
+      setTimeout(function(){
+        row.classList.remove('td-highlight-ring');
+      }, 2400);
     }
   }, 100);
 };
@@ -16653,18 +17318,21 @@ window.mgTodoNotifSnooze = function(nid){
 
 window.mgTodoNotifyTick = function(){
   try {
+    var cfg = window.MG_TD_CFG || window.MG_TD_CFG_DEFAULTS || {};
+    var isMaster = (cfg.master !== false);
+    var remOn = (cfg.remOn !== false);
+    var salOn = (cfg.salOn !== false);
+    var aMinutes = Math.max(10, Math.min(720, Number(cfg.aMinutes) || 60));
+    var bMinutes = Math.max(5, Math.min(360, Number(cfg.bMinutes) || 30));
+    var intervalA = aMinutes * 60 * 1000;
+    var intervalB = bMinutes * 60 * 1000;
+
     var todos = (window.DATA && Array.isArray(window.DATA.todos)) ? window.DATA.todos : ((typeof DATA !== 'undefined' && Array.isArray(DATA.todos)) ? DATA.todos : []);
     var activeTodos = todos.filter(function(t){ return !!t && t.deleted_at == null; });
     var todoMap = {};
     activeTodos.forEach(function(t){ todoMap[String(t.id)] = t; });
 
     var inWindow = window.mgTdIsSalaryWindow();
-    var now = new Date();
-    var lastDay = window.mgTdDaysInMonth(now);
-    var mNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    var lastDayLabel = lastDay + ' ' + mNames[now.getMonth()];
-    var daysLeft = Math.max(0, lastDay - now.getDate());
-    var daysLeftText = (daysLeft === 0 ? 'today is the last day' : (daysLeft + ' day' + (daysLeft > 1 ? 's' : '') + ' left'));
 
     var getCat = (typeof tdCatOf === 'function' ? tdCatOf : (window.tdCatOf || function(t){
       var c = String((t && t.category) || 'note').toLowerCase();
@@ -16686,12 +17354,12 @@ window.mgTodoNotifyTick = function(){
           continue;
         }
         var cat = getCat(targetNote);
-        if (n.type === 'todo_salary' && (!inWindow || cat !== 'salary')){
+        if (n.type === 'todo_salary' && (!inWindow || cat !== 'salary' || !salOn)){
           notifs.splice(i, 1);
           changed = true;
           continue;
         }
-        if (n.type === 'todo_rem' && !targetNote.is_important && !targetNote.remind_on){
+        if (n.type === 'todo_rem' && (!targetNote.is_important && !targetNote.remind_on || !remOn)){
           notifs.splice(i, 1);
           changed = true;
           continue;
@@ -16699,8 +17367,30 @@ window.mgTodoNotifyTick = function(){
       }
     }
 
+    // If master is OFF, stop here: create NO new cards and refresh none; existing cards stay until solved
+    if (!isMaster) {
+      if (changed) {
+        if (typeof updateNotifBadge === 'function') updateNotifBadge();
+      }
+      return;
+    }
+
     // 3. WHO GETS WHAT (one card per note)
     var nowMs = Date.now();
+
+    function isQuietNow(qStart, qEnd){
+      if(!qStart || !qEnd) return false;
+      var d = new Date();
+      var cur = d.getHours() * 60 + d.getMinutes();
+      var sp = qStart.split(':').map(Number);
+      var ep = qEnd.split(':').map(Number);
+      var s = sp[0] * 60 + (sp[1] || 0);
+      var e = ep[0] * 60 + (ep[1] || 0);
+      if(s <= e) return cur >= s && cur < e;
+      return cur >= s || cur < e;
+    }
+
+    var canToast = (cfg.toast !== false && !document.hidden && !(cfg.quietOn && isQuietNow(cfg.quietStart, cfg.quietEnd)));
 
     activeTodos.forEach(function(t){
       if (window.mgTdIsSolved(t)) return;
@@ -16712,30 +17402,31 @@ window.mgTodoNotifyTick = function(){
       var type = null;
       var interval = null;
       var sev = null;
-      var title = '';
-      var detail = '';
 
-      if (isSalary && inWindow) {
+      if (isSalary && inWindow && salOn) {
         type = 'todo_salary';
-        interval = window.MG_TD_SAL_MS;
+        interval = intervalB;
         sev = 'warning';
-        title = 'Salary note — deadline ' + lastDayLabel;
-        detail = 'Last 2 days of the month · reminder every 10 minutes · ' + daysLeftText;
-      } else if (isImpOrRem) {
+      } else if (isImpOrRem && remOn) {
         type = 'todo_rem';
-        interval = window.MG_TD_REM_MS;
+        interval = intervalA;
         sev = 'info';
-        var noteRaw = String(t.note_bn || t.note || t.note_in || '').trim();
-        var shortText = noteRaw.length > 70 ? (noteRaw.slice(0, 67) + '…') : noteRaw;
-        title = 'Reminder — ' + shortText;
-        var pName = (typeof projName === 'function' && t.project) ? projName(t.project) : (t.project || '');
-        detail = 'Repeat reminder every 30 minutes until solved' + (pName ? ' · ' + pName : '');
       }
 
       if (!type) return;
 
+      var rawNote = String(t.note_bn || t.note || '').trim();
+      var noteTitle = rawNote ? (rawNote.length > 120 ? (rawNote.slice(0, 119) + '…') : rawNote) : 'Untitled note';
+      var secObj = (typeof tdSec === 'function' ? tdSec(cat) : (window.tdSec ? window.tdSec(cat) : null));
+      var secLabel = (secObj && secObj.label) ? secObj.label : 'General';
+      var pName = (typeof projName === 'function' && t.project) ? projName(t.project) : (t.project || '');
+      var noteMeta = secLabel + (pName ? ' · ' + pName : '');
+      var noteDetail = '';
+
       var nid = 'tdr' + t.id;
       var existingIdx = notifs.findIndex(function(x){ return x.id === nid; });
+
+      var cycleVal = Math.floor(nowMs / interval);
 
       // 5. SNOOZE check
       var snoozedAt = (window.MG_TD_SNOOZE && window.MG_TD_SNOOZE[nid]) || 0;
@@ -16749,14 +17440,63 @@ window.mgTodoNotifyTick = function(){
           type: type,
           ref: String(t.id),
           severity: sev,
-          title: title,
-          detail: detail,
+          title: noteTitle,
+          meta: noteMeta,
+          detail: noteDetail,
           isRead: false,
           createdAt: nowMs,
-          _lastPush: nowMs
+          _lastPush: nowMs,
+          _cycle: cycleVal
         };
         notifs.unshift(newCard);
         changed = true;
+
+        // Toast evaluation
+        if (canToast && window.MG_TD_SEEN[String(t.id)] !== cycleVal) {
+          var nowT = Date.now();
+          var gapMs = (cfg.toastGapSec || 60) * 1000;
+          var maxToasts = cfg.toastMax || 2;
+          window._mgLastToastAt = window._mgLastToastAt || 0;
+          var curToastCount = document.querySelectorAll('#toastWrap .toast').length;
+          if (curToastCount < maxToasts && (nowT - window._mgLastToastAt >= gapMs)) {
+            window._mgLastToastAt = nowT;
+            if (typeof toast === 'function') {
+              var timeText = (function(){
+                var ts = t.created_at ? new Date(t.created_at).getTime() : (t.date ? new Date(t.date).getTime() : null);
+                if (!ts || isNaN(ts)) return '';
+                var nowN = Date.now();
+                var diffSec = Math.floor((nowN - ts) / 1000);
+                if (diffSec < 60) return 'Just now';
+                var diffMin = Math.floor(diffSec / 60);
+                if (diffMin < 60) return diffMin + 'm ago';
+                var diffHours = Math.floor(diffMin / 60);
+                if (diffHours < 24) return diffHours + 'h ago';
+                var diffDays = Math.floor(diffHours / 24);
+                if (diffDays === 1) return 'Yesterday';
+                if (diffDays < 7) return diffDays + 'd ago';
+                var dObj = new Date(ts);
+                var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                return dObj.getDate() + ' ' + months[dObj.getMonth()] + (dObj.getFullYear() !== new Date().getFullYear() ? ' ' + dObj.getFullYear() : '');
+              })();
+              var isSalaryToast = (type === 'todo_salary');
+              var secBg = isSalaryToast ? 'rgba(217,119,6,0.12)' : 'var(--primary-soft, #eef2ff)';
+              var secColor = isSalaryToast ? '#b45309' : 'var(--primary, #4f46e5)';
+
+              var toastMsgHtml = '<div style="display:flex; flex-direction:column; gap:4px; font-family:inherit;">' +
+                '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:2px;">' +
+                  '<span style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:' + secColor + '; background:' + secBg + '; padding:2px 7px; border-radius:4px; line-height:1.2;">' + escapeHtml(secLabel) + '</span>' +
+                  (timeText ? '<span style="font-size:11px; color:var(--text-mute); font-weight:500; letter-spacing:-0.1px;">' + escapeHtml(timeText) + '</span>' : '') +
+                '</div>' +
+                '<div style="font-size:13.5px; font-weight:600; color:var(--text-main); line-height:1.45; word-break:break-word;">' + escapeHtml(rawNote || 'Untitled note') + '</div>' +
+                (pName ? '<div style="font-size:11.5px; color:var(--text-mute); margin-top:2px; font-weight:500;">' + escapeHtml(pName) + '</div>' : '') +
+              '</div>';
+
+              toast(toastMsgHtml, (type === 'todo_salary' ? 'warning' : 'info'), function(){
+                if (typeof mgTodoNotifOpen === 'function') mgTodoNotifOpen(String(t.id));
+              });
+            }
+          }
+        }
       } else {
         var card = notifs[existingIdx];
         if (snoozedAt > (card._lastPush || 0) && (nowMs < snoozedAt + interval)) {
@@ -16766,9 +17506,11 @@ window.mgTodoNotifyTick = function(){
         if (elapsed >= interval) {
           card.createdAt = nowMs;
           card._lastPush = nowMs;
+          card._cycle = cycleVal;
           card.isRead = false;
-          card.title = title;
-          card.detail = detail;
+          card.title = noteTitle;
+          card.meta = noteMeta;
+          card.detail = noteDetail;
           card.severity = sev;
           card.type = type;
           if (existingIdx > 0) {
@@ -16776,6 +17518,62 @@ window.mgTodoNotifyTick = function(){
             notifs.unshift(card);
           }
           changed = true;
+
+          // Toast evaluation
+          if (canToast && window.MG_TD_SEEN[String(t.id)] !== cycleVal) {
+            var nowT2 = Date.now();
+            var gapMs2 = (cfg.toastGapSec || 60) * 1000;
+            var maxToasts2 = cfg.toastMax || 2;
+            window._mgLastToastAt = window._mgLastToastAt || 0;
+            var curToastCount2 = document.querySelectorAll('#toastWrap .toast').length;
+            if (curToastCount2 < maxToasts2 && (nowT2 - window._mgLastToastAt >= gapMs2)) {
+              window._mgLastToastAt = nowT2;
+              if (typeof toast === 'function') {
+                var timeText2 = (function(){
+                  var ts2 = t.created_at ? new Date(t.created_at).getTime() : (t.date ? new Date(t.date).getTime() : null);
+                  if (!ts2 || isNaN(ts2)) return '';
+                  var nowN2 = Date.now();
+                  var diffSec2 = Math.floor((nowN2 - ts2) / 1000);
+                  if (diffSec2 < 60) return 'Just now';
+                  var diffMin2 = Math.floor(diffSec2 / 60);
+                  if (diffMin2 < 60) return diffMin2 + 'm ago';
+                  var diffHours2 = Math.floor(diffMin2 / 60);
+                  if (diffHours2 < 24) return diffHours2 + 'h ago';
+                  var diffDays2 = Math.floor(diffHours2 / 24);
+                  if (diffDays2 === 1) return 'Yesterday';
+                  if (diffDays2 < 7) return diffDays2 + 'd ago';
+                  var dObj2 = new Date(ts2);
+                  var months2 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                  return dObj2.getDate() + ' ' + months2[dObj2.getMonth()] + (dObj2.getFullYear() !== new Date().getFullYear() ? ' ' + dObj2.getFullYear() : '');
+                })();
+                var isSalaryToast2 = (type === 'todo_salary');
+                var secBg2 = isSalaryToast2 ? 'rgba(217,119,6,0.12)' : 'var(--primary-soft, #eef2ff)';
+                var secColor2 = isSalaryToast2 ? '#b45309' : 'var(--primary, #4f46e5)';
+
+                var toastMsgHtml2 = '<div style="display:flex; flex-direction:column; gap:4px; font-family:inherit;">' +
+                  '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:2px;">' +
+                    '<span style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:' + secColor2 + '; background:' + secBg2 + '; padding:2px 7px; border-radius:4px; line-height:1.2;">' + escapeHtml(secLabel) + '</span>' +
+                    (timeText2 ? '<span style="font-size:11px; color:var(--text-mute); font-weight:500; letter-spacing:-0.1px;">' + escapeHtml(timeText2) + '</span>' : '') +
+                  '</div>' +
+                  '<div style="font-size:13.5px; font-weight:600; color:var(--text-main); line-height:1.45; word-break:break-word;">' + escapeHtml(rawNote || 'Untitled note') + '</div>' +
+                  (pName ? '<div style="font-size:11.5px; color:var(--text-mute); margin-top:2px; font-weight:500;">' + escapeHtml(pName) + '</div>' : '') +
+                '</div>';
+
+                toast(toastMsgHtml2, (type === 'todo_salary' ? 'warning' : 'info'), function(){
+                  if (typeof mgTodoNotifOpen === 'function') mgTodoNotifOpen(String(t.id));
+                });
+              }
+            }
+          }
+        } else {
+          if (card.title !== noteTitle || card.meta !== noteMeta || card.type !== type || card.severity !== sev || card.detail !== noteDetail) {
+            card.title = noteTitle;
+            card.meta = noteMeta;
+            card.detail = noteDetail;
+            card.type = type;
+            card.severity = sev;
+            changed = true;
+          }
         }
       }
     });
@@ -18235,11 +19033,20 @@ function printEmpProfile(recordId){
 /* ============ INTERACTIVE NOTIFICATIONS (pending confirmations surface as toasts) ============ */
 let _pendingToastAt = 0, _pendingToastCount = -1;
 async function checkPendingToast(force){
-  const n = NOTIFICATIONS.length;
-  if(n>0 && (force || n!==_pendingToastCount || Date.now()-_pendingToastAt>120000)){
-    _pendingToastAt = Date.now(); _pendingToastCount = n;
-    const latest = NOTIFICATIONS[0];
-    toast(`🔔 ${latest?latest.title+' — ':''}${num(n)} ${'item(s) awaiting confirmation — click to review'}`, 'warning', ()=>navigate('notifications'));
+  var notifs = window.NOTIFICATIONS || NOTIFICATIONS || [];
+  var actionable = ['transfer_join','sc','rec','prob','rehire'];
+  var actList = notifs.filter(function(x){ return x && actionable.indexOf(x.type) !== -1; });
+  var n = actList.length;
+  if(n === 0) return;
+  if(force || n !== _pendingToastCount || Date.now() - _pendingToastAt > 120000){
+    _pendingToastAt = Date.now();
+    _pendingToastCount = n;
+    var latest = actList[0];
+    var titlePart = (latest && latest.title) ? (latest.title + ' — ') : '';
+    var cntStr = (typeof num === 'function' ? num(n) : String(n));
+    toast(titlePart + cntStr + ' item(s) awaiting confirmation — click to review', 'warning', function(){
+      if (typeof navigate === 'function') navigate('notifications');
+    });
   }
 }
 
@@ -18395,10 +19202,12 @@ function renderAll(){
   if(typeof updateTodoBadge==='function') updateTodoBadge();
   if(typeof checkSalaryReminder==='function') checkSalaryReminder(false);
   const bell = document.getElementById('notifBell');
-  if(bell) bell.style.display = currentPage==='dashboard' ? 'grid' : 'none';
+  if(bell) bell.style.display = 'grid';
   checkPendingToast();
 }
 restoreState();
+try { if (typeof window.mgNotifPrune === 'function') window.mgNotifPrune(); } catch(e){}
+try { if (typeof window.mgNotifCfgLoad === 'function') window.mgNotifCfgLoad(); } catch(e){}
 restoreSidebar();
 /* ---- BD address cascade — load once, cached by SW ---- */
 window.BDGEO = null;

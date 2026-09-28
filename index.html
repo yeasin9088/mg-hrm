@@ -1954,7 +1954,7 @@ input:focus, select:focus, textarea:focus {
 #page-todo .td-head .td-sub{font-size:12px;font-weight:500;color:var(--text-muted);margin-top:3px}
 #page-todo .td-head .td-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto}
 
-/* Four primary tabs: Open | Inform to Manager | Reminder | Salary Notes */
+/* Four primary tabs: General | My Task | Inform to Manager | Salary Notes */
 #page-todo .td-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
 #page-todo .td-tab{position:relative;display:flex;align-items:center;gap:12px;text-align:left;font-family:inherit;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;cursor:pointer;transition:border-color .15s ease,box-shadow .15s ease,background .15s ease,transform .15s ease}
 #page-todo .td-tab:hover{border-color:var(--border-strong);background:var(--card);box-shadow:var(--shadow-sm);transform:translateY(-1px)}
@@ -1964,22 +1964,62 @@ input:focus, select:focus, textarea:focus {
 #page-todo .td-tab .tbox{flex:1;min-width:0}
 #page-todo .td-tab .tt{display:block;font-size:13.5px;font-weight:700;color:var(--text);letter-spacing:-.15px;line-height:1.25}
 #page-todo .td-tab .ts{display:block;font-size:11px;font-weight:500;color:var(--text-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#page-todo .td-tab .ts-done{display:block;font-size:10px;font-weight:700;color:var(--text-muted);margin-top:4px;letter-spacing:.2px}
 #page-todo .td-tab .n{margin-left:auto;font-size:22px;font-weight:800;letter-spacing:-.8px;color:var(--text);line-height:1;font-variant-numeric:tabular-nums;transition:color .15s ease}
 #page-todo .td-tab.is-on .n{color:var(--primary)}
 
-/* Compose Box */
-#page-todo .td-compose{border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);padding:14px;margin-bottom:14px;transition:border-color .15s ease,box-shadow .15s ease,background .15s ease}
-#page-todo .td-compose:focus-within{border-color:var(--primary);background:var(--card);box-shadow:0 0 0 3px var(--primary-soft)}
-#page-todo .td-compose input.td-in{width:100%;border:0;outline:0;background:transparent;font-family:inherit;font-size:14.5px;font-weight:500;color:var(--text);padding:4px 0 8px;line-height:1.5}
-#page-todo .td-compose input.td-in::placeholder{color:var(--text-muted);font-weight:400}
-#page-todo .td-crow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--border)}
-#page-todo .td-cf{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--text-2)}
-#page-todo .td-cf select,#page-todo .td-cf input[type="date"]{font-family:inherit;font-size:12px;font-weight:500;color:var(--text);background:var(--card);border:1px solid var(--border);border-radius:7px;height:30px;padding:0 8px;cursor:pointer}
-#page-todo .td-cf input[type="date"]{min-width:125px}
-#page-todo .td-cf.td-impbox{cursor:pointer;user-select:none;border:1px solid var(--border);background:var(--card);border-radius:7px;height:30px;padding:0 9px}
-#page-todo .td-cf.td-impbox input{accent-color:var(--primary);width:14px;height:14px;cursor:pointer;margin:0}
-#page-todo .td-save-btn{margin-left:auto;background:var(--primary);border:1px solid var(--primary);color:var(--text-inv);font-weight:700;height:30px;padding:0 14px;border-radius:7px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:12px;transition:background .15s ease}
-#page-todo .td-save-btn:hover{background:var(--primary-hover, #4338ca)}
+/* Tab section accents */
+#page-todo .td-tab.t-general.is-on{border-color:var(--primary)}
+#page-todo .td-tab.t-general.is-on .ic{background:var(--primary-soft);color:var(--primary);border-color:transparent}
+#page-todo .td-tab.t-general.is-on .n{color:var(--primary)}
+
+#page-todo .td-tab.t-task.is-on{border-color:var(--info)}
+#page-todo .td-tab.t-task.is-on .ic{background:var(--info-soft);color:var(--info);border-color:transparent}
+#page-todo .td-tab.t-task.is-on .n{color:var(--info)}
+
+#page-todo .td-tab.t-mgr.is-on{border-color:var(--warning)}
+#page-todo .td-tab.t-mgr.is-on .ic{background:var(--warning-soft);color:var(--warning);border-color:transparent}
+#page-todo .td-tab.t-mgr.is-on .n{color:var(--warning)}
+
+#page-todo .td-tab.t-sal.is-on,
+#page-todo .td-tab.t-salary.is-on{border-color:var(--purple)}
+#page-todo .td-tab.t-sal.is-on .ic,
+#page-todo .td-tab.t-salary.is-on .ic{background:var(--purple-soft);color:var(--purple);border-color:transparent}
+#page-todo .td-tab.t-sal.is-on .n,
+#page-todo .td-tab.t-salary.is-on .n{color:var(--purple)}
+
+/* Compose Box — Facebook Style */
+#page-todo .td-compose{border:1px solid var(--border);border-radius:var(--radius);background:var(--card);padding:14px;margin-bottom:14px;transition:border-color .15s ease,box-shadow .15s ease}
+#page-todo .td-compose:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
+#page-todo .td-fb-row{display:flex;align-items:flex-start;gap:12px}
+#page-todo .td-fb-ava{width:38px;height:38px;border-radius:50%;background:var(--primary-soft);color:var(--primary);display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0;user-select:none;text-transform:uppercase;transition:background .15s ease,color .15s ease}
+#page-todo .td-fb-ava.t-general,
+#page-todo .td-fb-ava[data-cat="note"]{background:var(--primary-soft);color:var(--primary)}
+#page-todo .td-fb-ava.t-task,
+#page-todo .td-fb-ava[data-cat="task"]{background:var(--info-soft);color:var(--info)}
+#page-todo .td-fb-ava.t-mgr,
+#page-todo .td-fb-ava[data-cat="permission"]{background:var(--warning-soft);color:var(--warning)}
+#page-todo .td-fb-ava.t-sal,
+#page-todo .td-fb-ava.t-salary,
+#page-todo .td-fb-ava[data-cat="salary"]{background:var(--purple-soft);color:var(--purple)}
+#page-todo .td-fb-ava svg{width:18px;height:18px;color:currentColor}
+/* Loading & Placeholder Shimmer Cards */
+@keyframes tdSpin{100%{transform:rotate(360deg)}}
+@keyframes tdPulse{0%,100%{opacity:.35;transform:scale(.85)}50%{opacity:1;transform:scale(1.15)}}
+@keyframes tdShimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+#page-todo .td-loading-row{position:relative;overflow:hidden;background:var(--card);transition:all .2s ease}
+#page-todo .td-loading-spinner{color:var(--primary);cursor:default}
+#page-todo .td-spinner-svg{animation:tdSpin .9s linear infinite;color:var(--primary)}
+#page-todo .td-pulse-dot{width:7px;height:7px;border-radius:50%;background:var(--primary);display:inline-block;animation:tdPulse 1.2s ease-in-out infinite}
+#page-todo .td-shimmer-bar{height:3px;border-radius:2px;margin-top:8px;background:linear-gradient(90deg,var(--border) 0%,var(--primary-soft) 50%,var(--border) 100%);background-size:200% 100%;animation:tdShimmer 1.5s infinite linear}
+#page-todo .td-compose textarea.td-in{flex:1;width:100%;min-height:38px;max-height:160px;resize:none;border:0;outline:0;background:transparent;font-family:inherit;font-size:14.5px;font-weight:500;color:var(--text);padding:7px 0;line-height:1.5;box-sizing:border-box}
+#page-todo .td-compose textarea.td-in::placeholder{color:var(--text-muted);font-weight:400}
+#page-todo .td-fb-foot{display:flex;align-items:center;gap:10px;padding-top:10px;margin-top:10px;border-top:1px solid var(--border)}
+#page-todo .td-fb-foot label{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--text-2)}
+#page-todo .td-fb-foot select{font-family:inherit;font-size:12px;font-weight:500;color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:7px;height:32px;padding:0 10px;cursor:pointer}
+#page-todo .td-fb-foot select:focus{outline:none;border-color:var(--primary)}
+#page-todo .td-fb-send{margin-left:auto;background:var(--primary);border:1px solid var(--primary);color:var(--text-inv);font-weight:700;height:32px;padding:0 16px;border-radius:7px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:12.5px;transition:background .15s ease}
+#page-todo .td-fb-send:hover{background:var(--primary-hover, #4338ca)}
 
 /* Filter Bar + Search */
 #page-todo .td-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)}
@@ -2001,8 +2041,9 @@ input:focus, select:focus, textarea:focus {
 
 /* List & Rows */
 #page-todo .td-list{display:flex;flex-direction:column;gap:8px}
-#page-todo .td-row{display:flex;align-items:flex-start;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:13px 14px;cursor:pointer;transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease}
-#page-todo .td-row:hover{border-color:var(--border-strong);box-shadow:var(--shadow-sm);transform:translateY(-1px)}
+#page-todo .td-row{display:flex;align-items:flex-start;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:13px 14px;cursor:pointer;transition:border-color .15s ease,box-shadow .15s ease,background .15s ease}
+#page-todo .td-row:hover{border-color:var(--border-strong);box-shadow:var(--shadow-sm)}
+#page-todo .td-row.is-open{border-color:var(--border-strong, #cbd5e1);box-shadow:0 2px 10px rgba(0,0,0,.06);background:var(--card)}
 #page-todo .td-row.is-important{border-color:var(--border-strong)}
 #page-todo .td-row.is-solved{background:var(--bg-dim);opacity:.78}
 #page-todo .td-row.is-solved .td-note{text-decoration:line-through;opacity:.6}
@@ -2017,12 +2058,29 @@ input:focus, select:focus, textarea:focus {
 
 /* Middle Body */
 #page-todo .td-body{flex:1;min-width:0}
-#page-todo .td-note{font-size:14px;line-height:1.5;font-weight:500;color:var(--text);word-break:break-word;overflow-wrap:anywhere}
-#page-todo .td-row:not(.is-expanded) .td-note{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis}
+#page-todo .td-note{font-size:14px;line-height:1.45;font-weight:500;color:var(--text);word-break:break-word;overflow-wrap:anywhere}
+#page-todo .td-row:not(.is-open) .td-note{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#page-todo .td-row.is-open .td-note{white-space:pre-wrap;word-break:break-word;display:block;overflow:visible;line-height:1.55}
 #page-todo .td-row.is-important .td-note{font-weight:700}
 #page-todo .td-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:11.5px;color:var(--text-muted);margin-top:6px;line-height:1.4}
 #page-todo .td-meta span{display:inline-flex;align-items:center}
 #page-todo .td-meta-imp{color:var(--text);font-weight:700}
+#page-todo .td-meta-cat{font-weight:600;color:var(--text-2)}
+
+/* Rotating Chevron */
+#page-todo .td-chev{display:inline-flex;align-items:center;justify-content:center;color:var(--text-muted);transition:transform .18s ease;flex-shrink:0;cursor:pointer;padding:2px}
+#page-todo .td-row.is-open .td-chev{transform:rotate(180deg);color:var(--text)}
+
+/* Move Panel & Buttons */
+#page-todo .td-mvpanel{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+#page-todo .td-mvlabel{font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-right:2px}
+#page-todo .td-mvbtn{font-family:inherit;font-size:11.5px;font-weight:600;height:26px;padding:0 9px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text-2);display:inline-flex;align-items:center;gap:5px;cursor:pointer;transition:all .15s ease;white-space:nowrap}
+#page-todo .td-mvbtn svg{width:13px;height:13px}
+#page-todo .td-mvbtn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-soft)}
+#page-todo .td-mvbtn.cancel{color:var(--text-muted);border-color:transparent}
+#page-todo .td-mvbtn.cancel:hover{color:var(--text);border-color:var(--border);background:var(--bg-dim)}
+
+#page-todo .td-btn.is-imp-on{color:var(--text);font-weight:700}
 
 /* Expanded info & replies */
 #page-todo .td-exp-info{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:11.5px;color:var(--text-muted);margin-top:9px;padding-top:8px;border-top:1px dashed var(--border);line-height:1.5}
@@ -2049,12 +2107,16 @@ input:focus, select:focus, textarea:focus {
 #page-todo .td-icb:hover{color:var(--text);border-color:var(--border-strong);background:var(--bg-dim)}
 #page-todo .td-icb.g-ai.on{border-color:var(--primary);color:var(--primary);background:var(--primary-soft)}
 
-/* Right side star / delete */
-#page-todo .td-side{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;margin-left:4px}
+/* Right side chevron wrapper */
+#page-todo .td-side{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:auto;padding-top:2px;gap:2px}
 #page-todo .td-star{background:transparent;border:0;padding:4px;border-radius:6px;cursor:pointer;color:var(--text-muted);display:inline-flex;transition:all .15s ease}
 #page-todo .td-star:hover{color:var(--text);background:var(--bg-dim)}
-#page-todo .td-star.on{color:var(--text)}
+#page-todo .td-star.on{color:#f59e0b}
 #page-todo .td-star.td-del:hover{color:var(--text);background:var(--bg-dim)}
+#page-todo .td-remind{background:transparent;border:0;padding:4px;border-radius:6px;cursor:pointer;color:var(--text-muted);display:inline-flex;transition:all .15s ease}
+#page-todo .td-remind:hover{color:var(--text);background:var(--bg-dim)}
+#page-todo .td-remind.on{color:#f59e0b}
+#page-todo .td-remind.on svg{stroke:#f59e0b}
 
 /* Empty & Footer */
 #page-todo .td-empty{text-align:center;padding:42px 16px;background:var(--bg);border:1px dashed var(--border);border-radius:var(--radius);color:var(--text-muted)}
@@ -2110,7 +2172,8 @@ input:focus, select:focus, textarea:focus {
   #page-todo .td-search{margin-left:0;width:100%}
   #page-todo .td-search input{width:100%}
   #page-todo .td-head .td-right{margin-left:0;width:100%}
-  #page-todo .td-crow .td-save-btn{margin-left:0;width:100%}
+  #page-todo .td-fb-foot{flex-wrap:wrap}
+  #page-todo .td-fb-send{margin-left:0;width:100%}
   #mgTdModal .td-box{margin:2vh 8px;max-height:94vh}
   #mgTdModal .two{grid-template-columns:1fr}
 }
@@ -11778,6 +11841,8 @@ const NOTIF_META = {
   prob:          { icon:'cake',  tag:'Probation' },
   transfer_join: { icon:'refresh', tag:'Transfer Join' },
   rehire:        { icon:'check', tag:'Re-hire' },
+  todo_rem:      { icon:'bell',  tag:'To-Do' },
+  todo_salary:   { icon:'warn',  tag:'Salary Note' },
 };
 function notifCardHTML(n, compact){
   const meta = NOTIF_META[n.type] || { icon:'bell', tag:'General' };
@@ -11795,6 +11860,11 @@ function notifCardHTML(n, compact){
 function notifActions(n){
   if(n.type==='transfer_join') return `<button class="btn success sm" onclick="confirmJoin('${n.id}')">✓ ${'Joined'}</button> <button class="btn danger sm" onclick="denyJoin('${n.id}')">✗ ${'Cancel order'}</button>`;
   if(n.type==='sc') return `<button class="btn success sm" onclick="markReplied('${n.ref}')">✓ ${'Reply received'}</button> <button class="btn ghost sm" onclick="dismissNotif('${n.id}')">${'Later'}</button>`;
+  if(n.type==='todo_rem' || n.type==='todo_salary'){
+    return `<button type="button" class="btn primary sm" onclick="event.stopPropagation();mgTodoNotifOpen('${n.ref}')">Open</button> ` +
+           `<button type="button" class="btn success sm" onclick="event.stopPropagation();mgTodoNotifSolved('${n.ref}')">✓ Solved</button> ` +
+           `<button type="button" class="btn ghost sm" onclick="event.stopPropagation();mgTodoNotifSnooze('${n.id}')">Later</button>`;
+  }
   return `<button class="btn ghost sm" onclick="dismissNotif('${n.id}')">${'Dismiss'}</button>`;
 }
 /* Modern Inbox Feed — v4.0: linear-style unread vs previously read feed */
@@ -11880,6 +11950,12 @@ window.handleNotifClick = function(id, type) {
     else if (type === 'rec') navigate('recruitment');
     else if (type === 'prob' || type === 'rehire') navigate('employees');
     else if (type === 'sc') navigate('disciplinary');
+    else if (type === 'todo_rem' || type === 'todo_salary') {
+      var notifObj = (window.NOTIFICATIONS || []).find(function(x){ return x.id === id; });
+      var refId = (notifObj && notifObj.ref) || id.replace(/^tdr/, '');
+      if (typeof window.mgTodoNotifOpen === 'function') window.mgTodoNotifOpen(refId);
+      else navigate('todo');
+    }
     else navigate('notifications');
 };
 
@@ -12494,33 +12570,73 @@ function mtGetNotes(iso, proj){
 }
 window.mtGetNotes = mtGetNotes;
 
-function mtBuildNotesSection(iso, proj, isEditing){
+function hasBn(s){ return /[\u0980-\u09FF]/.test(String(s || '')); }
+window.hasBn = hasBn;
+
+function mtBuildNotesSection(iso, proj, isEditing, draftText){
   const d = mtEnsure(iso);
   const notes = mtGetNotes(iso, proj);
   const pSafe = proj.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+  const key = iso + '|' + proj;
+  const isBusy = !!(window.MT_NOTE_BUSY && window.MT_NOTE_BUSY[key]);
+  const hasError = !!(window.MT_NOTE_ERROR && window.MT_NOTE_ERROR[key]);
+  const valText = draftText !== undefined ? draftText : ((window.MT_NOTE_DRAFT && window.MT_NOTE_DRAFT[key]) || '');
   
   let listHtml = '';
   if(notes && notes.length > 0){
     listHtml = notes.map((n, idx) => {
+      const isBn = (typeof hasBn === 'function' ? hasBn(n) : /[\u0980-\u09FF]/.test(String(n || '')));
+      const bnChip = isBn ? `<span class="mt-note-bn-chip" style="font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 9999px; background: rgba(16, 185, 129, 0.12); color: #059669; border: 1px solid rgba(16, 185, 129, 0.25); white-space: nowrap;">বাংলা</span>` : '';
       return `<div class="mt-note-bubble" style="background: var(--surface-2, #f8f9fa); color: var(--text-1); padding: 6px 10px; border-radius: 6px; font-size: 11.5px; line-height: 1.4; border: 1px solid var(--border); word-break: break-word; display: flex; justify-content: space-between; align-items: flex-start; gap: 6px;">
         <span style="flex:1">${String(n).replace(/</g, '&lt;')}</span>
-        <button type="button" title="Remove note" onclick="event.stopPropagation(); mtDeleteNote('${iso}', '${pSafe}', ${idx})" style="background:none;border:none;cursor:pointer;color:var(--text-muted,#9ca3af);font-size:13px;line-height:1;padding:0 2px;font-weight:700">×</button>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+          ${bnChip}
+          <button type="button" title="Remove note" onclick="event.stopPropagation(); mtDeleteNote('${iso}', '${pSafe}', ${idx})" style="background:none;border:none;cursor:pointer;color:var(--text-muted,#9ca3af);font-size:13px;line-height:1;padding:0 2px;font-weight:700">×</button>
+        </div>
       </div>`;
     }).join('');
   }
 
+  const shimmerHtml = isBusy ? `<div class="mt-note-shimmer" style="padding: 6px 10px; border-radius: 6px; background: linear-gradient(90deg, var(--surface-2, #f8f9fa) 25%, rgba(16, 185, 129, 0.15) 50%, var(--surface-2, #f8f9fa) 75%); background-size: 200% 100%; animation: tdShimmer 1.5s infinite; border: 1px dashed rgba(16, 185, 129, 0.4); font-size: 11px; color: var(--text-muted); display:flex; align-items:center; gap:6px;">
+    <span class="spin" style="display:inline-block;width:10px;height:10px;border:1.5px solid rgba(16, 185, 129, 0.3);border-top-color:#059669;border-radius:50%;margin-right:2px;vertical-align:-1px"></span> Translating note to Bengali…
+  </div>` : '';
+
   const containerHtml = `<div class="mt-notes-list" style="max-height: 130px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; padding-right: 4px;">
     ${listHtml}
+    ${shimmerHtml}
   </div>`;
 
   let actionHtml = '';
   if(isEditing){
+    const escapedVal = String(valText || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    let errBannerHtml = '';
+    if (hasError) {
+      errBannerHtml = `<div class="mt-note-error-banner" style="margin-top:6px;padding:8px 10px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;font-size:11px;color:#991b1b;display:flex;flex-direction:column;gap:6px;">
+        <div style="font-weight:600;">Translation failed — check AI settings or connection</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button type="button" class="btn sm" onclick="event.stopPropagation(); mtLockNoteBox('${iso}','${pSafe}')" style="font-size:11px;padding:3px 8px;background:white;border:1px solid #f87171;color:#b91c1c;">Save without translation</button>
+          <button type="button" class="btn sm" onclick="event.stopPropagation(); mtLockNoteBoxTranslated('${iso}','${pSafe}')" style="font-size:11px;padding:3px 8px;background:#ef4444;color:white;border:none;">Retry</button>
+        </div>
+      </div>`;
+    }
+
+    let btnPrimaryHtml = '';
+    let btnCancelHtml = '';
+    if (isBusy) {
+      btnPrimaryHtml = `<button type="button" class="btn primary sm" disabled style="font-size:11px;padding:4px 8px;opacity:0.85;cursor:not-allowed"><span class="spin" style="display:inline-block;width:11px;height:11px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;margin-right:5px;vertical-align:-1px"></span> Translating…</button>`;
+      btnCancelHtml = `<button type="button" class="btn ghost sm" disabled style="font-size:11px;padding:4px 8px;opacity:0.6;cursor:not-allowed">${'Cancel'}</button>`;
+    } else {
+      btnPrimaryHtml = `<button type="button" class="btn primary sm" data-old="Translate & Save" onclick="event.stopPropagation(); mtLockNoteBoxTranslated('${iso}','${pSafe}')" style="font-size:11px;padding:4px 8px">${ico('check',12)} ${'Translate & Save'}</button>`;
+      btnCancelHtml = `<button type="button" class="btn ghost sm" onclick="event.stopPropagation(); mtCancelNoteBox('${iso}','${pSafe}')" style="font-size:11px;padding:4px 8px">${'Cancel'}</button>`;
+    }
+
     actionHtml = `<div class="mt-note-editor" onclick="event.stopPropagation()">
-      <textarea class="input" placeholder="${'Issue / note for this project…'}" onclick="event.stopPropagation()" rows="2" style="width:100%;font-size:12px;padding:6px 8px;resize:vertical;background:white;margin-bottom:6px"></textarea>
+      <textarea class="input" placeholder="${'Issue / note for this project…'}" onclick="event.stopPropagation()" rows="2" style="width:100%;font-size:12px;padding:6px 8px;resize:vertical;background:white;margin-bottom:6px" ${isBusy ? 'readonly' : ''}>${escapedVal}</textarea>
       <div style="display:flex;gap:6px">
-        <button class="btn primary sm" onclick="event.stopPropagation(); mtLockNoteBox('${iso}','${pSafe}')" style="font-size:11px;padding:4px 8px">${ico('check',12)} ${'Save Note'}</button>
-        <button class="btn ghost sm" onclick="event.stopPropagation(); mtCancelNoteBox('${iso}','${pSafe}')" style="font-size:11px;padding:4px 8px">${'Cancel'}</button>
+        ${btnPrimaryHtml}
+        ${btnCancelHtml}
       </div>
+      ${errBannerHtml}
     </div>`;
   } else {
     const btnText = (notes && notes.length > 0) ? '+ Add Another Note' : `${ico('edit',12)} Take Note`;
@@ -12580,6 +12696,10 @@ function mtSaveNote(iso, proj, val){
 function mtShowNoteBox(iso, proj){
   const d = mtEnsure(iso);
   if(d.submitted && !d.unlocked) return;
+  const key = iso + '|' + proj;
+  if(window.MT_NOTE_ERROR) delete window.MT_NOTE_ERROR[key];
+  if(window.MT_NOTE_BUSY) delete window.MT_NOTE_BUSY[key];
+  if(window.MT_NOTE_DRAFT) delete window.MT_NOTE_DRAFT[key];
   const tile = document.querySelector('.mt-tile[data-proj="'+CSS.escape(proj)+'"]');
   if(!tile) return;
   const body = tile.querySelector('.mt-tile-body') || tile;
@@ -12604,6 +12724,10 @@ window.mtShowNoteBox = mtShowNoteBox;
 function mtLockNoteBox(iso, proj){
   const d = mtEnsure(iso);
   if(d.submitted && !d.unlocked) return;
+  const key = iso + '|' + proj;
+  if(window.MT_NOTE_BUSY) delete window.MT_NOTE_BUSY[key];
+  if(window.MT_NOTE_ERROR) delete window.MT_NOTE_ERROR[key];
+  if(window.MT_NOTE_DRAFT) delete window.MT_NOTE_DRAFT[key];
   const tile = document.querySelector('.mt-tile[data-proj="'+CSS.escape(proj)+'"]');
   if(!tile) return;
   const body = tile.querySelector('.mt-tile-body') || tile;
@@ -12626,7 +12750,122 @@ function mtLockNoteBox(iso, proj){
 }
 window.mtLockNoteBox = mtLockNoteBox;
 
+window.mtLockNoteBoxTranslated = async function(iso, proj){
+  const key = iso + '|' + proj;
+  if (window.MT_NOTE_BUSY && window.MT_NOTE_BUSY[key]) return;
+
+  const tile = document.querySelector('.mt-tile[data-proj="'+CSS.escape(proj)+'"]');
+  if(!tile) return;
+  const body = tile.querySelector('.mt-tile-body') || tile;
+  const box = body.querySelector('.mt-note-box');
+  if(!box) return;
+  const ta = box.querySelector('textarea');
+  const raw = ta ? ta.value.trim() : ((window.MT_NOTE_DRAFT && window.MT_NOTE_DRAFT[key]) || '');
+
+  // 1. read the textarea (trim); if empty, just render the box back in read mode and return.
+  if(!raw){
+    if (window.MT_NOTE_BUSY) delete window.MT_NOTE_BUSY[key];
+    if (window.MT_NOTE_ERROR) delete window.MT_NOTE_ERROR[key];
+    if (window.MT_NOTE_DRAFT) delete window.MT_NOTE_DRAFT[key];
+    box.outerHTML = mtBuildNotesSection(iso, proj, false);
+    return;
+  }
+
+  // 2. mark this box busy: window.MT_NOTE_BUSY = window.MT_NOTE_BUSY || {};
+  // set MT_NOTE_BUSY[iso + '|' + proj] = true, then re-render the editor state
+  // (replace the button label with "Translating…" + a small spinner, disable it, disable the Cancel button)
+  // and put a shimmer line at the bottom of the note list so I can see it working.
+  window.MT_NOTE_BUSY = window.MT_NOTE_BUSY || {};
+  window.MT_NOTE_BUSY[key] = true;
+  if (window.MT_NOTE_ERROR) delete window.MT_NOTE_ERROR[key];
+  window.MT_NOTE_DRAFT = window.MT_NOTE_DRAFT || {};
+  window.MT_NOTE_DRAFT[key] = raw;
+
+  box.outerHTML = mtBuildNotesSection(iso, proj, true, raw);
+
+  // 3. compute var bn = hasBn(raw) ? raw : await window.mgAITranslate(raw, { formal:true, maxTokens:512 });
+  var bn = null;
+  try {
+    const isAlreadyBn = (typeof hasBn === 'function' ? hasBn(raw) : /[\u0980-\u09FF]/.test(raw));
+    if (isAlreadyBn) {
+      bn = raw;
+    } else if (typeof window.mgAITranslate === 'function') {
+      bn = await window.mgAITranslate(raw, { formal: true, maxTokens: 512 });
+    }
+  } catch(err) {
+    console.error('Translation error:', err);
+    bn = null;
+  }
+
+  // 4. SUCCESS (bn is a non-empty string): push bn into mtGetNotes(iso, proj) exactly as
+  // mtLockNoteBox does today (still a plain array of STRINGS — never push an object), call
+  // persist(), clear the busy flag, render the box back in read mode (mtBuildNotesSection
+  // without isEditing), and toast: 'Note saved in Bengali'.
+  if (bn && typeof bn === 'string' && bn.trim()) {
+    bn = bn.trim();
+    const notes = mtGetNotes(iso, proj);
+    notes.push(bn);
+    persist();
+    if (window.MT_NOTE_BUSY) delete window.MT_NOTE_BUSY[key];
+    if (window.MT_NOTE_ERROR) delete window.MT_NOTE_ERROR[key];
+    if (window.MT_NOTE_DRAFT) delete window.MT_NOTE_DRAFT[key];
+
+    const curTile = document.querySelector('.mt-tile[data-proj="'+CSS.escape(proj)+'"]');
+    if (curTile) {
+      const curBody = curTile.querySelector('.mt-tile-body') || curTile;
+      const curBox = curBody.querySelector('.mt-note-box');
+      if (curBox) {
+        curBox.outerHTML = mtBuildNotesSection(iso, proj, false);
+        const newBox = curBody.querySelector('.mt-note-box');
+        if (newBox) {
+          const list = newBox.querySelector('.mt-notes-list');
+          if (list) list.scrollTop = list.scrollHeight;
+        }
+      }
+    }
+    if (typeof window.mtCheckDirty === 'function') window.mtCheckDirty(iso);
+    if (typeof toast === 'function') toast('Note saved in Bengali', 'success');
+    return;
+  }
+
+  // 5. FAILURE (AI disabled / no key / network failure / returned empty or null):
+  // DO NOT LOSE THE TEXT. Keep the textarea open, keep the user's raw text inside it, clear
+  // the busy flag, restore the "Translate & Save" button, and render an inline error banner
+  // directly beneath the textarea:
+  //   [ "Translation failed — check AI settings or connection" ]
+  //   [ "Save without translation" (btn sm, calls mtLockNoteBox(iso, proj)) ]
+  //   [ "Retry" (btn sm, calls mtLockNoteBoxTranslated(iso, proj)) ]
+  // Toast: 'Translation failed — you can save raw text or retry'.
+  if (window.MT_NOTE_BUSY) delete window.MT_NOTE_BUSY[key];
+  window.MT_NOTE_ERROR = window.MT_NOTE_ERROR || {};
+  window.MT_NOTE_ERROR[key] = true;
+  window.MT_NOTE_DRAFT = window.MT_NOTE_DRAFT || {};
+  window.MT_NOTE_DRAFT[key] = raw;
+
+  const curTile = document.querySelector('.mt-tile[data-proj="'+CSS.escape(proj)+'"]');
+  if (curTile) {
+    const curBody = curTile.querySelector('.mt-tile-body') || curTile;
+    const curBox = curBody.querySelector('.mt-note-box');
+    if (curBox) {
+      curBox.outerHTML = mtBuildNotesSection(iso, proj, true, raw);
+      const newBox = curBody.querySelector('.mt-note-box');
+      if (newBox) {
+        const taNew = newBox.querySelector('textarea');
+        if (taNew) {
+          taNew.value = raw;
+          taNew.focus();
+        }
+      }
+    }
+  }
+  if (typeof toast === 'function') toast('Translation failed — you can save raw text or retry', 'error');
+};
+
 function mtCancelNoteBox(iso, proj){
+  const key = iso + '|' + proj;
+  if(window.MT_NOTE_BUSY) delete window.MT_NOTE_BUSY[key];
+  if(window.MT_NOTE_ERROR) delete window.MT_NOTE_ERROR[key];
+  if(window.MT_NOTE_DRAFT) delete window.MT_NOTE_DRAFT[key];
   const tile = document.querySelector('.mt-tile[data-proj="'+CSS.escape(proj)+'"]');
   if(!tile) return;
   const body = tile.querySelector('.mt-tile-body') || tile;
@@ -12909,8 +13148,11 @@ async function mtSubmitDay(iso, event){
               project: proj,
               who: 'Meeting — ' + iso,
               note: s,
+              note_bn: s,
+              category: 'note',
               date: iso,
-              status: 'pending',
+              status: 'open',
+              manager_status: null,
               source: 'meeting',
               sourceDate: iso
             });
@@ -15230,24 +15472,37 @@ function renderTodo(){
   const remFlag = function(t){ return !!t.remind_on; };
   const xsOf = function(t){ return Array.isArray(t.extra_notes) ? t.extra_notes.filter(function(x){ return x && (x.bn || x.raw); }) : []; };
 
-  const isSalaryT = function(t){ return String(t && t.category || '').toLowerCase() === 'salary'; };
+  const secList = (typeof TDSEC !== 'undefined' ? TDSEC : (window.TDSEC || [
+    {key:'general', cat:'note',       label:'General',            sub:'Inbox',          icon:'list'},
+    {key:'task',    cat:'task',       label:'My Task',            sub:'To do myself',   icon:'task'},
+    {key:'mgr',     cat:'permission', label:'Inform to Manager',  sub:'Waiting reply',  icon:'user'},
+    {key:'salary',  cat:'salary',     label:'Salary Notes',       sub:'Monthly',        icon:'salary'}
+  ]));
+  const getSec = (typeof tdSec === 'function' ? tdSec : (window.tdSec || function(k){
+    k = String(k || '').toLowerCase();
+    for (var i = 0; i < secList.length; i++){ if (secList[i].key === k) return secList[i]; }
+    return secList[0];
+  }));
+  const getCat = (typeof tdCatOf === 'function' ? tdCatOf : (window.tdCatOf || function(t){
+    var c = String((t && t.category) || 'note').toLowerCase();
+    if (c === 'task' || c === 'permission' || c === 'salary') return c;
+    return 'note';
+  }));
 
-  let mainF = window.MT_TODO_FILTER || 'open';
-  let subF  = window.MG_TD_SUB || 'all';
-  if(['pending','approved','rejected','solved','important'].indexOf(mainF) !== -1 && subF === 'all'){ subF = mainF; mainF = 'all'; }
+  const curSec = getSec(typeof tdMainFilter !== 'undefined' ? tdMainFilter : (window.tdMainFilter || 'general'));
+  const activeCat = curSec.cat;
+  const mainF = curSec.key;
+  window.tdMainFilter = curSec.key;
+  window.MT_TODO_FILTER = curSec.key;
+  let subF = window.MG_TD_SUB || 'all';
 
   const isSalaryTab = (mainF === 'salary');
 
-  const all = DATA.todos.filter(function(t){ return !!t; });
-
-  // Salary counts & tab badges: header counts exclude salary notes
-  const salaryCount = all.filter(function(t){ return isSalaryT(t) && !isSolvedT(t); }).length;
-  const mgrCount    = all.filter(function(t){ return !isSalaryT(t) && mgrFlag(t) && !isSolvedT(t); }).length;
-  const remCount    = all.filter(function(t){ return !isSalaryT(t) && remFlag(t) && !isSolvedT(t); }).length;
-  const dueCount    = all.filter(function(t){ return !isSalaryT(t) && !isSolvedT(t) && t.remind_on && String(t.remind_on).slice(0,10) <= today; }).length;
+  const all = (window.DATA && Array.isArray(window.DATA.todos) ? window.DATA.todos : [])
+    .filter(function(t){ return !!t && t.deleted_at == null; });
 
   // Active pool for current view counts (mini filter chips, openCount, foot summary)
-  const scopeList      = all.filter(function(t){ return isSalaryTab ? isSalaryT(t) : !isSalaryT(t); });
+  const scopeList      = all.filter(function(t){ return getCat(t) === activeCat; });
   const openCount      = scopeList.filter(function(t){ return !isSolvedT(t); }).length;
   const pendingCount   = scopeList.filter(function(t){ return stOf(t) === 'pending'; }).length;
   const approvedCount  = scopeList.filter(function(t){ return stOf(t) === 'approved'; }).length;
@@ -15255,8 +15510,6 @@ function renderTodo(){
   const solvedCount    = scopeList.filter(isSolvedT).length;
   const importantCount = scopeList.filter(function(t){ return t.is_important && !isSolvedT(t); }).length;
   const totalCount     = scopeList.length;
-
-  const openBadge      = isSalaryTab ? all.filter(function(t){ return !isSalaryT(t) && !isSolvedT(t); }).length : openCount;
 
   const activeProjsList = (typeof activeProjects === 'function' ? activeProjects() : [])
     .slice().sort(function(a, b){ return String(a && a.ProjectName || '').localeCompare(String(b && b.ProjectName || '')); });
@@ -15279,15 +15532,8 @@ function renderTodo(){
     return true;
   };
   const filtered = all.filter(function(t){
+    if(getCat(t) !== activeCat) return false;
     if(!matchQ(t) || !passSub(t)) return false;
-    if(mainF === 'salary') return isSalaryT(t);
-    // All other tabs must exclude category 'salary' notes
-    if(isSalaryT(t)) return false;
-    if(mainF === 'open')      return !isSolvedT(t);
-    if(mainF === 'manager')   return mgrFlag(t);
-    if(mainF === 'reminder')  return remFlag(t);
-    if(mainF === 'important') return !!t.is_important;
-    if(mainF === 'solved')    return isSolvedT(t);
     return true;
   });
 
@@ -15311,7 +15557,7 @@ function renderTodo(){
       const ra = dayDiff(a.remind_on), rb = dayDiff(b.remind_on);
       if(ra !== rb) return ra - rb;
     }
-    if(mainF === 'manager'){
+    if(mainF === 'manager' || mainF === 'mgr'){
       const ma = MGRW[String(a.manager_status || 'none').toLowerCase()] || 5;
       const mb = MGRW[String(b.manager_status || 'none').toLowerCase()] || 5;
       if(ma !== mb) return ma - mb;
@@ -15336,7 +15582,7 @@ function renderTodo(){
       map[k].push(t);
     });
     RK.forEach(function(k){ if(map[k] && map[k].length) groups.push({ label: RL[k], items: map[k] }); });
-  } else if(mainF === 'manager'){
+  } else if(mainF === 'manager' || mainF === 'mgr'){
     const MK = ['asked','rejected','verbal','approved','none'];
     const ML = { asked:'Awaiting reply', rejected:'Manager declined', verbal:'Verbal consent', approved:'Approved', none:'Not informed yet' };
     const map = {};
@@ -15382,24 +15628,30 @@ function renderTodo(){
     tick:'<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
     cross:'<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
     search:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
-    prn:'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>',
+    prn:'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>',
     list:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="9" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1.4"/><circle cx="4" cy="12" r="1.4"/><circle cx="4" cy="18" r="1.4"/></svg>',
+    task:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
     user:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
     bellBig:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>',
     salary:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="13" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><circle cx="16" cy="14.5" r="1.5"/></svg>',
     gear:'<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6h.09A1.65 1.65 0 0 0 10.09 3.09V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
     pencil:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
     plusbox:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2.5"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>',
-    empty:'<svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>'
+    empty:'<svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
+    move:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>',
+    chev:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>'
   };
+  window.ICON = ICON;
 
-  const CAT = { note:'Note', task:'Task', permission:'Permission', meeting:'Meeting', salary:'Salary' };
+  const CAT = { note:'General', task:'My Task', permission:'Inform to Manager', salary:'Salary Notes' };
 
   const rowHtml = function(t){
     const id = esc(String(t.id));
     const s = stOf(t);
     const solved = isSolvedT(t);
-    const isExpanded = !!(window.MG_TD_X && window.MG_TD_X[String(t.id)]);
+    const isOpen = !!(window.MG_TD_OPEN && window.MG_TD_OPEN[String(t.id)]);
+    const isMoveOpen = (window.MG_TD_MOVE === String(t.id));
+    const ck = tdCatOf(t);
 
     let tcls = 't-idle', tsvg = ICON.idle, ttip = 'Pending — click to approve';
     if(s === 'solved_approved' || s === 'solved' || s === 'done'){ tcls = 't-ok';   tsvg = ICON.ok;   ttip = 'Solved (approved) — click to reopen'; }
@@ -15430,84 +15682,207 @@ function renderTodo(){
     else if(solved) stWord = 'Solved';
 
     const orgName = esc(PN(t.project) || t.source || '');
+    const showText = t.note_bn || t.note || t.note_in || '';
 
-    // Single meta line: status word + "·" + relative time + "·" + organisation / source name
-    let metaLine = '<span>' + stWord + '</span><span>·</span><span title="' + esc(w.full) + '">' + esc(w.txt || 'just now') + '</span>';
-    if(orgName) metaLine += '<span>·</span><span>' + orgName + '</span>';
-    if(t.is_important) metaLine += '<span>·</span><span class="td-meta-imp">★ Important</span>';
+    const isSalaryNote = (ck === 'salary' || String(t.category || '').toLowerCase() === 'salary');
+    const inSalWindow = (typeof window.mgTdIsSalaryWindow === 'function') ? window.mgTdIsSalaryWindow() : false;
+    let salChip = '';
+    if (isSalaryNote && !solved && inSalWindow) {
+      const nD = new Date();
+      const lastDay = (typeof window.mgTdDaysInMonth === 'function') ? window.mgTdDaysInMonth(nD) : new Date(nD.getFullYear(), nD.getMonth()+1, 0).getDate();
+      const mNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const lastDayLabel = lastDay + ' ' + mNames[nD.getMonth()];
+      const daysLeft = Math.max(0, lastDay - nD.getDate());
+      const daysLeftText = daysLeft === 0 ? 'today is the last day' : (daysLeft + ' day' + (daysLeft > 1 ? 's' : '') + ' left');
+      salChip = '<span class="td-meta-sal-chip" style="font-size:10.5px;font-weight:700;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;padding:1px 6px;border-radius:4px;white-space:nowrap;">⏰ Deadline ' + esc(lastDayLabel) + ' · ' + esc(daysLeftText) + '</span>';
+    }
 
-    // Expanded details: category, edited flag, reminder date, who, exact timestamp
-    let expDetailsHtml = '';
-    if(isExpanded){
+    const remChip = t.remind_on ? ('<span class="td-meta-rem" style="color:#d97706;font-weight:600;display:inline-flex;align-items:center;gap:3px;">' + ICON.bell + ' Reminder on</span>') : '';
+
+    // COLLAPSED: status pill, relative time chip, Important chip if set, category chip when section is not General
+    let thinMeta = '<span>' + stWord + '</span><span>·</span><span title="' + esc(w.full) + '">' + esc(w.txt || 'just now') + '</span>';
+    if(t.is_important) thinMeta += '<span>·</span><span class="td-meta-imp">★ Important</span>';
+    if(remChip) thinMeta += '<span>·</span>' + remChip;
+    if(salChip) thinMeta += '<span>·</span>' + salChip;
+    if(mainF !== 'general'){
+      thinMeta += '<span>·</span><span class="td-meta-cat">' + esc(CAT[ck] || ck) + '</span>';
+    }
+
+    const remBtn = '<button type="button" class="td-remind' + (t.remind_on ? ' on' : '') +
+      '" title="Reminder on/off" onclick="event.stopPropagation();mtToggleTodoRemind(\'' + id + '\')">' +
+      ICON.bell + '</button>';
+
+    let expandedHtml = '';
+    if(isOpen){
+      // 2: existing extras block
+      const xs = xsOf(t);
+      let extras = '';
+      if(xs.length){
+        extras = '<div class="td-extras" onclick="event.stopPropagation()">' + xs.map(function(x){
+          const d = x.t ? new Date(x.t) : null;
+          const a = (d && !isNaN(d.getTime())) ? agoOf(d) : { txt:'', cls:'', full:'' };
+          return '<div class="td-extra"><div class="x">' + esc(x.bn || x.raw || '') + '</div>' + (a.txt ? '<div class="w">' + a.txt + '</div>' : '') + '</div>';
+        }).join('') + '</div>';
+      }
+
+      // 3: complete meta row
       const details = [];
-      const ck = String(t.category || 'note').toLowerCase();
-      if(ck) details.push('Type: <b>' + esc(CAT[ck] || ck) + '</b>');
-      if(t.remind_on) details.push('Reminder: <b>' + esc(TZ(t.remind_on)) + '</b>');
+      details.push('<span>' + stWord + '</span>');
+      details.push('<span title="' + esc(w.full) + '">' + esc(w.txt || 'just now') + '</span>');
+      if(orgName) details.push('<span>' + orgName + '</span>');
       if(t.who) details.push('By: <b>' + esc(t.who) + '</b>');
-      if(w.full) details.push('Time: <b>' + esc(w.full) + '</b>');
+      if(ck) details.push('Type: <b>' + esc(CAT[ck] || ck) + '</b>');
+      if(remChip) details.push(remChip);
+      if(salChip) details.push(salChip);
+      if(t.manager_status && t.manager_status !== 'none'){
+        const mLabels = { asked:'Waiting reply', approved:'Approved', rejected:'Declined', verbal:'Verbal consent' };
+        details.push('Manager: <b>' + esc(mLabels[t.manager_status] || t.manager_status) + '</b>');
+      }
       if(t.updated_at && t.created_at && (new Date(t.updated_at).getTime() - new Date(t.created_at).getTime()) > 60000){
         details.push('Edited: <b>' + esc(enDate(new Date(t.updated_at)) + ', ' + enTime(new Date(t.updated_at))) + '</b>');
       }
       if(t.solved_at){
         details.push('Solved: <b>' + esc(agoOf(new Date(t.solved_at)).txt || '') + '</b>');
       }
-      if(details.length){
-        expDetailsHtml = '<div class="td-exp-info">' + details.join('<span class="td-dot">·</span>') + '</div>';
+      if(t.is_important) details.push('<span class="td-meta-imp">★ Important</span>');
+      const fullMetaHtml = '<div class="td-meta" style="margin-top:9px;padding-top:8px;border-top:1px dashed var(--border);">' + details.join('<span>·</span>') + '</div>';
+
+      // 4: status action row
+      let statusActsHtml = '';
+      if(act){
+        statusActsHtml = '<div class="td-status-row" onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px;">' + act + '</div>';
       }
-    }
 
-    const xs = xsOf(t);
-    let extras = '';
-    if(isExpanded && xs.length){
-      extras = '<div class="td-extras">' + xs.map(function(x){
-        const d = x.t ? new Date(x.t) : null;
-        const a = (d && !isNaN(d.getTime())) ? agoOf(d) : { txt:'', cls:'', full:'' };
-        return '<div class="td-extra"><div class="x">' + esc(x.bn || x.raw || '') + '</div>' + (a.txt ? '<div class="w">' + a.txt + '</div>' : '') + '</div>';
-      }).join('') + '</div>';
-    }
+      // 5: manager bar — ONLY when the active section is 'mgr'
+      let mgrBarHtml = '';
+      if(mainF === 'mgr'){
+        const curM = String(t.manager_status || 'none').toLowerCase();
+        const mBtns = [
+          { key: 'asked',    lbl: 'Informed' },
+          { key: 'approved', lbl: 'Approve' },
+          { key: 'rejected', lbl: 'Decline' },
+          { key: 'verbal',   lbl: 'Verbal' }
+        ];
+        mgrBarHtml = '<div class="td-mgr-acts" onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);">' +
+          '<span style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Manager:</span>' +
+          mBtns.map(function(b){
+            const isSel = (curM === b.key);
+            const cls = isSel ? 'td-btn b-primary' : 'td-btn b-ghost';
+            return '<button type="button" class="' + cls + '" title="' + esc(b.lbl) + '" onclick="event.stopPropagation();mtSetManagerStatus(\'' + id + '\',\'' + b.key + '\')">' + b.lbl + '</button>';
+          }).join('') +
+        '</div>';
+      }
 
-    let mgrActs = '';
-    if(mainF === 'manager'){
-      const curM = String(t.manager_status || 'none').toLowerCase();
-      const mBtns = [
-        { key: 'asked',    lbl: 'Informed' },
-        { key: 'approved', lbl: 'Approve' },
-        { key: 'rejected', lbl: 'Decline' },
-        { key: 'verbal',   lbl: 'Verbal' }
-      ];
-      mgrActs = '<div class="td-mgr-acts" style="display:inline-flex;align-items:center;gap:4px;margin-right:6px;">' +
-        mBtns.map(function(b){
-          const isSel = (curM === b.key);
-          const cls = isSel ? 'td-btn b-primary' : 'td-btn b-ghost';
-          return '<button type="button" class="' + cls + '" title="' + esc(b.lbl) + '" onclick="event.stopPropagation();mtSetManagerStatus(\'' + id + '\',\'' + b.key + '\')">' + b.lbl + '</button>';
-        }).join('') +
+      // 6: the action row: Edit, Extra note, Move, Star, Remind, Delete
+      const starBtn = '<button type="button" class="td-btn b-ghost' + (t.is_important ? ' is-imp-on' : '') + '" title="' + (t.is_important ? 'Remove important' : 'Mark as important') + '" onclick="event.stopPropagation();mtToggleTodoImportant(\'' + id + '\')">' + (t.is_important ? ICON.starOn : ICON.star) + ' ' + (t.is_important ? 'Important' : 'Star') + '</button>';
+      const remBtnAct = '<button type="button" class="td-btn b-ghost' + (t.remind_on ? ' is-imp-on' : '') + '" title="' + (t.remind_on ? 'Remove reminder' : 'Set reminder') + '" onclick="event.stopPropagation();mtToggleTodoRemind(\'' + id + '\')">' + ICON.bell + ' ' + (t.remind_on ? 'Reminder on' : 'Remind') + '</button>';
+      const delBtn  = '<button type="button" class="td-btn b-ghost td-del-btn" title="Delete note" style="color:var(--bad, #dc2626);" onclick="event.stopPropagation();delTodo(\'' + id + '\')">' + ICON.trash + ' Delete</button>';
+      const moveBtn = '<button type="button" class="td-btn b-ghost' + (isMoveOpen ? ' b-primary' : '') + '" title="Move note" onclick="event.stopPropagation();mtOpenMove(\'' + id + '\')">' + ICON.move + ' Move</button>';
+
+      const actionRowHtml = '<div class="td-acts" onclick="event.stopPropagation()">' +
+        '<button type="button" class="td-btn b-ghost" title="Edit note" onclick="event.stopPropagation();mtOpenNote(\'' + id + '\',\'edit\')">' + ICON.pencil + ' Edit</button>' +
+        '<button type="button" class="td-btn b-ghost" title="Extra note / reply" onclick="event.stopPropagation();mtOpenNote(\'' + id + '\',\'extra\')">' + ICON.plusbox + ' Extra note</button>' +
+        moveBtn +
+        starBtn +
+        remBtnAct +
+        delBtn +
       '</div>';
+
+      // Inline Move Panel (Task 2)
+      let movePanelHtml = '';
+      if(isMoveOpen){
+        const destSecs = secList.filter(function(s){ return s.cat !== ck; });
+        const destBtns = destSecs.map(function(s){
+          const sIcon = (ICON[s.key] || (s.key === 'general' ? ICON.list : (s.key === 'mgr' ? ICON.user : (s.key === 'salary' ? ICON.salary : (ICON.task || ICON.list)))));
+          return '<button type="button" class="td-mvbtn" onclick="event.stopPropagation();mtMoveTodo(\'' + id + '\',\'' + s.cat + '\')">' +
+            sIcon + ' ' + esc(s.label) +
+          '</button>';
+        }).join('');
+
+        movePanelHtml = '<div class="td-mvpanel" onclick="event.stopPropagation()">' +
+          '<span class="td-mvlabel">Move to:</span>' +
+          destBtns +
+          '<button type="button" class="td-mvbtn cancel" onclick="event.stopPropagation();mtOpenMove(\'' + id + '\')">Cancel</button>' +
+        '</div>';
+      }
+
+      expandedHtml = extras + fullMetaHtml + statusActsHtml + mgrBarHtml + actionRowHtml + movePanelHtml;
     }
 
-    const starBtn = '<button type="button" class="td-star' + (t.is_important ? ' on' : '') + '" title="Mark as important" onclick="event.stopPropagation();mtToggleTodoImportant(\'' + id + '\')">' + (t.is_important ? ICON.starOn : ICON.star) + '</button>';
-    const delBtn  = '<button type="button" class="td-star td-del" title="Delete note" onclick="event.stopPropagation();delTodo(\'' + id + '\')">' + ICON.trash + '</button>';
-    const showText = t.note_bn || t.note || t.note_in || '';
+    const starBtnSide = '<button type="button" class="td-star' + (t.is_important ? ' on' : '') + '" title="' + (t.is_important ? 'Remove important' : 'Mark as important') + '" onclick="event.stopPropagation();mtToggleTodoImportant(\'' + id + '\')">' + (t.is_important ? ICON.starOn : ICON.star) + '</button>';
 
-    return '<div class="td-row' + (isExpanded ? ' is-expanded' : '') + (solved ? ' is-solved' : '') + (t.is_important ? ' is-important' : '') + '" onclick="mtRowClick(event,\'' + id + '\')">' +
+    return '<div class="td-row' + (isOpen ? ' is-open' : '') + (solved ? ' is-solved' : '') + (t.is_important ? ' is-important' : '') + '" id="td-row-' + id + '" data-id="' + id + '">' +
       '<button type="button" class="td-toggle ' + tcls + '" title="' + ttip + '" onclick="event.stopPropagation();mtToggleTodoStatus(\'' + id + '\')">' + tsvg + '</button>' +
-      '<div class="td-body">' +
-        '<div class="td-note">' + esc(showText) + '</div>' +
-        '<div class="td-meta">' + metaLine + '</div>' +
-        expDetailsHtml +
-        extras +
-        '<div class="td-acts" onclick="event.stopPropagation()">' + mgrActs + act +
-          '<button type="button" class="td-icb" title="Edit note" onclick="mtOpenNote(\'' + id + '\',\'edit\')">' + ICON.pencil + '</button>' +
-          '<button type="button" class="td-icb" title="Extra note / reply" onclick="mtOpenNote(\'' + id + '\',\'extra\')">' + ICON.plusbox + '</button>' +
-        '</div>' +
+      '<div class="td-body" onclick="mtToggleTodoOpen(\'' + id + '\')">' +
+        '<div class="td-note" title="' + esc(showText) + '">' + esc(showText) + '</div>' +
+        (!isOpen ? ('<div class="td-meta">' + thinMeta + '</div>') : '') +
+        expandedHtml +
       '</div>' +
-      '<div class="td-side" onclick="event.stopPropagation()">' + starBtn + delBtn + '</div>' +
+      '<div class="td-side" onclick="event.stopPropagation()">' +
+        starBtnSide +
+        remBtn +
+        '<span class="td-chev" onclick="mtToggleTodoOpen(\'' + id + '\')">' + ICON.chev + '</span>' +
+      '</div>' +
     '</div>';
   };
 
+  const loadingItems = (window.MG_TD_LOADING || []).filter(function(x){
+    return (x.cat || 'note') === activeCat;
+  });
+
+  const loadingRowHtml = function(item){
+    if (item.phase === 'error') {
+      return '<div class="td-row td-loading-row is-error" style="border-left:3px solid var(--bad, #dc2626);background:var(--card);">' +
+        '<button type="button" class="td-toggle t-bad" title="Translation failed">' + ICON.bad + '</button>' +
+        '<div class="td-body">' +
+          '<div class="td-note" style="color:var(--text);">' + esc(item.raw) + '</div>' +
+          '<div class="td-meta">' +
+            '<span style="color:var(--bad, #dc2626);font-weight:700;">Translation failed</span>' +
+            '<span>·</span><span class="small-mute">Check Gemini API key in gear icon</span>' +
+          '</div>' +
+          '<div class="td-acts" onclick="event.stopPropagation()" style="display:flex;gap:8px;margin-top:8px;">' +
+            '<button type="button" class="td-btn b-primary" onclick="mtRetryLoading(\'' + esc(item.id) + '\')">' + ICON.gear + ' Retry</button>' +
+            '<button type="button" class="td-btn b-ghost" onclick="mtSaveLoadingRaw(\'' + esc(item.id) + '\')">Save original</button>' +
+            '<button type="button" class="td-btn b-ghost" style="color:var(--text-muted);" onclick="mtDiscardLoading(\'' + esc(item.id) + '\')">Discard</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="td-side" onclick="event.stopPropagation()">' +
+          '<button type="button" class="td-star td-del" title="Discard" onclick="mtDiscardLoading(\'' + esc(item.id) + '\')">' + ICON.trash + '</button>' +
+        '</div>' +
+      '</div>';
+    }
+
+    return '<div class="td-row td-loading-row" style="border-left:3px solid var(--primary);background:var(--card);">' +
+      '<div class="td-toggle td-loading-spinner">' +
+        '<svg class="td-spinner-svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-dasharray="45 15" stroke-linecap="round"/></svg>' +
+      '</div>' +
+      '<div class="td-body">' +
+        '<div class="td-note td-loading-text">' + esc(item.raw) + '</div>' +
+        '<div class="td-meta td-shimmer-meta">' +
+          '<span class="td-loading-badge" style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:var(--primary);">' +
+            '<span class="td-pulse-dot"></span> Translating to Bengali (বাংলা)…' +
+          '</span>' +
+          '<span>·</span><span class="small-mute">Just now</span>' +
+        '</div>' +
+        '<div class="td-shimmer-bar"></div>' +
+      '</div>' +
+      '<div class="td-side" onclick="event.stopPropagation()">' +
+        '<button type="button" class="td-star td-del" title="Discard" onclick="mtDiscardLoading(\'' + esc(item.id) + '\')">' + ICON.trash + '</button>' +
+      '</div>' +
+    '</div>';
+  };
+
+  const loadingHtml = loadingItems.map(loadingRowHtml).join('');
+
   const groupsHtml = groups.map(function(g){
+    const groupItems = (g.items || []).slice().sort(function(a, b){
+      const sa = isSolvedT(a) ? 1 : 0, sb = isSolvedT(b) ? 1 : 0;
+      if (sa !== sb) return sa - sb;
+      return 0;
+    });
     return '<div class="td-group">' +
-      (g.label ? '<div class="td-group-h"><span class="td-group-t">' + g.label + '</span><span class="td-group-n">' + bn(g.items.length) + '</span></div>' : '') +
-      '<div class="td-list">' + g.items.map(rowHtml).join('') + '</div>' +
+      (g.label ? '<div class="td-group-h"><span class="td-group-t">' + g.label + '</span><span class="td-group-n">' + bn(groupItems.length) + '</span></div>' : '') +
+      '<div class="td-list">' + groupItems.map(rowHtml).join('') + '</div>' +
     '</div>';
   }).join('');
 
@@ -15515,108 +15890,132 @@ function renderTodo(){
     '<div class="t1">' + (q ? 'Nothing found for this search' : (isSalaryTab ? 'No salary notes yet' : 'Nothing here yet')) + '</div>' +
     '<div class="t2">' + (q ? 'Try another keyword' : (isSalaryTab ? 'Add salary hold, deduction or advance notes above' : 'Type above and press Enter to save')) + '</div></div>';
 
-  const tab = function(key, icon, title, sub, count){
-    const active = (mainF === key);
-    return '<button type="button" class="td-tab' + (active ? ' is-on' : '') + '" onclick="mtSetTodoFilter(\'' + key + '\')">' +
-      '<span class="ic">' + icon + '</span>' +
-      '<span class="tbox"><span class="tt">' + title + '</span><span class="ts">' + sub + '</span></span>' +
-      '<span class="n">' + bn(count) + '</span>' +
-    '</button>';
-  };
+  let listContent = '';
+  if (loadingItems.length) {
+    listContent += '<div class="td-loading-group" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">' + loadingHtml + '</div>';
+  }
+  if (groupsHtml) {
+    listContent += groupsHtml;
+  } else if (!loadingItems.length) {
+    listContent = emptyHtml;
+  }
+
   const tabsHtml = '<div class="td-tabs">' +
-    tab('open', ICON.list, 'Open', 'All active notes', openBadge) +
-    tab('manager', ICON.user, 'Inform to Manager', 'Notes to inform the manager', mgrCount) +
-    tab('reminder', ICON.bellBig, 'Reminder', 'Review again later', remCount) +
-    tab('salary', ICON.salary, 'Salary Notes', 'Month-end salary reminders', salaryCount) +
+    secList.map(function(s){
+      const active = (mainF === s.key);
+      const icon = (ICON[s.key] || (s.key === 'general' ? ICON.list : (s.key === 'mgr' ? ICON.user : (s.key === 'salary' ? ICON.salary : (ICON.task || ICON.list)))));
+      const count = all.filter(function(t){ return getCat(t) === s.cat && !isSolvedT(t); }).length;
+      const solved = all.filter(function(t){ return getCat(t) === s.cat && isSolvedT(t); }).length;
+      const doneLabel = (s.key === 'mgr' ? 'Informed ' : (s.key === 'salary' ? 'Cleared ' : 'Solved ')) + bn(solved);
+      const cls = 'td-tab t-' + s.key + (s.key === 'salary' ? ' t-sal' : '') + (active ? ' is-on' : '');
+      return '<button type="button" class="' + cls + '" onclick="mtSetTodoFilter(\'' + s.key + '\')">' +
+        '<span class="ic">' + icon + '</span>' +
+        '<span class="tbox">' +
+          '<span class="tt">' + esc(s.label) + '</span>' +
+          '<span class="ts">' + esc(s.sub) + '</span>' +
+          '<span class="ts-done">' + doneLabel + '</span>' +
+        '</span>' +
+        '<span class="n">' + bn(count) + '</span>' +
+      '</button>';
+    }).join('') +
   '</div>';
 
+  const pillConfig = {
+    general: [
+      { key: 'all',       label: 'All',       count: totalCount },
+      { key: 'unsolved',  label: 'Open',      count: openCount },
+      { key: 'pending',   label: 'Pending',   count: pendingCount },
+      { key: 'approved',  label: 'Approved',  count: approvedCount },
+      { key: 'solved',    label: 'Solved',    count: solvedCount },
+      { key: 'important', label: 'Important', count: importantCount }
+    ],
+    task: [
+      { key: 'all',       label: 'All',       count: totalCount },
+      { key: 'unsolved',  label: 'Open',      count: openCount },
+      { key: 'pending',   label: 'Pending',   count: pendingCount },
+      { key: 'approved',  label: 'Approved',  count: approvedCount },
+      { key: 'solved',    label: 'Solved',    count: solvedCount },
+      { key: 'important', label: 'Important', count: importantCount }
+    ],
+    mgr: [
+      { key: 'all',       label: 'All',       count: totalCount },
+      { key: 'pending',   label: 'Waiting',   count: pendingCount },
+      { key: 'approved',  label: 'Approved',  count: approvedCount },
+      { key: 'rejected',  label: 'Declined',  count: rejectedCount },
+      { key: 'solved',    label: 'Solved',    count: solvedCount }
+    ],
+    salary: [
+      { key: 'all',       label: 'All',       count: totalCount },
+      { key: 'unsolved',  label: 'Open',      count: openCount },
+      { key: 'solved',    label: 'Cleared',   count: solvedCount },
+      { key: 'important', label: 'Important', count: importantCount }
+    ]
+  };
+
+  const activePills = pillConfig[mainF] || pillConfig.general;
+  const validSubKeys = activePills.map(function(p){ return p.key; });
+  if (validSubKeys.indexOf(subF) === -1) {
+    subF = 'all';
+    window.MG_TD_SUB = 'all';
+  }
+
   const mini = function(key, label, count){
-    return '<button type="button" class="td-chipbtn' + (subF === key ? ' on' : '') + '" onclick="mtSetTodoSub(\'' + key + '\')">' + label + ' ' + bn(count) + '</button>';
+    const cntBadge = count > 0 ? (' ' + bn(count)) : '';
+    return '<button type="button" class="td-chipbtn' + (subF === key ? ' on' : '') + '" onclick="mtSetTodoSub(\'' + key + '\')">' + esc(label) + cntBadge + '</button>';
   };
   const barHtml = '<div class="td-bar">' +
     '<div class="td-mini">' +
-      mini('all', 'All', totalCount) +
-      mini('unsolved', 'Unsolved', openCount) +
-      mini('pending', 'Pending', pendingCount) +
-      mini('approved', 'Approved', approvedCount) +
-      mini('rejected', 'Decline', rejectedCount) +
-      mini('solved', 'Solved', solvedCount) +
-      mini('important', 'Important', importantCount) +
+      activePills.map(function(p){ return mini(p.key, p.label, p.count); }).join('') +
     '</div>' +
     '<label class="td-search">' + ICON.search +
       '<input type="search" id="tdSearch" placeholder="Search note, project or person..." value="' + esc(window.MG_TD_Q || '') + '" oninput="mtTodoSearch(this.value)">' +
     '</label>' +
   '</div>';
 
-  let composeHtml = '';
-  if (isSalaryTab) {
-    let notifBtnHtml = '';
-    if (typeof Notification !== 'undefined') {
-      if (Notification.permission === 'granted') {
-        notifBtnHtml = '<span class="td-notif-st" style="font-size:11.5px;color:var(--text-muted);display:inline-flex;align-items:center;gap:4px;">Reminders on</span>';
-      } else if (Notification.permission === 'denied') {
-        notifBtnHtml = '<span class="td-notif-st" style="font-size:11.5px;color:var(--text-muted);display:inline-flex;align-items:center;gap:4px;">Reminders blocked in browser settings</span>';
-      } else {
-        notifBtnHtml = '<button type="button" class="td-btn b-ghost" onclick="mtRequestSalaryNotif(event)" title="Enable desktop notifications for month-end salary reminders">' + ICON.bell + ' Enable reminders</button>';
-      }
-    }
-    composeHtml = '<div class="td-compose">' +
-      '<input type="text" id="tdQuickNote" class="td-in" placeholder="Type salary note (e.g. salary hold / deduction) — press Enter to save" onkeydown="if(event.key===\'Enter\'||event.keyCode===13){event.preventDefault();mtQuickAddTodo(event);}">' +
-      '<input type="hidden" id="tdQuickCat" value="salary">' +
-      '<div class="td-crow">' +
-        '<label class="td-cf">Project / Org<select id="tdQuickProj"><option value="">None</option>' +
-          activeProjsList.map(function(p){ return '<option value="' + esc(p.ProjectName) + '">' + esc(p.ProjectName) + '</option>'; }).join('') +
-        '</select></label>' +
-        '<label class="td-cf">Date<input type="date" id="tdQuickDate" value="' + today + '"></label>' +
-        notifBtnHtml +
-        '<button type="button" class="td-btn b-primary td-save-btn" id="tdQuickSubmit" onclick="mtQuickAddTodo(event)">Save note</button>' +
-      '</div>' +
-    '</div>';
-  } else if (mainF === 'manager') {
-    composeHtml = '<div class="td-compose">' +
-      '<input type="text" id="tdQuickNote" class="td-in" placeholder="Type note to inform manager — press Enter to save" onkeydown="if(event.key===\'Enter\'||event.keyCode===13){event.preventDefault();mtQuickAddTodo(event);}">' +
-      '<input type="hidden" id="tdQuickCat" value="note">' +
-      '<div class="td-crow">' +
-        '<label class="td-cf">Project / Org<select id="tdQuickProj"><option value="">None</option>' +
-          activeProjsList.map(function(p){ return '<option value="' + esc(p.ProjectName) + '">' + esc(p.ProjectName) + '</option>'; }).join('') +
-        '</select></label>' +
-        '<label class="td-cf">Date<input type="date" id="tdQuickDate" value="' + today + '"></label>' +
-        '<label class="td-cf td-impbox"><input type="checkbox" id="tdQuickMgr" checked> Inform manager</label>' +
-        '<button type="button" class="td-btn b-primary td-save-btn" id="tdQuickSubmit" onclick="mtQuickAddTodo(event)">Save note</button>' +
-      '</div>' +
-    '</div>';
-  } else {
-    composeHtml = '<div class="td-compose">' +
-      '<input type="text" id="tdQuickNote" class="td-in" placeholder="Type here — press Enter to save (English/Banglish becomes Bengali)" onkeydown="if(event.key===\'Enter\'||event.keyCode===13){event.preventDefault();mtQuickAddTodo(event);}">' +
-      '<div class="td-crow">' +
-        '<label class="td-cf">Project<select id="tdQuickProj"><option value="">None</option>' +
-          activeProjsList.map(function(p){ return '<option value="' + esc(p.ProjectName) + '">' + esc(p.ProjectName) + '</option>'; }).join('') +
-        '</select></label>' +
-        '<label class="td-cf">Date<input type="date" id="tdQuickDate" value="' + today + '"></label>' +
-        '<label class="td-cf">Type<select id="tdQuickCat">' +
-          '<option value="note">Note</option><option value="task">Task</option>' +
-          '<option value="permission">Permission</option><option value="meeting">Meeting</option>' +
-        '</select></label>' +
-        '<label class="td-cf">Reminder<input type="date" id="tdQuickRemind"></label>' +
-        '<label class="td-cf td-impbox"><input type="checkbox" id="tdQuickImportant"> Important</label>' +
-        '<button type="button" class="td-btn b-primary td-save-btn" id="tdQuickSubmit" onclick="mtQuickAddTodo(event)">Save note</button>' +
-      '</div>' +
-    '</div>';
+  const validCats = ['note', 'task', 'permission', 'salary'];
+  if (!window.MG_TD_CAT_PICK || validCats.indexOf(window.MG_TD_CAT_PICK) === -1) {
+    window.MG_TD_CAT_PICK = curSec.cat;
   }
+  const currentCat = window.MG_TD_CAT_PICK;
+
+  const compSec = getSec(currentCat);
+  const compKey = compSec ? compSec.key : (currentCat === 'task' ? 'task' : (currentCat === 'permission' ? 'mgr' : (currentCat === 'salary' ? 'salary' : 'general')));
+  const compClass = 't-' + compKey + (compKey === 'salary' ? ' t-sal' : '');
+  const compIcon = (typeof window.tdSecIcon === 'function') ? window.tdSecIcon(currentCat) : (ICON[compSec.icon] || ICON[compKey] || ICON.list);
+
+  const catOptions = [
+    { val: 'note',       lbl: 'General' },
+    { val: 'task',       lbl: 'My Task' },
+    { val: 'permission', lbl: 'Inform to Manager' },
+    { val: 'salary',     lbl: 'Salary Notes' }
+  ];
+  const catOptsHtml = catOptions.map(function(o){
+    const sel = (o.val === currentCat) ? ' selected' : '';
+    return '<option value="' + o.val + '"' + sel + '>' + esc(o.lbl) + '</option>';
+  }).join('');
+
+  const composeHtml = '<div class="td-compose">' +
+    '<div class="td-fb-row">' +
+      '<div class="td-fb-ava ' + compClass + '" data-cat="' + esc(currentCat) + '">' + compIcon + '</div>' +
+      '<textarea id="tdQuickNote" class="td-in" rows="1" placeholder="What\'s on your mind? Write a note…" oninput="this.style.height=\'auto\';this.style.height=Math.min(this.scrollHeight,150)+\'px\'" onkeydown="if((event.key===\'Enter\'||event.keyCode===13)&&!event.shiftKey){event.preventDefault();mtQuickAddTodo(event);}"></textarea>' +
+    '</div>' +
+    '<div class="td-fb-foot">' +
+      '<label>Type <select id="tdQuickCat" onchange="window.MG_TD_CAT_PICK=this.value;if(typeof window.mtComposerCatChanged===\'function\'){window.mtComposerCatChanged(this.value);}else{renderTodo();}">' +
+        catOptsHtml +
+      '</select></label>' +
+      '<button type="button" id="tdQuickSend" class="td-fb-send" onclick="mtQuickAddTodo()">Save note</button>' +
+    '</div>' +
+  '</div>';
 
   const gearOn = (typeof window.mgAiDot === 'function' && window.mgAiDot()) ? ' on' : '';
-  const headSub = isSalaryTab
-    ? (bn(totalCount) + ' salary notes · ' + bn(openCount) + ' open · ' + bn(solvedCount) + ' solved')
-    : (bn(totalCount) + ' notes · ' + bn(openCount) + ' open · ' + bn(mgrCount) + ' manager · ' + bn(remCount) + ' reminder · ' + bn(dueCount) + ' overdue');
+  const solvedLabel = (curSec.key === 'mgr' ? 'informed' : (curSec.key === 'salary' ? 'cleared' : 'solved'));
+  const headSub = bn(totalCount) + ' ' + curSec.label.toLowerCase() + ' notes · ' + bn(openCount) + ' open · ' + bn(solvedCount) + ' ' + solvedLabel;
 
   const headHtml = '<div class="td-head">' +
-    '<div><h3>' + (isSalaryTab ? 'Salary Notes' : 'Note list') + '</h3><div class="td-sub">' + headSub + '</div></div>' +
+    '<div><h3>' + esc(curSec.label) + '</h3><div class="td-sub">' + headSub + '</div></div>' +
     '<div class="td-right">' +
       '<button type="button" class="td-icb g-ai' + gearOn + '" title="AI settings (Gemini API)" onclick="mtOpenAI()">' + ICON.gear + '</button>' +
-      '<button type="button" class="td-btn td-print" onclick="printTodos(\'open\')">' + ICON.prn + ' Print Open</button>' +
-      '<button type="button" class="td-btn td-print" onclick="printTodos(\'important\')">' + ICON.prn + ' Print Important</button>' +
-      '<button type="button" class="td-btn td-print" onclick="printTodos(\'all\')">' + ICON.prn + ' Print All</button>' +
-      '<button type="button" class="td-btn td-print" onclick="printTodos(\'salary\')">' + ICON.prn + ' Print Salary</button>' +
+      '<button type="button" class="td-btn td-print" title="Print this section" onclick="mtPrintSection()">' + ICON.prn + ' Print</button>' +
     '</div>' +
   '</div>';
 
@@ -15626,8 +16025,7 @@ function renderTodo(){
 
   sec.innerHTML = '<div class="td-wrap">' +
     '<div class="td-card">' + headHtml + tabsHtml + composeHtml + barHtml +
-      '<div style="margin-top:14px">' + (groupsHtml || emptyHtml) + '</div>' +
-      '<div class="td-foot"><span>' + bn(openCount) + ' open / total ' + bn(totalCount) + '</span><span>·</span><span>' + bn(solvedCount) + ' solved</span></div>' +
+      '<div style="margin-top:14px">' + listContent + '</div>' +
     '</div>' +
   '</div>';
 
@@ -15652,19 +16050,11 @@ window.mtRowClick = function(e, id){
   if (e && e.target && e.target.closest('button, input, select, textarea, a, .td-icb, .td-star, .td-toggle, .td-acts, .td-side')) {
     return;
   }
-  window.mtToggleExtras(id);
-};
-
-window.mtSetTodoFilter = function(filter) {
-  window.MT_TODO_FILTER = filter;
-  window.MG_TD_SUB = 'all';
-  renderTodo();
+  if (typeof window.mtToggleTodoOpen === 'function') window.mtToggleTodoOpen(id);
 };
 
 window.mtSetTodoSub = function(sub) {
   window.MG_TD_SUB = sub;
-  var f = window.MT_TODO_FILTER || 'open';
-  if (['pending','approved','rejected','solved','important'].indexOf(f) !== -1) window.MT_TODO_FILTER = 'open';
   renderTodo();
 };
 
@@ -15692,64 +16082,112 @@ window.mtToggleTodoImportant = function(id){
       console.error('Important flag sync failed:', err);
     });
   }
+  if (typeof persist === 'function') persist();
+  if (typeof window.checkSalaryReminder === 'function') window.checkSalaryReminder(true);
+  renderTodo();
+};
+
+window.mtToggleTodoRemind = function(id){
+  DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
+  const t = DATA.todos.find(function(x){ return String(x.id) === String(id); });
+  if(!t) return;
+  const today = (typeof todayISO === 'function') ? todayISO() : new Date().toISOString().slice(0, 10);
+  t.remind_on = t.remind_on ? null : today;
+  if(window.appData && typeof window.appData.update === 'function'){
+    window.appData.update('todos', t.id, { remind_on: t.remind_on }).catch(function(err){
+      console.error('Reminder flag sync failed:', err);
+    });
+  } else if(window.sb){
+    window.sb.from('todos').update({ remind_on: t.remind_on }).eq('id', t.id).catch(function(err){
+      console.error('Reminder flag sync failed:', err);
+    });
+  }
+  if (typeof persist === 'function') persist();
+  if (typeof window.checkSalaryReminder === 'function') window.checkSalaryReminder(true);
   renderTodo();
 };
 
 window.mtQuickAddTodo = async function(event) {
-  if (!event || (event.type !== 'click' && event.key !== 'Enter' && event.keyCode !== 13 && event.which !== 13)) return null;
-  if (event && typeof event.preventDefault === 'function') event.preventDefault();
+  if (event) {
+    var isEnter = event.key === 'Enter' || event.keyCode === 13 || event.which === 13;
+    var isClick = event.type === 'click';
+    if (!isEnter && !isClick && event.type) return null;
+    if (typeof event.preventDefault === 'function') event.preventDefault();
+  }
   const input = document.getElementById('tdQuickNote');
   if (!input) return null;
   const raw = input.value.trim();
   if (!raw) return null;
 
-  const projEl = document.getElementById('tdQuickProj');
-  const dateEl = document.getElementById('tdQuickDate');
-  const catEl  = document.getElementById('tdQuickCat');
-  const impEl  = document.getElementById('tdQuickImportant');
-  const remEl  = document.getElementById('tdQuickRemind');
-  const mgrEl  = document.getElementById('tdQuickMgr');
-  const project = projEl ? projEl.value : '';
-  const date = (dateEl && dateEl.value) ? dateEl.value : todayISO();
+  const catEl = document.getElementById('tdQuickCat');
+  const catVal = (catEl && catEl.value) ? catEl.value : (window.MG_TD_CAT_PICK || 'note');
+  window.MG_TD_CAT_PICK = catVal;
 
-  let mgrStatus = 'none';
-  if (mgrEl) {
-    mgrStatus = mgrEl.checked ? 'asked' : 'none';
+  input.value = '';
+  input.style.height = 'auto';
+  input.focus();
+
+  if (typeof hasBn === 'function' ? hasBn(raw) : /[\u0980-\u09FF]/.test(raw)) {
+    const d = (typeof todayISO === 'function') ? todayISO() : new Date().toISOString().slice(0, 10);
+    const nowIso = new Date().toISOString();
+
+    let uName = 'Admin';
+    try {
+      const u = (window.appData && typeof window.appData.currentUser === 'function' ? window.appData.currentUser() : null)
+             || (window.MGHRM && typeof window.MGHRM.currentUser === 'function' ? window.MGHRM.currentUser() : null);
+      if (u && (u.name || u.full_name || u.email)) uName = u.name || u.full_name || u.email;
+    } catch (e) {}
+
+    const task = {
+      id: Date.now(),
+      note_in: raw,
+      note: null,
+      note_bn: raw,
+      date: d,
+      who: uName,
+      status: 'pending',
+      source: 'direct',
+      sourceDate: d,
+      category: catVal,
+      manager_status: (catVal === 'permission' ? 'asked' : 'none'),
+      created_at: nowIso,
+      updated_at: nowIso
+    };
+
+    DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
+    DATA.todos.unshift(task);
+    renderTodo();
+    if (typeof updateTodoBadge === 'function') updateTodoBadge();
+
+    try {
+      if (typeof window.mgTdPush === 'function') {
+        await window.mgTdPush(task, ['note', 'note_bn', 'date', 'who', 'status', 'source', 'sourceDate', 'category', 'manager_status', 'created_at', 'updated_at']);
+      } else if (typeof persist === 'function') {
+        await persist();
+      }
+      toast('Note added', 'success');
+    } catch (err) {
+      console.error('Error persisting todo:', err);
+    }
+    return task;
   }
 
-  const task = {
-    id: Date.now(),
-    note_in: raw,
-    note: raw,
-    project: project,
-    date: date,
-    who: 'Admin',
-    status: 'pending',
-    source: 'direct',
-    sourceDate: date,
-    category: (catEl && catEl.value) ? catEl.value : 'note',
-    is_important: !!(impEl && impEl.checked),
-    remind_on: (remEl && remEl.value) ? remEl.value : null,
-    manager_status: mgrStatus
+  // Not Bengali: Translate First! Show placeholder loading card in the target section
+  var qItem = {
+    id: 'td_ld_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    cat: catVal,
+    raw: raw,
+    phase: 'busy'
   };
-
-  DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
-  DATA.todos.unshift(task);
+  window.MG_TD_LOADING = Array.isArray(window.MG_TD_LOADING) ? window.MG_TD_LOADING : [];
+  window.MG_TD_LOADING.unshift(qItem);
+  if (typeof window.tdLoadSave === 'function') window.tdLoadSave();
   renderTodo();
-  if (typeof updateTodoBadge === 'function') updateTodoBadge();
 
-  const freshInput = document.getElementById('tdQuickNote');
-  if (freshInput) { freshInput.value = ''; freshInput.focus(); }
-  const freshProj = document.getElementById('tdQuickProj');
-  if (freshProj && project) freshProj.value = project;
-
-  try {
-    await persist();
-    toast('Note added', 'success');
-  } catch (err) {
-    console.error('Error persisting todo:', err);
+  if (typeof window.tdProcessItem === 'function') {
+    window.tdProcessItem(qItem);
   }
-  return task;
+  return null;
 };
 
 window.mtRequestSalaryNotif = async function(event) {
@@ -15847,23 +16285,81 @@ window.delTodo = function(id) {
   });
 };
 
+window.mtPrintSection = function(){
+  /* print exactly what the user is looking at right now on the To-Do page */
+  return window.printTodos('section');
+};
+
 window.printTodos = function(mode) {
   DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
-  mode = mode || 'open';
+  mode = mode || 'section';
 
-  const escP = function(v){ return (typeof escapeHtml === 'function') ? escapeHtml(v) : String(v == null ? '' : v); };
-  const stOfP = function(t){ return ((t && t.status) || 'pending').toLowerCase(); };
-  const isSolvedP = function(t){ const s = stOfP(t); return s === 'solved_approved' || s === 'solved_rejected' || s === 'solved' || s === 'done'; };
-  const isSalaryP = function(t){ return String(t && t.category || '').toLowerCase() === 'salary'; };
-  const dateP = function(v){ return (typeof fmtDate === 'function') ? fmtDate(v) : String(v == null ? '' : v); };
-  const projP = function(v){ return (typeof projName === 'function') ? projName(v) : String(v == null ? '' : v); };
+  var escP = function(v){ return (typeof escapeHtml === 'function') ? escapeHtml(v) : String(v == null ? '' : v); };
+  var stOfP = function(t){ return ((t && t.status) || 'pending').toLowerCase(); };
+  var isSolvedP = function(t){
+    var s = stOfP(t);
+    return s === 'solved_approved' || s === 'solved_rejected' || s === 'solved' || s === 'done';
+  };
+  var isSalaryP = function(t){ return String(t && t.category || '').toLowerCase() === 'salary'; };
+  var dateP = function(v){ return (typeof fmtDate === 'function') ? fmtDate(v) : String(v == null ? '' : v); };
+  var projP = function(v){ return (typeof projName === 'function') ? projName(v) : String(v == null ? '' : v); };
 
-  let list = DATA.todos.filter(function(t){ return !!t; });
-  if (mode === 'open')      list = list.filter(function(t){ return !isSolvedP(t) && !isSalaryP(t); });
-  if (mode === 'important') list = list.filter(function(t){ return t.is_important && !isSolvedP(t) && !isSalaryP(t); });
-  if (mode === 'salary')    list = list.filter(function(t){ return isSalaryP(t); });
+  var secList = (typeof TDSEC !== 'undefined' ? TDSEC : (window.TDSEC || [
+    {key:'general', cat:'note',       label:'General',            sub:'Inbox',          icon:'list'},
+    {key:'task',    cat:'task',       label:'My Task',            sub:'To do myself',   icon:'task'},
+    {key:'mgr',     cat:'permission', label:'Inform to Manager',  sub:'Waiting reply',  icon:'user'},
+    {key:'salary',  cat:'salary',     label:'Salary Notes',       sub:'Monthly',        icon:'salary'}
+  ]));
+  var getSec = (typeof tdSec === 'function' ? tdSec : (window.tdSec || function(k){
+    k = String(k || '').toLowerCase();
+    for (var i = 0; i < secList.length; i++){ if (secList[i].key === k) return secList[i]; }
+    return secList[0];
+  }));
+  var getCat = (typeof tdCatOf === 'function' ? tdCatOf : (window.tdCatOf || function(t){
+    var c = String((t && t.category) || 'note').toLowerCase();
+    if (c === 'task' || c === 'permission' || c === 'salary') return c;
+    return 'note';
+  }));
+  var curSec = getSec(typeof tdMainFilter !== 'undefined' ? tdMainFilter : (window.tdMainFilter || 'general'));
+  var subF = window.MG_TD_SUB || 'all';
+  var q = String(window.MG_TD_Q || '').trim().toLowerCase();
 
-  const wtP = function(s){
+  var xsOf = function(t){
+    return Array.isArray(t.extra_notes) ? t.extra_notes.filter(function(x){ return x && (x.bn || x.raw); }) : [];
+  };
+  var matchQ = function(t){
+    if(!q) return true;
+    var xs = xsOf(t).map(function(x){ return (x.bn || '') + ' ' + (x.raw || ''); }).join(' ');
+    return [t.note_bn, t.note, t.note_in, t.project, t.who, t.category, t.manager_note, xs]
+      .filter(Boolean).join(' ').toLowerCase().indexOf(q) !== -1;
+  };
+  var passSub = function(t){
+    var s = stOfP(t);
+    if(subF === 'pending')   return s === 'pending';
+    if(subF === 'approved')  return s === 'approved';
+    if(subF === 'rejected')  return s === 'rejected';
+    if(subF === 'solved')    return isSolvedP(t);
+    if(subF === 'unsolved')  return !isSolvedP(t);
+    if(subF === 'important') return !!t.is_important;
+    return true;
+  };
+
+  var list = DATA.todos.filter(function(t){ return !!t && t.deleted_at == null; });
+
+  if (mode === 'section') {
+    list = list.filter(function(t){
+      if (getCat(t) !== curSec.cat) return false;
+      if (!matchQ(t) || !passSub(t)) return false;
+      return true;
+    });
+  } else {
+    // Backward compatibility for old modes
+    if (mode === 'open')      list = list.filter(function(t){ return !isSolvedP(t) && !isSalaryP(t); });
+    if (mode === 'important') list = list.filter(function(t){ return t.is_important && !isSolvedP(t) && !isSalaryP(t); });
+    if (mode === 'salary')    list = list.filter(function(t){ return isSalaryP(t); });
+  }
+
+  var wtP = function(s){
     s = (s || 'pending').toLowerCase();
     if (s === 'pending') return 1;
     if (s === 'approved') return 2;
@@ -15873,71 +16369,123 @@ window.printTodos = function(mode) {
     return 6;
   };
   list = list.slice().sort(function(a, b){
-    const ia = a.is_important ? 0 : 1, ib = b.is_important ? 0 : 1;
+    var ia = a.is_important ? 0 : 1, ib = b.is_important ? 0 : 1;
     if (ia !== ib) return ia - ib;
     if (wtP(a.status) !== wtP(b.status)) return wtP(a.status) - wtP(b.status);
     return String(b.date || '').localeCompare(String(a.date || ''));
   });
 
-  const totalL    = list.length;
-  const pendingL  = list.filter(function(t){ return stOfP(t) === 'pending'; }).length;
-  const approvedL = list.filter(function(t){ return stOfP(t) === 'approved'; }).length;
-  const rejectedL = list.filter(function(t){ return stOfP(t) === 'rejected'; }).length;
-  const solvedL   = list.filter(isSolvedP).length;
+  var totalL    = list.length;
+  var pendingL  = list.filter(function(t){ return stOfP(t) === 'pending'; }).length;
+  var approvedL = list.filter(function(t){ return stOfP(t) === 'approved'; }).length;
+  var rejectedL = list.filter(function(t){ return stOfP(t) === 'rejected'; }).length;
+  var solvedL   = list.filter(isSolvedP).length;
 
-  const titleOf = {
-    open: 'Open Follow-up List',
-    important: 'Important Follow-ups',
-    salary: 'Salary Notes',
-    all: 'Complete Follow-up Archive'
-  };
-  const modeTitle = titleOf[mode] || titleOf.open;
+  var closedWord = 'Solved';
+  if (mode === 'section') {
+    if (curSec.key === 'mgr') closedWord = 'Informed';
+    else if (curSec.key === 'salary') closedWord = 'Cleared';
+    else closedWord = 'Solved';
+  }
 
-  const SECTIONS = [
-    { key:'pending',  label:'Pending \u2014 awaiting decision' },
-    { key:'approved', label:'Approved \u2014 to be closed' },
-    { key:'rejected', label:'Rejected' },
-    { key:'solved',   label:'Solved / closed' }
+  var modeTitle;
+  var subLine;
+  if (mode === 'section') {
+    var modeName;
+    if (q) {
+      modeName = 'Filtered List';
+    } else if (subF === 'solved') {
+      modeName = 'Closed List';
+    } else if (subF === 'important') {
+      modeName = 'Important List';
+    } else if (curSec.key === 'salary') {
+      modeName = 'Monthly List';
+    } else if (curSec.key === 'task' || curSec.key === 'mgr') {
+      modeName = 'Follow-up List';
+    } else {
+      modeName = 'Open Note List';
+    }
+    modeTitle = escP(curSec.label) + ' \u2014 ' + modeName;
+
+    if (curSec.key === 'task') {
+      subLine = 'Tasks to be done by me';
+    } else if (curSec.key === 'mgr') {
+      subLine = "Notes awaiting the manager's reply";
+    } else if (curSec.key === 'salary') {
+      subLine = 'Salary related notes and dues';
+    } else {
+      subLine = 'Inbox notes and follow-ups';
+    }
+  } else {
+    var titleOf = {
+      open: 'Open Follow-up List',
+      important: 'Important Follow-ups',
+      salary: 'Salary Notes',
+      all: 'Complete Follow-up Archive'
+    };
+    modeTitle = titleOf[mode] || titleOf.open;
+    subLine = 'Call notes, reminders, permissions and follow-ups pending across all projects';
+  }
+
+  var closedGroupLabel = 'Solved / closed';
+  var closedTag = 'Solved';
+  if (mode === 'section') {
+    if (curSec.key === 'mgr') {
+      closedGroupLabel = 'Informed / closed';
+      closedTag = 'Informed';
+    } else if (curSec.key === 'salary') {
+      closedGroupLabel = 'Cleared / closed';
+      closedTag = 'Cleared';
+    } else {
+      closedGroupLabel = 'Solved / closed';
+      closedTag = 'Solved';
+    }
+  }
+
+  var SECTIONS = [
+    { key:'pending',  label:'Pending \u2014 awaiting decision', tag:'Pending' },
+    { key:'approved', label:'Approved \u2014 to be closed',     tag:'Approved' },
+    { key:'rejected', label:'Rejected',                         tag:'Rejected' },
+    { key:'solved',   label: closedGroupLabel,                  tag: closedTag }
   ];
-  const bucketOf = function(t){
-    const s = stOfP(t);
+
+  var bucketOf = function(t){
+    var s = stOfP(t);
     if (s === 'pending')  return 'pending';
     if (s === 'approved') return 'approved';
     if (s === 'rejected') return 'rejected';
     return 'solved';
   };
-  const COLORS = { pending:'#d97706', approved:'#1d4ed8', rejected:'#dc2626', solved:'#16a34a' };
+  var COLORS = { pending:'#d97706', approved:'#1d4ed8', rejected:'#dc2626', solved:'#16a34a' };
 
-  const box = '<span style="display:inline-block;width:11px;height:11px;border:1.3px solid #111827;border-radius:2px;vertical-align:-1px;margin-right:4px;"></span>';
-  const NBSP = '&nbsp;';
-  let rowNo = 0;
+  var box = '<span style="display:inline-block;width:11px;height:11px;border:1.3px solid #111827;border-radius:2px;vertical-align:-1px;margin-right:4px;"></span>';
+  var NBSP = '&nbsp;';
+  var rowNo = 0;
 
-  const bodyHtml = SECTIONS.map(function(S){
-    const items = list.filter(function(t){ return bucketOf(t) === S.key; });
+  var bodyHtml = SECTIONS.map(function(S){
+    var items = list.filter(function(t){ return bucketOf(t) === S.key; });
     if (!items.length) return '';
 
-    const head = '<tr><td colspan="8" style="border:1px solid #cbd5e1;background:#f1f5f9;padding:5px 8px;font-size:9pt;font-weight:700;letter-spacing:.4px;color:#0f172a;text-transform:uppercase;">' +
+    var head = '<tr><td colspan="7" style="border:1px solid #cbd5e1;background:#f1f5f9;padding:5px 8px;font-size:9pt;font-weight:700;letter-spacing:.4px;color:#0f172a;text-transform:uppercase;">' +
       escP(S.label) + ' &nbsp;\u00b7&nbsp; ' + items.length + '</td></tr>';
 
-    const rows = items.map(function(t){
+    var rows = items.map(function(t){
       rowNo++;
-      const st = bucketOf(t);
-      const solved = st === 'solved';
-      const noteTxt = escP(t.note_bn || t.note || t.note_in || '');
-      const noteStyle = solved ? 'text-decoration:line-through;color:#64748b;' : 'color:#0f172a;';
-      const imp = t.is_important ? '<span style="color:#b45309;font-weight:700;"> \u2605</span>' : '';
-      const rem = t.remind_on ? '<div style="font-size:8pt;color:#475569;margin-top:2px;">Remind on ' + escP(dateP(t.remind_on)) + '</div>' : '';
-      const mgr = (t.manager_status && t.manager_status !== 'none') ? '<div style="font-size:8pt;color:#475569;margin-top:2px;">Manager: ' + escP(t.manager_status) + '</div>' : '';
-      const mgrNote = t.manager_note ? '<div style="font-size:8pt;color:#475569;margin-top:2px;">' + escP(t.manager_note) + '</div>' : '';
-      const cat = t.category && t.category !== 'note' ? escP(t.category) : '\u2014';
+      var st = bucketOf(t);
+      var solved = st === 'solved';
+      var noteTxt = escP(t.note_bn || t.note || t.note_in || '');
+      var noteStyle = solved ? 'text-decoration:line-through;color:#64748b;' : 'color:#0f172a;';
+      var imp = t.is_important ? '<span style="color:#b45309;font-weight:700;"> \u2605</span>' : '';
+      var rem = t.remind_on ? '<div style="font-size:8pt;color:#475569;margin-top:2px;">Remind on ' + escP(dateP(t.remind_on)) + '</div>' : '';
+      var mgr = (t.manager_status && t.manager_status !== 'none') ? '<div style="font-size:8pt;color:#475569;margin-top:2px;">Manager: ' + escP(t.manager_status) + '</div>' : '';
+      var mgrNote = t.manager_note ? '<div style="font-size:8pt;color:#475569;margin-top:2px;">' + escP(t.manager_note) + '</div>' : '';
 
       return '<tr>' +
         '<td style="border:1px solid #cbd5e1;padding:5px 6px;text-align:center;font-size:9pt;color:#334155;">' + rowNo + '</td>' +
         '<td style="border:1px solid #cbd5e1;padding:5px 6px;font-size:9pt;white-space:nowrap;color:#334155;">' + escP(dateP(t.date)) + '</td>' +
         '<td style="border:1px solid #cbd5e1;padding:5px 6px;font-size:9pt;font-weight:600;color:#0f172a;">' + escP(projP(t.project) || '\u2014') + '</td>' +
         '<td style="border:1px solid #cbd5e1;padding:5px 6px;font-size:9.5pt;line-height:1.45;' + noteStyle + '">' + noteTxt + imp + rem + mgr + mgrNote + '</td>' +
-        '<td style="border:1px solid #cbd5e1;padding:5px 6px;font-size:8.5pt;text-align:center;color:#334155;">' + cat + '</td>' +
-        '<td style="border:1px solid #cbd5e1;padding:5px 6px;font-size:8.5pt;text-align:center;font-weight:700;color:' + COLORS[st] + ';white-space:nowrap;">' + escP(S.label.split(' ')[0]) + '</td>' +
+        '<td style="border:1px solid #cbd5e1;padding:5px 6px;font-size:8.5pt;text-align:center;font-weight:700;color:' + COLORS[st] + ';white-space:nowrap;">' + escP(S.tag) + '</td>' +
         '<td style="border:1px solid #cbd5e1;padding:5px 6px;font-size:8.5pt;white-space:nowrap;color:#0f172a;">' + box + 'Approved<br>' + box + 'Rejected</td>' +
         '<td style="border:1px solid #cbd5e1;padding:5px 6px;font-size:8.5pt;color:#334155;">' + NBSP + '</td>' +
       '</tr>';
@@ -15946,33 +16494,32 @@ window.printTodos = function(mode) {
     return head + rows;
   }).join('');
 
-  const emptyRow = '<tr><td colspan="8" style="border:1px solid #cbd5e1;padding:22px;text-align:center;color:#64748b;font-size:10pt;">No follow-up notes in this view</td></tr>';
+  var emptyRow = '<tr><td colspan="7" style="border:1px solid #cbd5e1;padding:22px;text-align:center;color:#64748b;font-size:10pt;">No follow-up notes in this view</td></tr>';
 
-  const tableHtml = '<table style="width:100%;border-collapse:collapse;margin-top:6px;font-family:inherit;table-layout:fixed;">' +
-    '<colgroup><col style="width:5%"><col style="width:11%"><col style="width:15%"><col style="width:33%"><col style="width:8%"><col style="width:9%"><col style="width:12%"><col style="width:7%"></colgroup>' +
+  var tableHtml = '<table style="width:100%;border-collapse:collapse;margin-top:6px;font-family:inherit;table-layout:fixed;">' +
+    '<colgroup><col style="width:5%"><col style="width:11%"><col style="width:16%"><col style="width:40%"><col style="width:9%"><col style="width:12%"><col style="width:7%"></colgroup>' +
     '<thead><tr>' +
       '<th style="border:1px solid #94a3b8;background:#e2e8f0;padding:5px 6px;font-size:8.5pt;color:#0f172a;">SL</th>' +
       '<th style="border:1px solid #94a3b8;background:#e2e8f0;padding:5px 6px;font-size:8.5pt;color:#0f172a;text-align:left;">Date</th>' +
       '<th style="border:1px solid #94a3b8;background:#e2e8f0;padding:5px 6px;font-size:8.5pt;color:#0f172a;text-align:left;">Project</th>' +
       '<th style="border:1px solid #94a3b8;background:#e2e8f0;padding:5px 6px;font-size:8.5pt;color:#0f172a;text-align:left;">Note / Follow-up</th>' +
-      '<th style="border:1px solid #94a3b8;background:#e2e8f0;padding:5px 6px;font-size:8.5pt;color:#0f172a;">Type</th>' +
       '<th style="border:1px solid #94a3b8;background:#e2e8f0;padding:5px 6px;font-size:8.5pt;color:#0f172a;">Status</th>' +
       '<th style="border:1px solid #94a3b8;background:#e2e8f0;padding:5px 6px;font-size:8.5pt;color:#0f172a;text-align:left;">Manager\'s mark</th>' +
       '<th style="border:1px solid #94a3b8;background:#e2e8f0;padding:5px 6px;font-size:8.5pt;color:#0f172a;">Remarks</th>' +
     '</tr></thead><tbody>' + (bodyHtml || emptyRow) + '</tbody></table>';
 
-  const footHtml = '<div style="display:flex;gap:28px;margin-top:22px;font-size:9pt;color:#0f172a;">' +
+  var footHtml = '<div style="display:flex;gap:28px;margin-top:22px;font-size:9pt;color:#0f172a;">' +
       '<div style="flex:1;border-top:1px solid #0f172a;padding-top:4px;">Prepared by \u2014 MG Security HRM</div>' +
       '<div style="flex:1;border-top:1px solid #0f172a;padding-top:4px;">Manager\'s remark / signature</div>' +
       '<div style="width:150px;border-top:1px solid #0f172a;padding-top:4px;">Date</div>' +
     '</div>';
 
-  const html = '<div class="print-doc mrep m2">' +
+  var html = '<div class="print-doc mrep m2">' +
     '<div class="m2-head"><div class="m2-l">' +
       '<div class="m2-brand">' + (typeof COMPANY !== 'undefined' ? COMPANY.name : 'Mahbub Group') + ' \u00b7 Security Division</div>' +
       '<div class="m2-title">' + modeTitle + '</div>' +
-      '<div class="m2-sub">Call notes, reminders, permissions and follow-ups pending across all projects</div>' +
-      '<div class="m2-meta"><b>' + totalL + '</b> Listed <i>\u00b7</i> <b>' + pendingL + '</b> Pending <i>\u00b7</i> <b>' + approvedL + '</b> Approved <i>\u00b7</i> <b>' + rejectedL + '</b> Rejected <i>\u00b7</i> <b>' + solvedL + '</b> Solved</div>' +
+      '<div class="m2-sub">' + escP(subLine) + '</div>' +
+      '<div class="m2-meta"><b>' + totalL + '</b> Listed <i>\u00b7</i> <b>' + pendingL + '</b> Pending <i>\u00b7</i> <b>' + approvedL + '</b> Approved <i>\u00b7</i> <b>' + rejectedL + '</b> Rejected <i>\u00b7</i> <b>' + solvedL + '</b> ' + escP(closedWord) + '</div>' +
     '</div><div class="m2-r">' +
       '<div class="m2-gen">Generated on ' + (typeof fmtDateEnLong === 'function' ? fmtDateEnLong(todayISO()) : todayISO()) + '</div>' +
       '<div class="m2-sys">MG Security HRM</div>' +
@@ -15986,126 +16533,295 @@ window.printTodos = function(mode) {
 window.printTodoList = window.printTodos;
 
 window.updateTodoBadge = function(){
-  const b = document.getElementById('navTodoBadge') || document.getElementById('todoNavBadge');
+  var b = document.getElementById('navTodoBadge') || document.getElementById('todoNavBadge');
   if(!b) return;
-  const isMonthEnd = (typeof window.isSalaryRemindActive === 'function') ? window.isSalaryRemindActive() : false;
-  const open = (DATA.todos||[]).filter(function(t){
-    if (!t) return false;
-    const isSal = String(t.category || '').toLowerCase() === 'salary';
-    // Before day 29, salary notes must NOT produce any reminder, notification or badge count anywhere in the app
-    if (isSal && !isMonthEnd) return false;
-    const s = String(t.status || 'pending').toLowerCase();
-    return s !== 'solved_approved' && s !== 'solved_rejected' && s !== 'solved' && s !== 'done';
+  var isSolved = function(t){
+    var s = String((t && t.status) || 'pending').toLowerCase();
+    return s === 'solved_approved' || s === 'solved_rejected' || s === 'solved' || s === 'done';
+  };
+  var open = (DATA.todos || []).filter(function(t){
+    if (!t || t.deleted_at != null) return false;
+    return !isSolved(t);
   }).length;
   b.style.display = open > 0 ? '' : 'none';
-  b.textContent = num(open);
+  b.textContent = (typeof num === 'function' ? num(open) : String(open));
 };
 
-/* ===== MG To-Do : Salary Notes Month-End Reminder Module ===== */
-(function(){
-  var SALARY_REMIND_DAY = 29;
-  var THROTTLE_MS = 30 * 60 * 1000; // 30-minute throttle window
-  var LS_LAST_KEY = 'mghrm_salary_remind_last';
+/* ===== MG To-Do : Salary Deadline & Repeat Reminder Notification Engine ===== */
+window.mgTdDaysInMonth = function(d){
+  d = d || new Date();
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+};
 
-  window.SALARY_REMIND_DAY = SALARY_REMIND_DAY;
+window.mgTdIsSalaryWindow = function(d){
+  d = d || new Date();
+  return d.getDate() >= (window.mgTdDaysInMonth(d) - 1);
+};
 
-  window.isSalaryRemindActive = function(d) {
-    var now = d || new Date();
-    var year = now.getFullYear();
-    var month = now.getMonth(); // 0-11
-    var lastDay = new Date(year, month + 1, 0).getDate();
-    var triggerDay = Math.min(SALARY_REMIND_DAY, lastDay);
-    return now.getDate() >= triggerDay;
-  };
+window.mgTdIsSolved = function(t){
+  if (!t) return false;
+  if (t.solved_at) return true;
+  var s = String(t.status || 'pending').toLowerCase();
+  return s === 'solved_approved' || s === 'solved_rejected' || s === 'solved' || s === 'done';
+};
 
-  function getStoredState() {
-    try {
-      var raw = localStorage.getItem(LS_LAST_KEY);
-      if (!raw) return null;
-      if (raw.charAt(0) === '{') return JSON.parse(raw);
-      var n = Number(raw);
-      if (!isNaN(n) && n > 1000000000) return { ts: n, date: new Date(n).toISOString().slice(0, 10), sig: '' };
-      return { ts: 0, date: raw, sig: '' };
-    } catch(e) {
-      return null;
-    }
+window.MG_TD_SNOOZE  = window.MG_TD_SNOOZE || {};   // session-only: notification id -> timestamp
+window.MG_TD_REM_MS  = 30 * 60 * 1000;              // important / reminder-on cadence
+window.MG_TD_SAL_MS  = 10 * 60 * 1000;              // salary cadence in the deadline window
+window.MG_TD_REM_CAP = 10;                          // max live 'todo_rem' cards
+
+window.mgTodoNotifOpen = function(ref){
+  if (typeof markNotifAsRead === 'function') markNotifAsRead('tdr' + ref);
+  var dd = document.getElementById('notifDropdown');
+  if (dd) dd.classList.remove('open');
+
+  var todos = (window.DATA && Array.isArray(window.DATA.todos)) ? window.DATA.todos : [];
+  var t = todos.find(function(x){ return String(x.id) === String(ref); });
+
+  if (typeof navigate === 'function') navigate('todo');
+
+  if (t) {
+    var cat = (typeof tdCatOf === 'function' ? tdCatOf(t) : (t.category || 'note'));
+    var secKey = (cat === 'task' ? 'task' : (cat === 'permission' ? 'mgr' : (cat === 'salary' ? 'salary' : 'general')));
+    if (typeof window.mtSetTodoFilter === 'function') window.mtSetTodoFilter(secKey);
   }
 
-  window.checkSalaryReminder = function(force) {
-    if (!window.isSalaryRemindActive()) return;
+  if (typeof window.mtTodoSearch === 'function') window.mtTodoSearch('');
+  window.MG_TD_Q = '';
+  var sInp = document.getElementById('tdSearch');
+  if (sInp) sInp.value = '';
 
-    var todos = (window.DATA && Array.isArray(window.DATA.todos)) ? window.DATA.todos : [];
-    var pendingSalary = todos.filter(function(t){
-      if (!t) return false;
-      var isSal = String(t.category || '').toLowerCase() === 'salary';
-      var s = String(t.status || 'pending').toLowerCase();
-      var isSolved = (s === 'solved_approved' || s === 'solved_rejected' || s === 'solved' || s === 'done');
-      return isSal && !isSolved;
-    });
+  if (typeof window.mtSetTodoSub === 'function') window.mtSetTodoSub('all');
 
-    if (!pendingSalary.length) return;
+  window.MG_TD_OPEN = window.MG_TD_OPEN || {};
+  window.MG_TD_OPEN[String(ref)] = true;
+  if (typeof renderTodo === 'function') renderTodo();
 
-    var nowTs = Date.now();
-    var todayStr = (typeof todayISO === 'function') ? todayISO() : new Date().toISOString().slice(0, 10);
-    var noteSetSig = pendingSalary.map(function(t){ return String(t.id); }).sort().join(',');
-    var stored = getStoredState();
-
-    if (!force && stored) {
-      var elapsed = nowTs - (Number(stored.ts) || 0);
-      if (elapsed < THROTTLE_MS) {
-        return; // At most one notification per 30-minute window
-      }
-      if (stored.sig && stored.sig === noteSetSig && stored.date === todayStr && elapsed < (2 * THROTTLE_MS)) {
-        return; // Never re-fire for the same note set within the window
-      }
+  setTimeout(function(){
+    var row = document.querySelector('.td-row[data-id="' + CSS.escape(String(ref)) + '"]') || document.getElementById('td-row-' + ref);
+    if (row && typeof row.scrollIntoView === 'function') {
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
+  }, 100);
+};
 
-    localStorage.setItem(LS_LAST_KEY, JSON.stringify({
-      date: todayStr,
-      ts: nowTs,
-      sig: noteSetSig
+window.mgTodoNotifSolved = async function(ref){
+  if (typeof window.mtSetTodoStatus === 'function') {
+    await window.mtSetTodoStatus(ref, 'solved');
+  } else {
+    var todos = (window.DATA && Array.isArray(window.DATA.todos)) ? window.DATA.todos : [];
+    var t = todos.find(function(x){ return String(x.id) === String(ref); });
+    if (t) {
+      t.status = 'solved';
+      t.solved_at = new Date().toISOString();
+      t.updated_at = new Date().toISOString();
+      if (typeof window.mgTdPush === 'function') {
+        await window.mgTdPush(t, ['status', 'solved_at', 'updated_at']);
+      }
+      if (typeof renderTodo === 'function') renderTodo();
+    }
+  }
+  if (typeof dismissNotif === 'function') {
+    dismissNotif('tdr' + ref);
+  } else {
+    var notifs = window.NOTIFICATIONS || NOTIFICATIONS || [];
+    var idx = notifs.findIndex(function(x){ return x.id === ('tdr' + ref) || x.ref === String(ref); });
+    if (idx !== -1) notifs.splice(idx, 1);
+    if (typeof updateNotifBadge === 'function') updateNotifBadge();
+  }
+};
+
+window.mgTodoNotifSnooze = function(nid){
+  window.MG_TD_SNOOZE = window.MG_TD_SNOOZE || {};
+  window.MG_TD_SNOOZE[nid] = Date.now();
+  var notifs = window.NOTIFICATIONS || NOTIFICATIONS || [];
+  var idx = notifs.findIndex(function(x){ return x.id === nid; });
+  if (idx !== -1) {
+    notifs.splice(idx, 1);
+  }
+  if (typeof updateNotifBadge === 'function') updateNotifBadge();
+  var notifPage = document.getElementById('page-notifications');
+  if (notifPage && notifPage.style.display !== 'none' && typeof renderNotifications === 'function') {
+    renderNotifications();
+  }
+  var notifDd = document.getElementById('notifDropdown');
+  if (notifDd && notifDd.classList.contains('open') && typeof renderNotifDropdown === 'function') {
+    renderNotifDropdown();
+  }
+  if (typeof toast === 'function') toast('Reminder snoozed', 'info');
+};
+
+window.mgTodoNotifyTick = function(){
+  try {
+    var todos = (window.DATA && Array.isArray(window.DATA.todos)) ? window.DATA.todos : ((typeof DATA !== 'undefined' && Array.isArray(DATA.todos)) ? DATA.todos : []);
+    var activeTodos = todos.filter(function(t){ return !!t && t.deleted_at == null; });
+    var todoMap = {};
+    activeTodos.forEach(function(t){ todoMap[String(t.id)] = t; });
+
+    var inWindow = window.mgTdIsSalaryWindow();
+    var now = new Date();
+    var lastDay = window.mgTdDaysInMonth(now);
+    var mNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var lastDayLabel = lastDay + ' ' + mNames[now.getMonth()];
+    var daysLeft = Math.max(0, lastDay - now.getDate());
+    var daysLeftText = (daysLeft === 0 ? 'today is the last day' : (daysLeft + ' day' + (daysLeft > 1 ? 's' : '') + ' left'));
+
+    var getCat = (typeof tdCatOf === 'function' ? tdCatOf : (window.tdCatOf || function(t){
+      var c = String((t && t.category) || 'note').toLowerCase();
+      if (c === 'task' || c === 'permission' || c === 'salary') return c;
+      return 'note';
     }));
 
-    var countBn = (typeof toBnDigits === 'function') ? toBnDigits(pendingSalary.length) : String(pendingSalary.length);
-    var msg = 'আজ মাসের শেষ — স্যালারি নোট রিমাইন্ডার: ' + countBn + ' টি নোট বাকি আছে';
+    var notifs = window.NOTIFICATIONS || NOTIFICATIONS || [];
+    var changed = false;
 
-    var shownDesktop = false;
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'granted') {
-        try {
-          var notif = new Notification('স্যালারি নোট রিমাইন্ডার', {
-            body: msg,
-            icon: '/icon-192.png',
-            tag: 'salary-remind-' + todayStr
-          });
-          notif.onclick = function() {
-            window.focus();
-            if (typeof window.mtSetTodoFilter === 'function') {
-              window.mtSetTodoFilter('salary');
-            }
-          };
-          shownDesktop = true;
-        } catch(e) {
-          console.warn('Desktop notification error:', e);
+    // 2. PURGE stale cards
+    for (var i = notifs.length - 1; i >= 0; i--){
+      var n = notifs[i];
+      if (n.type === 'todo_rem' || n.type === 'todo_salary'){
+        var targetNote = todoMap[String(n.ref)];
+        if (!targetNote || targetNote.deleted_at != null || window.mgTdIsSolved(targetNote)){
+          notifs.splice(i, 1);
+          changed = true;
+          continue;
+        }
+        var cat = getCat(targetNote);
+        if (n.type === 'todo_salary' && (!inWindow || cat !== 'salary')){
+          notifs.splice(i, 1);
+          changed = true;
+          continue;
+        }
+        if (n.type === 'todo_rem' && !targetNote.is_important && !targetNote.remind_on){
+          notifs.splice(i, 1);
+          changed = true;
+          continue;
         }
       }
     }
 
-    if (!shownDesktop && typeof toast === 'function') {
-      toast(msg, 'warning');
+    // 3. WHO GETS WHAT (one card per note)
+    var nowMs = Date.now();
+
+    activeTodos.forEach(function(t){
+      if (window.mgTdIsSolved(t)) return;
+
+      var cat = getCat(t);
+      var isSalary = (cat === 'salary');
+      var isImpOrRem = !!(t.is_important || t.remind_on);
+
+      var type = null;
+      var interval = null;
+      var sev = null;
+      var title = '';
+      var detail = '';
+
+      if (isSalary && inWindow) {
+        type = 'todo_salary';
+        interval = window.MG_TD_SAL_MS;
+        sev = 'warning';
+        title = 'Salary note — deadline ' + lastDayLabel;
+        detail = 'Last 2 days of the month · reminder every 10 minutes · ' + daysLeftText;
+      } else if (isImpOrRem) {
+        type = 'todo_rem';
+        interval = window.MG_TD_REM_MS;
+        sev = 'info';
+        var noteRaw = String(t.note_bn || t.note || t.note_in || '').trim();
+        var shortText = noteRaw.length > 70 ? (noteRaw.slice(0, 67) + '…') : noteRaw;
+        title = 'Reminder — ' + shortText;
+        var pName = (typeof projName === 'function' && t.project) ? projName(t.project) : (t.project || '');
+        detail = 'Repeat reminder every 30 minutes until solved' + (pName ? ' · ' + pName : '');
+      }
+
+      if (!type) return;
+
+      var nid = 'tdr' + t.id;
+      var existingIdx = notifs.findIndex(function(x){ return x.id === nid; });
+
+      // 5. SNOOZE check
+      var snoozedAt = (window.MG_TD_SNOOZE && window.MG_TD_SNOOZE[nid]) || 0;
+
+      if (existingIdx === -1) {
+        if (snoozedAt > 0 && (nowMs < snoozedAt + interval)) {
+          return;
+        }
+        var newCard = {
+          id: nid,
+          type: type,
+          ref: String(t.id),
+          severity: sev,
+          title: title,
+          detail: detail,
+          isRead: false,
+          createdAt: nowMs,
+          _lastPush: nowMs
+        };
+        notifs.unshift(newCard);
+        changed = true;
+      } else {
+        var card = notifs[existingIdx];
+        if (snoozedAt > (card._lastPush || 0) && (nowMs < snoozedAt + interval)) {
+          return;
+        }
+        var elapsed = nowMs - (card._lastPush || 0);
+        if (elapsed >= interval) {
+          card.createdAt = nowMs;
+          card._lastPush = nowMs;
+          card.isRead = false;
+          card.title = title;
+          card.detail = detail;
+          card.severity = sev;
+          card.type = type;
+          if (existingIdx > 0) {
+            notifs.splice(existingIdx, 1);
+            notifs.unshift(card);
+          }
+          changed = true;
+        }
+      }
+    });
+
+    // 6. CAP
+    var remCards = notifs.filter(function(x){ return x.type === 'todo_rem'; });
+    if (remCards.length > window.MG_TD_REM_CAP) {
+      remCards.sort(function(a, b){
+        var ta = todoMap[String(a.ref)];
+        var tb = todoMap[String(b.ref)];
+        var da = (ta && (ta.remind_on || ta.date)) || '9999';
+        var db = (tb && (tb.remind_on || tb.date)) || '9999';
+        return String(da).localeCompare(String(db));
+      });
+      var keepSet = {};
+      remCards.slice(0, window.MG_TD_REM_CAP).forEach(function(c){ keepSet[c.id] = true; });
+      for (var j = notifs.length - 1; j >= 0; j--){
+        if (notifs[j].type === 'todo_rem' && !keepSet[notifs[j].id]){
+          notifs.splice(j, 1);
+          changed = true;
+        }
+      }
     }
-  };
 
-  // Run on startup after initial data load
-  setTimeout(function(){
-    try { window.checkSalaryReminder(false); } catch(e){}
-  }, 2500);
+    // 7. Update UI
+    if (changed) {
+      if (typeof updateNotifBadge === 'function') updateNotifBadge();
+      var notifPage = document.getElementById('page-notifications');
+      if (notifPage && notifPage.style.display !== 'none' && typeof renderNotifications === 'function') {
+        renderNotifications();
+      }
+      var notifDd = document.getElementById('notifDropdown');
+      if (notifDd && notifDd.classList.contains('open') && typeof renderNotifDropdown === 'function') {
+        renderNotifDropdown();
+      }
+    }
+  } catch(err) {
+    console.error('Error in mgTodoNotifyTick:', err);
+  }
+};
 
-  // Periodic check while app stays open (every 15 minutes to evaluate within the 30-min window)
-  setInterval(function(){
-    try { window.checkSalaryReminder(false); } catch(e){}
-  }, 15 * 60 * 1000);
-})();
+window.checkSalaryReminder = function(force){
+  if (typeof window.mgTodoNotifyTick === 'function') {
+    try { window.mgTodoNotifyTick(); } catch(e){}
+  }
+};
 
 // Aliases for backwards compatibility
 window.addTodo = function() {
@@ -16152,6 +16868,327 @@ window.cycleTodo = window.mtToggleTodoStatus;
     return true;
   };
 
+  /* ===== C2. Pending Queue State & Processing ===== */
+  var MG_TD_LOADING = [];
+  var MG_TD_LS_KEY = 'mghrm_td_queue';
+  function tdLoadSave(){
+    try {
+      localStorage.setItem(MG_TD_LS_KEY, JSON.stringify(MG_TD_LOADING || []));
+    } catch(e) {}
+  }
+  function tdLoadRestore(){
+    try {
+      var s = localStorage.getItem(MG_TD_LS_KEY);
+      if (!s) { MG_TD_LOADING = []; window.MG_TD_LOADING = MG_TD_LOADING; return []; }
+      var arr = JSON.parse(s);
+      if (Array.isArray(arr)) {
+        MG_TD_LOADING = arr;
+        window.MG_TD_LOADING = MG_TD_LOADING;
+        return arr;
+      }
+    } catch(e) {
+      try { localStorage.removeItem(MG_TD_LS_KEY); } catch(ex) {}
+    }
+    MG_TD_LOADING = [];
+    window.MG_TD_LOADING = MG_TD_LOADING;
+    return [];
+  }
+  window.MG_TD_LOADING = MG_TD_LOADING;
+  window.tdLoadSave = tdLoadSave;
+  window.tdLoadRestore = tdLoadRestore;
+
+  window.tdProcessItem = async function(item){
+    if (!item || !item.raw) return;
+    item.phase = 'busy';
+    tdLoadSave();
+    if (typeof renderTodo === 'function') renderTodo();
+
+    try {
+      var bnText = null;
+      if (typeof window.mgAITranslate === 'function') {
+        bnText = await window.mgAITranslate(item.raw);
+      }
+      if (bnText && String(bnText).trim()) {
+        bnText = String(bnText).trim();
+        var idx = MG_TD_LOADING.findIndex(function(x){ return x.id === item.id; });
+        if (idx !== -1) MG_TD_LOADING.splice(idx, 1);
+        tdLoadSave();
+
+        var d = (typeof todayISO === 'function') ? todayISO() : new Date().toISOString().slice(0, 10);
+        var nowIso = new Date().toISOString();
+        var uName = 'Admin';
+        try {
+          var u = (window.appData && typeof window.appData.currentUser === 'function' ? window.appData.currentUser() : null)
+                 || (window.MGHRM && typeof window.MGHRM.currentUser === 'function' ? window.MGHRM.currentUser() : null);
+          if (u && (u.name || u.full_name || u.email)) uName = u.name || u.full_name || u.email;
+        } catch(e) {}
+
+        var catVal = item.cat || 'note';
+        var task = {
+          id: Date.now(),
+          note_in: item.raw,
+          note: null,
+          note_bn: bnText,
+          date: d,
+          who: uName,
+          status: 'pending',
+          source: 'direct',
+          sourceDate: d,
+          category: catVal,
+          manager_status: (catVal === 'permission' ? 'asked' : 'none'),
+          created_at: nowIso,
+          updated_at: nowIso
+        };
+
+        if (window.DATA && Array.isArray(window.DATA.todos)) {
+          window.DATA.todos.unshift(task);
+        }
+        if (typeof renderTodo === 'function') renderTodo();
+        if (typeof updateTodoBadge === 'function') updateTodoBadge();
+
+        try {
+          if (typeof window.mgTdPush === 'function') {
+            await window.mgTdPush(task, ['note', 'note_bn', 'date', 'who', 'status', 'source', 'sourceDate', 'category', 'manager_status', 'created_at', 'updated_at']);
+          } else if (typeof persist === 'function') {
+            await persist();
+          }
+          toastSafe('Note translated to Bengali and saved', 'success');
+        } catch(err) {
+          console.error('Error persisting todo:', err);
+        }
+      } else {
+        item.phase = 'error';
+        tdLoadSave();
+        if (typeof renderTodo === 'function') renderTodo();
+        toastSafe('Translation failed — please check Gemini API settings from the gear icon', 'error');
+      }
+    } catch(err) {
+      console.error('Translation error:', err);
+      item.phase = 'error';
+      tdLoadSave();
+      if (typeof renderTodo === 'function') renderTodo();
+      toastSafe('Translation failed — please check Gemini API settings from the gear icon', 'error');
+    }
+  };
+
+  window.mtRetryLoading = function(id){
+    var item = MG_TD_LOADING.find(function(x){ return String(x.id) === String(id); });
+    if (!item) return;
+    window.tdProcessItem(item);
+  };
+
+  window.mtDiscardLoading = function(id){
+    var idx = MG_TD_LOADING.findIndex(function(x){ return String(x.id) === String(id); });
+    if (idx !== -1) {
+      MG_TD_LOADING.splice(idx, 1);
+      tdLoadSave();
+      if (typeof renderTodo === 'function') renderTodo();
+      toastSafe('Note discarded', 'info');
+    }
+  };
+
+  window.mtSaveLoadingRaw = async function(id){
+    var idx = MG_TD_LOADING.findIndex(function(x){ return String(x.id) === String(id); });
+    if (idx === -1) return;
+    var item = MG_TD_LOADING.splice(idx, 1)[0];
+    tdLoadSave();
+
+    var d = (typeof todayISO === 'function') ? todayISO() : new Date().toISOString().slice(0, 10);
+    var nowIso = new Date().toISOString();
+    var uName = 'Admin';
+    try {
+      var u = (window.appData && typeof window.appData.currentUser === 'function' ? window.appData.currentUser() : null)
+             || (window.MGHRM && typeof window.MGHRM.currentUser === 'function' ? window.MGHRM.currentUser() : null);
+      if (u && (u.name || u.full_name || u.email)) uName = u.name || u.full_name || u.email;
+    } catch(e) {}
+
+    var catVal = item.cat || 'note';
+    var task = {
+      id: Date.now(),
+      note_in: item.raw,
+      note: item.raw,
+      note_bn: null,
+      date: d,
+      who: uName,
+      status: 'pending',
+      source: 'direct',
+      sourceDate: d,
+      category: catVal,
+      manager_status: (catVal === 'permission' ? 'asked' : 'none'),
+      created_at: nowIso,
+      updated_at: nowIso
+    };
+
+    if (window.DATA && Array.isArray(window.DATA.todos)) {
+      window.DATA.todos.unshift(task);
+    }
+    if (typeof renderTodo === 'function') renderTodo();
+    if (typeof updateTodoBadge === 'function') updateTodoBadge();
+
+    try {
+      if (typeof window.mgTdPush === 'function') {
+        await window.mgTdPush(task, ['note', 'note_bn', 'date', 'who', 'status', 'source', 'sourceDate', 'category', 'manager_status', 'created_at', 'updated_at']);
+      } else if (typeof persist === 'function') {
+        await persist();
+      }
+      toastSafe('Note saved without translation', 'success');
+    } catch(err) {
+      console.error('Error persisting todo:', err);
+    }
+  };
+
+  tdLoadRestore();
+  setTimeout(function(){
+    if (Array.isArray(MG_TD_LOADING) && MG_TD_LOADING.length) {
+      MG_TD_LOADING.forEach(function(item){
+        if (item && item.phase === 'busy' && typeof window.tdProcessItem === 'function') {
+          window.tdProcessItem(item);
+        }
+      });
+    }
+  }, 1000);
+
+  var TDSEC = [
+    {key:'general', cat:'note',       label:'General',            sub:'Inbox',          icon:'list'},
+    {key:'task',    cat:'task',       label:'My Task',            sub:'To do myself',   icon:'task'},
+    {key:'mgr',     cat:'permission', label:'Inform to Manager',  sub:'Waiting reply',  icon:'user'},
+    {key:'salary',  cat:'salary',     label:'Salary Notes',       sub:'Monthly',        icon:'salary'}
+  ];
+  window.TDSEC = TDSEC;
+
+  var tdMainFilter = 'general';
+  window.tdMainFilter = 'general';
+
+  function tdSec(key){
+    var k = String(key || '').toLowerCase();
+    for (var i = 0; i < TDSEC.length; i++){
+      if (TDSEC[i].key === k || TDSEC[i].cat === k) return TDSEC[i];
+    }
+    return TDSEC[0];
+  }
+  window.tdSec = tdSec;
+
+  function tdCatOf(t){
+    var c = String((t && t.category) || 'note').toLowerCase();
+    if (c === 'task' || c === 'permission' || c === 'salary') return c;
+    return 'note';
+  }
+  window.tdCatOf = tdCatOf;
+
+  window.tdSecIcon = function(cat){
+    var secList = (typeof TDSEC !== 'undefined' ? TDSEC : (window.TDSEC || []));
+    var k = String(cat || '').toLowerCase();
+    var target = null;
+    for (var i = 0; i < secList.length; i++){
+      if (secList[i].cat === k || secList[i].key === k) {
+        target = secList[i];
+        break;
+      }
+    }
+    var gen = null;
+    for (var j = 0; j < secList.length; j++){
+      if (secList[j].cat === 'note' || secList[j].key === 'general') {
+        gen = secList[j];
+        break;
+      }
+    }
+    var iconRef = (target && target.icon) || (gen && gen.icon) || 'list';
+    var iconMap = (typeof ICON !== 'undefined' && ICON) ? ICON : (window.ICON || {});
+    return iconMap[iconRef] || iconMap.list || '';
+  };
+
+  window.mtComposerCatChanged = function(cat){
+    window.MG_TD_CAT_PICK = cat;
+    var ava = document.querySelector('#page-todo .td-fb-ava');
+    if (ava) {
+      ava.setAttribute('data-cat', cat);
+      var sec = (typeof tdSec === 'function' ? tdSec(cat) : null);
+      var tabKey = (sec ? sec.key : (cat === 'task' ? 'task' : (cat === 'permission' ? 'mgr' : (cat === 'salary' ? 'salary' : 'general'))));
+      ava.className = 'td-fb-ava t-' + tabKey + (tabKey === 'salary' ? ' t-sal' : '');
+      if (typeof window.tdSecIcon === 'function') {
+        ava.innerHTML = window.tdSecIcon(cat);
+      }
+    }
+  };
+
+  /* ===== Phase 4: Card Expand & Move ===== */
+  var MG_TD_OPEN = {};
+  window.MG_TD_OPEN = MG_TD_OPEN;
+
+  window.mtToggleTodoOpen = function(id){
+    var k = String(id);
+    if (window.MG_TD_OPEN[k]) {
+      delete window.MG_TD_OPEN[k];
+    } else {
+      window.MG_TD_OPEN[k] = true;
+    }
+    renderTodo();
+  };
+
+  window.MG_TD_MOVE = null;
+
+  window.mtOpenMove = function(id){
+    window.MG_TD_MOVE = (window.MG_TD_MOVE === String(id) ? null : String(id));
+    renderTodo();
+  };
+
+  window.mtMoveTodo = async function(id, cat){
+    var allowed = ['note', 'task', 'permission', 'salary'];
+    if (allowed.indexOf(cat) === -1) return;
+
+    var todos = (window.DATA && Array.isArray(window.DATA.todos)) ? window.DATA.todos : [];
+    var note = todos.find(function(x){ return String(x.id) === String(id); });
+    if (!note) return;
+
+    var from = (typeof tdCatOf === 'function' ? tdCatOf(note) : (note.category || 'note'));
+    if (from === cat) {
+      window.MG_TD_MOVE = null;
+      renderTodo();
+      return;
+    }
+
+    var oldCat = note.category;
+    var oldUpdated = note.updated_at;
+
+    note.category = cat;
+    note.updated_at = new Date().toISOString();
+
+    var targetSec = (typeof tdSec === 'function' ? tdSec(cat === 'note' ? 'general' : cat === 'permission' ? 'mgr' : cat) : null);
+    var targetLabel = (targetSec && targetSec.label) || (cat === 'note' ? 'General' : cat === 'task' ? 'My Task' : cat === 'permission' ? 'Inform to Manager' : 'Salary Notes');
+
+    var ok = true;
+    try {
+      if (typeof window.mgTdPush === 'function') {
+        ok = await window.mgTdPush(note, ['category', 'updated_at']);
+      } else if (typeof persist === 'function') {
+        await persist();
+      }
+    } catch(err) {
+      ok = false;
+    }
+
+    if (ok) {
+      window.MG_TD_MOVE = null;
+      renderTodo();
+      if (typeof updateTodoBadge === 'function') updateTodoBadge();
+      toastSafe('Moved to ' + targetLabel, 'success');
+    } else {
+      note.category = oldCat;
+      note.updated_at = oldUpdated;
+      renderTodo();
+      toastSafe('Could not move the note — try again', 'error');
+    }
+  };
+
+  window.mtSetTodoFilter = function(key){
+    var sec = tdSec(key) || tdSec('general');
+    tdMainFilter = sec.key;
+    window.tdMainFilter = tdMainFilter;
+    window.MG_TD_CAT_PICK = sec.cat;
+    if (typeof window.mtSetTodoSub === 'function') window.mtSetTodoSub('all');
+    renderTodo();
+  };
+
   function host(){
     var h = el('mgTdModal');
     if (!h){
@@ -16192,9 +17229,15 @@ window.cycleTodo = window.mtToggleTodoStatus;
     return out;
   }
   function catOptions(sel){
-    var o = [['note','Note'],['task','Task'],['permission','Permission'],['meeting','Meeting']];
+    var o = [
+      ['note','General'],
+      ['task','My Task'],
+      ['permission','Inform to Manager'],
+      ['salary','Salary Notes']
+    ];
     return o.map(function(x){ return '<option value="' + x[0] + '"' + ((sel || 'note') === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('');
   }
+  window.catOptions = catOptions;
   function whenTxt(ts){
     if (!ts) return '';
     var d = new Date(ts);
@@ -16411,6 +17454,7 @@ function translateBtnHTML(srcId, dstId){
 
   function esc(v){ return (typeof escapeHtml === 'function') ? escapeHtml(v) : String(v == null ? '' : v); }
   function hasBn(s){ return /[\u0980-\u09FF]/.test(String(s || '')); }
+  window.hasBn = hasBn;
   function nowIso(){ return new Date().toISOString(); }
   function el(id){ return document.getElementById(id); }
   function toastSafe(m, k){ if (typeof toast === 'function') toast(m, k || 'success'); }
@@ -16740,8 +17784,14 @@ function translateBtnHTML(srcId, dstId){
     }
   };
 
-  window.mgAITranslate = async function(raw){
+  window.mgAITranslate = async function(raw, opts){
     if (!raw) return null;
+    opts = opts || {};
+
+    if (opts.formal && (typeof hasBn === 'function' ? hasBn(raw) : /[\u0980-\u09FF]/.test(raw))) {
+      return String(raw).trim();
+    }
+
     var cfg = getCfg();
     if (!cfg || !cfg.key) return null;
     var key = cfg.key.trim();
@@ -16752,7 +17802,16 @@ function translateBtnHTML(srcId, dstId){
       if (modelList.indexOf(m.id) === -1) modelList.push(m.id);
     });
 
-    var prompt = 'Translate the following Banglish or English note into natural standard Bengali script (বাংলা). Preserve numbers, names, and original meaning. Output ONLY the Bengali translation and nothing else:\n\n' + raw;
+    var prompt;
+    var maxOutputTokens = 400;
+    if (opts.formal) {
+      prompt = 'Translate into formal professional Bengali (বাংলা) for an office record. Keep names, numbers, dates, units and project names unchanged. Output only the translation:\n' + raw;
+      var reqTokens = (typeof opts.maxTokens === 'number') ? opts.maxTokens : 512;
+      maxOutputTokens = Math.min(1024, Math.max(1, reqTokens));
+    } else {
+      prompt = 'Translate the following Banglish or English note into natural standard Bengali script (বাংলা). Preserve numbers, names, and original meaning. Output ONLY the Bengali translation and nothing else:\n\n' + raw;
+      maxOutputTokens = 400;
+    }
 
     for (var i = 0; i < modelList.length; i++){
       var curModel = modelList[i];
@@ -16764,7 +17823,7 @@ function translateBtnHTML(srcId, dstId){
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
-              maxOutputTokens: 400,
+              maxOutputTokens: maxOutputTokens,
               temperature: 0.2
             }
           })
@@ -16789,47 +17848,6 @@ function translateBtnHTML(srcId, dstId){
     }
     return null;
   };
-
-  (function(){
-    var orig = window.mtQuickAddTodo;
-    if (!orig || orig.__mgAiWrapped) return;
-    var wrapped = async function(event){
-      if (!event || (event.type !== 'click' && event.key !== 'Enter' && event.keyCode !== 13 && event.which !== 13)) return null;
-      var createdTask = await orig.apply(this, arguments);
-      var cfg = getCfg();
-      if (!cfg || !cfg.key) return createdTask;
-      var task = createdTask || ((window.DATA && Array.isArray(window.DATA.todos)) ? window.DATA.todos[0] : null);
-      if (!task) return createdTask;
-      var raw = String(task.note_in || task.note || '').trim();
-      if (!raw || hasBn(raw)) return createdTask;
-
-      (async function(){
-        try {
-          var bnText = await window.mgAITranslate(raw);
-          if (bnText) {
-            task.note_in = null;
-            task.note = null;
-            task.note_bn = bnText;
-            task.updated_at = nowIso();
-            if (typeof window.mgTdPush === 'function') {
-              await window.mgTdPush(task, ['note', 'note_bn', 'updated_at']);
-            } else if (typeof persist === 'function') {
-              await persist();
-            }
-            if (typeof renderTodo === 'function') renderTodo();
-            toastSafe('Note translated to Bengali', 'success');
-          } else {
-            toastSafe('Translation failed — please check Gemini API settings from the gear icon', 'error');
-          }
-        } catch(e) {
-          toastSafe('Translation failed — please check Gemini API settings from the gear icon', 'error');
-        }
-      })();
-      return createdTask;
-    };
-    wrapped.__mgAiWrapped = true;
-    window.mtQuickAddTodo = wrapped;
-  })();
 
   // If Supabase is already initialized, kick off initial load
   if (window.sb || (window.MGHRM && typeof window.MGHRM._client === 'function' && window.MGHRM._client())) {
@@ -17901,6 +18919,17 @@ applyScheduledTransfers().catch(function(e){ console.warn('[autoTransfer] boot r
 setInterval(function(){ if(!document.hidden) applyScheduledTransfers().catch(function(){}); }, 300000);
 window.addEventListener('focus', function(){ applyScheduledTransfers().catch(function(){}); });
 buildNotifications();
+try { if (typeof window.mgTodoNotifyTick === 'function') window.mgTodoNotifyTick(); } catch(e){}
+setInterval(function(){
+  try {
+    if (!document.hidden && typeof window.mgTodoNotifyTick === 'function') {
+      window.mgTodoNotifyTick();
+    }
+  } catch(e){}
+}, 60000);
+window.addEventListener('focus', function(){
+  try { if (typeof window.mgTodoNotifyTick === 'function') window.mgTodoNotifyTick(); } catch(e){}
+});
 renderAll();
 renderBrandLogo(); renderGateLogos();
 

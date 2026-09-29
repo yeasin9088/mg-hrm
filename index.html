@@ -3015,6 +3015,7 @@ input:focus, select:focus, textarea:focus {
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg> B&W
           </button>
         </div>
+        <label id="printSalWrap" style="display:none;align-items:center;gap:6px;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;color:var(--text-2)" title="Tick to include the Salary column in the printout"><input type="checkbox" id="printSalToggle" onchange="mgPrintStaffToggleSalary(this)"> With Salary</label>
         <label id="ccWrap" style="display:none;align-items:center;gap:6px;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;color:var(--text-2)"><input type="checkbox" id="ccToggle" checked onchange="toggleCC(this)"> Include CC</label>
         <button type="button" id="btnPrintDo" class="btn primary sm" onclick="doPrint(event)" style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;font-weight:700">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
@@ -3266,6 +3267,17 @@ function openPrint(html){
   const oW=document.getElementById('orientWrap'), cW=document.getElementById('colorWrap');
   if(oW) oW.style.display = isMrep?'inline-flex':'none';
   if(cW) cW.style.display = isMrep?'inline-flex':'none';
+
+  const sw=document.getElementById('printSalWrap');
+  const isStaffDoc = !!(doc && doc.getAttribute('data-mg-stafflist') === '1');
+  if(sw){
+    sw.style.display = isStaffDoc ? 'inline-flex' : 'none';
+    if(isStaffDoc){
+      const scb = sw.querySelector('input');
+      const saved = (typeof MG_PRINT_STAFF !== 'undefined') ? !!MG_PRINT_STAFF.withSalary : false;
+      if(scb) scb.checked = saved;
+    }
+  }
   if(isMrep){
     
     setActiveBtn('orientPortrait','orientLandscape', isLandscape?'orientLandscape':'orientPortrait');
@@ -11792,48 +11804,169 @@ function printReport(){
   openPrint(html);
 }
 
-function buildStaffListPrint(selectedProj){
-  const active = senioritySort(DATA.employees.filter(e=>e.Status==='Active'));
-  const head = e=>`<tr><td class="num">${e._i}</td><td>${e.EmployeeID||''}</td><td><strong>${e.FullName}</strong></td><td>${e.Designation||''}</td><td>${fmtDate(e.JoinDate)}</td><td>${e.PhoneNumber||''}</td><td class="rgt">${e.Salary?Number(e.Salary).toLocaleString('en-IN'):''}</td></tr>`;
-  const HDR = `<tr><th>#</th><th>ID</th><th>Name</th><th>Designation</th><th>Join Date</th><th>Phone</th><th style="text-align:right">Salary (৳)</th></tr>`;
+/* ============================================================
+   EMPLOYEE PRINT / PDF — FILTER-AWARE + OPTIONAL SALARY
+   ============================================================ */
 
-  if(selectedProj){
-    const list = active.filter(e=>e.ProjectName===selectedProj).map((e,i)=>({...e,_i:i+1}));
-    if(!list.length){ toast('No active employees in this project','error'); return ''; }
-    const desigs = new Set(list.map(e=>e.Designation).filter(Boolean)).size;
+/* Set to false if the Print button should ignore the search box
+   (projects / designations / status would still be respected). */
+var MG_EMP_PRINT_USE_SEARCH = true;
+
+/* withSalary starts unchecked (salary column hidden).
+   Change `false` to `true` below to make it start checked. */
+var MG_PRINT_STAFF = { opts: null, withSalary: false };
+
+function mgEmpPrintFilterState(){
+  const st = { projects: [], desigs: [], status: '', q: '', withSalary: !!MG_PRINT_STAFF.withSalary };
+
+  const sel = document.getElementById('empStatusFilter');
+  st.status = sel ? (sel.value || 'Active') : 'Active';
+
+  const qi = document.getElementById('empSearch');
+  st.q = (MG_EMP_PRINT_USE_SEARCH && qi) ? String(qi.value || '').toLowerCase().trim() : '';
+
+  if (typeof mgEmpFiltGet === 'function') {
+    try {
+      st.projects = mgEmpFiltGet('project') || [];
+      st.desigs   = mgEmpFiltGet('desig') || [];
+    } catch (e) { console.warn('[EmpPrint] multi-select read failed:', e.message || e); }
+  } else {
+    const p = document.getElementById('empProjectFilter');
+    const d = document.getElementById('empDesigFilter');
+    if (p && p.tagName === 'SELECT' && p.value) st.projects = [p.value];
+    if (d && d.tagName === 'SELECT' && d.value) st.desigs = [d.value];
+  }
+  return st;
+}
+
+function mgEmpPrintNormalize(opts){
+  if (typeof opts === 'string') {
+    /* legacy call from the Reports page: Active only, salary included */
+    return { projects: opts ? [opts] : [], desigs: [], status: 'Active', q: '', withSalary: true };
+  }
+  const o = opts || {};
+  return {
+    projects: o.projects || [],
+    desigs: o.desigs || [],
+    status: o.status || 'Active',
+    q: o.q || '',
+    withSalary: !!o.withSalary
+  };
+}
+
+function mgEmpPrintMatch(e, o){
+  if (!e) return false;
+  if (o.projects.length && o.projects.indexOf(e.ProjectName) === -1) return false;
+  if (o.desigs.length   && o.desigs.indexOf(e.Designation) === -1) return false;
+  if (o.status && o.status !== 'All' && e.Status !== o.status) return false;
+  if (o.q) {
+    const hay = `${e.id || ''} ${e.FullName || ''} ${e.EmployeeID || ''} ${e.PhoneNumber || ''} ${e.Designation || ''} ${e.ProjectName || ''}`.toLowerCase();
+    if (hay.indexOf(o.q) === -1) return false;
+  }
+  return true;
+}
+
+function mgEmpPrintSummary(o){
+  const parts = [];
+  if (o.projects.length === 1) parts.push(o.projects[0]);
+  else parts.push(o.projects.length ? `${o.projects.length} projects selected` : 'all projects');
+  if (o.desigs.length) parts.push(o.desigs.length === 1 ? o.desigs[0] : `${o.desigs.length} designations`);
+  if (o.status && o.status !== 'All') parts.push(`status: ${o.status}`);
+  if (o.q) parts.push(`search: "${o.q}"`);
+  return parts.join(' · ');
+}
+
+function mgPrintStaffMark(html){
+  if (!html) return html;
+  return html.replace('class="print-doc mrep m2', 'data-mg-stafflist="1" class="print-doc mrep m2');
+}
+
+function mgPrintStaffBuildHtml(){
+  if (!MG_PRINT_STAFF.opts) return '';
+  const o = mgEmpPrintNormalize(MG_PRINT_STAFF.opts);
+  o.withSalary = !!MG_PRINT_STAFF.withSalary;
+  return mgPrintStaffMark(buildStaffListPrint(o));
+}
+
+function mgPrintStaffToggleSalary(cb){
+  MG_PRINT_STAFF.withSalary = !!(cb && cb.checked);
+  const html = mgPrintStaffBuildHtml();
+  if (!html) return;
+
+  const body = document.getElementById('printBody');
+  if (!body) return;
+  const old = body.querySelector('.print-doc');
+  const wasBW   = !!(old && old.classList.contains('bw'));
+  const wasLand = !!(old && old.classList.contains('landscape'));
+
+  body.innerHTML = html;
+
+  const doc = body.querySelector('.print-doc');
+  if (doc) {
+    if (wasBW) doc.classList.add('bw');
+    if (wasLand) doc.classList.add('landscape'); else doc.classList.remove('landscape');
+  }
+  applyPageSize(wasLand ? 'landscape' : 'portrait');
+  setActiveBtn('orientPortrait', 'orientLandscape', wasLand ? 'orientLandscape' : 'orientPortrait');
+  requestAnimationFrame(function(){ fitPreviewScale(); });
+}
+
+window.mgEmpPrintFilterState = mgEmpPrintFilterState;
+window.mgPrintStaffToggleSalary = mgPrintStaffToggleSalary;
+
+function buildStaffListPrint(opts){
+  const o = mgEmpPrintNormalize(opts);
+  const pool = senioritySort((DATA.employees || []).filter(e => mgEmpPrintMatch(e, o)));
+  const withSalary = !!o.withSalary;
+  const span = withSalary ? 7 : 6;
+
+  const head = e => `<tr><td class="num">${e._i}</td><td>${e.EmployeeID||''}</td><td><strong>${e.FullName||''}</strong></td><td>${e.Designation||''}</td><td>${fmtDate(e.JoinDate)}</td><td>${e.PhoneNumber||''}</td>${withSalary?`<td class="rgt">${e.Salary?Number(e.Salary).toLocaleString('en-IN'):''}</td>`:''}</tr>`;
+  const HDR = `<tr><th>#</th><th>ID</th><th>Name</th><th>Designation</th><th>Join Date</th><th>Phone</th>${withSalary?'<th style="text-align:right">Salary (৳)</th>':''}</tr>`;
+
+  if (!pool.length) { toast('No employees match the current filters', 'error'); return ''; }
+
+  const uniqProjects = [...new Set(pool.map(e => e.ProjectName || '(Unassigned)'))];
+  const summary = mgEmpPrintSummary(o);
+  const salaryNote = withSalary ? 'with salary' : 'salary hidden';
+
+  /* single project -> one flat table, portrait */
+  if (uniqProjects.length === 1) {
+    const list = pool.map((e, i) => ({ ...e, _i: i + 1 }));
+    const desigs = new Set(list.map(e => e.Designation).filter(Boolean)).size;
     return mrepShell2({
-      title:'Project Staff List',
-      subtitle:`Active employees of ${selectedProj} · designation seniority order, then seniority of service`,
-      meta:`<b>${list.length}</b> Active <i>·</i> <b>${desigs}</b> Designations`,
-      body:`<table><thead>${HDR}</thead><tbody>${list.map(head).join('')}</tbody></table>`
+      title: 'Project Staff List',
+      subtitle: `${summary} · designation seniority order, then seniority of service · ${salaryNote}`,
+      meta: `<b>${list.length}</b> Staff <i>·</i> <b>${desigs}</b> Designations`,
+      body: `<table><thead>${HDR}</thead><tbody>${list.map(head).join('')}</tbody></table>`
     });
   }
 
+  /* several projects -> grouped, largest project first, landscape */
   const groups = {};
-  active.forEach(e=>{ (groups[e.ProjectName||'(Unassigned)'] = groups[e.ProjectName||'(Unassigned)']||[]).push(e); });
-  const ordered = Object.entries(groups).sort((a,b)=>b[1].length-a[1].length);
-  const desigs = new Set(active.map(e=>e.Designation).filter(Boolean)).size;
+  pool.forEach(e => { const k = e.ProjectName || '(Unassigned)'; (groups[k] = groups[k] || []).push(e); });
+  const ordered = Object.entries(groups).sort((a, b) => (b[1].length - a[1].length) || (a[0] < b[0] ? -1 : 1));
+  const desigs = new Set(pool.map(e => e.Designation).filter(Boolean)).size;
   let body = '', gi = 0;
-  ordered.forEach(([p,emps])=>{
-    emps.forEach((e,i)=>e._i=i+1);
+  ordered.forEach(([p, emps]) => {
+    emps.forEach((e, i) => { e._i = i + 1; });
     gi++;
     body += `<table>
-      <thead><tr class="m2-grp"><td colspan="7"><i>${gi}</i>${p}<small>${emps.length} active</small></td></tr>${HDR}</thead>
+      <thead><tr class="m2-grp"><td colspan="${span}"><i>${gi}</i>${p}<small>${emps.length} staff</small></td></tr>${HDR}</thead>
       <tbody>${emps.map(head).join('')}</tbody></table>`;
   });
   return mrepShell2({
-    title:'All Projects Staff List',
-    subtitle:'Active employees grouped by project · largest project first · designation seniority order within each project',
-    landscape:true,
-    meta:`<b>${active.length}</b> Active <i>·</i> <b>${ordered.length}</b> Projects <i>·</i> <b>${desigs}</b> Designations`,
+    title: 'All Projects Staff List',
+    subtitle: `${summary} · grouped by project, largest first · designation seniority order within each project · ${salaryNote}`,
+    landscape: true,
+    meta: `<b>${pool.length}</b> Staff <i>·</i> <b>${ordered.length}</b> Projects <i>·</i> <b>${desigs}</b> Designations`,
     body
   });
 }
+
 function printEmpList(){
-  const sel = mgEmpFiltGet('project');
-  const proj = (sel.length === 1) ? sel[0] : '';
-  const html = buildStaffListPrint(proj);
-  if(html) openPrint(html);
+  MG_PRINT_STAFF.opts = mgEmpPrintFilterState();
+  const html = mgPrintStaffBuildHtml();
+  if (html) openPrint(html);
 }
 
 /* ============ SETTINGS ============ */

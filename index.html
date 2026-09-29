@@ -4145,12 +4145,21 @@ function handleEmployeeRealtimeUpdate(payload) {
   }
 
   // Refresh filter options if project or designation list updated
-  const projFilter = document.getElementById('empProjectFilter');
-  if (projFilter) {
-    const currVal = projFilter.value;
+  if (typeof mgEmpFiltFill === 'function') {
     const projs = usageSortedProjects([...new Set(DATA.employees.map(e => e.ProjectName).filter(Boolean))], projectUsageCounts());
-    projFilter.innerHTML = `<option value="">All Projects</option>` + projs.map(p => `<option value="${p}">${p}</option>`).join('');
-    projFilter.value = currVal;
+    mgEmpFiltFill('project', projs, true);
+    if (typeof usageSortedOptions === 'function' && typeof DESIGNATIONS !== 'undefined') {
+      mgEmpFiltFill('desig', usageSortedOptions(DESIGNATIONS, desigUsageCounts()), true);
+    }
+    if (typeof mgEmpFiltBind === 'function') mgEmpFiltBind();
+  } else {
+    const projFilter = document.getElementById('empProjectFilter');
+    if (projFilter && projFilter.tagName === 'SELECT') {
+      const currVal = projFilter.value;
+      const projs = usageSortedProjects([...new Set(DATA.employees.map(e => e.ProjectName).filter(Boolean))], projectUsageCounts());
+      projFilter.innerHTML = `<option value="">All Projects</option>` + projs.map(p => `<option value="${p}">${p}</option>`).join('');
+      projFilter.value = currVal;
+    }
   }
 
   if (window.MGHRM && typeof window.MGHRM.scheduleRefresh === 'function') {
@@ -4175,77 +4184,105 @@ window.ensureEmployeesRealtime = ensureEmployeesRealtime;
 async function deleteEmployeeDirectly(empKey) {
   if (!guardEdit()) return;
   const e = findEmp(empKey);
-  if (!e) return;
+  if (!e) {
+    toast('কর্মী খুঁজে পাওয়া যায়নি।', 'error');
+    return;
+  }
 
   const empDisplayName = e.FullName || e.full_name || e.EmployeeName || '';
   const empDisplayId = e.id || e.EmployeeID || e.employee_id || '';
-  const confirmMsg = `আপনি কি নিশ্চিত যে কর্মী "${empDisplayName}" (আইডি: ${empDisplayId})-এর রেকর্ডটি আর্কাইভ করতে চান?\n\nএই রেকর্ডটি ডাটাবেস থেকে স্থায়ীভাবে মুছে ফেলা হবে না এবং কর্মীর সমস্ত অতীত হিস্ট্রি ও সম্পর্কিত তথ্য সংরক্ষিত থাকবে।`;
 
-  if (!confirm(confirmMsg)) {
-    return;
-  }
+  const confirmTitle = 'কর্মী স্থায়ীভাবে ডিলিট';
+  const confirmMsg = `আপনি কি নিশ্চিত যে কর্মী "${empDisplayName}" (আইডি: ${empDisplayId})-কে চিরতরে মুছে ফেলতে চান?\n\nএটি নিশ্চিত করলে কর্মীর যাবতীয় তথ্য ডাটাবেস ও সফটওয়্যার থেকে স্থায়ীভাবে মুছে যাবে।`;
 
-  const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
-                || (window.MGHRM && window.MGHRM.sb)
-                || window.sb
-                || (typeof sb !== 'undefined' ? sb : null);
+  const doDelete = async function() {
+    const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
+                  || (window.MGHRM && window.MGHRM.sb)
+                  || window.sb
+                  || (typeof sb !== 'undefined' ? sb : null);
 
-  if (!sbClient) {
-    toast('ডাটাবেস সংযোগ প্রস্তুত নয়। দয়া করে সংযোগ পরীক্ষা করুন।', 'error');
-    return;
-  }
-
-  function getArchiveErrorMessage(err) {
-    const msg = ((err && err.message) || String(err || '')).toLowerCase();
-    const code = (err && err.code) || '';
-    if (code === '42501' || msg.includes('permission') || msg.includes('row-level security') || msg.includes('policy') || msg.includes('unauthorized') || msg.includes('forbidden')) {
-      return 'আপনার এই কর্মীর রেকর্ড আর্কাইভ বা ডিলিট করার অনুমতি নেই (Permission Denied)।';
-    }
-    if (code === '23503' || msg.includes('foreign key') || msg.includes('violates foreign key constraint') || msg.includes('referential integrity')) {
-      return 'সম্পর্কিত অন্যান্য ডাটা বিদ্যমান থাকায় এই রেকর্ডটি আর্কাইভ করা সম্ভব হচ্ছে না (Foreign Key Constraint)।';
-    }
-    if (msg.includes('fetch') || msg.includes('network') || msg.includes('failed to fetch') || msg.includes('offline') || msg.includes('timeout') || msg.includes('connection')) {
-      return 'ইন্টারনেট সংযোগের সমস্যা বা নেটওয়ার্ক বিচ্ছিন্ন হওয়ার কারণে রেকর্ডটি আর্কাইভ করা যায়নি। সংযোগ পরীক্ষা করুন।';
-    }
-    return 'কর্মী আর্কাইভ করতে সমস্যা হয়েছে: ' + ((err && err.message) || err);
-  }
-
-  try {
-    const targetId = e.id;
-    const payload = {
-      deleted_at: new Date().toISOString()
-    };
-    const currentUser = (window.MGHRM && typeof window.MGHRM.currentUser === 'function' ? window.MGHRM.currentUser() : null)
-                     || (window.appData && typeof window.appData.currentUser === 'function' ? window.appData.currentUser() : null);
-    if (currentUser && currentUser.id) {
-      payload.deleted_by = currentUser.id;
+    function getDeleteErrorMessage(err) {
+      const msg = ((err && err.message) || String(err || '')).toLowerCase();
+      const code = (err && err.code) || '';
+      if (code === '42501' || msg.includes('permission') || msg.includes('row-level security') || msg.includes('policy') || msg.includes('unauthorized') || msg.includes('forbidden')) {
+        return 'আপনার এই কর্মীর রেকর্ড ডিলিট করার অনুমতি নেই (Permission Denied)।';
+      }
+      if (code === '23503' || msg.includes('foreign key') || msg.includes('violates foreign key constraint') || msg.includes('referential integrity')) {
+        return 'সম্পর্কিত অন্যান্য ডাটা বিদ্যমান থাকায় এই রেকর্ডটি ডিলিট করা সম্ভব হচ্ছে না (Foreign Key Constraint)।';
+      }
+      if (msg.includes('fetch') || msg.includes('network') || msg.includes('failed to fetch') || msg.includes('offline') || msg.includes('timeout') || msg.includes('connection')) {
+        return 'ইন্টারনেট সংযোগের সমস্যা বা নেটওয়ার্ক বিচ্ছিন্ন হওয়ার কারণে রেকর্ডটি ডিলিট করা যায়নি। সংযোগ পরীক্ষা করুন।';
+      }
+      return 'কর্মী ডিলিট করতে সমস্যা হয়েছে: ' + ((err && err.message) || err);
     }
 
-    let query = sbClient.from('employees').update(payload);
-    if (targetId) {
-      query = query.eq('id', targetId);
-    } else if (e.EmployeeID) {
-      query = query.eq('employee_id', e.EmployeeID);
-    } else {
-      query = query.eq('id', e.id);
-    }
+    try {
+      const targetId = e.id;
+      const empOfficialId = e.EmployeeID || e.employee_id;
 
-    const { error } = await query;
-    if (error) {
-      console.error('[Employees] Archive error:', error);
-      toast(getArchiveErrorMessage(error), 'error');
-      return;
-    }
+      if (sbClient) {
+        let query = sbClient.from('employees').delete();
+        if (targetId) {
+          query = query.eq('id', targetId);
+        } else if (empOfficialId) {
+          query = query.eq('employee_id', empOfficialId);
+        } else {
+          query = query.eq('id', e.id);
+        }
 
-    closeModal();
-    toast(`কর্মী "${empDisplayName}" সফলভাবে আর্কাইভ করা হয়েছে`, 'success');
-    DATA.employees = DATA.employees.filter(x => String(x.id) !== String(e.id) && String(x.EmployeeID) !== String(e.EmployeeID));
-    await fetchEmployeesDirectly();
-    renderEmpTable();
-    if (typeof updateNotifBadge === 'function') updateNotifBadge();
-  } catch (err) {
-    console.error('[Employees] Error archiving employee:', err);
-    toast(getArchiveErrorMessage(err), 'error');
+        const { error } = await query;
+        if (error) {
+          console.error('[Employees] Delete error:', error);
+          toast(getDeleteErrorMessage(error), 'error');
+          return;
+        }
+      }
+
+      // Remove from local in-memory dataset
+      DATA.employees = (DATA.employees || []).filter(x => 
+        (targetId ? String(x.id) !== String(targetId) : true) &&
+        (empOfficialId ? String(x.EmployeeID) !== String(empOfficialId) && String(x.employee_id) !== String(empOfficialId) : true)
+      );
+
+      // Clean up in-memory relations if any
+      if (DATA.transfers) {
+        DATA.transfers = DATA.transfers.filter(t => (targetId ? String(t.employee_sys_id) !== String(targetId) : true) && (empOfficialId ? String(t.EmployeeID) !== String(empOfficialId) : true));
+      }
+      if (DATA.disciplinary) {
+        DATA.disciplinary = DATA.disciplinary.filter(d => (targetId ? String(d.employee_sys_id) !== String(targetId) : true) && (empOfficialId ? String(d.EmployeeID) !== String(empOfficialId) : true));
+      }
+      if (DATA.exits) {
+        DATA.exits = DATA.exits.filter(x => (targetId ? String(x.employee_sys_id) !== String(targetId) : true) && (empOfficialId ? String(x.EmployeeID) !== String(empOfficialId) : true));
+      }
+      if (DATA.leaves) {
+        DATA.leaves = DATA.leaves.filter(l => (targetId ? String(l.employee_sys_id) !== String(targetId) : true));
+      }
+
+      if (typeof persist === 'function') persist();
+      if (window.MGHRM && typeof window.MGHRM.captureBaseline === 'function') {
+        window.MGHRM.captureBaseline({ employees: DATA.employees });
+      }
+
+      closeModal();
+      toast(`কর্মী "${empDisplayName}" সফলভাবে ডাটাবেস ও সিস্টেম থেকে ডিলিট করা হয়েছে`, 'success');
+
+      if (typeof fetchEmployeesDirectly === 'function') {
+        await fetchEmployeesDirectly();
+      }
+      if (typeof renderEmpTable === 'function') {
+        renderEmpTable();
+      }
+      if (typeof updateNotifBadge === 'function') updateNotifBadge();
+    } catch (err) {
+      console.error('[Employees] Error permanently deleting employee:', err);
+      toast(getDeleteErrorMessage(err), 'error');
+    }
+  };
+
+  if (typeof window.mtCustomConfirm === 'function') {
+    window.mtCustomConfirm(confirmTitle, confirmMsg, 'danger', doDelete);
+  } else if (typeof confirm === 'function' && confirm(confirmMsg)) {
+    doDelete();
   }
 }
 window.deleteEmployeeDirectly = deleteEmployeeDirectly;
@@ -4781,7 +4818,7 @@ function openEmpDetail(recordId){
         <button class="btn sm" onclick="empActionQuick('leave','${escapeHtml(empKey)}')">${'Leave'}</button>
         ${e.Status==='Active'?`<button class="btn sm danger" onclick="empActionQuick('exit','${escapeHtml(empKey)}')">${'Exit'}</button>`:`<button class="btn sm primary" onclick="promptReactivate('${escapeHtml(empKey)}')">${'Reactivate'}</button>`}
         <button class="btn sm" onclick="closeModal();openApplicantForm('${escapeHtml(empKey)}')">${ico('edit')} ${'Edit'}</button>
-        <button class="btn sm danger" onclick="deleteEmployeeDirectly('${escapeHtml(empKey)}')">${ico('trash')} ${'Delete'}</button>
+        <button type="button" class="btn sm danger" onclick="deleteEmployeeDirectly(${jsQ(empKey)})">${ico('trash')} ${'Delete'}</button>
         <button class="btn sm primary" onclick="printEmpProfile('${escapeHtml(empKey)}')">${ico('print')} ${'Print Profile'}</button>
       </div>
     </div>

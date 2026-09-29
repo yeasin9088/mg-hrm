@@ -11408,7 +11408,7 @@ function showReport(kind){
   const inMonth = v=>{ const x=parseDate(v)?.getTime(); return x&&x>=start&&x<end; };
   let out='';
   if(kind==='newJoins'){
-    const list = DATA.employees.filter(e=>inMonth(e.JoinDate));
+    const list = DATA.employees.filter(e=>inMonth(e.JoinDate)).sort((a,b)=> (parseDate(a.JoinDate)?.getTime()||0) - (parseDate(b.JoinDate)?.getTime()||0));
     out = `<div class="card"><div class="card-header"><h3>${'Monthly New Joins'}</h3>
       <div class="btn-row"><button class="btn success sm" onclick="exportReport('newJoins')">${ico('excel')} Excel</button><button class="btn sm" onclick="printReport()">${ico('print')} Print</button></div></div>
       <div class="card-body" id="reportPrintable">
@@ -11417,7 +11417,7 @@ function showReport(kind){
           ${list.map((e,i)=>`<tr><td>${num(i+1)}</td><td>${num(e.EmployeeID||'')}</td><td>${e.FullName}</td><td>${desig(e.Designation)}</td><td>${projName(e.ProjectName)}</td><td>${fmtDate(e.JoinDate)}</td></tr>`).join('')}
         </tbody></table></div></div></div>`;
   } else if(kind==='exits'){
-    const list = DATA.exits.filter(x=>inMonth(x.ExitDate));
+    const list = DATA.exits.filter(x=>inMonth(x.ExitDate)).sort((a,b)=> (parseDate(a.ExitDate)?.getTime()||0) - (parseDate(b.ExitDate)?.getTime()||0));
     out = `<div class="card"><div class="card-header"><h3>${'Monthly Exits'}</h3>
       <div class="btn-row"><button class="btn success sm" onclick="exportReport('exits')">${ico('excel')} Excel</button><button class="btn sm" onclick="printReport()">${ico('print')} Print</button></div></div>
       <div class="card-body" id="reportPrintable">
@@ -11426,7 +11426,7 @@ function showReport(kind){
           ${list.map((x,i)=>`<tr><td>${num(i+1)}</td><td>${num(x.EmployeeID)}</td><td>${x.FullName}</td><td>${desig(x.Designation)}</td><td>${fmtDate(x.ExitDate)}</td><td class="small-mute" style="max-width:300px">${x.ExitReason||''}</td></tr>`).join('')}
         </tbody></table></div></div></div>`;
   } else if(kind==='transfers'){
-    const list = DATA.transfers.filter(t=>inMonth(t.TransferDate));
+    const list = DATA.transfers.filter(t=>inMonth(t.TransferDate)).sort((a,b)=> (parseDate(a.TransferDate)?.getTime()||0) - (parseDate(b.TransferDate)?.getTime()||0));
     out = `<div class="card"><div class="card-header"><h3>${'Monthly Transfers'}</h3>
       <div class="btn-row"><button class="btn success sm" onclick="exportReport('transfers')">${ico('excel')} Excel</button><button class="btn sm" onclick="printReport()">${ico('print')} Print</button></div></div>
       <div class="card-body" id="reportPrintable">
@@ -11435,7 +11435,7 @@ function showReport(kind){
           ${list.map((t,i)=>`<tr><td>${num(i+1)}</td><td>${fmtDate(t.TransferDate)}</td><td>${t.FullName}</td><td>${projName(t.CurrentProject)}</td><td>${projName(t.NewProject)}</td></tr>`).join('')}
         </tbody></table></div></div></div>`;
   } else if(kind==='disciplinary'){
-    const list = DATA.disciplinary.filter(d=>inMonth(d.IssueDate));
+    const list = DATA.disciplinary.filter(d=>inMonth(d.IssueDate)).sort((a,b)=> (parseDate(a.IssueDate)?.getTime()||0) - (parseDate(b.IssueDate)?.getTime()||0));
     out = `<div class="card"><div class="card-header"><h3>${'Monthly Disciplinary'}</h3>
       <div class="btn-row"><button class="btn success sm" onclick="exportReport('disciplinary')">${ico('excel')} Excel</button><button class="btn sm" onclick="printReport()">${ico('print')} Print</button></div></div>
       <div class="card-body" id="reportPrintable">
@@ -11455,6 +11455,9 @@ function showReport(kind){
     // Group by project
     const grouped = {};
     DATA.employees.filter(e=>e.Status==='Active').forEach(e=>{ (grouped[e.ProjectName]=grouped[e.ProjectName]||[]).push(e); });
+    Object.keys(grouped).forEach(k => {
+      grouped[k].sort((a,b)=> (parseDate(a.JoinDate)?.getTime()||0) - (parseDate(b.JoinDate)?.getTime()||0));
+    });
     out = `<div class="card"><div class="card-header"><h3>${'Project Staff List'}</h3></div>
       <div class="card-body" id="reportPrintable">
         ${Object.entries(grouped).sort((a,b)=>b[1].length-a[1].length).map(([p,emps])=>`
@@ -11511,7 +11514,7 @@ function showReport(kind){
       </div></div>`;
   } else if(kind==='dataGaps'){
     
-    const activeE = DATA.employees.filter(e=>e.Status==='Active');
+    const activeE = DATA.employees.filter(e=>e.Status==='Active').sort((a,b)=> (parseDate(a.JoinDate)?.getTime()||0) - (parseDate(b.JoinDate)?.getTime()||0));
     const missNID = activeE.filter(e=>!e.NID && !e['NID/BirthCertificate']);
     const missPhone = activeE.filter(e=>!e.PhoneNumber);
     const missPhoto = activeE.filter(e=>!e.Photo && !e.PhotoURL);
@@ -11544,7 +11547,7 @@ function showReport(kind){
       const days = Math.round((t-nowTs)/86400000);
       if(days>60 || days< -7) return null;
       return {emp:e, days, endDate:e.ContractEnd};
-    }).filter(Boolean).sort((a,b)=>a.days-b.days);
+    }).filter(Boolean).sort((a,b)=> (parseDate(a.endDate)?.getTime()||0) - (parseDate(b.endDate)?.getTime()||0));
     out = `<div class="card"><div class="card-header"><h3>${'Contract Expiry (within 60 days)'}</h3>
       <div class="btn-row"><button class="btn sm" onclick="printReport()">${ico('print')} Print</button></div></div>
       <div class="card-body" id="reportPrintable">
@@ -11635,7 +11638,7 @@ function showReport(kind){
       </div></div>`;
   } else if(kind==='activityLog'){
     
-    const log = (DATA.activityLog||[]).slice(0,500);
+    const log = (DATA.activityLog||[]).slice().sort((a,b)=> (new Date(a.at||0).getTime()) - (new Date(b.at||0).getTime())).slice(0,500);
     out = `<div class="card"><div class="card-header"><h3>${'Activity Log (Audit Trail)'}</h3>
       <div class="btn-row">
         <button class="btn sm" onclick="exportActivityLogCSV()">${ico('excel')} CSV</button>
@@ -11763,25 +11766,25 @@ function printReport(){
   const inMonth = v=>{ const x=parseDate(v)?.getTime(); return x&&x>=start&&x<end; };
   let html = '';
   if(currentReport==='newJoins'){
-    const list = senioritySort(DATA.employees.filter(e=>inMonth(e.JoinDate)));
+    const list = DATA.employees.filter(e=>inMonth(e.JoinDate)).sort((a,b)=> (parseDate(a.JoinDate)?.getTime()||0) - (parseDate(b.JoinDate)?.getTime()||0));
     const rows = list.map((e,i)=>`<tr><td class="num">${i+1}</td><td>${e.EmployeeID||''}</td><td><strong>${e.FullName}</strong></td><td>${e.Designation||''}</td><td>${e.ProjectName||''}</td><td>${fmtDate(e.JoinDate)}</td></tr>`).join('');
     html = mrepShell2({ title:'Monthly New Joins Report', subtitle:`${mLabel} · all employees who joined during the month`,
       meta:`<b>${list.length}</b> New Joins <i>·</i> ${mLabel}`,
       body:`<table><thead><tr><th>#</th><th>ID</th><th>Name</th><th>Designation</th><th>Project</th><th>Join Date</th></tr></thead><tbody>${rows||'<tr><td colspan="6" style="text-align:center;color:#94a3b8">No joins this month</td></tr>'}</tbody></table>` });
   } else if(currentReport==='exits'){
-    const list = DATA.exits.filter(x=>inMonth(x.ExitDate));
+    const list = DATA.exits.filter(x=>inMonth(x.ExitDate)).sort((a,b)=> (parseDate(a.ExitDate)?.getTime()||0) - (parseDate(b.ExitDate)?.getTime()||0));
     const rows = list.map((x,i)=>`<tr><td class="num">${i+1}</td><td>${x.EmployeeID||''}</td><td><strong>${x.FullName}</strong></td><td>${x.Designation||''}</td><td>${x.CurrentProject||''}</td><td>${fmtDate(x.ExitDate)}</td><td>${x.ExitReason||''}</td></tr>`).join('');
     html = mrepShell2({ title:'Monthly Exits Report', subtitle:`${mLabel} · all separations during the month`,
       meta:`<b>${list.length}</b> Exits <i>·</i> ${mLabel}`,
       body:`<table><thead><tr><th>#</th><th>ID</th><th>Name</th><th>Designation</th><th>Project</th><th>Exit Date</th><th>Reason</th></tr></thead><tbody>${rows||'<tr><td colspan="7" style="text-align:center;color:#94a3b8">No exits this month</td></tr>'}</tbody></table>` });
   } else if(currentReport==='transfers'){
-    const list = DATA.transfers.filter(t=>inMonth(t.TransferDate));
+    const list = DATA.transfers.filter(t=>inMonth(t.TransferDate)).sort((a,b)=> (parseDate(a.TransferDate)?.getTime()||0) - (parseDate(b.TransferDate)?.getTime()||0));
     const rows = list.map((t,i)=>`<tr><td class="num">${i+1}</td><td>${fmtDate(t.TransferDate)}</td><td><strong>${t.FullName}</strong></td><td>${t.Designation||''}</td><td>${t.CurrentProject||''}</td><td>${t.NewProject||''}</td></tr>`).join('');
     html = mrepShell2({ title:'Monthly Transfers Report', subtitle:`${mLabel} · all transfer orders effective in the month`,
       meta:`<b>${list.length}</b> Transfers <i>·</i> ${mLabel}`,
       body:`<table><thead><tr><th>#</th><th>Date</th><th>Name</th><th>Designation</th><th>From</th><th>To</th></tr></thead><tbody>${rows||'<tr><td colspan="6" style="text-align:center;color:#94a3b8">No transfers this month</td></tr>'}</tbody></table>` });
   } else if(currentReport==='disciplinary'){
-    const list = DATA.disciplinary.filter(d=>inMonth(d.IssueDate));
+    const list = DATA.disciplinary.filter(d=>inMonth(d.IssueDate)).sort((a,b)=> (parseDate(a.IssueDate)?.getTime()||0) - (parseDate(b.IssueDate)?.getTime()||0));
     const rows = list.map((d,i)=>`<tr><td class="num">${i+1}</td><td>${d.RefNo||''}</td><td><strong>${d.FullName}</strong></td><td>${d.Designation||''}</td><td>${d.ProjectName||''}</td><td>${d.ActionType||''}</td><td>${fmtDate(d.IssueDate)}</td></tr>`).join('');
     html = mrepShell2({ title:'Monthly Disciplinary Actions Report', subtitle:`${mLabel} · all actions issued during the month`,
       meta:`<b>${list.length}</b> Actions <i>·</i> ${mLabel}`,

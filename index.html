@@ -4238,6 +4238,234 @@ async function deleteEmployeeDirectly(empKey) {
 }
 window.deleteEmployeeDirectly = deleteEmployeeDirectly;
 
+/* ============================================================
+   PHASE 12A-v2 — EMPLOYEE MULTI-SELECT FILTER PICKER
+   Custom checkbox dropdown for #empProjectFilter / #empDesigFilter.
+   No selection = all records. Index-based, no names in attributes.
+   ============================================================ */
+var MG_EMP_FILT = { project: [], desig: [] };
+var MG_EMP_FILT_OPTS = { project: [], desig: [] };
+var MG_EMP_FILT_OPEN = '';
+
+function mgEmpFiltKey(kind){ return kind === 'project' ? 'project' : 'desig'; }
+function mgEmpFiltLabel(kind){ return kind === 'project' ? 'All Projects' : 'All Designations'; }
+function mgEmpFiltTitle(kind){ return kind === 'project' ? 'Projects' : 'Designations'; }
+function mgEmpFiltTriggerId(kind){ return kind === 'project' ? 'empProjectFilter' : 'empDesigFilter'; }
+function mgEmpFiltPanelId(kind){ return 'mgfPanel-' + mgEmpFiltKey(kind); }
+
+function mgEmpFiltGet(kind){ return MG_EMP_FILT[mgEmpFiltKey(kind)].slice(); }
+function mgEmpFiltCount(kind){ return MG_EMP_FILT[mgEmpFiltKey(kind)].length; }
+
+function mgEmpFiltToggle(kind, value){
+  var k = mgEmpFiltKey(kind);
+  var arr = MG_EMP_FILT[k];
+  var i = arr.indexOf(value);
+  if (i === -1) { arr.push(value); } else { arr.splice(i, 1); }
+  mgEmpFiltRefresh(k);
+}
+
+function mgEmpFiltClear(kind){
+  var k = mgEmpFiltKey(kind);
+  MG_EMP_FILT[k] = [];
+  mgEmpFiltRefresh(k);
+}
+
+function mgEmpFiltClosePanel(){
+  MG_EMP_FILT_OPEN = '';
+  document.querySelectorAll('.mgf-panel.open').forEach(function(p){ p.classList.remove('open'); });
+  document.querySelectorAll('.mgf-wrap.mgf-open').forEach(function(w){ w.classList.remove('mgf-open'); });
+  document.querySelectorAll('.mgf-trigger').forEach(function(b){ b.setAttribute('aria-expanded','false'); });
+}
+
+function mgEmpFiltOpenPanel(kind){
+  var k = mgEmpFiltKey(kind);
+  mgEmpFiltClosePanel();
+  MG_EMP_FILT_OPEN = k;
+  var wrap = document.getElementById(mgEmpFiltTriggerId(k));
+  var panel = document.getElementById(mgEmpFiltPanelId(k));
+  if (wrap) wrap.classList.add('mgf-open');
+  if (panel) panel.classList.add('open');
+  var btn = wrap ? wrap.querySelector('.mgf-trigger') : null;
+  if (btn) btn.setAttribute('aria-expanded','true');
+}
+
+function mgEmpFiltTogglePanel(kind){
+  var k = mgEmpFiltKey(kind);
+  if (MG_EMP_FILT_OPEN === k) { mgEmpFiltClosePanel(); return; }
+  mgEmpFiltOpenPanel(k);
+}
+
+function mgEmpFiltFill(kind, values, skipRender){
+  var k = mgEmpFiltKey(kind);
+  MG_EMP_FILT_OPTS[k] = (values || []).slice();
+  MG_EMP_FILT[k] = MG_EMP_FILT[k].filter(function(v){ return MG_EMP_FILT_OPTS[k].indexOf(v) !== -1; });
+  var panel = document.getElementById(mgEmpFiltPanelId(k));
+  if (panel) {
+    var box = panel.querySelector('.mgf-search');
+    if (box) box.value = '';
+    var list = panel.querySelector('.mgf-list');
+    if (list) {
+      list.innerHTML = MG_EMP_FILT_OPTS[k].map(function(v, i){
+        var txt = (k === 'project') ? projName(v) : desig(v);
+        return '<label class="mgf-row" data-idx="' + i + '">' +
+                 '<input type="checkbox" data-idx="' + i + '"' + (MG_EMP_FILT[k].indexOf(v) !== -1 ? ' checked' : '') + '>' +
+                 '<span>' + escapeHtml(txt) + '</span>' +
+               '</label>';
+      }).join('');
+    }
+  }
+  mgEmpFiltRefresh(k, skipRender);
+}
+
+function mgEmpFiltRefresh(kind, skipRender){
+  var k = mgEmpFiltKey(kind);
+  var vals = MG_EMP_FILT[k];
+  var trig = document.getElementById(mgEmpFiltTriggerId(k));
+  if (trig) {
+    var lab = trig.querySelector('.mgf-label');
+    var btn = trig.querySelector('.mgf-trigger');
+    if (lab) lab.textContent = vals.length === 0 ? mgEmpFiltLabel(k) : (mgEmpFiltTitle(k) + ': ' + vals.length);
+    if (btn) { if (vals.length) { btn.classList.add('has-sel'); } else { btn.classList.remove('has-sel'); } }
+  }
+  var panel = document.getElementById(mgEmpFiltPanelId(k));
+  if (panel) {
+    panel.querySelectorAll('.mgf-list input[type="checkbox"]').forEach(function(cb){
+      var i = parseInt(cb.getAttribute('data-idx'), 10);
+      cb.checked = vals.indexOf(MG_EMP_FILT_OPTS[k][i]) !== -1;
+    });
+    var allCb = panel.querySelector('input[data-all]');
+    if (allCb) allCb.checked = vals.length === 0;
+  }
+  mgEmpFiltRenderChips();
+  if (!skipRender && typeof renderEmpTable === 'function') renderEmpTable();
+}
+
+function mgEmpFiltRenderChips(){
+  var box = document.getElementById('empSelChips');
+  if (!box) return;
+  var parts = [];
+  ['project', 'desig'].forEach(function(k){
+    var vals = MG_EMP_FILT[k];
+    if (!vals.length) return;
+    parts.push('<span class="mgf-ctag">' + (k === 'project' ? 'Projects' : 'Designations') + '</span>');
+    vals.forEach(function(v){
+      var i = MG_EMP_FILT_OPTS[k].indexOf(v);
+      var txt = (k === 'project') ? projName(v) : desig(v);
+      parts.push('<span class="mgf-chip" data-kind="' + k + '" data-idx="' + i + '">' +
+                   '<span>' + escapeHtml(txt) + '</span>' +
+                   '<button type="button" class="mgf-chip-x" title="Remove">&times;</button>' +
+                 '</span>');
+    });
+    parts.push('<button type="button" class="mgf-chip-clear" data-clear="' + k + '">Clear ' +
+      (k === 'project' ? 'projects' : 'designations') + '</button>');
+  });
+  if (!parts.length) { box.innerHTML = ''; box.style.display = 'none'; return; }
+  box.style.display = 'flex';
+  box.innerHTML = parts.join('');
+}
+
+function mgEmpFiltSearch(kind, term){
+  var k = mgEmpFiltKey(kind);
+  var panel = document.getElementById(mgEmpFiltPanelId(k));
+  if (!panel) return;
+  var t = String(term || '').toLowerCase().trim();
+  panel.querySelectorAll('.mgf-list .mgf-row').forEach(function(row){
+    var hay = (row.textContent || '').toLowerCase();
+    row.style.display = (!t || hay.indexOf(t) !== -1) ? '' : 'none';
+  });
+}
+
+function mgEmpFiltBind(){
+  ['project', 'desig'].forEach(function(k){
+    var panel = document.getElementById(mgEmpFiltPanelId(k));
+    if (!panel || panel.__mgfBound) return;
+    panel.__mgfBound = true;
+    panel.addEventListener('click', function(ev){
+      var row = ev.target.closest ? ev.target.closest('.mgf-row') : null;
+      if (!row || !panel.contains(row)) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      var idx = parseInt(row.getAttribute('data-idx'), 10);
+      if (idx === -1) { mgEmpFiltClear(k); return; }
+      var val = MG_EMP_FILT_OPTS[k][idx];
+      if (val == null) return;
+      mgEmpFiltToggle(k, val);
+    });
+  });
+
+  var chips = document.getElementById('empSelChips');
+  if (chips && !chips.__mgfBound) {
+    chips.__mgfBound = true;
+    chips.addEventListener('click', function(ev){
+      var x = ev.target.closest ? ev.target.closest('.mgf-chip-x') : null;
+      if (x) {
+        var chip = x.closest('.mgf-chip');
+        var k = chip.getAttribute('data-kind');
+        var i = parseInt(chip.getAttribute('data-idx'), 10);
+        var val = MG_EMP_FILT_OPTS[k] ? MG_EMP_FILT_OPTS[k][i] : null;
+        if (val != null) mgEmpFiltToggle(k, val);
+        return;
+      }
+      var c = ev.target.closest ? ev.target.closest('.mgf-chip-clear') : null;
+      if (c) mgEmpFiltClear(c.getAttribute('data-clear'));
+    });
+  }
+
+  if (!window.__mgfOutsideBound) {
+    window.__mgfOutsideBound = true;
+    document.addEventListener('click', function(ev){
+      if (!MG_EMP_FILT_OPEN) return;
+      var t = ev.target;
+      if (t && t.closest && t.closest('.mgf-wrap')) return;
+      mgEmpFiltClosePanel();
+    }, true);
+  }
+}
+
+function mgEmpFiltEnsureStyle(){
+  if (document.getElementById('mgEmpFiltCss')) return;
+  var s = document.createElement('style');
+  s.id = 'mgEmpFiltCss';
+  s.textContent = [
+    '#page-employees .search-row{overflow:visible !important}',
+    '.mgf-wrap{position:relative;min-width:190px}',
+    '.mgf-wrap.mgf-open{z-index:1300}',
+    '.mgf-trigger{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:8px 10px;border:1px solid var(--border,#e2e8f0);border-radius:8px;background:var(--card,#fff);color:var(--text,#0f172a);font:inherit;font-size:13px;font-weight:600;cursor:pointer;text-align:left;line-height:1.2}',
+    '.mgf-trigger:hover{border-color:var(--primary,#4f46e5)}',
+    '.mgf-trigger.has-sel{border-color:var(--primary,#4f46e5);color:var(--primary,#4f46e5);background:rgba(79,70,229,.07)}',
+    '.mgf-caret{width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid currentColor;opacity:.6;flex:0 0 auto}',
+    '.mgf-panel{position:absolute;top:calc(100% + 6px);left:0;z-index:1300;display:none;min-width:280px;max-width:420px;background:var(--card,#fff);border:1px solid var(--border,#e2e8f0);border-radius:10px;box-shadow:0 14px 34px rgba(15,23,42,.16);padding:6px}',
+    '.mgf-panel.open{display:block}',
+    '.mgf-search{width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid var(--border,#e2e8f0);border-radius:7px;font:inherit;font-size:12.5px;margin-bottom:4px}',
+    '.mgf-list{max-height:250px;overflow:auto;padding:2px 0}',
+    '.mgf-row{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:6px;font-size:13px;color:var(--text,#0f172a);cursor:pointer;user-select:none}',
+    '.mgf-row:hover{background:rgba(79,70,229,.08)}',
+    '.mgf-row input[type="checkbox"]{width:15px;height:15px;margin:0;accent-color:var(--primary,#4f46e5);cursor:pointer;flex:0 0 auto}',
+    '.mgf-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    '.mgf-all{border-bottom:1px solid var(--border,#e2e8f0);border-radius:6px 6px 0 0;margin-bottom:3px;font-weight:700}',
+    '.mgf-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;border-top:1px solid var(--border,#e2e8f0);padding:6px 4px 2px;margin-top:3px}',
+    '.mgf-foot button{border:0;background:transparent;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--muted,#64748b)}',
+    '.mgf-foot .mgf-done{color:var(--primary,#4f46e5)}',
+    '.mgf-chips{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:8px 0 2px}',
+    '.mgf-ctag{font-size:10.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--muted,#94a3b8)}',
+    '.mgf-chip{display:inline-flex;align-items:center;gap:5px;max-width:260px;padding:3px 6px 3px 9px;border-radius:999px;background:rgba(79,70,229,.11);color:var(--primary,#4f46e5);font-size:11.5px;font-weight:600}',
+    '.mgf-chip>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    '.mgf-chip-x{border:0;background:transparent;color:inherit;font-size:14px;line-height:1;padding:0 2px;cursor:pointer}',
+    '.mgf-chip-clear{border:0;background:transparent;color:var(--muted,#64748b);font:inherit;font-size:11.5px;font-weight:600;text-decoration:underline;cursor:pointer}'
+  ].join('\n');
+  document.head.appendChild(s);
+}
+mgEmpFiltEnsureStyle();
+
+window.mgEmpFiltGet = mgEmpFiltGet;
+window.mgEmpFiltCount = mgEmpFiltCount;
+window.mgEmpFiltToggle = mgEmpFiltToggle;
+window.mgEmpFiltClear = mgEmpFiltClear;
+window.mgEmpFiltTogglePanel = mgEmpFiltTogglePanel;
+window.mgEmpFiltClosePanel = mgEmpFiltClosePanel;
+window.mgEmpFiltSearch = mgEmpFiltSearch;
+window.mgEmpFiltBind = mgEmpFiltBind;
+
 let searchDebounceTimer;
 window.debouncedRenderEmpTable = function() {
   clearTimeout(searchDebounceTimer);
@@ -4265,8 +4493,38 @@ async function renderEmployees(){
         <div class="card-body">
           <div class="search-row">
             <input type="text" id="empSearch" placeholder="${'Search name, ID, phone…'}" oninput="debouncedRenderEmpTable()">
-            <select id="empProjectFilter" onchange="renderEmpTable()"></select>
-            <select id="empDesigFilter" onchange="renderEmpTable()"><option value="">${'All Designations'}</option></select>
+            <div class="mgf-wrap" id="empProjectFilter">
+              <button type="button" class="mgf-trigger" aria-expanded="false" onclick="mgEmpFiltTogglePanel('project')">
+                <span class="mgf-label">All Projects</span><span class="mgf-caret"></span>
+              </button>
+              <div class="mgf-panel" id="mgfPanel-project">
+                <input type="text" class="mgf-search" placeholder="Search projects…" oninput="mgEmpFiltSearch('project', this.value)">
+                <label class="mgf-row mgf-all" data-idx="-1">
+                  <input type="checkbox" data-all="1"><span>All Projects</span>
+                </label>
+                <div class="mgf-list"></div>
+                <div class="mgf-foot">
+                  <button type="button" onclick="mgEmpFiltClear('project')">Clear</button>
+                  <button type="button" class="mgf-done" onclick="mgEmpFiltClosePanel()">Done</button>
+                </div>
+              </div>
+            </div>
+            <div class="mgf-wrap" id="empDesigFilter">
+              <button type="button" class="mgf-trigger" aria-expanded="false" onclick="mgEmpFiltTogglePanel('desig')">
+                <span class="mgf-label">All Designations</span><span class="mgf-caret"></span>
+              </button>
+              <div class="mgf-panel" id="mgfPanel-desig">
+                <input type="text" class="mgf-search" placeholder="Search designations…" oninput="mgEmpFiltSearch('desig', this.value)">
+                <label class="mgf-row mgf-all" data-idx="-1">
+                  <input type="checkbox" data-all="1"><span>All Designations</span>
+                </label>
+                <div class="mgf-list"></div>
+                <div class="mgf-foot">
+                  <button type="button" onclick="mgEmpFiltClear('desig')">Clear</button>
+                  <button type="button" class="mgf-done" onclick="mgEmpFiltClosePanel()">Done</button>
+                </div>
+              </div>
+            </div>
             <select id="empStatusFilter" onchange="renderEmpTable()">
               <option value="All">All Statuses</option>
               <option value="Active" selected>Active</option>
@@ -4276,6 +4534,7 @@ async function renderEmployees(){
             </select>
             <button class="btn" onclick="resetEmpFilter()">${'Reset'}</button>
           </div>
+          <div class="mgf-chips" id="empSelChips" style="display:none"></div>
           <div id="empCountStrip"></div>
           <div id="empCount" class="small-mute" style="margin-bottom:8px"></div>
         </div>
@@ -4303,12 +4562,9 @@ async function renderEmployees(){
     `;
     
     const projs = usageSortedProjects([...new Set((DATA.employees||[]).map(e=>e.ProjectName).filter(Boolean))], projectUsageCounts());
-    document.getElementById('empProjectFilter').innerHTML =
-      `<option value="">${'All Projects'}</option>` +
-      projs.map(p=>`<option value="${p}">${p}</option>`).join('');
-    document.getElementById('empDesigFilter').innerHTML =
-      `<option value="">${'All Designations'}</option>` +
-      usageSortedOptions(DESIGNATIONS, desigUsageCounts()).map(d=>`<option value="${d}">${d}</option>`).join('');
+    mgEmpFiltFill('project', projs, true);
+    mgEmpFiltFill('desig', usageSortedOptions(DESIGNATIONS, desigUsageCounts()), true);
+    mgEmpFiltBind();
   }
 
   const empSearchInput = document.getElementById('empSearch');
@@ -4328,18 +4584,9 @@ async function renderEmployees(){
   const fresh = await fetchEmployeesDirectly();
   if (fresh) {
     const projs = usageSortedProjects([...new Set(fresh.map(e=>e.ProjectName).filter(Boolean))], projectUsageCounts());
-    const pf = document.getElementById('empProjectFilter');
-    if (pf) {
-      const cur = pf.value;
-      pf.innerHTML = `<option value="">${'All Projects'}</option>` + projs.map(p=>`<option value="${p}">${p}</option>`).join('');
-      pf.value = cur;
-    }
-    const df = document.getElementById('empDesigFilter');
-    if (df) {
-      const cur = df.value;
-      df.innerHTML = `<option value="">${'All Designations'}</option>` + usageSortedOptions(DESIGNATIONS, desigUsageCounts()).map(d=>`<option value="${d}">${d}</option>`).join('');
-      df.value = cur;
-    }
+    mgEmpFiltFill('project', projs, true);
+    mgEmpFiltFill('desig', usageSortedOptions(DESIGNATIONS, desigUsageCounts()), true);
+    mgEmpFiltBind();
     renderEmpTable();
   }
 
@@ -4347,19 +4594,22 @@ async function renderEmployees(){
 }
 function resetEmpFilter(){
   document.getElementById('empSearch').value='';
-  document.getElementById('empProjectFilter').value='';
-  document.getElementById('empDesigFilter').value='';
-  document.getElementById('empStatusFilter').value='All';   
+  MG_EMP_FILT.project = [];
+  MG_EMP_FILT.desig = [];
+  mgEmpFiltClosePanel();
+  mgEmpFiltRefresh('project', true);
+  mgEmpFiltRefresh('desig', true);
+  document.getElementById('empStatusFilter').value='All';
   renderEmpTable();
 }
 function renderEmpTable(){
   const q = (document.getElementById('empSearch')?.value||'').toLowerCase();
-  const proj = document.getElementById('empProjectFilter')?.value;
-  const de   = document.getElementById('empDesigFilter')?.value;
+  const projSel = mgEmpFiltGet('project');
+  const deSel   = mgEmpFiltGet('desig');
   const st   = document.getElementById('empStatusFilter')?.value;
   const rows = senioritySort(DATA.employees.filter(e=>{
-    if(proj && e.ProjectName!==proj) return false;
-    if(de && e.Designation!==de) return false;
+    if(projSel.length && projSel.indexOf(e.ProjectName) === -1) return false;
+    if(deSel.length && deSel.indexOf(e.Designation) === -1) return false;
     if(st && st !== 'All' && e.Status!==st) return false;
     if(q){
       const hay = `${e.id||''} ${e.FullName||''} ${e.EmployeeID||''} ${e.PhoneNumber||''} ${e.Designation||''} ${e.ProjectName||''}`.toLowerCase();
@@ -4726,13 +4976,250 @@ async function saveOfficialId(empKey){
 window.assignOfficialId = assignOfficialId;
 window.saveOfficialId = saveOfficialId;
 
-function exportEmployees(){
-  const rows = DATA.employees;
-  const keys = ['EmployeeID','FullName','Designation','ProjectName','JoinDate','PhoneNumber','Salary','Status'];
-  const csv = [keys.join(',')].concat(rows.map(r=>keys.map(k=>JSON.stringify(r[k]||'')).join(','))).join('\n');
-  const url = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
-  const a = document.createElement('a'); a.href=url; a.download='employees.csv'; a.click();
-  toast(`${rows.length} ${'employees exported to CSV'}`, 'success');
+/* ============================================================
+   EMPLOYEE EXCEL EXPORT — ALL DB COLUMNS, FILTER-AWARE
+   Column set is derived from the fetched rows, never hardcoded.
+   ============================================================ */
+var MG_EMP_EXPORT_BUSY = false;
+
+/* Preferred left-to-right order for known columns. Any column not
+   listed here is appended after these, in the order the DB returns it. */
+var MG_EMP_COL_ORDER = [
+  'id','employee_id','full_name','designation','project_name','status',
+  'join_date','phone_number','salary','blood_group',
+  'reference_name','reference_designation','reference_organization','reference_mobile',
+  'created_at','updated_at','deleted_at','deleted_by'
+];
+
+/* Readable header overrides. Anything not listed is humanised automatically
+   (snake_case -> Title Case). Add a line here to rename a column header. */
+var MG_EMP_HEAD_OVERRIDE = {
+  id:'ID',
+  employee_id:'Official ID',
+  full_name:'Full Name',
+  designation:'Designation',
+  project_name:'Project / Unit',
+  status:'Status',
+  join_date:'Join Date',
+  phone_number:'Phone Number',
+  salary:'Salary',
+  reference_name:'Reference Name',
+  reference_designation:'Reference Designation',
+  reference_organization:'Reference Organization',
+  reference_mobile:'Reference Mobile',
+  created_at:'Created At',
+  updated_at:'Updated At',
+  deleted_at:'Deleted At',
+  deleted_by:'Deleted By'
+};
+
+function mgEmpNormKey(k){
+  return String(k || '').replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
+}
+
+function mgEmpHumanize(k){
+  var nk = mgEmpNormKey(k);
+  if (MG_EMP_HEAD_OVERRIDE[nk]) return MG_EMP_HEAD_OVERRIDE[nk];
+  return nk.split('_').filter(function(p){ return p; }).map(function(p){
+    return p.charAt(0).toUpperCase() + p.slice(1);
+  }).join(' ');
+}
+
+/* ---- filter state ------------------------------------------------ */
+function mgEmpExportFilterState(){
+  var st = { projects: [], desigs: [], status: '', q: '' };
+  var s = document.getElementById('empStatusFilter');
+  st.status = s ? (s.value || '') : '';
+  var q = document.getElementById('empSearch');
+  st.q = q ? String(q.value || '').toLowerCase() : '';
+
+  if (typeof mgEmpFiltGet === 'function') {
+    try {
+      st.projects = mgEmpFiltGet('project') || [];
+      st.desigs   = mgEmpFiltGet('desig') || [];
+    } catch (e) { console.warn('[EmpExport] multi-select read failed:', e.message || e); }
+  } else {
+    /* fallback: single-select build */
+    var p = document.getElementById('empProjectFilter');
+    var d = document.getElementById('empDesigFilter');
+    if (p && p.tagName === 'SELECT' && p.value) st.projects = [p.value];
+    if (d && d.tagName === 'SELECT' && d.value) st.desigs = [d.value];
+  }
+  return st;
+}
+
+function mgEmpExportMatch(e, st){
+  if (!e) return false;
+  if (st.projects.length && st.projects.indexOf(e.ProjectName) === -1) return false;
+  if (st.desigs.length   && st.desigs.indexOf(e.Designation) === -1) return false;
+  if (st.status && st.status !== 'All' && e.Status !== st.status) return false;
+  if (st.q) {
+    var hay = (String(e.id || '') + ' ' + String(e.FullName || '') + ' ' +
+               String(e.EmployeeID || '') + ' ' + String(e.PhoneNumber || '') + ' ' +
+               String(e.Designation || '') + ' ' + String(e.ProjectName || '')).toLowerCase();
+    if (hay.indexOf(st.q) === -1) return false;
+  }
+  return true;
+}
+
+/* ---- raw fetch --------------------------------------------------- */
+function mgEmpExportFetch(){
+  return new Promise(function(resolve){
+    var sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
+                || (window.MGHRM && window.MGHRM.sb)
+                || window.sb
+                || (typeof sb !== 'undefined' ? sb : null);
+    if (!sbClient) { console.warn('[EmpExport] Supabase client not ready'); resolve(null); return; }
+    sbClient.from('employees').select('*').is('deleted_at', null).order('id', { ascending: true })
+      .then(function(res){
+        if (res && res.error) {
+          console.warn('[EmpExport] raw fetch warning:', res.error.message || res.error);
+          resolve(null); return;
+        }
+        if (res && Array.isArray(res.data) && res.data.length) {
+          console.log('[EmpExport] raw rows fetched: ' + res.data.length +
+                      ' | DB columns: ' + Object.keys(res.data[0] || {}).length);
+          resolve(res.data);
+        } else { resolve(null); }
+      })
+      .catch(function(err){
+        console.warn('[EmpExport] raw fetch failed:', err.message || err);
+        resolve(null);
+      });
+  });
+}
+
+/* ---- ordering: project size desc, seniority inside ---------------- */
+function mgEmpExportOrder(pairs){
+  var groups = {};
+  pairs.forEach(function(p){
+    var k = p.e.ProjectName || '(Unassigned)';
+    (groups[k] = groups[k] || []).push(p);
+  });
+  var keys = Object.keys(groups).sort(function(a, b){
+    var d = groups[b].length - groups[a].length;
+    if (d) return d;
+    return a < b ? -1 : (a > b ? 1 : 0);
+  });
+  var out = [];
+  keys.forEach(function(k){
+    /* reuse senioritySort() exactly, without duplicating its logic */
+    var probe = groups[k].map(function(p){ p.e.__mgexp = p.raw; return p.e; });
+    senioritySort(probe).forEach(function(o){
+      out.push(o.__mgexp);
+      try { delete o.__mgexp; } catch (e) {}
+    });
+  });
+  return out;
+}
+
+/* ---- column derivation + CSV -------------------------------------- */
+function mgEmpExportColumns(rows){
+  var seen = {}, found = [];
+  rows.forEach(function(r){
+    if (!r) return;
+    Object.keys(r).forEach(function(k){ if (!seen[k]) { seen[k] = 1; found.push(k); } });
+  });
+  var rank = {};
+  MG_EMP_COL_ORDER.forEach(function(k, i){ rank[mgEmpNormKey(k)] = i; });
+  found.sort(function(a, b){
+    var ra = rank[mgEmpNormKey(a)], rb = rank[mgEmpNormKey(b)];
+    var ha = (ra === undefined) ? 9999 : ra, hb = (rb === undefined) ? 9999 : rb;
+    return ha - hb;
+  });
+  var missing = MG_EMP_COL_ORDER.filter(function(k){
+    return found.indexOf(k) === -1 && found.map(mgEmpNormKey).indexOf(mgEmpNormKey(k)) === -1;
+  });
+  if (missing.length) console.warn('[EmpExport] priority columns not present in this DB: ' + missing.join(', '));
+  return found;
+}
+
+function mgEmpCsvCell(v){
+  if (v === null || v === undefined) return '';
+  var s;
+  if (typeof v === 'object') { try { s = JSON.stringify(v); } catch (e) { s = String(v); } }
+  else { s = String(v); }
+  if (s.indexOf('"') !== -1) s = s.replace(/"/g, '""');
+  if (/[",\n\r]/.test(s)) s = '"' + s + '"';
+  return s;
+}
+
+function mgEmpBuildCsv(rows, cols, heads){
+  var lines = [];
+  lines.push(heads.map(mgEmpCsvCell).join(','));
+  rows.forEach(function(r){
+    lines.push(cols.map(function(c){ return mgEmpCsvCell(r ? r[c] : ''); }).join(','));
+  });
+  return lines.join('\r\n') + '\r\n';
+}
+
+function mgEmpStamp(){
+  var d = new Date(), p = function(n){ return String(n).padStart(2, '0'); };
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + '_' +
+         p(d.getHours()) + p(d.getMinutes());
+}
+
+function mgEmpDownload(filename, text){
+  try {
+    var blob = new Blob(['\ufeff' + text], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 400);
+    return true;
+  } catch (e) { console.warn('[EmpExport] download failed:', e.message || e); return false; }
+}
+
+window.mgEmpExportFilterState = mgEmpExportFilterState;
+
+async function exportEmployees(){
+  if (MG_EMP_EXPORT_BUSY) { toast('Export already running…', 'info'); return; }
+  MG_EMP_EXPORT_BUSY = true;
+  try {
+    var st = mgEmpExportFilterState();
+    toast('Preparing export…', 'info');
+
+    var raw = await mgEmpExportFetch();
+    var isRaw = !!(raw && raw.length);
+    var source = isRaw ? raw : (DATA.employees || []).slice();
+    if (!isRaw) console.warn('[EmpExport] Falling back to in-memory data: ' + source.length + ' rows');
+
+    var pairs = [];
+    source.forEach(function(r){
+      var e = isRaw ? normEmployee(r) : r;
+      if (mgEmpExportMatch(e, st)) pairs.push({ e: e, raw: isRaw ? r : e });
+    });
+
+    if (!pairs.length) { toast('No employees match the current filters', 'error'); return; }
+
+    var ordered = mgEmpExportOrder(pairs);
+    var cols = mgEmpExportColumns(ordered);
+    var heads = cols.map(mgEmpHumanize);
+
+    console.log('[EmpExport] filters — projects: [' + st.projects.join(' | ') +
+                '] designations: [' + st.desigs.join(' | ') +
+                '] status: ' + (st.status || '') + ' search: "' + st.q + '"');
+    console.log('[EmpExport] rows: ' + ordered.length + ' | columns: ' + cols.length);
+    console.log('[EmpExport] headers: ' + heads.join(' | '));
+
+    var csv = mgEmpBuildCsv(ordered, cols, heads);
+    if (!mgEmpDownload('employees_' + mgEmpStamp() + '.csv', csv)) {
+      toast('Export failed — could not create the file', 'error');
+      return;
+    }
+    toast(ordered.length + ' employees exported · ' + cols.length + ' columns', 'success');
+  } catch (err) {
+    console.warn('[EmpExport] failed:', err && (err.message || err));
+    toast('Export failed — see console', 'error');
+  } finally {
+    MG_EMP_EXPORT_BUSY = false;
+  }
 }
 
 /* ============ RECRUITMENT (Card-based Dashboard) ============ */
@@ -11343,7 +11830,8 @@ function buildStaffListPrint(selectedProj){
   });
 }
 function printEmpList(){
-  const proj = document.getElementById('empProjectFilter')?.value || '';
+  const sel = mgEmpFiltGet('project');
+  const proj = (sel.length === 1) ? sel[0] : '';
   const html = buildStaffListPrint(proj);
   if(html) openPrint(html);
 }

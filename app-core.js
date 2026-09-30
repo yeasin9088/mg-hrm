@@ -298,6 +298,128 @@
        }
     },
 
+    uniformSuppliers: {
+      table: 'uniform_suppliers',
+      pk: 'id',
+      allowed: ['id', 'supplier_name', 'phone', 'address', 'description', 'is_active', 'created_at', 'updated_at'],
+      map: {}
+    },
+
+    uniformItems: {
+      table: 'uniform_items',
+      pk: 'id',
+      allowed: ['id', 'item_name', 'category', 'unit', 'description', 'is_active', 'is_system_item', 'created_at', 'updated_at'],
+      map: {}
+    },
+
+    uniformSupplyOrders: {
+      table: 'uniform_supply_orders',
+      pk: 'id',
+      allowed: [
+        'id', 'order_number', 'project_id', 'project_name_snapshot',
+        'requested_sets', 'approved_sets', 'status', 'requisition_reference',
+        'requisition_submitted_at', 'requisition_approved_at',
+        'measurement_completed_at', 'items_finalized_at',
+        'requirements_submitted_at', 'supplier_id', 'supplier_assigned_at',
+        'production_started_at', 'ready_for_delivery_at', 'final_delivery_at',
+        'completed_at', 'cancelled_at', 'cancellation_reason', 'remarks',
+        'created_at', 'updated_at'
+      ],
+      map: {}
+    },
+
+    uniformOrderEmployees: {
+      table: 'uniform_order_employees',
+      pk: 'id',
+      allowed: [
+        'id', 'order_id', 'employee_id', 'employee_code_snapshot',
+        'employee_name_snapshot', 'designation_snapshot', 'original_project_id',
+        'delivery_project_id', 'set_quantity', 'shirt_quantity', 'pant_quantity',
+        'nameplate_required', 'nameplate_text',
+        'measurement_confirmed_on_replacement', 'remarks', 'is_active',
+        'replaced_allocation_id', 'created_at', 'updated_at'
+      ],
+      map: {}
+    },
+
+    uniformOrderEmployeeItems: {
+      table: 'uniform_order_employee_items',
+      pk: 'id',
+      allowed: [
+        'id', 'order_employee_id', 'item_id', 'item_name_snapshot',
+        'category_snapshot', 'unit_snapshot', 'quantity', 'size_text',
+        'remarks', 'created_at', 'updated_at'
+      ],
+      map: {}
+    },
+
+    uniformOrderPostponements: {
+      table: 'uniform_order_postponements',
+      pk: 'id',
+      allowed: [
+        'id', 'order_id', 'set_quantity', 'reason', 'status', 'created_at',
+        'activated_at', 'resolved_at', 'remarks'
+      ],
+      map: {}
+    },
+
+    uniformRequirementReports: {
+      table: 'uniform_requirement_reports',
+      pk: 'id',
+      allowed: [
+        'id', 'order_id', 'report_type', 'revision_number',
+        'supplementary_number', 'generated_at', 'submitted_at', 'supplier_id',
+        'change_reason', 'supersedes_report_id', 'report_snapshot', 'is_current'
+      ],
+      map: {}
+    },
+
+    uniformDeliveries: {
+      table: 'uniform_deliveries',
+      pk: 'id',
+      allowed: [
+        'id', 'order_id', 'delivery_sequence', 'delivery_type', 'delivery_date',
+        'status', 'remarks', 'created_at', 'updated_at'
+      ],
+      map: {}
+    },
+
+    uniformDeliveryItems: {
+      table: 'uniform_delivery_items',
+      pk: 'id',
+      allowed: [
+        'id', 'delivery_id', 'order_employee_id', 'item_id',
+        'item_name_snapshot', 'unit_snapshot', 'size_text', 'expected_quantity',
+        'delivered_quantity', 'remarks', 'created_at'
+      ],
+      map: {}
+    },
+
+    uniformDeliveryBills: {
+      table: 'uniform_delivery_bills',
+      pk: 'id',
+      allowed: [
+        'id', 'delivery_id', 'order_id', 'document_type', 'document_number',
+        'bill_amount', 'submission_date', 'head_office_confirmed',
+        'confirmation_date', 'paid', 'paid_date', 'remarks', 'created_at',
+        'updated_at'
+      ],
+      map: {}
+    },
+
+    uniformDeliveryIssues: {
+      table: 'uniform_delivery_issues',
+      pk: 'id',
+      allowed: [
+        'id', 'order_id', 'delivery_id', 'order_employee_id', 'item_id',
+        'issue_type', 'expected_quantity', 'received_quantity',
+        'affected_quantity', 'remarks', 'resolution_status',
+        'resolution_remarks', 'opened_at', 'resolved_at', 'created_at',
+        'updated_at'
+      ],
+      map: {}
+    },
+
     meetings: {
       table: 'meetings',
       pk: 'id',

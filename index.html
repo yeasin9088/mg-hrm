@@ -16093,226 +16093,224 @@ function printDailySummary(iso) {
 window.printDailySummary = printDailySummary;
 
 
-const UNIF_STAGES = [
-  { key:'Demand Raised',        bn:'চাহিদা উত্থাপিত' },
-  { key:'Requisition Approved', bn:'রিকুইজিশন অনুমোদিত' },
-  { key:'Work Order Issued',    bn:'দর্জিকে কাজের অর্ডার' },
-  { key:'Delivered',            bn:'ডেলিভারি হয়েছে' },
+const UNIF_ORDER_STATUSES = [
+  'Draft','Confirmed','Requisition Submitted','Requisition Approved',
+  'Measurement Completed','Items Finalized','Requirements Submitted',
+  'Assigned to Supplier','In Production','Ready for Delivery',
+  'Partially Delivered','Delivered','Completed','Cancelled'
 ];
+const UNIF_TERMINAL = ['Completed','Cancelled'];
+const unifEsc = v => escapeHtml(String(v == null ? '' : v));
+const unifDate = v => v ? fmtDate(String(v).slice(0,10)) : '—';
+const unifMoney = v => Number(v||0).toLocaleString('en-BD',{minimumFractionDigits:0,maximumFractionDigits:2});
+const unifRows = k => Array.isArray((window.DATA||{})[k]) ? window.DATA[k] : [];
+const unifById = (k,id) => unifRows(k).find(x => String(x.id)===String(id));
+const unifProjectName = p => p ? (p.ProjectName||p.project_name||p.name||'') : '';
+const unifEmployeeName = e => e ? (e.FullName||e.full_name||'') : '';
+const unifEmployeeCode = e => e ? (e.EmployeeID||e.employee_id||'') : '';
+const unifEmployeeProject = e => e ? (e.ProjectName||e.project_name||'') : '';
 
-function unifStep(o){
-  if(o.completedAt) return 5;
-  if(o.deliveryDate) return 4;
-  if(o.workOrderDate) return 3;
-  if(o.reqApproveDate) return 2;
-  return 1;
+async function unifReload(){
+  if(window.MGHRM && MGHRM.loadAll) await MGHRM.loadAll();
+  renderUniform();
+}
+async function unifInsert(key,row){
+  if(!window.MGHRM) throw new Error('Data layer is not ready.');
+  return MGHRM.insert(key,row);
+}
+async function unifUpdate(key,id,row){ return MGHRM.update(key,id,row); }
+
+function unifOrderAccounting(orderId){
+  const allocations=unifRows('uniformOrderEmployees').filter(x=>String(x.order_id)===String(orderId)&&x.is_active!==false);
+  const postponed=unifRows('uniformOrderPostponements').filter(x=>String(x.order_id)===String(orderId)&&['Open','Partially Activated'].includes(x.status));
+  return {
+    allocations,
+    assigned:allocations.reduce((s,x)=>s+(+x.set_quantity||0),0),
+    postponed:postponed.reduce((s,x)=>s+(+x.set_quantity||0),0)
+  };
+}
+function unifBillsFor(orderId){return unifRows('uniformDeliveryBills').filter(x=>String(x.order_id)===String(orderId));}
+function unifIssuesFor(orderId){return unifRows('uniformDeliveryIssues').filter(x=>String(x.order_id)===String(orderId));}
+function unifStatusClass(s){
+  if(['Completed','Delivered'].includes(s)) return 'ok';
+  if(['Cancelled'].includes(s)) return 'short';
+  if(['Partially Delivered','Ready for Delivery'].includes(s)) return 'over';
+  return '';
 }
 
-function unifReady(o){
-  return !o.completedAt && !!o.deliveryDate && !!String(o.challanNo||'').trim() && !!String(o.amount||'').trim();
-}
-function unifNextId(){
-  const mx = DATA.uniformOrders.reduce((m,o)=>{ const n=parseInt(String(o.id||'').replace(/\D/g,''),10); return isNaN(n)?m:Math.max(m,n); },0);
-  return 'UO-' + String(mx+1).padStart(3,'0');
-}
 function renderUniform(){
-  const page = document.getElementById('page-uniform'); if(!page) return;
-  const list = window.DATA.uniform || [];
-  
-  const empOpts = (window.DATA.employees || [])
-    .filter(e => e.Status === 'Active')
-    .sort((a,b) => (a.FullName||'').localeCompare(b.FullName||''))
-    .map(e => `<option value="${e.id||e.EmployeeID}">${e.EmployeeID} - ${e.FullName} (${e.ProjectName})</option>`)
-    .join('');
+  const page=document.getElementById('page-uniform'); if(!page) return;
+  const orders=unifRows('uniformSupplyOrders').slice().sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
+  const active=orders.filter(o=>!UNIF_TERMINAL.includes(o.status));
+  const completed=orders.filter(o=>o.status==='Completed');
+  const openIssues=unifRows('uniformDeliveryIssues').filter(i=>['Open','In Progress'].includes(i.resolution_status)).length;
+  const outstanding=unifRows('uniformDeliveryBills').filter(b=>!b.paid).reduce((s,b)=>s+(+b.bill_amount||0),0);
+  const totalPaid=unifRows('uniformDeliveryBills').filter(b=>b.paid).reduce((s,b)=>s+(+b.bill_amount||0),0);
+  const filters=window.UNIF_FILTER||{status:'',q:''};
+  const shown=orders.filter(o=>(!filters.status||o.status===filters.status)&&(!filters.q||[o.order_number,o.project_name_snapshot,o.status].join(' ').toLowerCase().includes(filters.q.toLowerCase())));
 
-  page.innerHTML = `
-    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
-      ${kpi('Total Issued', num(list.length),'b',ico('check'), 'all time records','','')}
-      ${kpi('Active Items', num(list.filter(x=>x.status==='Issued').length),'g',ico('refresh'), 'currently held by staff','','')}
-      ${kpi('Returned/Damaged', num(list.filter(x=>x.status!=='Issued').length),'y',ico('x'), 'past records','','')}
-    </div>
-
-    <div class="card">
-      <div class="card-header"><h3>Issue Uniform to Employee</h3>
-        <span class="sub">Record items given to security personnel</span>
+  page.innerHTML=`
+    <div class="page-head"><div><h2>Uniform & Equipment Orders</h2><p>Project requisitions, supplier production, deliveries and billing</p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" onclick="openUniformItems()">Item Master</button>
+        <button class="btn" onclick="openUniformSuppliers()">Suppliers</button>
+        <button class="btn primary" onclick="openUniformOrderCreate()">+ New Order</button>
       </div>
+    </div>
+    <div class="kpi-grid" style="grid-template-columns:repeat(5,minmax(0,1fr))">
+      ${kpi('Active Orders',num(active.length),'b',ico('refresh'),'currently in workflow','','')}
+      ${kpi('Completed',num(completed.length),'g',ico('check'),'locked records','','')}
+      ${kpi('Open Issues',num(openIssues),'y',ico('alert-triangle'),'require resolution','','')}
+      ${kpi('Outstanding Bills','৳ '+unifMoney(outstanding),'r',ico('clock'),'not yet paid','','')}
+      ${kpi('Paid','৳ '+unifMoney(totalPaid),'g',ico('check'),'all recorded bills','','')}
+    </div>
+    <div class="card"><div class="card-header"><h3>Order Register</h3><span class="sub">${orders.length} total orders</span></div>
       <div class="card-body">
-        <div class="form-grid">
-          <div class="field"><label>Employee *</label><select id="unEmp">${empOpts}</select></div>
-          <div class="field"><label>Item Name *</label><select id="unItem"><option value="Shirt">Shirt</option><option value="Pant">Pant</option><option value="Cap">Cap</option><option value="Belt">Belt</option><option value="Shoes">Shoes</option><option value="Sweater">Sweater</option><option value="ID Card">ID Card</option></select></div>
-          <div class="field"><label>Size</label><input id="unSize" type="text" placeholder="e.g. L, 40, etc"></div>
-          <div class="field"><label>Quantity *</label><input id="unQty" type="number" min="1" value="1"></div>
-          <div class="field"><label>Condition</label><select id="unCond"><option value="New">New</option><option value="Good">Good</option><option value="Damaged">Damaged</option></select></div>
-          <div class="field"><label>Issue Date *</label><input id="unDate" type="date" value="${todayISO()}"></div>
-          <div class="field"><label>Remarks</label><input id="unNote" type="text" placeholder="Optional notes"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+          <input class="input" style="max-width:300px" placeholder="Search order, project or status" value="${unifEsc(filters.q)}" oninput="UNIF_FILTER.q=this.value;renderUniform()">
+          <select class="input" style="max-width:230px" onchange="UNIF_FILTER.status=this.value;renderUniform()"><option value="">All statuses</option>${UNIF_ORDER_STATUSES.map(s=>`<option ${filters.status===s?'selected':''}>${s}</option>`).join('')}</select>
         </div>
-        <div style="margin-top:14px" class="btn-row">
-          <button class="btn primary" onclick="unifSubmit(event)">${ico('plus')} Issue Item</button>
-        </div>
+        ${shown.length?`<div style="overflow:auto"><table><thead><tr><th>Order</th><th>Project</th><th>Approved</th><th>Assigned</th><th>Postponed</th><th>Supplier</th><th>Status</th><th>Billing</th><th></th></tr></thead><tbody>
+          ${shown.map(o=>{const a=unifOrderAccounting(o.id),sup=unifById('uniformSuppliers',o.supplier_id),bs=unifBillsFor(o.id),paid=bs.filter(x=>x.paid).reduce((s,x)=>s+(+x.bill_amount||0),0),total=bs.reduce((s,x)=>s+(+x.bill_amount||0),0);return `<tr>
+            <td><strong>${unifEsc(o.order_number)}</strong><div class="sub">${unifDate(o.created_at)}</div></td>
+            <td>${unifEsc(o.project_name_snapshot)}</td><td>${o.approved_sets==null?'—':o.approved_sets}</td><td>${a.assigned}</td><td>${a.postponed}</td>
+            <td>${unifEsc(sup&&sup.supplier_name||'—')}</td><td><span class="pillbox ${unifStatusClass(o.status)}">${unifEsc(o.status)}</span></td>
+            <td>৳ ${unifMoney(paid)} / ${unifMoney(total)}</td><td><button class="btn sm" onclick="openUniformOrder(${o.id})">Open</button></td></tr>`}).join('')}
+        </tbody></table></div>`:`<div class="empty"><h3>No uniform orders found</h3><p>Create the first project requisition to begin.</p></div>`}
       </div>
-    </div>
-    
-    <div class="card">
-      <div class="card-header">
-        <div><h3>Issued Uniform Records <span class="chip">${num(list.length)}</span></h3></div>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>#</th><th>Date</th><th>Employee</th><th>Project</th><th>Item</th><th>Size</th><th>Qty</th><th>Condition</th><th>Status</th></tr></thead>
-          <tbody>${list.length ? list.map((o,i)=>`<tr>
-            <td class="num">${num(i+1)}</td>
-            <td>${fmtDate(o.issue_date)}</td>
-            <td><strong>${o.full_name||''}</strong><br><small class="mute">${o.employee_id||''}</small></td>
-            <td>${o.project_name||''}</td>
-            <td>${o.item_name||''}</td>
-            <td>${o.size_text||'—'}</td>
-            <td class="num">${o.quantity||1}</td>
-            <td>${o.condition_text||''}</td>
-            <td><span class="pillbox ${o.status==='Issued'?'ok':o.status==='Returned'?'info':'over'}">${o.status||''}</span></td>
-          </tr>`).join('') : `<tr><td colspan="15" style="text-align:center; padding:40px 20px; color:var(--text-mute); font-size:0.95rem;">No matching records found.</td></tr>`}</tbody>
-        </table>
-      </div>
-    </div>
-  `;
+    </div>`;
 }
-async function unifSubmit(event){
-  if(!guardEdit()) return;
-  const rid = document.getElementById('unEmp').value;
-  const itm = document.getElementById('unItem').value;
-  const qty = document.getElementById('unQty').value;
-  const dt = document.getElementById('unDate').value;
-  
-  if(!rid || !itm || !qty || !dt){ toast('Fill Employee, Item, Qty, Date','error'); return; }
+window.UNIF_FILTER=window.UNIF_FILTER||{status:'',q:''};
 
-  window.mtCustomConfirm("Assign Uniform", "Are you sure you want to save this uniform record?", "primary", async function() {
-    const btn = event && event.target ? event.target : null;
-    if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
+function openUniformOrderCreate(){
+  const projects=unifRows('projects').filter(p=>p.is_active!==false&&(p.Status||p.status||'Active')!=='Inactive');
+  openModal('Create Uniform Order',`<div class="form-grid">
+    <div class="field"><label>Project *</label><select id="uoProject"><option value="">Select project</option>${projects.map(p=>`<option value="${p.id}">${unifEsc(unifProjectName(p))}</option>`).join('')}</select></div>
+    <div class="field"><label>Requested Sets *</label><input id="uoRequested" type="number" min="1" step="1"></div>
+    <div class="field span-2"><label>Remarks</label><textarea id="uoRemarks"></textarea></div>
+  </div>`,`<button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveUniformOrderCreate()">Create Draft</button>`);
+}
+async function saveUniformOrderCreate(){
+  const pid=document.getElementById('uoProject').value,sets=+document.getElementById('uoRequested').value;
+  const p=unifById('projects',pid); if(!p||sets<1){toast('Select a project and enter a valid set quantity.','error');return;}
+  const existing=unifRows('uniformSupplyOrders').find(o=>String(o.project_id)===String(pid)&&!UNIF_TERMINAL.includes(o.status));
+  if(existing&&!confirm(`This project already has active order ${existing.order_number}. Continue with a separate order?`)) return;
+  try{
+    await unifInsert('uniformSupplyOrders',{project_id:+pid,project_name_snapshot:unifProjectName(p),requested_sets:sets,status:'Draft',remarks:document.getElementById('uoRemarks').value||null});
+    closeModal();toast('Draft order created.','success');await unifReload();
+  }catch(e){toast(e.message||'Could not create order.','error');}
+}
 
-    try {
-      let e = assertActiveEmp(rid);
-      if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeById === 'function') {
-        e = await window.MGHRM.fetchEmployeeById(rid);
-      }
-      if(!e) throw new Error('Employee not found or inactive');
-      if(!window.sb) throw new Error('Database connection not established.');
+function openUniformOrder(id){
+  const o=unifById('uniformSupplyOrders',id); if(!o)return;
+  const a=unifOrderAccounting(id),sup=unifById('uniformSuppliers',o.supplier_id),bills=unifBillsFor(id),issues=unifIssuesFor(id),deliveries=unifRows('uniformDeliveries').filter(x=>String(x.order_id)===String(id));
+  const locked=UNIF_TERMINAL.includes(o.status);
+  const idx=UNIF_ORDER_STATUSES.indexOf(o.status);
+  const progress=UNIF_ORDER_STATUSES.filter(s=>s!=='Cancelled').slice(0,Math.max(0,idx+1));
+  const actions=[];
+  if(!locked){
+    if(o.status==='Draft') actions.push(`<button class="btn primary" onclick="setUniformStatus(${id},'Confirmed')">Confirm</button>`);
+    if(o.status==='Confirmed') actions.push(`<button class="btn primary" onclick="uniformSubmitRequisition(${id})">Submit Requisition</button>`);
+    if(o.status==='Requisition Submitted') actions.push(`<button class="btn primary" onclick="uniformApproveRequisition(${id})">Approve Requisition</button>`);
+    if(o.status==='Requisition Approved') actions.push(`<button class="btn primary" onclick="uniformMeasurement(${id})">Mark Measurement Completed</button>`);
+    if(['Measurement Completed','Items Finalized'].includes(o.status)) actions.push(`<button class="btn primary" onclick="openUniformAllocation(${id})">Employee & Item Allocation</button>`);
+    if(o.status==='Items Finalized') actions.push(`<button class="btn primary" onclick="uniformSubmitRequirements(${id})">Generate & Submit Requirements</button>`);
+    if(o.status==='Requirements Submitted') actions.push(`<button class="btn primary" onclick="openUniformAssignSupplier(${id})">Assign to Supplier</button>`);
+    if(o.status==='Assigned to Supplier') actions.push(`<button class="btn primary" onclick="setUniformStatus(${id},'In Production',{production_started_at:new Date().toISOString()})">Start Production</button>`);
+    if(o.status==='In Production') actions.push(`<button class="btn primary" onclick="setUniformStatus(${id},'Ready for Delivery',{ready_for_delivery_at:new Date().toISOString()})">Ready for Delivery</button>`);
+    if(['Ready for Delivery','Partially Delivered'].includes(o.status)) actions.push(`<button class="btn primary" onclick="openUniformDelivery(${id})">Record Delivery & Bill</button>`);
+    if(o.status==='Delivered') actions.push(`<button class="btn success" onclick="completeUniformOrder(${id})">Complete Order</button>`);
+    actions.push(`<button class="btn danger" onclick="cancelUniformOrder(${id})">Cancel Order</button>`);
+  }
+  openModal(`Order ${unifEsc(o.order_number)}`,`
+    <div class="unif-card"><div class="unif-top"><span class="uo-id">${unifEsc(o.order_number)}</span><h4>${unifEsc(o.project_name_snapshot)}</h4><span class="uo-sets">${o.approved_sets==null?o.requested_sets:o.approved_sets} Sets</span><span class="unif-status">${unifEsc(o.status)}</span></div>
+      <div class="unif-note">${progress.map(s=>`<span style="display:inline-block;margin:2px 8px 2px 0">✓ ${unifEsc(s)}</span>`).join('')}</div></div>
+    <div class="form-grid">
+      <div class="field"><label>Requested Sets</label><strong>${o.requested_sets}</strong></div><div class="field"><label>Approved Sets</label><strong>${o.approved_sets==null?'—':o.approved_sets}</strong></div>
+      <div class="field"><label>Assigned Sets</label><strong>${a.assigned}</strong></div><div class="field"><label>Postponed Sets</label><strong>${a.postponed}</strong></div>
+      <div class="field"><label>Supplier</label><strong>${unifEsc(sup&&sup.supplier_name||'—')}</strong></div><div class="field"><label>Measurement Date</label><strong>${unifDate(o.measurement_completed_at)}</strong></div>
+    </div>
+    <h4 style="margin-top:16px">Deliveries & Bills</h4>
+    ${deliveries.length?`<div style="overflow:auto"><table><thead><tr><th>#</th><th>Date</th><th>Type</th><th>Bill/Challan</th><th>Amount</th><th>Confirmed</th><th>Paid</th></tr></thead><tbody>${deliveries.map(d=>{const b=bills.find(x=>String(x.delivery_id)===String(d.id));return `<tr><td>${d.delivery_sequence}</td><td>${unifDate(d.delivery_date)}</td><td>${unifEsc(d.delivery_type)}</td><td>${unifEsc(b&&b.document_number||'—')}</td><td>৳ ${unifMoney(b&&b.bill_amount)}</td><td>${b&&b.head_office_confirmed?'Yes':'No'}</td><td>${b&&b.paid?'Yes':b?`<button class="btn sm" onclick="confirmUniformBill(${b.id},${id})">Update</button>`:'—'}</td></tr>`}).join('')}</tbody></table></div>`:'<p class="sub">No deliveries recorded.</p>'}
+    <h4 style="margin-top:16px">Delivery Issues (${issues.length})</h4>
+    ${issues.length?issues.map(i=>`<div class="unif-note"><strong>${unifEsc(i.issue_type)}</strong> · ${unifEsc(i.resolution_status)}<br>${unifEsc(i.remarks||'')}</div>`).join(''):'<p class="sub">No issues recorded.</p>'}
+  `,`${locked?'':actions.join('')}<button class="btn" onclick="printUniformRequirement(${id})">Print Requirement</button><button class="btn" onclick="closeModal()">Close</button>`);
+}
 
-      const newId = String(Date.now());
-      
-      const payload = {
-        issue_id: newId,
-        employee_sys_id: e.id,
-        employee_id: String(e.EmployeeID || e.id || ''),
-        full_name: e.FullName || '',
-        designation: e.Designation || '',
-        project_name: e.ProjectName || '',
-        item_name: itm,
-        size_text: document.getElementById('unSize').value || '',
-        quantity: parseInt(qty, 10) || 1,
-        issue_date: dt,
-        condition_text: document.getElementById('unCond').value || 'New',
-        status: 'Issued',
-        remarks: document.getElementById('unNote').value || ''
-      };
+async function setUniformStatus(id,status,extra={}){
+  try{await unifUpdate('uniformSupplyOrders',id,Object.assign({status},extra));closeModal();toast(`Order status updated to ${status}.`,'success');await unifReload();openUniformOrder(id);}catch(e){toast(e.message||'Status update failed.','error');}
+}
+async function uniformSubmitRequisition(id){const d=prompt('Requisition submission date (YYYY-MM-DD):',new Date().toISOString().slice(0,10));if(!d)return;await setUniformStatus(id,'Requisition Submitted',{requisition_submitted_at:d});}
+async function uniformApproveRequisition(id){const o=unifById('uniformSupplyOrders',id),q=+prompt('Approved set quantity:',o.requested_sets),d=prompt('Approval date (YYYY-MM-DD):',new Date().toISOString().slice(0,10));if(!q||!d)return;await setUniformStatus(id,'Requisition Approved',{approved_sets:q,requisition_approved_at:d});}
+async function uniformMeasurement(id){const d=prompt('Measurement completion date (YYYY-MM-DD):',new Date().toISOString().slice(0,10));if(!d)return;await setUniformStatus(id,'Measurement Completed',{measurement_completed_at:d});}
 
-      const { error } = await window.sb.from('uniform').insert([payload]);
-      if (error) throw error;
-
-      if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
-        const freshData = await window.MGHRM.loadAll();
-        if (freshData) {
-          Object.keys(freshData).forEach(k => {
-            if (Array.isArray(freshData[k])) {
-              window.DATA[k] = freshData[k];
-            }
-          });
-        }
-      }
-      
-      toast(`Uniform issue recorded for ${e.FullName}`, 'success');
-      
-      // Clear specific form inputs
-      document.getElementById('unSize').value = '';
-      document.getElementById('unQty').value = '1';
-      document.getElementById('unNote').value = '';
-      
-      renderUniform();
-      if (typeof refreshAll === 'function') refreshAll();
-
-    } catch (err) {
-      console.error(err);
-      toast('Uniform issue failed: ' + err.message, 'error');
-    } finally {
-      if (btn) { btn.disabled = false; btn.innerHTML = ico('plus') + ' Issue Item'; }
+function openUniformAllocation(id){
+  const o=unifById('uniformSupplyOrders',id); if(!o)return;
+  const emps=unifRows('employees').filter(e=>(e.Status||e.status)==='Active'&&unifEmployeeProject(e)===o.project_name_snapshot);
+  const existing=unifOrderAccounting(id).allocations;
+  const itemOptions=unifRows('uniformItems').filter(i=>i.is_active!==false&&!i.is_system_item).map(i=>`<option value="${i.id}">${unifEsc(i.item_name)} (${i.unit})</option>`).join('');
+  openModal('Employee & Item Allocation',`<div class="unif-note">Approved: <b>${o.approved_sets}</b> · Every approved set must be assigned or postponed before finalization.</div>
+    <div style="max-height:52vh;overflow:auto;margin-top:12px"><table><thead><tr><th>Select</th><th>Employee</th><th>Sets</th><th>Nameplate</th><th>Additional Item</th><th>Qty</th><th>Size</th></tr></thead><tbody>
+    ${emps.map(e=>{const x=existing.find(a=>String(a.employee_id)===String(e.id));return `<tr><td><input type="checkbox" class="ua-emp" data-emp="${e.id}" ${x?'checked':''}></td><td><strong>${unifEsc(unifEmployeeName(e))}</strong><div class="sub">${unifEsc(unifEmployeeCode(e))}</div></td><td><select class="ua-set"><option>0</option><option ${x&&+x.set_quantity===1?'selected':''}>1</option><option ${x&&+x.set_quantity===2?'selected':''}>2</option></select></td><td><input class="ua-nameplate" placeholder="Optional text" value="${unifEsc(x&&x.nameplate_text||'')}"></td><td><select class="ua-item"><option value="">None</option>${itemOptions}</select></td><td><input class="ua-qty" type="number" min="1" value="1" style="width:70px"></td><td><input class="ua-size" style="width:80px" placeholder="Size"></td></tr>`}).join('')}
+    </tbody></table></div>
+    <div class="field" style="margin-top:12px"><label>Postponed Sets</label><input id="uaPostponed" type="number" min="0" value="${unifOrderAccounting(id).postponed}"></div>
+    <div class="field"><label>Postponement Reason</label><input id="uaPostReason" placeholder="Required when postponed sets are greater than zero"></div>`,
+    `<button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveUniformAllocation(${id})">Save & Finalize</button>`);
+}
+async function saveUniformAllocation(orderId){
+  const o=unifById('uniformSupplyOrders',orderId),rows=[...document.querySelectorAll('.ua-emp')],selected=rows.filter(c=>c.checked),postponed=+document.getElementById('uaPostponed').value||0;
+  const payloads=[]; let total=0;
+  for(const c of selected){const tr=c.closest('tr'),e=unifById('employees',c.dataset.emp),sets=+tr.querySelector('.ua-set').value||0,itemId=tr.querySelector('.ua-item').value,qty=+tr.querySelector('.ua-qty').value||1,size=tr.querySelector('.ua-size').value.trim(),np=tr.querySelector('.ua-nameplate').value.trim();if(sets===0&&!itemId){toast(`${unifEmployeeName(e)} needs a set or an additional item.`,'error');return;} total+=sets;payloads.push({e,sets,itemId,qty,size,np});}
+  if(total+postponed!==+o.approved_sets){toast(`Assigned (${total}) + postponed (${postponed}) must equal approved sets (${o.approved_sets}).`,'error');return;}
+  if(postponed>0&&!document.getElementById('uaPostReason').value.trim()){toast('Enter a postponement reason.','error');return;}
+  try{
+    for(const p of payloads){
+      let alloc=unifOrderAccounting(orderId).allocations.find(x=>String(x.employee_id)===String(p.e.id));
+      const row={order_id:orderId,employee_id:p.e.id,employee_code_snapshot:unifEmployeeCode(p.e),employee_name_snapshot:unifEmployeeName(p.e),designation_snapshot:p.e.Designation||p.e.designation||null,original_project_id:o.project_id,delivery_project_id:o.project_id,set_quantity:p.sets,nameplate_required:!!p.np,nameplate_text:p.np||null,is_active:true};
+      if(alloc){await unifUpdate('uniformOrderEmployees',alloc.id,row);}else{alloc=await unifInsert('uniformOrderEmployees',row);}
+      const aid=alloc.id||alloc[0]&&alloc[0].id;
+      if(p.itemId){const item=unifById('uniformItems',p.itemId);if(item.category==='Footwear'&&!p.size)throw new Error(`Size is required for ${item.item_name}.`);await unifInsert('uniformOrderEmployeeItems',{order_employee_id:aid,item_id:item.id,item_name_snapshot:item.item_name,category_snapshot:item.category,unit_snapshot:item.unit,quantity:p.qty,size_text:p.size||null});}
     }
-  });
-}
-function unifSet(id, field, value){
-  if(!guardEdit()) return;
-  const o = DATA.uniformOrders.find(x=>x.id===id); if(!o) return;
-  o[field] = value;
-  persist(); renderUniform();
-  if(field==='reqApproveDate') toast('Status: Requisition Approved','info');
-  else if(field==='workOrderDate') toast('Status: Work Order Issued','info');
-  else if(field==='deliveryDate') toast('Status: Delivered','info');
-}
-function unifComplete(id){
-  if(!guardEdit()) return;
-  const o = DATA.uniformOrders.find(x=>x.id===id); if(!o) return;
-  if(!unifReady(o)){ toast('Fill delivery date, challan no and bill amount first','error'); return; }
-  o.completedAt = todayISO();
-  persist(); renderUniform();
-  toast(`${o.id} — ${'moved to Completed Orders'} ✓`,'success');
-}
-function unifReopen(id){
-  if(!guardEdit()) return;
-  const o = DATA.uniformOrders.find(x=>x.id===id); if(!o) return;
-  o.completedAt = '';
-  persist(); renderUniform();
-  toast(`${o.id} — ${'back to active tracking'}`,'info');
-}
-function unifRemoveAsk(id){
-  const o = DATA.uniformOrders.find(x=>x.id===id); if(!o) return;
-  openModal(`🗑 ${'Delete Order'}`, `
-    <p style="font-size:13px;line-height:1.7">${'Order'} <strong>${o.id}</strong> (${projName(o.project)} — ${num(o.sets)} ${'sets'}) ${'will be permanently deleted. This cannot be undone.'}</p>
-    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
-      <button class="btn" onclick="closeModal()">${'Cancel'}</button>
-      <button class="btn danger" onclick="unifRemove('${o.id}')">${'Delete'}</button>
-    </div>`);
-}
-function unifRemove(id){
-  if(!guardEdit()) return;
-  window.mtCustomConfirm("Delete Uniform Record", "Are you sure you want to delete this uniform order?", "danger", function() {
-    const i = DATA.uniformOrders.findIndex(x=>x.id===id);
-    if(i>-1) DATA.uniformOrders.splice(i,1);
-    closeModal(); persist(); renderUniform();
-    toast('Order deleted','success');
-  });
+    if(postponed>0){await unifInsert('uniformOrderPostponements',{order_id:orderId,set_quantity:postponed,reason:document.getElementById('uaPostReason').value.trim(),status:'Open'});}
+    await unifUpdate('uniformSupplyOrders',orderId,{status:'Items Finalized',items_finalized_at:new Date().toISOString()});closeModal();toast('Items finalized.','success');await unifReload();openUniformOrder(orderId);
+  }catch(e){toast(e.message||'Could not finalize items.','error');}
 }
 
-function printUniform(kind){
-  const isDone = kind==='completed';
-  const list = DATA.uniformOrders.filter(o=>isDone?!!o.completedAt:!o.completedAt)
-    .sort((a,b)=> isDone ? (b.completedAt||'').localeCompare(a.completedAt||'') : (b.createdAt||'').localeCompare(a.createdAt||''));
-  if(!list.length){ toast('List is empty — nothing to print','error'); return; }
-  const totSets = list.reduce((s,o)=>s+(+o.sets||0),0);
-  const totAmt  = list.reduce((s,o)=>s+(+o.amount||0),0);
-  const row = (o,i)=>`<tr>
-    <td class="num">${i+1}</td><td><strong>${o.id}</strong></td><td>${o.project||''}</td><td class="num">${o.sets}</td>
-    <td>${fmtDate(o.demandDate)}</td><td>${o.reqNo||'—'}</td><td>${o.reqApproveDate?fmtDate(o.reqApproveDate):'—'}</td>
-    <td>${o.workOrderDate?fmtDate(o.workOrderDate):'—'}</td><td>${o.deliveryDate?fmtDate(o.deliveryDate):'—'}</td>
-    <td>${o.challanNo||'—'}</td><td class="num">${o.amount?Number(o.amount).toLocaleString('en-IN'):'—'}</td>
-    <td>${isDone?fmtDate(o.completedAt):`<span class="pillbox ${unifStep(o)>=4?'ok':unifStep(o)===3?'over':'short'}">${UNIF_STAGES[unifStep(o)-1].key}</span>`}</td>
-  </tr>`;
-  const html = mrepShell2({
-    title: isDone ? 'Uniform Orders — Completed' : 'Uniform Order Tracking — Active Orders',
-    subtitle: isDone ? 'Delivered & billed uniform orders · most recent first' : 'Orders currently in the pipeline · demand → requisition → tailor → delivery',
-    landscape: true,
-    meta:`<b>${list.length}</b> ${isDone?'Completed':'Active'} Orders <i>·</i> <b>${totSets}</b> Sets <i>·</i> ৳ <b>${totAmt.toLocaleString('en-IN')}</b> Billed`,
-    body: `<table><thead><tr><th>#</th><th>Order ID</th><th>Project</th><th class="num">Sets</th><th>Demand Date</th><th>Req. No</th><th>Req. Approved</th><th>Work Order</th><th>Delivered</th><th>Challan No</th><th class="num">Amount (৳)</th><th>${isDone?'Completed On':'Status'}</th></tr></thead>
-      <tbody>${list.map(row).join('')}</tbody></table>`
-  });
-  openPrint(html);
+function uniformReportSnapshot(id,type='Main'){
+  const o=unifById('uniformSupplyOrders',id),a=unifOrderAccounting(id),items=unifRows('uniformOrderEmployeeItems');
+  return {order:o,allocations:a.allocations.map(x=>({allocation:x,items:items.filter(i=>String(i.order_employee_id)===String(x.id))})),postponed_sets:a.postponed,generated_at:new Date().toISOString(),report_type:type};
 }
+async function uniformSubmitRequirements(id){
+  try{const current=unifRows('uniformRequirementReports').filter(r=>String(r.order_id)===String(id)&&r.report_type==='Main');for(const r of current.filter(r=>r.is_current))await unifUpdate('uniformRequirementReports',r.id,{is_current:false});await unifInsert('uniformRequirementReports',{order_id:id,report_type:'Main',revision_number:current.length+1,report_snapshot:uniformReportSnapshot(id),is_current:true,submitted_at:new Date().toISOString()});await unifUpdate('uniformSupplyOrders',id,{status:'Requirements Submitted',requirements_submitted_at:new Date().toISOString()});closeModal();toast('Requirement report generated.','success');await unifReload();openUniformOrder(id);}catch(e){toast(e.message||'Could not submit requirements.','error');}
+}
+
+function openUniformAssignSupplier(id){const suppliers=unifRows('uniformSuppliers').filter(s=>s.is_active!==false);openModal('Assign to Supplier',`<div class="field"><label>Supplier *</label><select id="uasSupplier"><option value="">Select supplier</option>${suppliers.map(s=>`<option value="${s.id}">${unifEsc(s.supplier_name)}</option>`).join('')}</select></div><div class="field"><label>Assignment Date</label><input id="uasDate" type="date" value="${new Date().toISOString().slice(0,10)}"></div>`,`<button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveUniformAssignSupplier(${id})">Assign to Supplier</button>`);}
+async function saveUniformAssignSupplier(id){const sid=document.getElementById('uasSupplier').value,d=document.getElementById('uasDate').value;if(!sid||!d){toast('Select a supplier and date.','error');return;}await setUniformStatus(id,'Assigned to Supplier',{supplier_id:+sid,supplier_assigned_at:d+'T00:00:00'});}
+
+function openUniformDelivery(id){const seq=unifRows('uniformDeliveries').filter(x=>String(x.order_id)===String(id)).length+1;openModal('Record Delivery & Bill',`<div class="form-grid"><div class="field"><label>Delivery Type *</label><select id="udType"><option value="Full">Full</option><option value="Partial">Partial</option><option value="Remaining">Remaining</option><option value="Supplementary">Supplementary</option></select></div><div class="field"><label>Delivery Date *</label><input id="udDate" type="date" value="${new Date().toISOString().slice(0,10)}"></div><div class="field"><label>Document Type</label><select id="udDocType"><option>Bill/Challan</option><option>Bill</option><option>Challan</option></select></div><div class="field"><label>Bill/Challan Number *</label><input id="udDocNo"></div><div class="field"><label>Bill Amount *</label><input id="udAmount" type="number" min="0.01" step="0.01"></div><div class="field span-2"><label>Remarks</label><textarea id="udRemarks"></textarea></div></div>`,`<button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveUniformDelivery(${id},${seq})">Save Delivery</button>`);}
+async function saveUniformDelivery(id,seq){const type=document.getElementById('udType').value,date=document.getElementById('udDate').value,no=document.getElementById('udDocNo').value.trim(),amount=+document.getElementById('udAmount').value,remarks=document.getElementById('udRemarks').value||null;if(!date||!no||amount<=0){toast('Delivery date, document number and bill amount are required.','error');return;}try{const d=await unifInsert('uniformDeliveries',{order_id:id,delivery_sequence:seq,delivery_type:type,delivery_date:date,status:'Received',remarks});const did=d.id||d[0]&&d[0].id;await unifInsert('uniformDeliveryBills',{delivery_id:did,order_id:id,document_type:document.getElementById('udDocType').value,document_number:no,bill_amount:amount,submission_date:date});await unifUpdate('uniformSupplyOrders',id,{status:type==='Partial'?'Partially Delivered':'Delivered',final_delivery_at:type==='Partial'?null:date});closeModal();toast('Delivery and bill recorded.','success');await unifReload();openUniformOrder(id);}catch(e){toast(e.message||'Could not record delivery.','error');}}
+
+function confirmUniformBill(billId,orderId){const b=unifById('uniformDeliveryBills',billId);openModal('Update Bill Status',`<div class="field"><label><input id="ubConfirmed" type="checkbox" ${b.head_office_confirmed?'checked':''}> Confirmed by Head Office</label></div><div class="field"><label>Confirmation Date</label><input id="ubConfirmDate" type="date" value="${b.confirmation_date||new Date().toISOString().slice(0,10)}"></div><div class="field"><label><input id="ubPaid" type="checkbox" ${b.paid?'checked':''}> Paid</label></div><div class="field"><label>Paid Date</label><input id="ubPaidDate" type="date" value="${b.paid_date||new Date().toISOString().slice(0,10)}"></div>`,`<button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveUniformBillStatus(${billId},${orderId})">Save</button>`);}
+async function saveUniformBillStatus(billId,orderId){const c=document.getElementById('ubConfirmed').checked,p=document.getElementById('ubPaid').checked;if(p&&!c){toast('Head Office confirmation is required before payment.','error');return;}try{await unifUpdate('uniformDeliveryBills',billId,{head_office_confirmed:c,confirmation_date:c?document.getElementById('ubConfirmDate').value:null,paid:p,paid_date:p?document.getElementById('ubPaidDate').value:null});closeModal();await unifReload();openUniformOrder(orderId);}catch(e){toast(e.message,'error');}}
+
+async function completeUniformOrder(id){if(!confirm('Complete and permanently lock this order?'))return;await setUniformStatus(id,'Completed',{completed_at:new Date().toISOString()});}
+async function cancelUniformOrder(id){const r=prompt('Cancellation reason:');if(!r)return;await setUniformStatus(id,'Cancelled',{cancellation_reason:r,cancelled_at:new Date().toISOString()});}
+
+function openUniformSuppliers(){const rows=unifRows('uniformSuppliers');openModal('Supplier Management',`<div class="form-grid"><div class="field"><label>Supplier Name *</label><input id="usName"></div><div class="field"><label>Phone</label><input id="usPhone"></div><div class="field span-2"><label>Address</label><input id="usAddress"></div></div><button class="btn primary" onclick="saveUniformSupplier()">Add Supplier</button><div style="margin-top:16px">${rows.map(s=>`<div class="unif-note"><strong>${unifEsc(s.supplier_name)}</strong> · ${unifEsc(s.phone||'No phone')} · ${s.is_active?'Active':'Inactive'} <button class="btn sm" style="float:right" onclick="toggleUniformSupplier(${s.id},${!s.is_active})">${s.is_active?'Deactivate':'Activate'}</button></div>`).join('')||'<p class="sub">No suppliers added.</p>'}</div>`,`<button class="btn" onclick="closeModal()">Close</button>`);}
+async function saveUniformSupplier(){const n=document.getElementById('usName').value.trim();if(!n){toast('Supplier name is required.','error');return;}try{await unifInsert('uniformSuppliers',{supplier_name:n,phone:document.getElementById('usPhone').value||null,address:document.getElementById('usAddress').value||null,is_active:true});await unifReload();openUniformSuppliers();}catch(e){toast(e.message,'error');}}
+async function toggleUniformSupplier(id,v){try{await unifUpdate('uniformSuppliers',id,{is_active:v});await unifReload();openUniformSuppliers();}catch(e){toast(e.message,'error');}}
+
+function openUniformItems(){const rows=unifRows('uniformItems');openModal('Item Master',`<div class="form-grid"><div class="field"><label>Item Name *</label><input id="uiName"></div><div class="field"><label>Category</label><select id="uiCategory">${['Uniform','Footwear','Accessory','Safety Gear','Winter Wear','Other'].map(x=>`<option>${x}</option>`).join('')}</select></div><div class="field"><label>Unit</label><select id="uiUnit"><option>Piece</option><option>Pair</option></select></div><div class="field"><label>Description</label><input id="uiDesc"></div></div><button class="btn primary" onclick="saveUniformItem()">Add Item</button><div style="max-height:42vh;overflow:auto;margin-top:16px"><table><thead><tr><th>Item</th><th>Category</th><th>Unit</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(i=>`<tr><td>${unifEsc(i.item_name)}</td><td>${unifEsc(i.category)}</td><td>${unifEsc(i.unit)}</td><td>${i.is_active?'Active':'Inactive'}</td><td>${i.is_system_item?'System':`<button class="btn sm" onclick="toggleUniformItem(${i.id},${!i.is_active})">${i.is_active?'Deactivate':'Activate'}</button>`}</td></tr>`).join('')}</tbody></table></div>`,`<button class="btn" onclick="closeModal()">Close</button>`);}
+async function saveUniformItem(){const n=document.getElementById('uiName').value.trim();if(!n){toast('Item name is required.','error');return;}try{await unifInsert('uniformItems',{item_name:n,category:document.getElementById('uiCategory').value,unit:document.getElementById('uiUnit').value,description:document.getElementById('uiDesc').value||null,is_active:true,is_system_item:false});await unifReload();openUniformItems();}catch(e){toast(e.message,'error');}}
+async function toggleUniformItem(id,v){try{await unifUpdate('uniformItems',id,{is_active:v});await unifReload();openUniformItems();}catch(e){toast(e.message,'error');}}
+
+function printUniformRequirement(id){
+  const snap=uniformReportSnapshot(id),o=snap.order,sup=unifById('uniformSuppliers',o.supplier_id),totals={};
+  snap.allocations.forEach(r=>{if(r.allocation.shirt_quantity)totals['Shirt|Piece']=(totals['Shirt|Piece']||0)+r.allocation.shirt_quantity;if(r.allocation.pant_quantity)totals['Pant|Piece']=(totals['Pant|Piece']||0)+r.allocation.pant_quantity;r.items.forEach(i=>{const k=i.item_name_snapshot+(i.size_text?' - Size '+i.size_text:'')+'|'+i.unit_snapshot;totals[k]=(totals[k]||0)+(+i.quantity||0);});});
+  const body=`<div class="mrep"><div class="mrep-head"><div class="mrep-brand">MG Security HRM</div><div class="mrep-title">Uniform and Equipment Requirement Report</div><div class="mrep-sub">Order ${unifEsc(o.order_number)} · ${unifEsc(o.project_name_snapshot)}</div><div class="mrep-meta">Supplier: ${unifEsc(sup&&sup.supplier_name||'Not assigned')} · Measurement: ${unifDate(o.measurement_completed_at)}</div></div><div class="mrep-kpis"><div class="mrep-kpi"><div class="k">Approved Sets</div><div class="v">${o.approved_sets}</div></div><div class="mrep-kpi"><div class="k">Assigned Sets</div><div class="v">${unifOrderAccounting(id).assigned}</div></div><div class="mrep-kpi"><div class="k">Postponed Sets</div><div class="v">${snap.postponed_sets}</div></div></div><div class="mrep-body"><table><thead><tr><th>#</th><th>Employee</th><th>Sets</th><th>Shirt</th><th>Pant</th><th>Additional Requirements</th><th>Nameplate</th></tr></thead><tbody>${snap.allocations.map((r,i)=>`<tr><td>${i+1}</td><td><strong>${unifEsc(r.allocation.employee_name_snapshot)}</strong><br>${unifEsc(r.allocation.employee_code_snapshot||'')}</td><td>${r.allocation.set_quantity}</td><td>${r.allocation.shirt_quantity}</td><td>${r.allocation.pant_quantity}</td><td>${r.items.map(x=>`${unifEsc(x.item_name_snapshot)}: ${x.quantity} ${unifEsc(x.unit_snapshot)}${x.size_text?' (Size '+unifEsc(x.size_text)+')':''}`).join('<br>')||'—'}</td><td>${r.allocation.nameplate_required?unifEsc(r.allocation.nameplate_text):'Not Required'}</td></tr>`).join('')}</tbody></table><h3 style="margin-top:6mm">Consolidated Item Summary</h3><table><thead><tr><th>Item</th><th>Quantity</th><th>Unit</th></tr></thead><tbody>${Object.entries(totals).map(([k,v])=>{const [n,u]=k.split('|');return `<tr><td>${unifEsc(n)}</td><td>${v}</td><td>${unifEsc(u)}</td></tr>`}).join('')}</tbody></table>${snap.postponed_sets?`<div class="unif-note"><strong>${snap.postponed_sets} set(s) postponed.</strong> These sets are excluded from current production and billing.</div>`:''}</div></div>`;
+  openPrint(body);
+}
+
 
 /* ============ TO-DO / FOLLOW-UP ============ */
 

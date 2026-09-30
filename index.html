@@ -16110,8 +16110,29 @@ const unifEmployeeName = e => e ? (e.FullName||e.full_name||'') : '';
 const unifEmployeeCode = e => e ? (e.EmployeeID||e.employee_id||'') : '';
 const unifEmployeeProject = e => e ? (e.ProjectName||e.project_name||'') : '';
 
+const UNIF_DATA_BUCKETS = [
+  'uniformSuppliers','uniformItems','uniformSupplyOrders',
+  'uniformOrderEmployees','uniformOrderEmployeeItems',
+  'uniformOrderPostponements','uniformRequirementReports',
+  'uniformDeliveries','uniformDeliveryItems','uniformDeliveryBills',
+  'uniformDeliveryIssues'
+];
+UNIF_DATA_BUCKETS.forEach(function (key) {
+  if (!Array.isArray(window.DATA[key])) window.DATA[key] = [];
+});
+
+function unifMergeServerData(freshData){
+  if (!freshData || !window.DATA) return;
+  UNIF_DATA_BUCKETS.forEach(function (key) {
+    if (Array.isArray(freshData[key])) window.DATA[key] = freshData[key];
+  });
+}
+
 async function unifReload(){
-  if(window.MGHRM && MGHRM.loadAll) await MGHRM.loadAll();
+  if(window.MGHRM && MGHRM.loadAll){
+    const freshData = await MGHRM.loadAll();
+    unifMergeServerData(freshData);
+  }
   renderUniform();
 }
 async function unifInsert(key,row){

@@ -1123,6 +1123,23 @@ body.sidebar-open {
 @media(max-width:760px){#page-uniform .uo-command{align-items:flex-start;flex-direction:column}.uo-metrics{grid-template-columns:repeat(2,1fr)}.uo-toolbar{flex-direction:column}.uo-search{max-width:none}.uo-toolbar select{width:100%}.uo-table thead{display:none}.uo-table,.uo-table tbody,.uo-table tr,.uo-table td{display:block;width:100%}.uo-table tr{padding:12px 14px;border-bottom:1px solid var(--border)}.uo-table td{display:flex;justify-content:space-between;gap:12px;padding:5px 0;border:0}.uo-table td:before{content:attr(data-label);font-size:10px;color:var(--text-muted);font-weight:700}.uo-form-grid,.uo-summary{grid-template-columns:1fr}.uo-form-grid .wide{grid-column:auto}.uo-progress span{display:none}.uo-allocation-head{grid-template-columns:repeat(2,1fr)}.uo-employee{grid-template-columns:28px 1fr 65px}.uo-employee label:nth-of-type(n+3){grid-column:2/-1}}
 
 
+/* Employee multi-item allocation */
+.uo-allocation-help{margin:-2px 0 12px;padding:10px 12px;border-radius:10px;background:#eff6ff;color:#1e40af;font-size:11.5px;line-height:1.5}
+.uo-employee-list{max-height:58vh}
+.uo-employee-card{border:1px solid var(--border);border-radius:13px;background:#fff;overflow:hidden;transition:border-color .15s,box-shadow .15s}
+.uo-employee-card.selected{border-color:#bfdbfe;box-shadow:0 0 0 2px #eff6ff}
+.uo-employee-summary{display:grid;grid-template-columns:28px minmax(170px,1.35fr) 72px minmax(150px,.9fr) minmax(120px,.8fr) auto;gap:10px;align-items:center;padding:12px 13px;background:#fff}
+.uo-set-control{display:flex;flex-direction:column;gap:4px}.uo-set-control span,.uo-auto-items span{font-size:9.5px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em}.uo-set-control select{min-height:36px}
+.uo-auto-items{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.uo-auto-items span{width:100%}.uo-auto-items strong{font-size:10px;padding:4px 7px;border-radius:7px;background:#f1f5f9;color:#475569}
+.uo-selected-items{font-size:10.5px;color:var(--text-muted)}.uo-expand-items{border:0;background:transparent;color:var(--primary);font-size:10.5px;font-weight:700;cursor:pointer;white-space:nowrap}
+.uo-item-matrix{border-top:1px solid var(--border);padding:12px 13px 15px;background:#fbfdff}.uo-item-toolbar{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:10px}.uo-item-toolbar .uo-search{max-width:380px;height:36px}
+.uo-system-items{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px}.uo-system-items>div{display:grid;grid-template-columns:1fr auto;align-items:center;padding:10px 12px;border:1px solid #dbeafe;border-radius:10px;background:#eff6ff}.uo-system-items span{font-size:11px;font-weight:700;color:#1e3a8a}.uo-system-items strong{font-size:18px;color:#1d4ed8}.uo-system-items small{grid-column:1/-1;margin-top:2px;font-size:9.5px;color:#64748b}
+.uo-item-group{margin-top:12px}.uo-item-group-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}.uo-item-group-title strong{font-size:11px}.uo-item-group-title span{font-size:9.5px;color:var(--text-muted)}
+.uo-item-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.uo-item-entry{display:grid;grid-template-columns:minmax(105px,1.15fr) 80px 85px;gap:7px;align-items:end;padding:9px;border:1px solid var(--border);border-radius:10px;background:#fff}.uo-item-entry[hidden]{display:none}.uo-item-name{align-self:center}.uo-item-name strong{display:block;font-size:10.8px}.uo-item-name small{font-size:9px;color:var(--text-muted)}.uo-item-entry label{display:flex;flex-direction:column;gap:3px}.uo-item-entry label span{font-size:9px;color:var(--text-muted);font-weight:700}.uo-item-entry input{width:100%;min-height:34px;padding:7px 8px;border:1px solid var(--border-strong);border-radius:8px;font:inherit;font-size:11px}.uo-item-note,.uo-nameplate-field{grid-column:1/-1}.uo-item-entry:has(.ua-item-qty:not(:placeholder-shown)){border-color:#bfdbfe}
+@media(max-width:1100px){.uo-employee-summary{grid-template-columns:28px 1fr 72px auto}.uo-auto-items,.uo-selected-items{grid-column:2/4}.uo-item-grid{grid-template-columns:1fr}}
+@media(max-width:760px){.uo-employee-summary{grid-template-columns:26px 1fr 68px}.uo-auto-items,.uo-selected-items,.uo-expand-items{grid-column:2/-1}.uo-expand-items{text-align:left}.uo-item-toolbar{align-items:stretch;flex-direction:column}.uo-item-toolbar .uo-search{max-width:none}.uo-system-items{grid-template-columns:1fr}.uo-item-entry{grid-template-columns:1fr 75px}.uo-item-entry .ua-item-size{grid-column:2}.uo-item-note,.uo-nameplate-field{grid-column:1/-1}}
+
+
 /* ============ UNIFORM MANAGEMENT ============ */
 .unif-card {
   border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px;
@@ -16178,9 +16195,158 @@ async function saveCancelOrder(id){const r=document.getElementById('uoCancelReas
 function openCompleteOrder(id){const a=unifAcct(id),issues=unifIssues(id).filter(x=>['Open','In Progress'].includes(x.resolution_status)),b=unifBills(id),checks=[['No postponed sets',a.postponed===0],['No open issues',issues.length===0],['All bills confirmed',b.length>0&&b.every(x=>x.head_office_confirmed)],['All bills paid',b.length>0&&b.every(x=>x.paid)]];openModal('Complete Order',`<div class="uo-lock-note">After completion, this order becomes permanently read-only.</div><div class="uo-checklist">${checks.map(x=>`<div class="${x[1]?'ok':'bad'}">${x[1]?'✓':'×'} ${x[0]}</div>`).join('')}</div>`,`<button class="btn" onclick="closeModal()">Go Back</button><button class="btn success" ${checks.every(x=>x[1])?'':'disabled'} onclick="saveCompleteOrder(${id})">Complete & Lock</button>`);}
 async function saveCompleteOrder(id){try{await uiUpdate('uniformSupplyOrders',id,{status:'Completed',completed_at:new Date().toISOString()});closeModal();await unifReload();}catch(e){toast(e.message,'error');}}
 
-function openUniformAllocation(id){const o=ub('uniformSupplyOrders',id),emps=ur('employees').filter(e=>(e.Status||e.status)==='Active'&&empProject(e)===o.project_name_snapshot),existing=unifAcct(id).allocations,items=ur('uniformItems').filter(i=>i.is_active!==false&&!i.is_system_item);openModal('Employee & Item Allocation',`<div class="uo-allocation-head"><div><span>Approved</span><strong>${o.approved_sets}</strong></div><div><span>Assigned</span><strong id="uoAssignedLive">0</strong></div><div><span>Postponed</span><strong id="uoPostLive">0</strong></div><div><span>Remaining</span><strong id="uoRemainLive">${o.approved_sets}</strong></div></div><div class="uo-employee-list">${emps.map(e=>{const x=existing.find(a=>String(a.employee_id)===String(e.id));return `<div class="uo-employee" data-emp="${e.id}"><label class="uo-check"><input class="ua-emp" type="checkbox" ${x?'checked':''} onchange="refreshAllocationTotals(${id})"><span></span></label><div class="uo-employee-name"><strong>${ue(empName(e))}</strong><small>${ue(empCode(e))} · ${ue(e.Designation||e.designation||'')}</small></div><label><span>Sets</span><select class="ua-set" onchange="refreshAllocationTotals(${id})"><option>0</option><option ${x&&+x.set_quantity===1?'selected':''}>1</option><option ${x&&+x.set_quantity===2?'selected':''}>2</option></select></label><label><span>Nameplate</span><input class="ua-nameplate" value="${ue(x&&x.nameplate_text||'')}" placeholder="Optional text"></label><label><span>Additional Item</span><select class="ua-item"><option value="">None</option>${items.map(i=>`<option value="${i.id}">${ue(i.item_name)} · ${i.unit}</option>`).join('')}</select></label><label><span>Qty</span><input class="ua-qty" type="number" min="1" value="1"></label><label><span>Size</span><input class="ua-size" placeholder="If applicable"></label></div>`}).join('')}</div><div class="uo-form-grid uo-postpone"><label><span>Postponed Sets</span><input id="uaPostponed" type="number" min="0" value="${unifAcct(id).postponed}" oninput="refreshAllocationTotals(${id})"></label><label><span>Reason</span><input id="uaPostReason" placeholder="Required when postponed"></label></div><div id="uoFormError" class="uo-form-error" hidden></div>`,`<button class="btn" onclick="closeModal()">Cancel</button><button id="uoPrimary" class="btn primary" onclick="saveUniformAllocation(${id})">Save & Finalize</button>`);refreshAllocationTotals(id);}
-function refreshAllocationTotals(id){const o=ub('uniformSupplyOrders',id),assigned=[...document.querySelectorAll('.uo-employee')].reduce((s,r)=>s+(r.querySelector('.ua-emp').checked?(+r.querySelector('.ua-set').value||0):0),0),p=+document.getElementById('uaPostponed').value||0;document.getElementById('uoAssignedLive').textContent=assigned;document.getElementById('uoPostLive').textContent=p;document.getElementById('uoRemainLive').textContent=(+o.approved_sets||0)-assigned-p;}
-async function saveUniformAllocation(id){const o=ub('uniformSupplyOrders',id),rows=[...document.querySelectorAll('.uo-employee')].filter(r=>r.querySelector('.ua-emp').checked),post=+document.getElementById('uaPostponed').value||0;let total=0,payload=[];for(const r of rows){const e=ub('employees',r.dataset.emp),sets=+r.querySelector('.ua-set').value||0,itemId=r.querySelector('.ua-item').value,size=r.querySelector('.ua-size').value.trim();if(sets===0&&!itemId)return formError(`${empName(e)} needs at least one set or an additional item.`);const item=itemId&&ub('uniformItems',itemId);if(item&&item.category==='Footwear'&&!size)return formError(`Enter a size for ${item.item_name}.`);total+=sets;payload.push({r,e,sets,item,size});}if(total+post!==+o.approved_sets)return formError(`Assigned (${total}) plus postponed (${post}) must equal approved sets (${o.approved_sets}).`);const reason=document.getElementById('uaPostReason').value.trim();if(post&&!reason)return formError('Enter a postponement reason.','uaPostReason');try{setBusy(true,'Finalizing...');for(const p of payload){let a=unifAcct(id).allocations.find(x=>String(x.employee_id)===String(p.e.id)),row={order_id:id,employee_id:p.e.id,employee_code_snapshot:empCode(p.e),employee_name_snapshot:empName(p.e),designation_snapshot:p.e.Designation||p.e.designation||null,original_project_id:o.project_id,delivery_project_id:o.project_id,set_quantity:p.sets,nameplate_required:!!p.r.querySelector('.ua-nameplate').value.trim(),nameplate_text:p.r.querySelector('.ua-nameplate').value.trim()||null,is_active:true};a=a?await uiUpdate('uniformOrderEmployees',a.id,row):await uiInsert('uniformOrderEmployees',row);if(p.item)await uiInsert('uniformOrderEmployeeItems',{order_employee_id:a.id,item_id:p.item.id,item_name_snapshot:p.item.item_name,category_snapshot:p.item.category,unit_snapshot:p.item.unit,quantity:+p.r.querySelector('.ua-qty').value||1,size_text:p.size||null});}if(post)await uiInsert('uniformOrderPostponements',{order_id:id,set_quantity:post,reason,status:'Open'});await uiUpdate('uniformSupplyOrders',id,{status:'Items Finalized',items_finalized_at:new Date().toISOString()});closeModal();await unifReload();openUniformOrder(id);}catch(e){setBusy(false);formError(e.message);}}
+function unifItemCategorySlug(value){return String(value||'Other').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');}
+function unifEmployeeItems(allocationId){return ur('uniformOrderEmployeeItems').filter(x=>String(x.order_employee_id)===String(allocationId));}
+function unifItemQuantity(value){const n=parseInt(value,10);return Number.isFinite(n)&&n>0?n:0;}
+async function uiDeleteRow(table,id){
+  if(!window.sb)throw new Error('Supabase client is not ready.');
+  const result=await window.sb.from(table).delete().eq('id',id);
+  if(result.error)throw result.error;
+  return true;
+}
+function toggleUniformEmployeeItems(button){
+  const card=button.closest('.uo-employee-card');
+  const panel=card.querySelector('.uo-item-matrix');
+  const expanded=panel.hidden;
+  panel.hidden=!expanded;
+  button.setAttribute('aria-expanded',expanded?'true':'false');
+  button.innerHTML=expanded?'Hide Item Requirements ↑':'Edit Item Requirements ↓';
+}
+function updateUniformEmployeeItemSummary(card){
+  const selected=[...card.querySelectorAll('.ua-item-qty')].filter(input=>unifItemQuantity(input.value)>0).length;
+  const target=card.querySelector('.uo-selected-items');
+  if(target)target.textContent=selected+' additional item'+(selected===1?'':'s');
+}
+function filterUniformEmployeeItems(input){
+  const card=input.closest('.uo-employee-card');
+  const q=String(input.value||'').trim().toLowerCase();
+  card.querySelectorAll('.uo-item-entry').forEach(row=>{
+    row.hidden=!!q&&!String(row.dataset.search||'').includes(q);
+  });
+}
+function clearUniformEmployeeItems(button){
+  const card=button.closest('.uo-employee-card');
+  card.querySelectorAll('.ua-item-qty').forEach(input=>input.value='');
+  card.querySelectorAll('.ua-item-size,.ua-item-remark').forEach(input=>input.value='');
+  const nameplate=card.querySelector('.ua-nameplate-text');if(nameplate)nameplate.value='';
+  updateUniformEmployeeItemSummary(card);
+}
+function uniformItemMatrix(items,savedItems,allocation,employee){
+  const savedByItem={};
+  savedItems.forEach(row=>{if(!savedByItem[String(row.item_id)])savedByItem[String(row.item_id)]=row;});
+  const groups={};
+  items.forEach(item=>{const key=item.category||'Other';(groups[key]||(groups[key]=[])).push(item);});
+  return Object.keys(groups).sort().map(category=>{
+    const itemHtml=groups[category].map(item=>{
+      const saved=savedByItem[String(item.id)]||{};
+      const footwear=item.category==='Footwear';
+      const isNameplate=String(item.item_name).trim().toLowerCase()==='nameplate';
+      return `<div class="uo-item-entry" data-item-id="${item.id}" data-item-name="${ue(item.item_name)}" data-category="${ue(item.category)}" data-unit="${ue(item.unit)}" data-existing-id="${saved.id||''}" data-search="${ue((item.item_name+' '+item.category+' '+item.unit).toLowerCase())}">
+        <div class="uo-item-name"><strong>${ue(item.item_name)}</strong><small>${ue(item.unit)}</small></div>
+        <label><span>Quantity</span><input class="ua-item-qty" type="number" min="0" step="1" inputmode="numeric" value="${saved.quantity>0?saved.quantity:''}" placeholder="0" oninput="updateUniformEmployeeItemSummary(this.closest('.uo-employee-card'))"></label>
+        ${footwear?`<label><span>Size</span><input class="ua-item-size" value="${ue(saved.size_text||'')}" placeholder="Required"></label>`:'<input class="ua-item-size" type="hidden" value="">'}
+        ${isNameplate?`<label class="uo-nameplate-field"><span>Nameplate Text</span><input class="ua-nameplate-text" value="${ue((allocation&&allocation.nameplate_text)||(employee&&empName(employee))||'')}" placeholder="Printed name"></label>`:''}
+        <label class="uo-item-note"><span>Remark</span><input class="ua-item-remark" value="${ue(saved.remarks||'')}" placeholder="Optional"></label>
+      </div>`;
+    }).join('');
+    return `<section class="uo-item-group"><div class="uo-item-group-title"><strong>${ue(category)}</strong><span>${groups[category].length} items</span></div><div class="uo-item-grid">${itemHtml}</div></section>`;
+  }).join('');
+}
+
+function openUniformAllocation(id){
+  const order=ub('uniformSupplyOrders',id);if(!order)return;
+  const employees=ur('employees').filter(e=>(e.Status||e.status)==='Active'&&empProject(e)===order.project_name_snapshot);
+  const allocations=unifAcct(id).allocations;
+  const items=ur('uniformItems').filter(item=>item.is_active!==false&&!item.is_system_item).sort((a,b)=>String(a.category).localeCompare(String(b.category))||String(a.item_name).localeCompare(String(b.item_name)));
+  const cards=employees.map(employee=>{
+    const allocation=allocations.find(a=>String(a.employee_id)===String(employee.id));
+    const saved=allocation?unifEmployeeItems(allocation.id):[];
+    const selectedCount=saved.filter(x=>+x.quantity>0).length;
+    return `<article class="uo-employee-card" data-emp="${employee.id}" data-allocation-id="${allocation&&allocation.id||''}">
+      <div class="uo-employee-summary">
+        <label class="uo-check"><input class="ua-emp" type="checkbox" ${allocation?'checked':''} onchange="refreshAllocationTotals(${id})"><span></span></label>
+        <div class="uo-employee-name"><strong>${ue(empName(employee))}</strong><small>${ue(empCode(employee))} · ${ue(employee.Designation||employee.designation||'')}</small></div>
+        <label class="uo-set-control"><span>Sets</span><select class="ua-set" onchange="refreshAllocationTotals(${id})"><option>0</option><option ${allocation&&+allocation.set_quantity===1?'selected':''}>1</option><option ${allocation&&+allocation.set_quantity===2?'selected':''}>2</option></select></label>
+        <div class="uo-auto-items"><span>Auto</span><strong class="uo-auto-shirt">Shirt ${allocation?allocation.set_quantity:0}</strong><strong class="uo-auto-pant">Pant ${allocation?allocation.set_quantity:0}</strong></div>
+        <div class="uo-selected-items">${selectedCount} additional item${selectedCount===1?'':'s'}</div>
+        <button type="button" class="uo-expand-items" aria-expanded="${allocation?'true':'false'}" onclick="toggleUniformEmployeeItems(this)">${allocation?'Hide Item Requirements ↑':'Edit Item Requirements ↓'}</button>
+      </div>
+      <div class="uo-item-matrix" ${allocation?'':'hidden'}>
+        <div class="uo-item-toolbar"><div class="uo-search">${ico('search')}<input placeholder="Search items for this employee" oninput="filterUniformEmployeeItems(this)"></div><button type="button" class="btn sm" onclick="clearUniformEmployeeItems(this)">Clear All</button></div>
+        <div class="uo-system-items"><div><span>Shirt</span><strong class="uo-system-shirt">${allocation?allocation.set_quantity:0}</strong><small>Piece · Auto from sets</small></div><div><span>Pant</span><strong class="uo-system-pant">${allocation?allocation.set_quantity:0}</strong><small>Piece · Auto from sets</small></div></div>
+        ${uniformItemMatrix(items,saved,allocation,employee)}
+      </div>
+    </article>`;
+  }).join('');
+  openModal('Employee & Item Allocation',`<div class="uo-allocation-head"><div><span>Approved</span><strong>${order.approved_sets}</strong></div><div><span>Assigned</span><strong id="uoAssignedLive">0</strong></div><div><span>Postponed</span><strong id="uoPostLive">0</strong></div><div><span>Remaining</span><strong id="uoRemainLive">${order.approved_sets}</strong></div></div><div class="uo-allocation-help">Select an employee, choose 0–2 sets, then enter quantities for every required item. Blank or zero means not required.</div><div class="uo-employee-list">${cards||'<div class="uo-muted">No active employees are available in this project.</div>'}</div><div class="uo-form-grid uo-postpone"><label><span>Postponed Sets</span><input id="uaPostponed" type="number" min="0" value="${unifAcct(id).postponed}" oninput="refreshAllocationTotals(${id})"></label><label><span>Reason</span><input id="uaPostReason" placeholder="Required when postponed"></label></div><div id="uoFormError" class="uo-form-error" hidden></div>`,`<button class="btn" onclick="closeModal()">Cancel</button><button id="uoPrimary" class="btn primary" onclick="saveUniformAllocation(${id})">Save & Finalize</button>`);
+  refreshAllocationTotals(id);
+}
+function refreshAllocationTotals(id){
+  const order=ub('uniformSupplyOrders',id);
+  let assigned=0;
+  document.querySelectorAll('.uo-employee-card').forEach(card=>{
+    const selected=card.querySelector('.ua-emp').checked;
+    const sets=selected?(+card.querySelector('.ua-set').value||0):0;
+    assigned+=sets;
+    const shirt=card.querySelector('.uo-system-shirt'),pant=card.querySelector('.uo-system-pant'),smallShirt=card.querySelector('.uo-auto-shirt'),smallPant=card.querySelector('.uo-auto-pant');
+    if(shirt)shirt.textContent=sets;if(pant)pant.textContent=sets;if(smallShirt)smallShirt.textContent='Shirt '+sets;if(smallPant)smallPant.textContent='Pant '+sets;
+    card.classList.toggle('selected',selected);
+  });
+  const postponed=+document.getElementById('uaPostponed').value||0;
+  document.getElementById('uoAssignedLive').textContent=assigned;
+  document.getElementById('uoPostLive').textContent=postponed;
+  document.getElementById('uoRemainLive').textContent=(+order.approved_sets||0)-assigned-postponed;
+}
+async function syncUniformEmployeeItems(allocation,card){
+  const savedRows=unifEmployeeItems(allocation.id);
+  const savedGroups={};savedRows.forEach(row=>(savedGroups[String(row.item_id)]||(savedGroups[String(row.item_id)]=[])).push(row));
+  const entries=[...card.querySelectorAll('.uo-item-entry')];
+  for(const entry of entries){
+    const itemId=+entry.dataset.itemId,quantity=unifItemQuantity(entry.querySelector('.ua-item-qty').value),size=(entry.querySelector('.ua-item-size')||{}).value||'',remark=(entry.querySelector('.ua-item-remark')||{}).value||'';
+    const existing=(savedGroups[String(itemId)]||[])[0];
+    const extras=(savedGroups[String(itemId)]||[]).slice(1);
+    if(quantity>0){
+      if(entry.dataset.category==='Footwear'&&!size.trim())throw new Error(`Enter a size for ${entry.dataset.itemName}.`);
+      const row={order_employee_id:allocation.id,item_id:itemId,item_name_snapshot:entry.dataset.itemName,category_snapshot:entry.dataset.category,unit_snapshot:entry.dataset.unit,quantity,size_text:size.trim()||null,remarks:remark.trim()||null};
+      if(existing)await uiUpdate('uniformOrderEmployeeItems',existing.id,row);else await uiInsert('uniformOrderEmployeeItems',row);
+      for(const duplicate of extras)await uiDeleteRow('uniform_order_employee_items',duplicate.id);
+    }else{
+      for(const old of (savedGroups[String(itemId)]||[]))await uiDeleteRow('uniform_order_employee_items',old.id);
+    }
+  }
+}
+async function saveUniformAllocation(id){
+  const order=ub('uniformSupplyOrders',id),cards=[...document.querySelectorAll('.uo-employee-card')],selected=cards.filter(card=>card.querySelector('.ua-emp').checked),postponed=+document.getElementById('uaPostponed').value||0;
+  let totalSets=0;
+  for(const card of selected){
+    const employee=ub('employees',card.dataset.emp),sets=+card.querySelector('.ua-set').value||0,itemCount=[...card.querySelectorAll('.ua-item-qty')].filter(input=>unifItemQuantity(input.value)>0).length;
+    if(sets===0&&itemCount===0)return formError(`${empName(employee)} needs at least one set or one additional item.`);
+    totalSets+=sets;
+  }
+  if(totalSets+postponed!==+order.approved_sets)return formError(`Assigned (${totalSets}) plus postponed (${postponed}) must equal approved sets (${order.approved_sets}).`);
+  const reason=document.getElementById('uaPostReason').value.trim();if(postponed&&!reason)return formError('Enter a postponement reason.','uaPostReason');
+  try{
+    setBusy(true,'Saving requirements...');
+    for(const card of selected){
+      const employee=ub('employees',card.dataset.emp),sets=+card.querySelector('.ua-set').value||0;
+      const nameplateEntry=[...card.querySelectorAll('.uo-item-entry')].find(row=>String(row.dataset.itemName).trim().toLowerCase()==='nameplate');
+      const nameplateQty=nameplateEntry?unifItemQuantity(nameplateEntry.querySelector('.ua-item-qty').value):0;
+      const nameplateText=nameplateEntry&&nameplateEntry.querySelector('.ua-nameplate-text')?nameplateEntry.querySelector('.ua-nameplate-text').value.trim():'';
+      if(nameplateQty>0&&!nameplateText)throw new Error(`Enter nameplate text for ${empName(employee)}.`);
+      let allocation=unifAcct(id).allocations.find(x=>String(x.employee_id)===String(employee.id));
+      const row={order_id:id,employee_id:employee.id,employee_code_snapshot:empCode(employee),employee_name_snapshot:empName(employee),designation_snapshot:employee.Designation||employee.designation||null,original_project_id:order.project_id,delivery_project_id:order.project_id,set_quantity:sets,nameplate_required:nameplateQty>0,nameplate_text:nameplateQty>0?nameplateText:null,is_active:true};
+      allocation=allocation?await uiUpdate('uniformOrderEmployees',allocation.id,row):await uiInsert('uniformOrderEmployees',row);
+      await syncUniformEmployeeItems(allocation,card);
+    }
+    if(postponed){
+      const existingPost=ur('uniformOrderPostponements').find(x=>String(x.order_id)===String(id)&&['Open','Partially Activated'].includes(x.status));
+      if(existingPost)await uiUpdate('uniformOrderPostponements',existingPost.id,{set_quantity:postponed,reason,status:'Open'});else await uiInsert('uniformOrderPostponements',{order_id:id,set_quantity:postponed,reason,status:'Open'});
+    }
+    await uiUpdate('uniformSupplyOrders',id,{status:'Items Finalized',items_finalized_at:new Date().toISOString()});
+    closeModal();toast('Employee and item requirements saved.','success');await unifReload();openUniformOrder(id);
+  }catch(error){setBusy(false);formError(error.message||'Could not save item requirements.');}
+}
+
 
 function reportSnapshot(id,type='Main'){const o=ub('uniformSupplyOrders',id),a=unifAcct(id),items=ur('uniformOrderEmployeeItems');return{order:o,allocations:a.allocations.map(x=>({allocation:x,items:items.filter(i=>String(i.order_employee_id)===String(x.id))})),postponed_sets:a.postponed,generated_at:new Date().toISOString(),report_type:type};}
 async function uniformSubmitRequirements(id){try{const old=ur('uniformRequirementReports').filter(r=>String(r.order_id)===String(id)&&r.report_type==='Main');for(const r of old.filter(x=>x.is_current))await uiUpdate('uniformRequirementReports',r.id,{is_current:false});await uiInsert('uniformRequirementReports',{order_id:id,report_type:'Main',revision_number:old.length+1,report_snapshot:reportSnapshot(id),is_current:true,submitted_at:new Date().toISOString()});await uiUpdate('uniformSupplyOrders',id,{status:'Requirements Submitted',requirements_submitted_at:new Date().toISOString()});closeModal();await unifReload();openUniformOrder(id);}catch(e){toast(e.message,'error');}}

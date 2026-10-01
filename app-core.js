@@ -1372,6 +1372,30 @@
       });
   }
 
+  /* ---------- Atomic Uniform Delivery RPC ---------- */
+  function saveUniformDelivery(payload) {
+    if (!ready || !sb) return Promise.reject(new Error('Supabase client is not connected.'));
+    payload = payload || {};
+    return sb.rpc('save_uniform_delivery', {
+      p_order_id: payload.order_id,
+      p_delivery_type: payload.delivery_type,
+      p_delivery_date: payload.delivery_date,
+      p_document_type: payload.document_type,
+      p_document_number: payload.document_number,
+      p_bill_amount: payload.bill_amount,
+      p_remarks: payload.remarks || null,
+      p_items: Array.isArray(payload.items) ? payload.items : [],
+      p_issues: Array.isArray(payload.issues) ? payload.issues : []
+    }).then(function (r) {
+      if (r.error) {
+        console.error('[Uniform Delivery RPC Error]:', r.error.message);
+        if (global.toast) global.toast('Server Error: ' + r.error.message, 'error');
+        throw r.error;
+      }
+      return r.data;
+    });
+  }
+
   /* ---------- Progressive Recruitment (Phase 2) ---------- */
   function saveRecruitBasicInfo(basicData, currentRecruitId) {
     if (!ready || !sb) {
@@ -2046,6 +2070,7 @@
     insert: insert,
     update: update,
     remove: remove,
+    saveUniformDelivery: saveUniformDelivery,
     fetchEmployeeById: fetchEmployeeById,
     fetchEmployeeByRecordId: fetchEmployeeByRecordId,
     fetchLeaves: fetchLeaves,

@@ -20451,34 +20451,77 @@ async function confirmTransferJoined(transferId){
 }
 window.confirmTransferJoined = confirmTransferJoined;
 
-function openMarkTransferNotJoined(transferId){
-  openModal('Mark Transfer as Not Joined', `<div class="form-grid">
-    <div class="form-group full"><label>Reason *</label><select id="p2NotJoinedReason"><option value="">Select reason</option><option>Employee Refused</option><option>Employee Unreachable</option><option>Continued at Previous Project</option><option>Released but Did Not Join</option><option>Resigned</option><option>Absconded</option><option>Medical Issue</option><option>Management Decision</option><option>Other</option></select></div>
-    <div class="form-group full"><label>Remarks</label><textarea id="p2NotJoinedRemarks" rows="3"></textarea></div>
-  </div>`, `<button class="btn" onclick="closeModal()">Cancel</button><button class="btn danger" onclick="markTransferNotJoinedUI(${Number(transferId)})">Not Joined</button>`);
+function p2NotJoinedRow(transferId){
+  return (window.MG_TRANSFER_QUEUE || []).find(r => String(r.transfer_id) === String(transferId)) || null;
 }
-window.openMarkTransferNotJoined = openMarkTransferNotJoined;
+function p2TransferDueDays(dateValue){
+  if(!dateValue) return null;
+  const target=new Date(String(dateValue).slice(0,10)+'T00:00:00');
+  const today=new Date(); today.setHours(0,0,0,0);
+  return Math.ceil((target-today)/86400000);
+}
+function p2TransferSummaryCard(row,status){
+  return `<div style="border:1px solid var(--border);border-radius:16px;padding:16px;background:var(--card);box-shadow:0 8px 24px rgba(15,23,42,.06)">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap"><div><div style="font-size:18px;font-weight:850">${phase2Esc(row.full_name||'Employee')}</div><div class="small-mute">System ID ${phase2Esc(row.employee_sys_id)}${row.employee_id?` · Issued ID ${phase2Esc(row.employee_id)}`:''}</div></div><span class="pill warning">${phase2Esc(status||row.queue_status||row.stored_status||'Pending')}</span></div>
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:10px;align-items:center;margin-top:16px"><div><div class="small-mute">From</div><strong>${phase2Esc(row.current_project||'Unassigned')}</strong></div><div style="font-size:22px;color:var(--muted)">→</div><div><div class="small-mute">To</div><strong>${phase2Esc(row.new_project||'')}</strong></div></div>
+    <div class="small-mute" style="margin-top:13px">Effective date: <strong>${phase2Date(row.effective_date)}</strong>${Number(row.overdue_days||0)>0?` · <strong style="color:var(--danger)">${Number(row.overdue_days)} day(s) overdue</strong>`:''}</div>
+  </div>`;
+}
+function p2SelectNotJoinedReason(value){
+  document.querySelectorAll('[data-p2-reason]').forEach(card=>{
+    const yes=card.dataset.p2Reason===value;
+    card.style.borderColor=yes?'#dc2626':'var(--border)'; card.style.background=yes?'rgba(220,38,38,.08)':'var(--card)'; card.setAttribute('aria-pressed',yes?'true':'false');
+  });
+  const input=document.getElementById('p2NotJoinedReason'); if(input) input.value=value;
+  const other=document.getElementById('p2NotJoinedOtherWrap'); if(other) other.style.display=value==='Other'?'block':'none';
+  const error=document.getElementById('p2NotJoinedError'); if(error) error.style.display='none';
+}
+window.p2SelectNotJoinedReason=p2SelectNotJoinedReason;
+
+function openMarkTransferNotJoined(transferId){
+  const row=p2NotJoinedRow(transferId);
+  if(!row){ toast('Transfer details are unavailable. Refresh and try again.','error'); return; }
+  const days=p2TransferDueDays(row.effective_date);
+  if(days!==null && days>0){
+    openModal('Transfer Is Not Due Yet',`<div style="display:grid;gap:17px"><div style="padding:16px;border-radius:14px;background:rgba(245,158,11,.11);border:1px solid rgba(245,158,11,.38)"><div style="font-weight:850;font-size:16px;margin-bottom:6px">Not Joined is available only on or after the effective date.</div><div class="small-mute">Due on <strong>${phase2Date(row.effective_date)}</strong>, in ${days} day${days===1?'':'s'}.</div></div>${p2TransferSummaryCard(row)}<div class="small-mute">The employee project remains unchanged. You can reschedule or cancel this order now.</div></div>`,`<button class="btn" onclick="closeModal()">Close</button><button class="btn" onclick="openRescheduleTransfer(${Number(transferId)})">Reschedule</button><button class="btn danger" onclick="openCancelTransfer(${Number(transferId)})">Cancel Transfer</button>`);
+    return;
+  }
+  const reasons=[['Employee Refused','Declined the destination posting'],['Employee Unreachable','Could not be contacted'],['Continued at Previous Project','Still working at the source project'],['Released but Did Not Join','Released but did not report'],['Resigned','May require an Exit process'],['Absconded','Stopped reporting without completion'],['Medical Issue','Unable to join for medical reasons'],['Management Decision','Transfer stopped by management'],['Other','Write a custom reason']];
+  openModal('Employee Did Not Join',`<div style="display:grid;gap:18px">${p2TransferSummaryCard(row)}<div style="padding:14px 15px;border-radius:13px;background:rgba(220,38,38,.07);border:1px solid rgba(220,38,38,.25);font-size:13px;line-height:1.55">The employee project will remain <strong>${phase2Esc(row.current_project||'unchanged')}</strong>. Select a reason, then choose the next action.</div><input type="hidden" id="p2NotJoinedReason"><div><label style="display:block;font-weight:850;margin-bottom:10px">Why did the employee not join? <span style="color:var(--danger)">*</span></label><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:9px">${reasons.map(([value,hint])=>`<button type="button" data-p2-reason="${phase2Esc(value)}" aria-pressed="false" onclick="p2SelectNotJoinedReason(${JSON.stringify(value)})" style="text-align:left;padding:13px 14px;border:1px solid var(--border);border-radius:13px;background:var(--card);color:var(--text);cursor:pointer;transition:.16s ease"><strong style="display:block;margin-bottom:3px">${phase2Esc(value)}</strong><span class="small-mute">${phase2Esc(hint)}</span></button>`).join('')}</div></div><div id="p2NotJoinedOtherWrap" style="display:none"><label style="font-weight:750">Custom reason *</label><input id="p2NotJoinedOther" maxlength="180" placeholder="Write the specific reason" style="margin-top:7px"></div><div><label style="font-weight:750">Additional remarks</label><textarea id="p2NotJoinedRemarks" rows="3" maxlength="500" placeholder="Optional supporting details" style="margin-top:7px"></textarea></div><div id="p2NotJoinedError" role="alert" style="display:none;padding:11px 13px;border-radius:10px;background:rgba(220,38,38,.08);color:var(--danger);font-weight:750;font-size:13px"></div></div>`,`<button class="btn" onclick="closeModal()">Back</button><button id="p2NotJoinedSubmit" class="btn danger" onclick="markTransferNotJoinedUI(${Number(transferId)})">Save Not Joined</button>`);
+}
+window.openMarkTransferNotJoined=openMarkTransferNotJoined;
 
 async function markTransferNotJoinedUI(transferId){
-  if (!guardEdit()) return;
-  const reason = document.getElementById('p2NotJoinedReason')?.value;
-  const remarks = document.getElementById('p2NotJoinedRemarks')?.value || '';
-  if (!reason) return toast('Not-joined reason is required.', 'error');
-  try {
-    await window.MGHRM.markTransferNotJoined(transferId, reason, remarks);
-    closeModal(); toast('Transfer marked Not Joined. Select a follow-up action.', 'success');
-    await phase2RefreshTransferState(); openNotJoinedFollowUp(transferId);
-  } catch(err) { toast('Could not mark Not Joined: ' + (err.message || err), 'error'); }
+  if(!guardEdit()) return;
+  const row=p2NotJoinedRow(transferId), days=row?p2TransferDueDays(row.effective_date):null;
+  if(days!==null && days>0){ closeModal(); openMarkTransferNotJoined(transferId); return; }
+  let reason=document.getElementById('p2NotJoinedReason')?.value||'';
+  if(reason==='Other') reason=document.getElementById('p2NotJoinedOther')?.value.trim()||'';
+  const remarks=document.getElementById('p2NotJoinedRemarks')?.value.trim()||'';
+  const error=document.getElementById('p2NotJoinedError'), button=document.getElementById('p2NotJoinedSubmit');
+  if(!reason){ if(error){error.textContent='Select a reason, or enter a custom reason.';error.style.display='block';} return; }
+  if(button){button.disabled=true;button.textContent='Saving...';}
+  try{
+    if(!window.MGHRM || typeof window.MGHRM.markTransferNotJoined!=='function') throw new Error('Not Joined service is unavailable. Deploy the matching app-core.js file.');
+    await window.MGHRM.markTransferNotJoined(transferId,reason,remarks);
+    closeModal(); await phase2RefreshTransferState(); toast('Not Joined saved. Choose the next action.','success'); openNotJoinedFollowUp(transferId,row);
+  }catch(err){
+    const raw=String(err?.message||err||'Unable to save.');
+    let friendly=raw;
+    if(/not yet due/i.test(raw)) friendly='This transfer is not due yet. Reschedule or cancel it instead.';
+    else if(/cannot be marked|status/i.test(raw)) friendly='The transfer status changed. Refresh and try again.';
+    else if(/permission|policy|row-level security/i.test(raw)) friendly='The current account cannot update this transfer.';
+    if(error){error.textContent=friendly;error.style.display='block';} else toast(friendly,'error');
+  }finally{if(button){button.disabled=false;button.textContent='Save Not Joined';}}
 }
-window.markTransferNotJoinedUI = markTransferNotJoinedUI;
+window.markTransferNotJoinedUI=markTransferNotJoinedUI;
 
-function openNotJoinedFollowUp(transferId){
-  const row = (window.MG_TRANSFER_QUEUE || []).find(r => String(r.transfer_id) === String(transferId));
-  openModal('Resolve Not Joined Transfer', `<div class="alert warning" style="margin-bottom:12px">Employee project remains unchanged until a follow-up action is completed.</div>
-    <p><strong>${phase2Esc(row && row.full_name)}</strong></p><p class="small-mute">${phase2Esc(row && row.current_project)} → ${phase2Esc(row && row.new_project)}</p>`,
-    `<button class="btn" onclick="openRescheduleTransfer(${Number(transferId)})">Reschedule</button><button class="btn danger" onclick="openCancelTransfer(${Number(transferId)})">Cancel Transfer</button><button class="btn primary" onclick="startExitFromTransfer(${Number(transferId)})">Start Exit Process</button>`);
+function openNotJoinedFollowUp(transferId,fallbackRow){
+  const row=p2NotJoinedRow(transferId)||fallbackRow;
+  if(!row){toast('Not Joined was saved. Open Transfers to choose the next action.','warning');return;}
+  openModal('Choose the Next Action',`<div style="display:grid;gap:17px">${p2TransferSummaryCard(row,'Not Joined')}<div style="padding:14px 15px;border-radius:13px;background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.25)"><strong>The employee project has not changed.</strong><div class="small-mute" style="margin-top:4px">Choose one outcome. Transfer history will be preserved.</div></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(195px,1fr));gap:11px"><button type="button" onclick="openRescheduleTransfer(${Number(transferId)})" style="padding:17px;text-align:left;border:1px solid var(--border);border-radius:14px;background:var(--card);color:var(--text);cursor:pointer"><strong style="display:block;font-size:15px;margin-bottom:5px">Reschedule Transfer</strong><span class="small-mute">Set a new effective date and keep the order active.</span></button><button type="button" onclick="openCancelTransfer(${Number(transferId)})" style="padding:17px;text-align:left;border:1px solid rgba(220,38,38,.35);border-radius:14px;background:rgba(220,38,38,.06);color:var(--text);cursor:pointer"><strong style="display:block;font-size:15px;margin-bottom:5px">Cancel Transfer</strong><span class="small-mute">Keep the employee at the previous project.</span></button><button type="button" onclick="startExitFromTransfer(${Number(transferId)})" style="padding:17px;text-align:left;border:1px solid rgba(37,99,235,.35);border-radius:14px;background:rgba(37,99,235,.06);color:var(--text);cursor:pointer"><strong style="display:block;font-size:15px;margin-bottom:5px">Start Exit Process</strong><span class="small-mute">Open Exit with this employee selected.</span></button></div></div>`,`<button class="btn" onclick="closeModal()">Decide Later</button>`);
 }
-window.openNotJoinedFollowUp = openNotJoinedFollowUp;
+window.openNotJoinedFollowUp=openNotJoinedFollowUp;
 
 function openCancelTransfer(transferId){
   openModal('Cancel Transfer', `<div class="form-group"><label>Cancellation Reason *</label><textarea id="p2CancelReason" rows="4"></textarea></div>`, `<button class="btn" onclick="closeModal()">Back</button><button class="btn danger" onclick="cancelTransferUI(${Number(transferId)})">Cancel Transfer</button>`);

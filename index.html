@@ -3977,134 +3977,18 @@ function ensureSystemIDs() {
 }
 
 function normEmployee(row) {
-  if (!row) return {};
-  return {
-    id: row.id,
-    employee_sys_id: row.id,
-    
-    EmployeeID: row.employee_id || '',
-    employee_id: row.employee_id || '',
-    FullName: row.full_name || '',
-    FullNameBn: row.full_name_bn || '',
-    FullNameBangla: row.full_name_bn || '',
-    FatherName: row.father_name || '',
-    MotherName: row.mother_name || '',
-    DOB: row.dob || '',
-    PhoneNumber: row.phone || '',
-    NID: row.nid || '',
-    'NID/BirthCertificate': row.nid || '',
-    Education: row.education || '',
-    Religion: row.religion || '',
-    Height: row.height || '',
-    Weight: row.weight || 0,
-    MaritalStatus: row.marital_status || '',
-    SpouseName: row.spouse_name || '',
-    SpousePhoneNum: row.spouse_phone || '',
-    ECName: row.ec_name || '',
-    ECRelation: row.ec_relation || '',
-    ECPhoneNumber: row.ec_phone || '',
-    ECName2: row.ec_name2 || '',
-    ECRelation2: row.ec_relation2 || '',
-    ECPhoneNumber2: row.ec_phone2 || '',
-    ec_name: row.ec_name || '',
-    ec_relation: row.ec_relation || '',
-    ec_phone: row.ec_phone || '',
-    ec_name2: row.ec_name2 || '',
-    ec_relation2: row.ec_relation2 || '',
-    ec_phone2: row.ec_phone2 || '',
-
-    Division: row.division || '',
-    District: row.district || '',
-    Upazila: row.upazila || row.thana || '',
-    Union: row.union || '',
-    Village: row.village || '',
-    Street: row.street || '',
-    Thana: row.thana || row.upazila || '',
-    division: row.division || '',
-    district: row.district || '',
-    upazila: row.upazila || row.thana || '',
-    union: row.union || '',
-    village: row.village || '',
-    street: row.street || '',
-    thana: row.thana || row.upazila || '',
-
-    PermDivision: row.perm_division || '',
-    PermDistrict: row.perm_district || '',
-    PermUpazila: row.perm_upazila || '',
-    PermUnion: row.perm_union || '',
-    PermVillage: row.perm_village || '',
-    PermStreet: row.perm_street || '',
-    perm_division: row.perm_division || '',
-    perm_district: row.perm_district || '',
-    perm_upazila: row.perm_upazila || '',
-    perm_union: row.perm_union || '',
-    perm_village: row.perm_village || '',
-    perm_street: row.perm_street || '',
-
-    Address: row.address || '',
-    DivisionID: row.division_id || '',
-    DistrictID: row.district_id || '',
-    UpazilaID: row.upazila_id || '',
-    UnionID: row.union_id || '',
-    Village: row.village || '',
-    Street: row.street || '',
-    Designation: row.designation || '',
-    ProjectName: row.project_name || '',
-    JoinDate: row.join_date || '',
-    DutyHour: row.duty_hour || '8',
-    Salary: row.salary ? +row.salary : 0,
-    Status: row.status || 'Active',
-    ExitDate: row.exit_date || '',
-    ExitReason: row.exit_reason || '',
-    Remarks: row.remarks || '',
-    PhotoURL: row.photo_url || '',
-    CreatedAt: row.created_at || '',
-    UpdatedAt: row.updated_at || '',
-    _joinDays: 0
-  };
+  if (window.MGHRM && typeof window.MGHRM.normalizeEmployeeRow === 'function') return window.MGHRM.normalizeEmployeeRow(row);
+  return row || {};
 }
 window.normEmployee = normEmployee;
 
-async function fetchEmployeesDirectly() {
-  const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
-                || (window.MGHRM && window.MGHRM.sb)
-                || window.sb
-                || (typeof sb !== 'undefined' ? sb : null);
-
-  if (!sbClient) {
-    console.warn('[Employees] Supabase client not initialized yet');
-    return null;
+async function fetchEmployeesDirectly(options) {
+  options = options || {};
+  if (!window.MGHRM || typeof window.MGHRM.reloadEmployees !== 'function') {
+    console.warn('[Employees] Authoritative employee loader is not available.');
+    return DATA.employees || [];
   }
-
-  try {
-    const { data, error } = await sbClient
-      .from('employees')
-      .select('*')
-      .is('deleted_at', null)
-      .order('id', { ascending: true });
-
-    if (error) {
-      console.warn('[Employees] Supabase fetch warning:', error.message || error);
-      window.mgLoadState.employees = 'error';
-      return null;
-    }
-
-    if (Array.isArray(data)) {
-      window.mgLoadState.employees = 'ok';
-      console.log('[Employees] Direct Supabase fetch retrieved ' + data.length + ' records');
-      DATA.employees = data.map(normEmployee);
-      if (window.MGHRM && typeof window.MGHRM.captureBaseline === 'function') {
-        window.MGHRM.captureBaseline({ employees: DATA.employees });
-      }
-      if (typeof syncRecruitmentFromEmployees === 'function') {
-        syncRecruitmentFromEmployees();
-      }
-      return DATA.employees;
-    }
-  } catch (err) {
-    console.warn('[Employees] Network offline / Failed to fetch handled gracefully:', err.message || err);
-  }
-  return null;
+  return window.MGHRM.reloadEmployees({ render: options.render !== false, reason: options.reason || 'compatibility-reload', syncRecruitment: false, silent: !!options.silent });
 }
 window.fetchEmployeesDirectly = fetchEmployeesDirectly;
 
@@ -4163,177 +4047,39 @@ window.fetchMeetingAttendance = fetchMeetingAttendance;
 window.fetchMeetingAttendanceDirectly = fetchMeetingAttendance;
 
 function handleEmployeeRealtimeUpdate(payload) {
-  if (!payload || payload.table !== 'employees') return;
-  if (window.MGHRM && typeof window.MGHRM.isSelfEcho === 'function' && window.MGHRM.isSelfEcho(payload.table)) {
-    return;
-  }
-  const eventType = payload.eventType;
-  const newRow = payload.new;
-  const oldRow = payload.old;
-
-  if (!Array.isArray(DATA.employees)) DATA.employees = [];
-
-  if (eventType === 'DELETE' || (newRow && newRow.deleted_at != null)) {
-    const delId = (oldRow && (oldRow.id != null ? oldRow.id : oldRow.employee_id)) || (newRow && (newRow.id != null ? newRow.id : newRow.employee_id));
-    DATA.employees = DATA.employees.filter(e => String(e.id) !== String(delId) && String(e.EmployeeID) !== String(delId));
-  } else if (eventType === 'INSERT') {
-    const norm = normEmployee(newRow);
-    const exists = DATA.employees.some(e => (norm.id != null && String(e.id) === String(norm.id)) || (norm.EmployeeID && String(e.EmployeeID) === String(norm.EmployeeID)));
-    if (!exists) {
-      DATA.employees.push(norm);
-      DATA.employees.sort((a, b) => (+a.id || 0) - (+b.id || 0));
-    }
-  } else if (eventType === 'UPDATE') {
-    const norm = normEmployee(newRow);
-    const idx = DATA.employees.findIndex(e => (norm.id != null && String(e.id) === String(norm.id)) || (norm.EmployeeID && String(e.EmployeeID) === String(norm.EmployeeID)));
-    if (idx !== -1) {
-      if(DATA.employees[idx]) DATA.employees[idx] = Object.assign({}, DATA.employees[idx], norm);
-    } else {
-      DATA.employees.push(norm);
-      DATA.employees.sort((a, b) => (+a.id || 0) - (+b.id || 0));
-    }
-  }
-
-  // Refresh filter options if project or designation list updated
-  if (typeof mgEmpFiltFill === 'function') {
-    const projs = usageSortedProjects([...new Set(DATA.employees.map(e => e.ProjectName).filter(Boolean))], projectUsageCounts());
-    mgEmpFiltFill('project', projs, true);
-    if (typeof usageSortedOptions === 'function' && typeof DESIGNATIONS !== 'undefined') {
-      mgEmpFiltFill('desig', usageSortedOptions(DESIGNATIONS, desigUsageCounts()), true);
-    }
-    if (typeof mgEmpFiltBind === 'function') mgEmpFiltBind();
-  } else {
-    const projFilter = document.getElementById('empProjectFilter');
-    if (projFilter && projFilter.tagName === 'SELECT') {
-      const currVal = projFilter.value;
-      const projs = usageSortedProjects([...new Set(DATA.employees.map(e => e.ProjectName).filter(Boolean))], projectUsageCounts());
-      projFilter.innerHTML = `<option value="">All Projects</option>` + projs.map(p => `<option value="${p}">${p}</option>`).join('');
-      projFilter.value = currVal;
-    }
-  }
-
-  if (window.MGHRM && typeof window.MGHRM.scheduleRefresh === 'function') {
-    window.MGHRM.scheduleRefresh();
-  } else {
-    if (currentPage === 'employees') renderEmpTable();
-    if (typeof updateNotifBadge === 'function') updateNotifBadge();
-  }
+  if (window.MGHRM && typeof window.MGHRM.handleEmployeeRealtimeEvent === 'function') return window.MGHRM.handleEmployeeRealtimeEvent(payload);
 }
 window.handleEmployeeRealtimeUpdate = handleEmployeeRealtimeUpdate;
 
 function ensureEmployeesRealtime() {
-  if (window.MGHRM && typeof window.MGHRM.subscribeRealtime === 'function') {
-    return window.MGHRM.subscribeRealtime();
-  }
-  if (typeof subscribeRealtime === 'function') {
-    return subscribeRealtime();
-  }
+  if (window.MGHRM && typeof window.MGHRM.subscribeRealtime === 'function') return window.MGHRM.subscribeRealtime();
+  return null;
 }
 window.ensureEmployeesRealtime = ensureEmployeesRealtime;
 
 async function deleteEmployeeDirectly(empKey) {
   if (!guardEdit()) return;
-  const e = findEmp(empKey);
-  if (!e) {
-    toast('কর্মী খুঁজে পাওয়া যায়নি।', 'error');
-    return;
-  }
-
-  const empDisplayName = e.FullName || e.full_name || e.EmployeeName || '';
-  const empDisplayId = e.id || e.EmployeeID || e.employee_id || '';
-
-  const confirmTitle = 'কর্মী স্থায়ীভাবে ডিলিট';
-  const confirmMsg = `আপনি কি নিশ্চিত যে কর্মী "${empDisplayName}" (আইডি: ${empDisplayId})-কে চিরতরে মুছে ফেলতে চান?\n\nএটি নিশ্চিত করলে কর্মীর যাবতীয় তথ্য ডাটাবেস ও সফটওয়্যার থেকে স্থায়ীভাবে মুছে যাবে।`;
-
-  const doDelete = async function() {
-    const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
-                  || (window.MGHRM && window.MGHRM.sb)
-                  || window.sb
-                  || (typeof sb !== 'undefined' ? sb : null);
-
-    function getDeleteErrorMessage(err) {
-      const msg = ((err && err.message) || String(err || '')).toLowerCase();
-      const code = (err && err.code) || '';
-      if (code === '42501' || msg.includes('permission') || msg.includes('row-level security') || msg.includes('policy') || msg.includes('unauthorized') || msg.includes('forbidden')) {
-        return 'আপনার এই কর্মীর রেকর্ড ডিলিট করার অনুমতি নেই (Permission Denied)।';
-      }
-      if (code === '23503' || msg.includes('foreign key') || msg.includes('violates foreign key constraint') || msg.includes('referential integrity')) {
-        return 'সম্পর্কিত অন্যান্য ডাটা বিদ্যমান থাকায় এই রেকর্ডটি ডিলিট করা সম্ভব হচ্ছে না (Foreign Key Constraint)।';
-      }
-      if (msg.includes('fetch') || msg.includes('network') || msg.includes('failed to fetch') || msg.includes('offline') || msg.includes('timeout') || msg.includes('connection')) {
-        return 'ইন্টারনেট সংযোগের সমস্যা বা নেটওয়ার্ক বিচ্ছিন্ন হওয়ার কারণে রেকর্ডটি ডিলিট করা যায়নি। সংযোগ পরীক্ষা করুন।';
-      }
-      return 'কর্মী ডিলিট করতে সমস্যা হয়েছে: ' + ((err && err.message) || err);
-    }
-
+  const employee = findEmp(empKey);
+  if (!employee || employee.id == null) { toast('Employee system ID was not found. Reload and try again.', 'error'); return; }
+  const displayName = employee.FullName || employee.full_name || 'Employee';
+  const displayCode = employee.EmployeeID || employee.employee_id || 'Not assigned';
+  const confirmTitle = 'Archive Employee';
+  const confirmMsg = `Archive "${displayName}" (issued ID: ${displayCode})?\n\nThe employee will be removed from active lists, while transfer, exit, attendance, uniform and other historical records remain preserved.`;
+  const doArchive = async function() {
     try {
-      const targetId = e.id;
-      const empOfficialId = e.EmployeeID || e.employee_id;
-
-      if (sbClient) {
-        let query = sbClient.from('employees').delete();
-        if (targetId) {
-          query = query.eq('id', targetId);
-        } else if (empOfficialId) {
-          query = query.eq('employee_id', empOfficialId);
-        } else {
-          query = query.eq('id', e.id);
-        }
-
-        const { error } = await query;
-        if (error) {
-          console.error('[Employees] Delete error:', error);
-          toast(getDeleteErrorMessage(error), 'error');
-          return;
-        }
-      }
-
-      // Remove from local in-memory dataset
-      DATA.employees = (DATA.employees || []).filter(x => 
-        (targetId ? String(x.id) !== String(targetId) : true) &&
-        (empOfficialId ? String(x.EmployeeID) !== String(empOfficialId) && String(x.employee_id) !== String(empOfficialId) : true)
-      );
-
-      // Clean up in-memory relations if any
-      if (DATA.transfers) {
-        DATA.transfers = DATA.transfers.filter(t => (targetId ? String(t.employee_sys_id) !== String(targetId) : true) && (empOfficialId ? String(t.EmployeeID) !== String(empOfficialId) : true));
-      }
-      if (DATA.disciplinary) {
-        DATA.disciplinary = DATA.disciplinary.filter(d => (targetId ? String(d.employee_sys_id) !== String(targetId) : true) && (empOfficialId ? String(d.EmployeeID) !== String(empOfficialId) : true));
-      }
-      if (DATA.exits) {
-        DATA.exits = DATA.exits.filter(x => (targetId ? String(x.employee_sys_id) !== String(targetId) : true) && (empOfficialId ? String(x.EmployeeID) !== String(empOfficialId) : true));
-      }
-      if (DATA.leaves) {
-        DATA.leaves = DATA.leaves.filter(l => (targetId ? String(l.employee_sys_id) !== String(targetId) : true));
-      }
-
-      if (typeof persist === 'function') persist();
-      if (window.MGHRM && typeof window.MGHRM.captureBaseline === 'function') {
-        window.MGHRM.captureBaseline({ employees: DATA.employees });
-      }
-
+      if (!window.MGHRM || typeof window.MGHRM.archiveEmployeeBySystemId !== 'function') throw new Error('Employee archive service is unavailable.');
+      await window.MGHRM.archiveEmployeeBySystemId(employee.id, 'Archived from Employee Management');
+      try { logActivity('archive', 'employees', employee.id, 'Archived employee: ' + displayName); } catch (e) {}
       closeModal();
-      toast(`কর্মী "${empDisplayName}" সফলভাবে ডাটাবেস ও সিস্টেম থেকে ডিলিট করা হয়েছে`, 'success');
-
-      if (typeof fetchEmployeesDirectly === 'function') {
-        await fetchEmployeesDirectly();
-      }
-      if (typeof renderEmpTable === 'function') {
-        renderEmpTable();
-      }
+      toast(`Employee "${displayName}" was archived. Historical records were preserved.`, 'success');
       if (typeof updateNotifBadge === 'function') updateNotifBadge();
     } catch (err) {
-      console.error('[Employees] Error permanently deleting employee:', err);
-      toast(getDeleteErrorMessage(err), 'error');
+      console.error('[Employees] Archive failed:', err);
+      toast(err && err.message ? err.message : 'Employee archive failed.', 'error');
     }
   };
-
-  if (typeof window.mtCustomConfirm === 'function') {
-    window.mtCustomConfirm(confirmTitle, confirmMsg, 'danger', doDelete);
-  } else if (typeof confirm === 'function' && confirm(confirmMsg)) {
-    doDelete();
-  }
+  if (typeof window.mtCustomConfirm === 'function') window.mtCustomConfirm(confirmTitle, confirmMsg, 'danger', doArchive);
+  else if (typeof confirm === 'function' && confirm(confirmMsg)) doArchive();
 }
 window.deleteEmployeeDirectly = deleteEmployeeDirectly;
 

@@ -3022,7 +3022,7 @@ input:focus, select:focus, textarea:focus {
   </main>
 </div>
 
-<div class="modal-back" id="modal" onclick="if(event.target===this)closeModal()" role="dialog" aria-modal="true" tabindex="-1">
+<div class="modal-back" id="modal" role="dialog" aria-modal="true" tabindex="-1">
   <div class="modal wide">
     <div class="modal-head">
       <h3 id="modalTitle">Detail</h3>
@@ -6035,16 +6035,20 @@ function openApplicantForm(empKey){
     </div>
     <div id="tab-naBasic" class="tab-panel active">
       <div class="form-grid">
-        <div class="field"><label>Official Employee ID (issued by project)</label><input id="na_empId" type="text" placeholder="Leave blank until issued" value="${escapeHtml(existing ? (existing.EmployeeID||existing.employee_id||'') : (cand ? (cand.empId||'') : ''))}"></div>
+        <div class="field"><label>Join Date *</label><input id="na_joinDate" type="date" value="${escapeHtml(existing ? (existing.JoinDate||existing.join_date||'') : (cand ? (cand.joinDate||cand.date||todayISO()) : todayISO()))}"><div class="small-mute" style="margin-top:4px">Select the actual joining date. Approval date will not overwrite it.</div></div>
         <div class="field"><label>Name (English) *</label><input id="na_nameEn" type="text" placeholder="Md ..." value="${escapeHtml(existing ? (existing.FullName||existing.full_name||'') : (cand ? (cand.nameEn||cand.name||'') : ''))}" onchange="dupHintLive()">${translateBtnHTML('na_nameEn','na_name')}</div>
         <div class="field"><label>Name (Bangla) *</label><input id="na_name" type="text" placeholder="Md ... (translate button or manual)" value="${escapeHtml(existing ? (existing.FullNameBn||existing.full_name_bn||existing.name||'') : (cand ? (cand.name||'') : ''))}"></div>
         <div class="field"><label>Applied Post *</label><select id="na_desig" onchange="naDesigSalary()">${desigOpts}</select></div>
         <div class="field"><label>Project *</label><select id="na_project" onchange="naSyncProjSummary()">${projOpts}</select></div>
-        <div class="field"><label>Father's Name</label><input id="na_father" type="text" value="${escapeHtml(existing ? (existing.FatherName||existing.father_name||existing.father||'') : (cand ? (cand.father||'') : ''))}"></div>
-        <div class="field"><label>Mother's Name</label><input id="na_mother" type="text" value="${escapeHtml(existing ? (existing.MotherName||existing.mother_name||existing.mother||'') : (cand ? (cand.mother||'') : ''))}"></div>
+        <div class="field"><label>Father's Name (English)</label><input id="na_father" type="text" value="${escapeHtml(existing ? (existing.FatherName||existing.father_name||existing.father||'') : (cand ? (cand.father||'') : ''))}">${officialTranslateBtnHTML('na_father','na_fatherBn','person name')}</div>
+        <div class="field"><label>Father's Name (Bangla)</label><input id="na_fatherBn" type="text" value="${escapeHtml(existing ? (existing.FatherNameBn||existing.father_name_bn||'') : (cand ? (cand.fatherBn||'') : ''))}"></div>
+        <div class="field"><label>Mother's Name (English)</label><input id="na_mother" type="text" value="${escapeHtml(existing ? (existing.MotherName||existing.mother_name||existing.mother||'') : (cand ? (cand.mother||'') : ''))}">${officialTranslateBtnHTML('na_mother','na_motherBn','person name')}</div>
+        <div class="field"><label>Mother's Name (Bangla)</label><input id="na_motherBn" type="text" value="${escapeHtml(existing ? (existing.MotherNameBn||existing.mother_name_bn||'') : (cand ? (cand.motherBn||'') : ''))}"></div>
         <div class="field"><label>Date of Birth</label><input id="na_dob" type="date" value="${escapeHtml(existing ? (existing.DOB||existing.dob||'') : (cand ? (cand.dob||'') : ''))}"></div>
-        <div class="field"><label>NID *</label><input id="na_nid" type="text" placeholder="10/13/17 digits" value="${escapeHtml(existing ? (existing.NID||existing.nid||'') : (cand ? (cand.nid||'') : ''))}" onchange="dupHintLive()"></div>
-        <div class="field"><label>Mobile *</label><input id="na_phone" type="text" placeholder="01XXXXXXXXX" value="${escapeHtml(existing ? (existing.PhoneNumber||existing.phone||'') : (cand ? (cand.phone||'') : ''))}" onchange="dupHintLive()"></div>
+        <div class="field"><label>NID *</label><input id="na_nid" type="text" placeholder="10/13/17 digits" value="${escapeHtml(existing ? (existing.NID||existing.nid||'') : (cand ? (cand.nid||'') : ''))}" onchange="dupHintLive()">${banglaDigitsBtnHTML('na_nid','na_nidBn')}</div>
+        <div class="field"><label>NID (Bangla digits)</label><input id="na_nidBn" type="text" value="${escapeHtml(existing ? (existing.NIDBn||existing.nid_bn||'') : (cand ? (cand.nidBn||'') : ''))}"></div>
+        <div class="field"><label>Mobile *</label><input id="na_phone" type="text" placeholder="01XXXXXXXXX" value="${escapeHtml(existing ? (existing.PhoneNumber||existing.phone||'') : (cand ? (cand.phone||'') : ''))}" onchange="dupHintLive()">${banglaDigitsBtnHTML('na_phone','na_phoneBn')}</div>
+        <div class="field"><label>Mobile Number (Bangla digits)</label><input id="na_phoneBn" type="text" value="${escapeHtml(existing ? (existing.PhoneNumberBn||existing.phone_bn||'') : (cand ? (cand.phoneBn||'') : ''))}"></div>
         <div class="field"><label>Education</label><select id="na_education">${eduOpts}</select></div>
         <div class="field"><label>Religion</label><select id="na_religion">${relOpts}</select></div>
         <div class="field"><label>Blood Group</label><select id="na_bloodGroup">${bgOpts}</select></div>
@@ -6056,6 +6060,13 @@ function openApplicantForm(empKey){
       </div>
     </div>
     <div id="tab-naAddr" class="tab-panel">
+      <div style="padding:12px 14px;margin-bottom:14px;border-radius:12px;background:rgba(37,99,235,.06);border:1px solid rgba(37,99,235,.18)"><strong>Official letter address text</strong><div class="small-mute">Used in appointment letters; structured address fields remain below.</div></div>
+      <div class="form-grid">
+       <div class="field"><label>Present Address (English)</label><textarea id="na_presentAddressEn" rows="3">${escapeHtml(existing ? (existing.PresentAddressEn||existing.present_address_en||'') : (cand ? (cand.presentAddressEn||'') : ''))}</textarea>${officialTranslateBtnHTML('na_presentAddressEn','na_presentAddressBn','Bangladesh postal address')}</div>
+       <div class="field"><label>Present Address (Bangla)</label><textarea id="na_presentAddressBn" rows="3">${escapeHtml(existing ? (existing.PresentAddressBn||existing.present_address_bn||'') : (cand ? (cand.presentAddressBn||'') : ''))}</textarea></div>
+       <div class="field"><label>Permanent Address (English)</label><textarea id="na_permanentAddressEn" rows="3">${escapeHtml(existing ? (existing.PermanentAddressEn||existing.permanent_address_en||'') : (cand ? (cand.permanentAddressEn||'') : ''))}</textarea>${officialTranslateBtnHTML('na_permanentAddressEn','na_permanentAddressBn','Bangladesh postal address')}</div>
+       <div class="field"><label>Permanent Address (Bangla)</label><textarea id="na_permanentAddressBn" rows="3">${escapeHtml(existing ? (existing.PermanentAddressBn||existing.permanent_address_bn||'') : (cand ? (cand.permanentAddressBn||'') : ''))}</textarea></div>
+      </div><div class="divider"></div>
       <h4 style="font-size:13px;margin-bottom:8px">Present Address</h4>
       <div id="na_presCascade"></div>
       <div class="form-grid" style="margin-top:8px">
@@ -6232,8 +6243,9 @@ async function saveBasicInfoAndContinue(){
   const phone = g('phone');
   const nid = g('nid');
   const dob = g('dob');
-  const father = g('father');
-  const mother = g('mother');
+  const father = g('father'), fatherBn = g('fatherBn');
+  const mother = g('mother'), motherBn = g('motherBn');
+  const joinDate = g('joinDate');
   const education = g('education') || 'SSC';
   const religion = g('religion') || 'Islam';
   const bloodGroup = g('bloodGroup') || 'O+';
@@ -6306,8 +6318,8 @@ async function saveBasicInfoAndContinue(){
       employee_id: empCode,
       full_name: nameEn || name,
       full_name_bn: name || nameEn,
-      father_name: father,
-      mother_name: mother,
+      father_name: father, father_name_bn: fatherBn,
+      mother_name: mother, mother_name_bn: motherBn,
       dob: dob,
       phone: phone,
       nid: nid,
@@ -6320,8 +6332,8 @@ async function saveBasicInfoAndContinue(){
       spouse_phone: spouseMobile,
       designation: desig,
       project_name: project,
-      status: 'Candidate', // STRICT RULE: status must be 'Candidate'
-      join_date: (existingEmp && (existingEmp.JoinDate || existingEmp.join_date)) || (typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0,10)),
+      status: existingEmp ? (existingEmp.Status || existingEmp.status || 'Active') : 'Candidate',
+      join_date: joinDate || (existingEmp && (existingEmp.JoinDate || existingEmp.join_date)) || todayISO(),
       duty_hour: String(g('dutyHours') || (existingEmp && (existingEmp.DutyHour || existingEmp.duty_hour)) || 12),
       salary: grossSalary,
       remarks: JSON.stringify(mergedRemarks)
@@ -7064,10 +7076,12 @@ async function commitApplicantUpdate(editKey, a){
     full_name: a.nameEn,
     full_name_bn: a.name,
     father_name: a.father,
+    father_name_bn: a.fatherBn || '',
     mother_name: a.mother,
+    mother_name_bn: a.motherBn || '',
     dob: a.dob,
-    phone: a.phone,
-    nid: a.nid,
+    phone: a.phone, phone_bn: a.phoneBn || '',
+    nid: a.nid, nid_bn: a.nidBn || '',
     education: a.education,
     religion: a.religion,
     height: String(a.height||''),
@@ -7084,8 +7098,11 @@ async function commitApplicantUpdate(editKey, a){
     ec_name: a.ec1 ? a.ec1.name : '',
     ec_relation: a.ec1 ? a.ec1.relation : '',
     ec_phone: a.ec1 ? a.ec1.mobile : '',
+    present_address_en: a.presentAddressEn || '', present_address_bn: a.presentAddressBn || '',
+    permanent_address_en: a.permanentAddressEn || '', permanent_address_bn: a.permanentAddressBn || '',
     designation: a.desig,
     project_name: a.project,
+    join_date: a.joinDate || (existingEmp && (existingEmp.JoinDate || existingEmp.join_date)) || todayISO(),
     duty_hour: String(a.dutyHours || 12),
     salary: a.salary ? a.salary.total : 0,
     remarks: JSON.stringify(a)
@@ -7094,7 +7111,7 @@ async function commitApplicantUpdate(editKey, a){
 
   // Check if it's a candidate from RECRUITMENT array
   const cand = RECRUITMENT.find(x => String(x.id) === String(editKey));
-  if (cand) {
+  if (cand && !existingEmp) {
     Object.assign(cand, {
       empId: a.empId || cand.empId || '',
       nameEn: a.nameEn,
@@ -7172,8 +7189,9 @@ function collectApplicantData(g){
   const bdD = window.bdDistName||function(){return '';};
   const bdU = window.bdUpzName||function(){return '';};
   return {
-    empId: g('empId') || '',
-    name:g('name'), nameEn:g('nameEn'), father:g('father'), mother:g('mother'), dob:g('dob'), nid:g('nid'), phone:g('phone'),
+    empId: '', joinDate:g('joinDate'),
+    name:g('name'), nameEn:g('nameEn'), father:g('father'), fatherBn:g('fatherBn'), mother:g('mother'), motherBn:g('motherBn'), dob:g('dob'), nid:g('nid'), nidBn:g('nidBn'), phone:g('phone'), phoneBn:g('phoneBn'),
+    presentAddressEn:g('presentAddressEn'), presentAddressBn:g('presentAddressBn'), permanentAddressEn:g('permanentAddressEn'), permanentAddressBn:g('permanentAddressBn'),
     education:g('education'), religion:g('religion')||'Islam', bloodGroup:g('bloodGroup'),
     height:g('height'), weight:g('weight'), maritalStatus:g('maritalStatus'),
     spouse:g('maritalStatus')==='Married'?g('spouse'):'', spousePhone:g('maritalStatus')==='Married'?g('spouseMobile'):'',
@@ -7252,10 +7270,12 @@ async function commitApplicant(a){
     full_name: a.nameEn || a.name,
     full_name_bn: a.name,
     father_name: a.father,
+    father_name_bn: a.fatherBn || '',
     mother_name: a.mother,
+    mother_name_bn: a.motherBn || '',
     dob: a.dob,
-    phone: a.phone,
-    nid: a.nid,
+    phone: a.phone, phone_bn: a.phoneBn || '',
+    nid: a.nid, nid_bn: a.nidBn || '',
     education: a.education,
     religion: a.religion,
     height: String(a.height||''),
@@ -7272,8 +7292,11 @@ async function commitApplicant(a){
     ec_name: a.ec1 ? a.ec1.name : '',
     ec_relation: a.ec1 ? a.ec1.relation : '',
     ec_phone: a.ec1 ? a.ec1.mobile : '',
+    present_address_en: a.presentAddressEn || '', present_address_bn: a.presentAddressBn || '',
+    permanent_address_en: a.permanentAddressEn || '', permanent_address_bn: a.permanentAddressBn || '',
     designation: a.desig,
     project_name: a.project,
+    join_date: a.joinDate || todayISO(),
     join_date: todayISO(),
     duty_hour: String(a.dutyHours || 12),
     salary: a.salary ? a.salary.total : 0,
@@ -9424,16 +9447,14 @@ async function submitTransfer(){
         throw new Error('Database connection not established.');
       }
 
-      if (!window.MGHRM || typeof window.MGHRM.createTransferOrder !== 'function') {
-        throw new Error('Transfer order service is unavailable. Deploy the matching app-core.js file.');
-      }
+      const isFuture = new Date(td) > new Date();
 
       const targetProj = DATA.projects.find(p => p.ProjectName === np) || {};
       const npBn = targetProj.ProjectNameBangla || targetProj.project_name_bn || '';
 
       const payload = {
         employee_sys_id: e.id,
-        employee_id: String(e.EmployeeID || ''),
+        employee_id: String(e.EmployeeID || e.id || ''),
         employee_id_bn: String(e.EmployeeIDBangla || ''),
         full_name: e.FullName || '',
         full_name_bn: e.FullNameBn || e.FullNameBangla || '',
@@ -9444,38 +9465,64 @@ async function submitTransfer(){
         new_project: np,
         new_project_bn: npBn,
         transfer_date: td,
-        effective_date: td,
         transfer_date_bn: td ? toBnDigits(td) : '',
         issues_date: iss || '',
         issues_date_bn: iss ? toBnDigits(iss) : '',
-        notes: notes || ''
+        notes: notes || '',
+        status: isFuture ? 'Scheduled' : 'Completed'
       };
+      
+      const { data: insertedTr, error: trErr } = await window.sb.rpc('commit_transfer', { p_transfer: payload, p_apply_now: !isFuture });
+      if (trErr) throw trErr;
 
-      // Creation never confirms joining. The database decides Scheduled vs
-      // Joining Pending and keeps the employee project unchanged.
-      const result = await window.MGHRM.createTransferOrder(payload);
-      const savedRecord = result && result.transfer ? result.transfer : null;
-      if (!savedRecord || savedRecord.id == null) {
-        throw new Error('The transfer order was created but the server did not return the saved record.');
+      const savedRecord = (Array.isArray(insertedTr) ? insertedTr[0] : insertedTr) || null;
+      const insertedId = savedRecord ? savedRecord.id : '';
+
+      // 1. Update Local State (prepended / unshifted)
+      const mappedTransfer = (window.MGHRM && typeof window.MGHRM.fromDb === 'function' && savedRecord)
+        ? window.MGHRM.fromDb('transfers', savedRecord)
+        : {
+            id: insertedId,
+            employee_sys_id: e.id,
+            EmployeeID: String(e.EmployeeID || e.id || ''),
+            EmployeeIDBangla: String(e.EmployeeIDBangla || ''),
+            FullName: e.FullName || '',
+            FullNameBangla: e.FullNameBn || e.FullNameBangla || '',
+            Designation: e.Designation || '',
+            DesignationBangla: e.DesignationBangla || e.DesignationBn || '',
+            CurrentProject: e.ProjectName || '',
+            CurrentProjectBangla: e.ProjectNameBangla || e.ProjectNameBn || '',
+            NewProject: np,
+            NewProjectBangla: npBn,
+            TransferDate: td,
+            TransferDateBangla: td ? toBnDigits(td) : '',
+            'Issues Date': iss || '',
+            'Issues DateBangla': iss ? toBnDigits(iss) : '',
+            Notes: notes || '',
+            Status: isFuture ? 'Scheduled' : 'Completed',
+            status: isFuture ? 'Scheduled' : 'Completed'
+          };
+
+      if (!Array.isArray(DATA.transfers)) {
+        DATA.transfers = [];
+      }
+      DATA.transfers = [mappedTransfer, ...DATA.transfers.filter(t => String(t.id) !== String(insertedId))];
+
+      if (!isFuture) {
+        e.ProjectName = np;
+        if (npBn) e.ProjectNameBangla = npBn;
       }
 
-      if (window.MGHRM.reloadTransfers) {
-        DATA.transfers = await window.MGHRM.reloadTransfers();
-      }
-      if (typeof loadTransferActionQueue === 'function') {
-        await loadTransferActionQueue();
-      }
-      if (typeof fetchEmployeesDirectly === 'function') {
-        await fetchEmployeesDirectly({ render: false, reason: 'transfer-order-created' });
+      // 2. Full Module Re-render (resets form, generates new memo, clears validation styles & updates table)
+      if (typeof renderTransfer === 'function') {
+        renderTransfer();
       }
 
-      const finalStatus = savedRecord.status || 'Joining Pending';
-      if (typeof renderTransfer === 'function') renderTransfer();
-      logActivity('create', 'transfers', savedRecord.id, `Transfer order for ${e.FullName} to ${np}; joining confirmation required`);
-      toast(finalStatus === 'Scheduled'
-        ? 'Transfer scheduled. Employee project will change only after joining confirmation.'
-        : 'Transfer order created. Confirm Joined or Not Joined from the action queue.', 'success');
-
+      logActivity('create', 'transfers', insertedId, `Transfer for ${e.FullName} to ${np}`);
+      toast(isFuture 
+        ? 'Scheduled — employee project NOT changed (edit on Employees tab)'
+        : `Completed — ${e.FullName} transferred to ${np}`, 'success');
+        
       closeModal();
       if (typeof refreshAll === 'function') refreshAll();
     } catch (err) {
@@ -18840,6 +18887,12 @@ async function gTranslateBn(text) {
   if (TRANSLATIONS && TRANSLATIONS[key]) return TRANSLATIONS[key];
   return text.trim(); // Safe fallback, no network exfiltration
 }
+function officialTranslateBtnHTML(srcId,dstId,fieldType){return `<button type="button" class="btn sm" style="margin-top:4px" onclick="translateOfficialField('${srcId}','${dstId}','${fieldType}',this)">✨ AI বাংলা</button>`;}
+function banglaDigitsBtnHTML(srcId,dstId){return `<button type="button" class="btn sm" style="margin-top:4px" onclick="copyBanglaDigits('${srcId}','${dstId}')">১২৩ বাংলা সংখ্যা</button>`;}
+function copyBanglaDigits(srcId,dstId){const x=document.getElementById(srcId),y=document.getElementById(dstId);if(!x||!y||!x.value.trim()){toast('Enter the number first','error');return;}y.value=toBnDigits(x.value.trim());}
+async function translateOfficialField(srcId,dstId,fieldType,btn){const x=document.getElementById(srcId),y=document.getElementById(dstId);if(!x||!y||!x.value.trim()){toast('Enter the English text first','error');return;}const c=window.__mgAiCfg||(()=>{try{return JSON.parse(localStorage.getItem('mghrm_ai')||'{}')}catch(e){return {}}})();const key=String(c.key||'').trim(),model=String(c.model||'gemini-2.5-flash-lite').trim();if(!key){toast('Set the Gemini API key from AI settings first','error');return;}const old=btn?btn.textContent:'';if(btn){btn.disabled=true;btn.textContent='Translating…';}try{const prompt=`Translate this ${fieldType||'employee field'} into concise, professional Bangla for a formal Bangladesh appointment letter. Preserve proper names. Convert numbers to Bangla digits. Output only the translation.
+
+${x.value.trim()}`;const u='https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent?key='+encodeURIComponent(key);const r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:.15,maxOutputTokens:350}})});if(!r.ok)throw new Error('Gemini request failed ('+r.status+')');const d=await r.json();const out=d?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('').trim();if(!out)throw new Error('Empty translation');y.value=out.replace(/^```[a-z]*\s*|```$/gi,'').trim();toast('Professional Bangla inserted. Review before saving.','success');}catch(e){toast('AI translation failed: '+(e.message||e),'error');}finally{if(btn){btn.disabled=false;btn.textContent=old;}}}
 async function translateField(srcId, dstId, btn){
   const src = document.getElementById(srcId), dst = document.getElementById(dstId);
   if(!src || !src.value.trim()){ toast('Type the English name first','error'); return; }

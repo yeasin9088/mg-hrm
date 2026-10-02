@@ -164,7 +164,7 @@
       pk: 'id',
       allowed: ['id', 'employee_sys_id', 'employee_id',
         'full_name', 'designation', 'current_project', 'join_date',
-        'exit_reason', 'exit_date', 'issue_date', 'created_at'
+        'exit_reason', 'exit_date', 'issue_date', 'created_at', 'status', 'exit_type', 'effective_exit_date', 'related_transfer_id', 'completed_at', 'completed_by', 'cancelled_at', 'cancelled_by', 'cancellation_reason', 'completion_remarks'
        ],
       map: { 'id': 'id',
         'employee_sys_id': 'employee_sys_id',
@@ -188,7 +188,7 @@
         'employee_id_bn', 'full_name', 'full_name_bn', 'designation',
         'designation_bn', 'current_project', 'current_project_bn',
         'new_project', 'new_project_bn', 'transfer_date', 'transfer_date_bn',
-        'issues_date', 'issues_date_bn', 'status', 'notes', 'created_at'
+        'issues_date', 'issues_date_bn', 'status', 'notes', 'created_at', 'effective_date', 'actual_joining_date', 'joining_confirmed_at', 'joining_confirmed_by', 'not_joined_at', 'not_joined_by', 'not_joined_reason', 'not_joined_remarks', 'cancelled_at', 'cancelled_by', 'cancellation_reason', 'completed_at', 'completed_by', 'rescheduled_at', 'rescheduled_by', 'previous_effective_date'
        ],
       map: { 'id': 'id',
         'employee_sys_id': 'employee_sys_id', 
@@ -1170,7 +1170,11 @@
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, function (payload) {
           console.log('⚡ [Real-Time] Employees table changed:', payload);
-          handleEmployeeRealtimeEvent(payload);
+          if (typeof global.handleEmployeeRealtimeUpdate === 'function') {
+            global.handleEmployeeRealtimeUpdate(payload);
+          } else {
+            handleRealtimeEvent(payload);
+          }
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'todos' }, function (payload) {
           console.log('⚡ [Real-Time] Todos table changed:', payload);
@@ -1206,7 +1210,6 @@
   }
 
   function handleRealtimeEvent(payload) {
-    if (payload && payload.table === 'employees') { handleEmployeeRealtimeEvent(payload); return; }
     var tbl = payload && payload.table;
     if (tbl && lastSelfWriteAt[tbl] && (Date.now() - lastSelfWriteAt[tbl]) < 2500) {
       return;   /* our own write echoing back - we already have this state */
@@ -1292,170 +1295,6 @@
     scheduleRefresh();
   }
 
-  /* ---------- Phase 1: Authoritative Employee Data Flow ---------- */
-  var employeeRenderTimer = null;
-
-  function normalizeEmployeeRow(row) {
-    if (!row) return {};
-    return {
-      id: row.id,
-      employee_sys_id: row.id,
-      EmployeeID: row.employee_id || '', employee_id: row.employee_id || '',
-      FullName: row.full_name || '', FullNameBn: row.full_name_bn || '', FullNameBangla: row.full_name_bn || '',
-      FatherName: row.father_name || '', MotherName: row.mother_name || '', DOB: row.dob || '',
-      PhoneNumber: row.phone || '', NID: row.nid || '', 'NID/BirthCertificate': row.nid || '',
-      Education: row.education || '', Religion: row.religion || '', Height: row.height || '', Weight: row.weight || 0,
-      MaritalStatus: row.marital_status || '', SpouseName: row.spouse_name || '', SpousePhoneNum: row.spouse_phone || '',
-      ECName: row.ec_name || '', ECRelation: row.ec_relation || '', ECPhoneNumber: row.ec_phone || '',
-      ECName2: row.ec_name2 || '', ECRelation2: row.ec_relation2 || '', ECPhoneNumber2: row.ec_phone2 || '',
-      ec_name: row.ec_name || '', ec_relation: row.ec_relation || '', ec_phone: row.ec_phone || '',
-      ec_name2: row.ec_name2 || '', ec_relation2: row.ec_relation2 || '', ec_phone2: row.ec_phone2 || '',
-      Division: row.division || '', District: row.district || '', Upazila: row.upazila || row.thana || '',
-      Union: row.union || '', Village: row.village || '', Street: row.street || '', Thana: row.thana || row.upazila || '',
-      division: row.division || '', district: row.district || '', upazila: row.upazila || row.thana || '',
-      union: row.union || '', village: row.village || '', street: row.street || '', thana: row.thana || row.upazila || '',
-      PermDivision: row.perm_division || '', PermDistrict: row.perm_district || '', PermUpazila: row.perm_upazila || '',
-      PermUnion: row.perm_union || '', PermVillage: row.perm_village || '', PermStreet: row.perm_street || '',
-      ReferenceName: row.ReferenceName || row.reference_name || '',
-      ReferenceDesignation: row.ReferenceDesignation || row.reference_designation || '',
-      ReferenceOrganization: row.ReferenceOrganization || row.reference_organization || '',
-      ReferenceMobile: row.ReferenceMobile || row.reference_mobile || '',
-      Designation: row.designation || '', ProjectName: row.project_name || '', JoinDate: row.join_date || '',
-      DutyHour: row.duty_hour || '8', Salary: row.salary == null ? 0 : Number(row.salary) || 0,
-      Status: row.status || 'Active', ExitDate: row.exit_date || '', ExitReason: row.exit_reason || '',
-      Remarks: row.remarks || '', PhotoURL: row.photo_url || '',
-      CreatedAt: row.created_at || '', UpdatedAt: row.updated_at || '',
-      deleted_at: row.deleted_at || null, deleted_by: row.deleted_by || null, _joinDays: 0
-    };
-  }
-
-  function employeeData() {
-    var data = global.DATA || (global.DATA = {});
-    if (!Array.isArray(data.employees)) data.employees = [];
-    return data.employees;
-  }
-
-  function scheduleEmployeeRender(reason) {
-    if (employeeRenderTimer) clearTimeout(employeeRenderTimer);
-    employeeRenderTimer = setTimeout(function () {
-      employeeRenderTimer = null;
-      try {
-        if (typeof global.renderEmpTable === 'function' && global.currentPage === 'employees') global.renderEmpTable();
-        if (typeof global.updateNotifBadge === 'function') global.updateNotifBadge();
-        if (typeof global.refreshEmployeeDependentPickers === 'function') global.refreshEmployeeDependentPickers(reason || 'employee-change');
-      } catch (e) { console.warn('[Employees] targeted render failed:', e); }
-    }, 100);
-  }
-
-  function mergeEmployeeServerRow(dbRow, options) {
-    var emp = normalizeEmployeeRow(dbRow);
-    if (emp.id == null) throw new Error('EMPLOYEE_SYSTEM_ID_REQUIRED');
-    var arr = employeeData();
-    var idx = arr.findIndex(function (x) { return String(x.id) === String(emp.id); });
-    if (emp.deleted_at) {
-      if (idx !== -1) arr.splice(idx, 1);
-    } else if (idx === -1) {
-      arr.push(emp);
-    } else {
-      arr[idx] = emp;
-    }
-    arr.sort(function (a, b) { return Number(a.id || 0) - Number(b.id || 0); });
-    captureBaseline({ employees: arr });
-    if (!options || options.render !== false) scheduleEmployeeRender((options && options.reason) || 'merge');
-    return emp;
-  }
-
-  function reloadEmployees(options) {
-    options = options || {};
-    if (!ready || !sb) return Promise.reject(new Error('Supabase client is not connected.'));
-    return sb.from('employees').select('*').is('deleted_at', null).order('id', { ascending: true }).then(function (r) {
-      if (r.error) throw r.error;
-      var normalized = (r.data || []).map(normalizeEmployeeRow);
-      global.DATA.employees = normalized;
-      captureBaseline({ employees: normalized });
-      if (global.mgLoadState) global.mgLoadState.employees = 'ok';
-      if (options.render !== false) scheduleEmployeeRender(options.reason || 'reload');
-      return normalized;
-    }).catch(function (e) {
-      if (global.mgLoadState) global.mgLoadState.employees = 'error';
-      console.warn('[Employees] authoritative reload failed:', (e && e.message) || e);
-      throw e;
-    });
-  }
-
-  function createEmployee(employeeDraft) {
-    if (!ready || !sb) return Promise.reject(new Error('Supabase client is not connected.'));
-    var record = toDb('employees', employeeDraft || {});
-    delete record.id; delete record.deleted_at; delete record.deleted_by;
-    return sb.from('employees').insert([record]).select().single().then(function (r) {
-      if (r.error) throw r.error;
-      lastSelfWriteAt.employees = Date.now();
-      return mergeEmployeeServerRow(r.data, { reason: 'create' });
-    });
-  }
-
-  function updateEmployeeBySystemId(systemId, employeePatch) {
-    if (systemId === null || systemId === undefined || systemId === '') return Promise.reject(new Error('EMPLOYEE_SYSTEM_ID_REQUIRED'));
-    if (!ready || !sb) return Promise.reject(new Error('Supabase client is not connected.'));
-    var record = toDb('employees', employeePatch || {});
-    delete record.id; delete record.deleted_at; delete record.deleted_by;
-    return sb.from('employees').update(record).eq('id', systemId).is('deleted_at', null).select().single().then(function (r) {
-      if (r.error) throw r.error;
-      lastSelfWriteAt.employees = Date.now();
-      return mergeEmployeeServerRow(r.data, { reason: 'update' });
-    });
-  }
-
-  function archiveEmployeeBySystemId(systemId, reason) {
-    if (systemId === null || systemId === undefined || systemId === '') return Promise.reject(new Error('EMPLOYEE_SYSTEM_ID_REQUIRED'));
-    if (!ready || !sb) return Promise.reject(new Error('Supabase client is not connected.'));
-    var payload = { deleted_at: new Date().toISOString() };
-    var u = currentUser();
-    if (u && u.id) payload.deleted_by = u.id;
-    return sb.from('employees').update(payload).eq('id', systemId).is('deleted_at', null).select().single().then(function (r) {
-      if (r.error) throw r.error;
-      lastSelfWriteAt.employees = Date.now();
-      mergeEmployeeServerRow(r.data, { reason: 'archive' });
-      return true;
-    });
-  }
-
-  function restoreEmployeeBySystemId(systemId) {
-    if (systemId === null || systemId === undefined || systemId === '') return Promise.reject(new Error('EMPLOYEE_SYSTEM_ID_REQUIRED'));
-    if (!ready || !sb) return Promise.reject(new Error('Supabase client is not connected.'));
-    return sb.from('employees').update({ deleted_at: null, deleted_by: null }).eq('id', systemId).select().single().then(function (r) {
-      if (r.error) throw r.error;
-      lastSelfWriteAt.employees = Date.now();
-      return mergeEmployeeServerRow(r.data, { reason: 'restore' });
-    });
-  }
-
-  function getEmployeeBySystemId(systemId) {
-    return employeeData().find(function (x) { return String(x.id) === String(systemId); }) || null;
-  }
-
-  function findEmployeesByIssuedCode(code) {
-    var q = String(code == null ? '' : code).trim().toLowerCase();
-    if (!q) return [];
-    return employeeData().filter(function (x) { return String(x.employee_id || x.EmployeeID || '').trim().toLowerCase() === q; });
-  }
-
-  function handleEmployeeRealtimeEvent(payload) {
-    if (!payload || payload.table !== 'employees') return;
-    var row = payload.new || payload.old;
-    if (!row || row.id == null) return;
-    if (payload.eventType === 'DELETE' || (payload.new && payload.new.deleted_at)) {
-      var arr = employeeData();
-      var idx = arr.findIndex(function (x) { return String(x.id) === String(row.id); });
-      if (idx !== -1) arr.splice(idx, 1);
-      captureBaseline({ employees: arr });
-      scheduleEmployeeRender('realtime-remove');
-      return;
-    }
-    mergeEmployeeServerRow(payload.new, { reason: 'realtime' });
-  }
-
-
   /* ---------- Direct Server CRUD ---------- */
   function insert(bucket, jsObject) {
     if (!ready || !sb) return Promise.resolve(null);
@@ -1532,6 +1371,55 @@
         return true;
       });
   }
+
+  /* ---------- Phase 2: Transfer and Exit Reliability APIs ---------- */
+  function rpcCall(name, args) {
+    if (!ready || !sb) return Promise.reject(new Error('Supabase client is not connected.'));
+    return sb.rpc(name, args || {}).then(function (r) {
+      if (r.error) {
+        console.error('[Supabase RPC Error] ' + name + ':', r.error.message);
+        throw r.error;
+      }
+      return r.data;
+    });
+  }
+
+  function reloadBucket(bucket) {
+    if (!ready || !sb || !TABLE_MAP[bucket]) return Promise.resolve([]);
+    var map = TABLE_MAP[bucket];
+    return sb.from(map.table).select('*').is('deleted_at', null).order(map.pk, { ascending: false }).then(function (r) {
+      if (r.error) throw r.error;
+      var rows = (r.data || []).map(function (row) { return fromDb(bucket, row); });
+      if (!global.DATA) global.DATA = {};
+      global.DATA[bucket] = rows;
+      captureBaseline((function () { var x = {}; x[bucket] = rows; return x; })());
+      return rows;
+    });
+  }
+
+  function loadTransferActionQueue() { return rpcCall('get_transfer_action_queue'); }
+  function createTransferOrder(payload) { return rpcCall('create_transfer_order', { p_transfer: payload }); }
+  function confirmTransferJoining(transferId, joiningDate, remarks) {
+    return rpcCall('confirm_transfer_joining', { p_transfer_id: transferId, p_actual_joining_date: joiningDate, p_remarks: remarks || null });
+  }
+  function markTransferNotJoined(transferId, reason, remarks) {
+    return rpcCall('mark_transfer_not_joined', { p_transfer_id: transferId, p_reason: reason, p_remarks: remarks || null });
+  }
+  function cancelTransfer(transferId, reason) {
+    return rpcCall('cancel_transfer', { p_transfer_id: transferId, p_reason: reason });
+  }
+  function rescheduleTransfer(transferId, effectiveDate, reason) {
+    return rpcCall('reschedule_transfer', { p_transfer_id: transferId, p_new_effective_date: effectiveDate, p_reason: reason });
+  }
+  function createExitDraft(payload) { return rpcCall('create_exit_draft', { p_exit: payload }); }
+  function completeExit(exitId, exitDate, exitType, exitReason, remarks) {
+    return rpcCall('complete_exit', { p_exit_id: exitId, p_exit_date: exitDate, p_exit_type: exitType, p_exit_reason: exitReason, p_remarks: remarks || null });
+  }
+  function cancelExit(exitId, reason) { return rpcCall('cancel_exit', { p_exit_id: exitId, p_reason: reason }); }
+  function reactivateEmployee(employeeSystemId, joinDate, project, remarks) {
+    return rpcCall('reactivate_employee', { p_employee_sys_id: employeeSystemId, p_new_join_date: joinDate, p_new_project: project, p_remarks: remarks || null });
+  }
+
 
   /* ---------- Atomic Uniform Delivery RPC ---------- */
   function saveUniformDelivery(payload) {
@@ -2154,7 +2042,6 @@
       names = [];
 
     Object.keys(TABLE_MAP).forEach(function (k) {
-      if (k === 'employees') return; /* Employee writes use explicit authoritative APIs. */
       var m = TABLE_MAP[k];
       var changed = collectChangedRows(k);
       if (!changed.rows.length) return;
@@ -2229,20 +2116,21 @@
       return !!(table && lastSelfWriteAt[table] && (Date.now() - lastSelfWriteAt[table]) < 2500);
     },
     scheduleRefresh: scheduleRefresh,
-    normalizeEmployeeRow: normalizeEmployeeRow,
-    reloadEmployees: reloadEmployees,
-    mergeEmployeeServerRow: mergeEmployeeServerRow,
-    createEmployee: createEmployee,
-    updateEmployeeBySystemId: updateEmployeeBySystemId,
-    archiveEmployeeBySystemId: archiveEmployeeBySystemId,
-    restoreEmployeeBySystemId: restoreEmployeeBySystemId,
-    getEmployeeBySystemId: getEmployeeBySystemId,
-    findEmployeesByIssuedCode: findEmployeesByIssuedCode,
-    handleEmployeeRealtimeEvent: handleEmployeeRealtimeEvent,
-    scheduleEmployeeRender: scheduleEmployeeRender,
     insert: insert,
     update: update,
     remove: remove,
+    loadTransferActionQueue: loadTransferActionQueue,
+    createTransferOrder: createTransferOrder,
+    confirmTransferJoining: confirmTransferJoining,
+    markTransferNotJoined: markTransferNotJoined,
+    cancelTransfer: cancelTransfer,
+    rescheduleTransfer: rescheduleTransfer,
+    createExitDraft: createExitDraft,
+    completeExit: completeExit,
+    cancelExit: cancelExit,
+    reactivateEmployee: reactivateEmployee,
+    reloadTransfers: function () { return reloadBucket('transfers'); },
+    reloadExits: function () { return reloadBucket('exits'); },
     saveUniformDelivery: saveUniformDelivery,
     fetchEmployeeById: fetchEmployeeById,
     fetchEmployeeByRecordId: fetchEmployeeByRecordId,

@@ -3580,15 +3580,17 @@ async function renderDashboard(){
       const [
         { count: activeCount },
         { count: inactiveCount },
+        { count: exitedCount },
         { count: projCount }
       ] = await Promise.all([
         sb.from('employees').select('id', { count: 'exact', head: true }).eq('status', 'Active'),
         sb.from('employees').select('id', { count: 'exact', head: true }).eq('status', 'Inactive'),
+        sb.from('employees').select('id', { count: 'exact', head: true }).eq('status', 'Exited'),
         sb.from('projects').select('id', { count: 'exact', head: true })
       ]);
       
-      const totalEmps = activeCount + inactiveCount;
-      _dashboardLastData = { activeCount, inactiveCount, projCount, totalEmps };
+      const totalEmps = activeCount + inactiveCount + exitedCount;
+      _dashboardLastData = { activeCount, inactiveCount, exitedCount, projCount, totalEmps };
     } catch (err) {
       console.error('Supabase aggregation error:', err);
     }
@@ -3598,12 +3600,14 @@ async function renderDashboard(){
   const activeEmps = emps.filter(e => String(e.Status || e.status || 'Active').trim().toLowerCase() === 'active');
   const inactiveEmps = emps.filter(e => {
     const st = String(e.Status || e.status || '').trim().toLowerCase();
-    return st === 'inactive' || st === 'resigned' || st === 'terminated' || st === 'exit';
+    return st === 'inactive';
   });
 
+  const exitedEmps = emps.filter(e => String(e.Status || e.status || '').trim().toLowerCase() === 'exited');
   const activeCount = emps.length ? activeEmps.length : (_dashboardLastData?.activeCount || 0);
   const inactiveCount = emps.length ? inactiveEmps.length : (_dashboardLastData?.inactiveCount || 0);
-  const totalEmps = activeCount + inactiveCount;
+  const exitedCount = emps.length ? exitedEmps.length : (_dashboardLastData?.exitedCount || 0);
+  const totalEmps = activeCount + inactiveCount + exitedCount;
   const projCount = (DATA.projects && DATA.projects.length) ? DATA.projects.length : (_dashboardLastData?.projCount || 0);
 
   const parade = computeParade();
@@ -3659,11 +3663,13 @@ async function renderDashboard(){
 
   const alerts = computeAlerts();
   const trend = monthlyTrend();
+  const transferActionQueue = await loadTransferActionQueue();
 
   container.innerHTML = `
     <div class="kpi-grid">
       ${kpi('Active Employees', num(activeCount), 'g', ico('users'), `${num(totalEmps)} total`,'','employees')}
       ${kpi('Inactive Employees', num(inactiveCount), 'r', ico('x'), `${num((inactiveCount*100/(totalEmps||1)).toFixed(1))}% of total`,'','employees')}
+      ${kpi('Exited Employees', num(exitedCount), 'r', ico('x'), `${num((exitedCount*100/(totalEmps||1)).toFixed(1))}% of total`,'','employees')}
       ${kpi('Total Projects', num(projCount), 'p', ico('home'), `${num(projCount)} total`,'','projects')}
       ${kpi('New Joins (30d)', num(recentJoins.length), 'b', ico('trend'), `+${num((recentJoins.length*100/(activeCount||1)).toFixed(1))}%`, 'up','recruitment')}
       ${kpi('Exits (30d)', num(recentExits.length), 'r', ico('x'), 'Turnover rate','','exit')}
@@ -3671,6 +3677,8 @@ async function renderDashboard(){
       ${kpi('Transfers (30d)', num(recentTransfers.length), 'b', ico('refresh'), '','','transfer')}
       ${kpi('Disciplinary (30d)', num(recentDisc.length), 'r', ico('warn'), '','','disciplinary')}
     </div>
+
+    ${transferActionQueueHtml(transferActionQueue)}
 
     <div class="grid-2">
       <div class="card">
@@ -3977,18 +3985,134 @@ function ensureSystemIDs() {
 }
 
 function normEmployee(row) {
-  if (window.MGHRM && typeof window.MGHRM.normalizeEmployeeRow === 'function') return window.MGHRM.normalizeEmployeeRow(row);
-  return row || {};
+  if (!row) return {};
+  return {
+    id: row.id,
+    employee_sys_id: row.id,
+    
+    EmployeeID: row.employee_id || '',
+    employee_id: row.employee_id || '',
+    FullName: row.full_name || '',
+    FullNameBn: row.full_name_bn || '',
+    FullNameBangla: row.full_name_bn || '',
+    FatherName: row.father_name || '',
+    MotherName: row.mother_name || '',
+    DOB: row.dob || '',
+    PhoneNumber: row.phone || '',
+    NID: row.nid || '',
+    'NID/BirthCertificate': row.nid || '',
+    Education: row.education || '',
+    Religion: row.religion || '',
+    Height: row.height || '',
+    Weight: row.weight || 0,
+    MaritalStatus: row.marital_status || '',
+    SpouseName: row.spouse_name || '',
+    SpousePhoneNum: row.spouse_phone || '',
+    ECName: row.ec_name || '',
+    ECRelation: row.ec_relation || '',
+    ECPhoneNumber: row.ec_phone || '',
+    ECName2: row.ec_name2 || '',
+    ECRelation2: row.ec_relation2 || '',
+    ECPhoneNumber2: row.ec_phone2 || '',
+    ec_name: row.ec_name || '',
+    ec_relation: row.ec_relation || '',
+    ec_phone: row.ec_phone || '',
+    ec_name2: row.ec_name2 || '',
+    ec_relation2: row.ec_relation2 || '',
+    ec_phone2: row.ec_phone2 || '',
+
+    Division: row.division || '',
+    District: row.district || '',
+    Upazila: row.upazila || row.thana || '',
+    Union: row.union || '',
+    Village: row.village || '',
+    Street: row.street || '',
+    Thana: row.thana || row.upazila || '',
+    division: row.division || '',
+    district: row.district || '',
+    upazila: row.upazila || row.thana || '',
+    union: row.union || '',
+    village: row.village || '',
+    street: row.street || '',
+    thana: row.thana || row.upazila || '',
+
+    PermDivision: row.perm_division || '',
+    PermDistrict: row.perm_district || '',
+    PermUpazila: row.perm_upazila || '',
+    PermUnion: row.perm_union || '',
+    PermVillage: row.perm_village || '',
+    PermStreet: row.perm_street || '',
+    perm_division: row.perm_division || '',
+    perm_district: row.perm_district || '',
+    perm_upazila: row.perm_upazila || '',
+    perm_union: row.perm_union || '',
+    perm_village: row.perm_village || '',
+    perm_street: row.perm_street || '',
+
+    Address: row.address || '',
+    DivisionID: row.division_id || '',
+    DistrictID: row.district_id || '',
+    UpazilaID: row.upazila_id || '',
+    UnionID: row.union_id || '',
+    Village: row.village || '',
+    Street: row.street || '',
+    Designation: row.designation || '',
+    ProjectName: row.project_name || '',
+    JoinDate: row.join_date || '',
+    DutyHour: row.duty_hour || '8',
+    Salary: row.salary ? +row.salary : 0,
+    Status: row.status || 'Active',
+    ExitDate: row.exit_date || '',
+    ExitReason: row.exit_reason || '',
+    Remarks: row.remarks || '',
+    PhotoURL: row.photo_url || '',
+    CreatedAt: row.created_at || '',
+    UpdatedAt: row.updated_at || '',
+    _joinDays: 0
+  };
 }
 window.normEmployee = normEmployee;
 
-async function fetchEmployeesDirectly(options) {
-  options = options || {};
-  if (!window.MGHRM || typeof window.MGHRM.reloadEmployees !== 'function') {
-    console.warn('[Employees] Authoritative employee loader is not available.');
-    return DATA.employees || [];
+async function fetchEmployeesDirectly() {
+  const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
+                || (window.MGHRM && window.MGHRM.sb)
+                || window.sb
+                || (typeof sb !== 'undefined' ? sb : null);
+
+  if (!sbClient) {
+    console.warn('[Employees] Supabase client not initialized yet');
+    return null;
   }
-  return window.MGHRM.reloadEmployees({ render: options.render !== false, reason: options.reason || 'compatibility-reload', syncRecruitment: false, silent: !!options.silent });
+
+  try {
+    const { data, error } = await sbClient
+      .from('employees')
+      .select('*')
+      .is('deleted_at', null)
+      .order('id', { ascending: true });
+
+    if (error) {
+      console.warn('[Employees] Supabase fetch warning:', error.message || error);
+      window.mgLoadState.employees = 'error';
+      return null;
+    }
+
+    if (Array.isArray(data)) {
+      window.mgLoadState.employees = 'ok';
+      console.log('[Employees] Direct Supabase fetch retrieved ' + data.length + ' records');
+      DATA.employees = data.map(normEmployee);
+      if (window.MGHRM && typeof window.MGHRM.captureBaseline === 'function') {
+        window.MGHRM.captureBaseline({ employees: DATA.employees });
+      }
+      if (typeof syncRecruitmentFromEmployees === 'function') {
+        syncRecruitmentFromEmployees();
+      }
+      return DATA.employees;
+    }
+  } catch (err) {
+    console.warn('[Employees] Network offline / Failed to fetch handled gracefully:', err.message || err);
+  }
+  return null;
 }
 window.fetchEmployeesDirectly = fetchEmployeesDirectly;
 
@@ -4047,39 +4171,177 @@ window.fetchMeetingAttendance = fetchMeetingAttendance;
 window.fetchMeetingAttendanceDirectly = fetchMeetingAttendance;
 
 function handleEmployeeRealtimeUpdate(payload) {
-  if (window.MGHRM && typeof window.MGHRM.handleEmployeeRealtimeEvent === 'function') return window.MGHRM.handleEmployeeRealtimeEvent(payload);
+  if (!payload || payload.table !== 'employees') return;
+  if (window.MGHRM && typeof window.MGHRM.isSelfEcho === 'function' && window.MGHRM.isSelfEcho(payload.table)) {
+    return;
+  }
+  const eventType = payload.eventType;
+  const newRow = payload.new;
+  const oldRow = payload.old;
+
+  if (!Array.isArray(DATA.employees)) DATA.employees = [];
+
+  if (eventType === 'DELETE' || (newRow && newRow.deleted_at != null)) {
+    const delId = (oldRow && (oldRow.id != null ? oldRow.id : oldRow.employee_id)) || (newRow && (newRow.id != null ? newRow.id : newRow.employee_id));
+    DATA.employees = DATA.employees.filter(e => String(e.id) !== String(delId) && String(e.EmployeeID) !== String(delId));
+  } else if (eventType === 'INSERT') {
+    const norm = normEmployee(newRow);
+    const exists = DATA.employees.some(e => (norm.id != null && String(e.id) === String(norm.id)) || (norm.EmployeeID && String(e.EmployeeID) === String(norm.EmployeeID)));
+    if (!exists) {
+      DATA.employees.push(norm);
+      DATA.employees.sort((a, b) => (+a.id || 0) - (+b.id || 0));
+    }
+  } else if (eventType === 'UPDATE') {
+    const norm = normEmployee(newRow);
+    const idx = DATA.employees.findIndex(e => (norm.id != null && String(e.id) === String(norm.id)) || (norm.EmployeeID && String(e.EmployeeID) === String(norm.EmployeeID)));
+    if (idx !== -1) {
+      if(DATA.employees[idx]) DATA.employees[idx] = Object.assign({}, DATA.employees[idx], norm);
+    } else {
+      DATA.employees.push(norm);
+      DATA.employees.sort((a, b) => (+a.id || 0) - (+b.id || 0));
+    }
+  }
+
+  // Refresh filter options if project or designation list updated
+  if (typeof mgEmpFiltFill === 'function') {
+    const projs = usageSortedProjects([...new Set(DATA.employees.map(e => e.ProjectName).filter(Boolean))], projectUsageCounts());
+    mgEmpFiltFill('project', projs, true);
+    if (typeof usageSortedOptions === 'function' && typeof DESIGNATIONS !== 'undefined') {
+      mgEmpFiltFill('desig', usageSortedOptions(DESIGNATIONS, desigUsageCounts()), true);
+    }
+    if (typeof mgEmpFiltBind === 'function') mgEmpFiltBind();
+  } else {
+    const projFilter = document.getElementById('empProjectFilter');
+    if (projFilter && projFilter.tagName === 'SELECT') {
+      const currVal = projFilter.value;
+      const projs = usageSortedProjects([...new Set(DATA.employees.map(e => e.ProjectName).filter(Boolean))], projectUsageCounts());
+      projFilter.innerHTML = `<option value="">All Projects</option>` + projs.map(p => `<option value="${p}">${p}</option>`).join('');
+      projFilter.value = currVal;
+    }
+  }
+
+  if (window.MGHRM && typeof window.MGHRM.scheduleRefresh === 'function') {
+    window.MGHRM.scheduleRefresh();
+  } else {
+    if (currentPage === 'employees') renderEmpTable();
+    if (typeof updateNotifBadge === 'function') updateNotifBadge();
+  }
 }
 window.handleEmployeeRealtimeUpdate = handleEmployeeRealtimeUpdate;
 
 function ensureEmployeesRealtime() {
-  if (window.MGHRM && typeof window.MGHRM.subscribeRealtime === 'function') return window.MGHRM.subscribeRealtime();
-  return null;
+  if (window.MGHRM && typeof window.MGHRM.subscribeRealtime === 'function') {
+    return window.MGHRM.subscribeRealtime();
+  }
+  if (typeof subscribeRealtime === 'function') {
+    return subscribeRealtime();
+  }
 }
 window.ensureEmployeesRealtime = ensureEmployeesRealtime;
 
 async function deleteEmployeeDirectly(empKey) {
   if (!guardEdit()) return;
-  const employee = findEmp(empKey);
-  if (!employee || employee.id == null) { toast('Employee system ID was not found. Reload and try again.', 'error'); return; }
-  const displayName = employee.FullName || employee.full_name || 'Employee';
-  const displayCode = employee.EmployeeID || employee.employee_id || 'Not assigned';
-  const confirmTitle = 'Archive Employee';
-  const confirmMsg = `Archive "${displayName}" (issued ID: ${displayCode})?\n\nThe employee will be removed from active lists, while transfer, exit, attendance, uniform and other historical records remain preserved.`;
-  const doArchive = async function() {
+  const e = findEmp(empKey);
+  if (!e) {
+    toast('কর্মী খুঁজে পাওয়া যায়নি।', 'error');
+    return;
+  }
+
+  const empDisplayName = e.FullName || e.full_name || e.EmployeeName || '';
+  const empDisplayId = e.id || e.EmployeeID || e.employee_id || '';
+
+  const confirmTitle = 'কর্মী স্থায়ীভাবে ডিলিট';
+  const confirmMsg = `আপনি কি নিশ্চিত যে কর্মী "${empDisplayName}" (আইডি: ${empDisplayId})-কে চিরতরে মুছে ফেলতে চান?\n\nএটি নিশ্চিত করলে কর্মীর যাবতীয় তথ্য ডাটাবেস ও সফটওয়্যার থেকে স্থায়ীভাবে মুছে যাবে।`;
+
+  const doDelete = async function() {
+    const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
+                  || (window.MGHRM && window.MGHRM.sb)
+                  || window.sb
+                  || (typeof sb !== 'undefined' ? sb : null);
+
+    function getDeleteErrorMessage(err) {
+      const msg = ((err && err.message) || String(err || '')).toLowerCase();
+      const code = (err && err.code) || '';
+      if (code === '42501' || msg.includes('permission') || msg.includes('row-level security') || msg.includes('policy') || msg.includes('unauthorized') || msg.includes('forbidden')) {
+        return 'আপনার এই কর্মীর রেকর্ড ডিলিট করার অনুমতি নেই (Permission Denied)।';
+      }
+      if (code === '23503' || msg.includes('foreign key') || msg.includes('violates foreign key constraint') || msg.includes('referential integrity')) {
+        return 'সম্পর্কিত অন্যান্য ডাটা বিদ্যমান থাকায় এই রেকর্ডটি ডিলিট করা সম্ভব হচ্ছে না (Foreign Key Constraint)।';
+      }
+      if (msg.includes('fetch') || msg.includes('network') || msg.includes('failed to fetch') || msg.includes('offline') || msg.includes('timeout') || msg.includes('connection')) {
+        return 'ইন্টারনেট সংযোগের সমস্যা বা নেটওয়ার্ক বিচ্ছিন্ন হওয়ার কারণে রেকর্ডটি ডিলিট করা যায়নি। সংযোগ পরীক্ষা করুন।';
+      }
+      return 'কর্মী ডিলিট করতে সমস্যা হয়েছে: ' + ((err && err.message) || err);
+    }
+
     try {
-      if (!window.MGHRM || typeof window.MGHRM.archiveEmployeeBySystemId !== 'function') throw new Error('Employee archive service is unavailable.');
-      await window.MGHRM.archiveEmployeeBySystemId(employee.id, 'Archived from Employee Management');
-      try { logActivity('archive', 'employees', employee.id, 'Archived employee: ' + displayName); } catch (e) {}
+      const targetId = e.id;
+      const empOfficialId = e.EmployeeID || e.employee_id;
+
+      if (sbClient) {
+        let query = sbClient.from('employees').delete();
+        if (targetId) {
+          query = query.eq('id', targetId);
+        } else if (empOfficialId) {
+          query = query.eq('employee_id', empOfficialId);
+        } else {
+          query = query.eq('id', e.id);
+        }
+
+        const { error } = await query;
+        if (error) {
+          console.error('[Employees] Delete error:', error);
+          toast(getDeleteErrorMessage(error), 'error');
+          return;
+        }
+      }
+
+      // Remove from local in-memory dataset
+      DATA.employees = (DATA.employees || []).filter(x => 
+        (targetId ? String(x.id) !== String(targetId) : true) &&
+        (empOfficialId ? String(x.EmployeeID) !== String(empOfficialId) && String(x.employee_id) !== String(empOfficialId) : true)
+      );
+
+      // Clean up in-memory relations if any
+      if (DATA.transfers) {
+        DATA.transfers = DATA.transfers.filter(t => (targetId ? String(t.employee_sys_id) !== String(targetId) : true) && (empOfficialId ? String(t.EmployeeID) !== String(empOfficialId) : true));
+      }
+      if (DATA.disciplinary) {
+        DATA.disciplinary = DATA.disciplinary.filter(d => (targetId ? String(d.employee_sys_id) !== String(targetId) : true) && (empOfficialId ? String(d.EmployeeID) !== String(empOfficialId) : true));
+      }
+      if (DATA.exits) {
+        DATA.exits = DATA.exits.filter(x => (targetId ? String(x.employee_sys_id) !== String(targetId) : true) && (empOfficialId ? String(x.EmployeeID) !== String(empOfficialId) : true));
+      }
+      if (DATA.leaves) {
+        DATA.leaves = DATA.leaves.filter(l => (targetId ? String(l.employee_sys_id) !== String(targetId) : true));
+      }
+
+      if (typeof persist === 'function') persist();
+      if (window.MGHRM && typeof window.MGHRM.captureBaseline === 'function') {
+        window.MGHRM.captureBaseline({ employees: DATA.employees });
+      }
+
       closeModal();
-      toast(`Employee "${displayName}" was archived. Historical records were preserved.`, 'success');
+      toast(`কর্মী "${empDisplayName}" সফলভাবে ডাটাবেস ও সিস্টেম থেকে ডিলিট করা হয়েছে`, 'success');
+
+      if (typeof fetchEmployeesDirectly === 'function') {
+        await fetchEmployeesDirectly();
+      }
+      if (typeof renderEmpTable === 'function') {
+        renderEmpTable();
+      }
       if (typeof updateNotifBadge === 'function') updateNotifBadge();
     } catch (err) {
-      console.error('[Employees] Archive failed:', err);
-      toast(err && err.message ? err.message : 'Employee archive failed.', 'error');
+      console.error('[Employees] Error permanently deleting employee:', err);
+      toast(getDeleteErrorMessage(err), 'error');
     }
   };
-  if (typeof window.mtCustomConfirm === 'function') window.mtCustomConfirm(confirmTitle, confirmMsg, 'danger', doArchive);
-  else if (typeof confirm === 'function' && confirm(confirmMsg)) doArchive();
+
+  if (typeof window.mtCustomConfirm === 'function') {
+    window.mtCustomConfirm(confirmTitle, confirmMsg, 'danger', doDelete);
+  } else if (typeof confirm === 'function' && confirm(confirmMsg)) {
+    doDelete();
+  }
 }
 window.deleteEmployeeDirectly = deleteEmployeeDirectly;
 
@@ -4374,6 +4636,7 @@ async function renderEmployees(){
               <option value="All">All Statuses</option>
               <option value="Active" selected>Active</option>
               <option value="Inactive">Inactive</option>
+              <option value="Exited">Exited</option>
               <option value="Candidate">Candidate</option>
               <option value="Application Rejected">Application Rejected</option>
             </select>
@@ -10691,66 +10954,19 @@ function promptReactivate(empKey, exitId){
   `);
 }
 
-async function confirmReactivate(empKey, exitId){
+async function confirmReactivate(empId, exitId){
   if(!guardEdit()) return;
-  const sel = document.getElementById('reactivateProj');
-  const newProj = sel ? sel.value : '';
-  const newJoinDate = document.getElementById('reactivateJoinDate')?.value || new Date().toISOString().split('T')[0];
-  if(!newProj){ toast('Please select a project', 'error'); return; }
-  if(!newJoinDate){ toast('Please select a new join date', 'error'); return; }
-
-  const emp = findEmp(empKey);
-  if(!emp) { toast('Employee not found', 'error'); return; }
-
-  try {
-    emp.Status = 'Active';
-    emp.ProjectName = newProj;
-    emp.JoinDate = newJoinDate;
-    if (typeof toBnDigits === 'function') {
-      emp.JoinDateBangla = toBnDigits(newJoinDate);
-    }
-    delete emp.ExitDate;
-    delete emp.ExitReason;
-
-    if (window.sb) {
-      const { error: empErr } = await window.sb.from('employees').update({
-        status: 'Active',
-        project_name: newProj,
-        join_date: newJoinDate,
-        exit_date: null,
-        exit_reason: null
-      }).eq('id', emp.id || emp.EmployeeID);
-
-      if (empErr) throw empErr;
-
-      if (exitId) {
-        DATA.exits = DATA.exits.filter(x => String(x.ExitID || x.id) !== String(exitId));
-        const _exitPayload = { deleted_at: new Date().toISOString() };
-        const _cu2 = (window.MGHRM && typeof window.MGHRM.currentUser === 'function') ? window.MGHRM.currentUser() : null;
-        if (_cu2 && _cu2.id) _exitPayload.deleted_by = _cu2.id;
-        await window.sb.from('exits').update(_exitPayload).eq('id', String(exitId));
-      }
-    }
-
-    if (window.MGHRM && typeof window.MGHRM.loadAll === 'function') {
-      const freshData = await window.MGHRM.loadAll();
-      if (freshData) {
-        Object.keys(freshData).forEach(k => {
-          if (Array.isArray(freshData[k])) {
-            window.DATA[k] = freshData[k];
-          }
-        });
-      }
-    }
-
-    logActivity('update','employees',emp.id || emp.EmployeeID,`Reactivated and assigned to ${newProj}`);
-    toast(`${emp.FullName} reactivated successfully`,'success');
-    closeModal();
-    if (typeof refreshAll === 'function') refreshAll();
-  } catch (err) {
-    console.error(err);
-    toast('Reactivation failed: ' + (err.message || err), 'error');
-  }
+  const employee=findEmp(empId); if(!employee || employee.id==null) return toast('Employee system ID is missing.','error');
+  const project=document.getElementById('reactivateProj')?.value;
+  const joinDate=document.getElementById('reactivateJoinDate')?.value;
+  if(!project||!joinDate) return toast('Project and new joining date are required.','error');
+  try{
+    await window.MGHRM.reactivateEmployee(employee.id,joinDate,project,'Reactivated from Employee Exit screen');
+    if(window.MGHRM.reloadExits) DATA.exits=await window.MGHRM.reloadExits();
+    if(typeof fetchEmployeesDirectly==='function') await fetchEmployeesDirectly();
+    closeModal(); toast(`${employee.FullName} reactivated successfully`,'success');
+    if(typeof renderExit==='function') renderExit();
+  }catch(err){ console.error('[Reactivation] failed:',err); toast('Reactivation failed: '+(err.message||err),'error'); }
 }
 function deleteExit(eid){
   if(!guardEdit()) return;
@@ -10770,122 +10986,28 @@ window.confirmReactivate = confirmReactivate;
 window.deleteExit = deleteExit;
 async function submitExit(){
   if(typeof guardEdit === 'function' && !guardEdit()) return;
-  const rid = document.getElementById('exEmp').value;
-  const d   = document.getElementById('exDate').value;
-  const r   = document.getElementById('exReason').value;
-  if(!rid||!d||!r){ toast('Fill all required fields','error'); return; }
-  
-  const btn = document.getElementById('btnSubmitExit') || (typeof event !== 'undefined' && event && event.target ? event.target : null);
-  window.mtCustomConfirm("Employee Exit", "Are you sure you want to save this exit record?", "danger", async function() {
-    if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
-
-    let e = (typeof assertActiveEmp === 'function' ? assertActiveEmp(rid) : null) || findEmp(rid);
-    if(!e && window.MGHRM && typeof window.MGHRM.fetchEmployeeById === 'function') {
-      try { e = await window.MGHRM.fetchEmployeeById(rid); } catch(_) {}
-    }
-    if(!e){ 
-      if (btn) { btn.disabled = false; btn.innerHTML = 'Mark as Exited'; }
-      toast('Employee not found or inactive', 'error'); 
-      return; 
-    }
-
-    // 1. Snapshot original state
-    const origEmpStatus = e.Status;
-    const origEmpStatusLower = e.status;
-    const origExitDate = e.ExitDate || e.exit_date;
-    const origExitReason = e.ExitReason || e.exit_reason;
-
-    const issueVal = document.getElementById('exIssue')?.value || todayISO();
-    const payloadWithoutId = {
-      employee_sys_id: e.id,
-      employee_id: String(e.EmployeeID || e.id || ''),
-      full_name: e.FullName || '',
-      designation: e.Designation || '',
-      current_project: e.ProjectName || '',
-      join_date: e.JoinDate || '',
-      exit_reason: r,
-      exit_date: d,
-      issue_date: issueVal
-    };
-
-    let savedExitRecord = null;
-
-    try {
-      if (window.sb) {
-        const { data: insertedData, error: insertErr } = await window.sb.rpc('commit_exit', { p_exit: payloadWithoutId });
-        if (insertErr) throw insertErr;
-
-        savedExitRecord = (Array.isArray(insertedData) ? insertedData[0] : insertedData) || null;
-        if (!savedExitRecord) {
-          throw new Error('Failed to retrieve inserted exit record');
-        }
-
-        // Normalize UI aliases
-        savedExitRecord.ExitID = String(savedExitRecord.id);
-        savedExitRecord.EmployeeID = savedExitRecord.employee_id || String(e.EmployeeID || e.id || '');
-        savedExitRecord.FullName = savedExitRecord.full_name || e.FullName || '';
-        savedExitRecord.Designation = savedExitRecord.designation || e.Designation || '';
-        savedExitRecord.CurrentProject = savedExitRecord.current_project || e.ProjectName || '';
-        savedExitRecord.JoinDate = savedExitRecord.join_date || e.JoinDate || '';
-        savedExitRecord.ExitDate = savedExitRecord.exit_date || d;
-        savedExitRecord.ExitReason = savedExitRecord.exit_reason || r;
-        savedExitRecord.IssueDate = savedExitRecord.issue_date || issueVal;
-      } else {
-        const localId = Date.now();
-        savedExitRecord = Object.assign({
-          id: localId,
-          ExitID: String(localId),
-          EmployeeID: String(e.EmployeeID || e.id || ''),
-          FullName: e.FullName || '',
-          Designation: e.Designation || '',
-          CurrentProject: e.ProjectName || '',
-          JoinDate: e.JoinDate || '',
-          ExitDate: d,
-          ExitReason: r,
-          IssueDate: issueVal,
-          created_at: new Date().toISOString()
-        }, payloadWithoutId);
-      }
-
-      // 2. Update local state with direct array reassignment (bypasses proxy auto-insert trap)
-      window.DATA.exits = [savedExitRecord, ...(window.DATA.exits || [])];
-
-      // 3. Update employee status
-      e.Status = 'Inactive';
-      e.status = 'Inactive';
-      e.ExitDate = d;
-      e.exit_date = d;
-      e.ExitReason = r;
-      e.exit_reason = r;
-
-      // 4. Finally, sync other changes safely (no race condition)
-      await persist();
-
-      const recordIdStr = String(savedExitRecord.id || savedExitRecord.ExitID);
-      if (typeof logActivity === 'function') logActivity('create','exits',recordIdStr,`${e.FullName} marked as Inactive (${r})`);
-      toast(`${e.FullName} marked as Inactive`,'success');
-      if (typeof closeModal === 'function') closeModal();
-      if (typeof renderExit === 'function') renderExit();
-      if (typeof renderEmpTable === 'function') renderEmpTable();
-      if (typeof refreshAll === 'function') refreshAll();
-    } catch(err) {
-      // Rollback to Snapshot
-      if (savedExitRecord) {
-        DATA.exits = DATA.exits.filter(x => String(x.id || x.ExitID) !== String(savedExitRecord.id || savedExitRecord.ExitID));
-      }
-      e.Status = origEmpStatus;
-      e.status = origEmpStatusLower;
-      e.ExitDate = origExitDate;
-      e.exit_date = origExitDate;
-      e.ExitReason = origExitReason;
-      e.exit_reason = origExitReason;
-      console.error('Exit Processing Sync Error:', err);
-      toast('Sync failed: ' + (err.message || err), 'error');
-      if (typeof renderExit === 'function') renderExit();
-      if (typeof renderEmpTable === 'function') renderEmpTable();
-    } finally {
-      if (btn) { btn.disabled = false; btn.innerHTML = 'Mark as Exited'; }
-    }
+  const rid=document.getElementById('exEmp')?.value;
+  const exitDate=document.getElementById('exDate')?.value;
+  const exitReason=document.getElementById('exReason')?.value;
+  if(!rid||!exitDate||!exitReason){ toast('Fill all required fields','error'); return; }
+  const employee=findEmp(rid);
+  if(!employee || employee.id==null){ toast('Active employee with a System ID was not found.','error'); return; }
+  const button=document.getElementById('btnSubmitExit');
+  window.mtCustomConfirm('Employee Exit','Complete this exit and set the employee status to Exited?','danger',async function(){
+    if(button){ button.disabled=true; button.innerHTML='Saving...'; }
+    try{
+      const payload={ employee_sys_id: employee.id, employee_id: employee.EmployeeID||'', full_name: employee.FullName||'', designation: employee.Designation||'', current_project: employee.ProjectName||'', join_date: employee.JoinDate||'', exit_reason: exitReason, exit_type: 'Other', exit_date: exitDate, effective_exit_date: exitDate, issue_date: document.getElementById('exIssue')?.value||todayISO() };
+      const result=await window.MGHRM.createExitDraft(payload);
+      const exitId=Number(result?.exit?.id);
+      if(!exitId) throw new Error('Exit draft was not returned by the server.');
+      await window.MGHRM.completeExit(exitId,exitDate,'Other',exitReason,'Completed from Employee Exit form');
+      if(window.MGHRM.reloadExits) DATA.exits=await window.MGHRM.reloadExits();
+      if(typeof fetchEmployeesDirectly==='function') await fetchEmployeesDirectly();
+      closeModal(); toast(`${employee.FullName} marked as Exited`,'success');
+      if(typeof renderExit==='function') renderExit();
+      if(typeof renderEmpTable==='function') renderEmpTable();
+    }catch(err){ console.error('[Exit] completion failed:',err); toast('Exit failed: '+(err.message||err),'error'); }
+    finally{ if(button){ button.disabled=false; button.innerHTML='Mark as Exited'; } }
   });
 }
 window.submitExit = submitExit;
@@ -20249,9 +20371,150 @@ function buildAddressCascade(containerId, initial, onChange){
   };
 }
 window.buildAddressCascade = buildAddressCascade;
-applyScheduledTransfers().catch(function(e){ console.warn('[autoTransfer] boot run failed:', e); });
-setInterval(function(){ if(!document.hidden) applyScheduledTransfers().catch(function(){}); }, 300000);
-window.addEventListener('focus', function(){ applyScheduledTransfers().catch(function(){}); });
+/* =====================================================================
+   PHASE 2 - TRANSFER JOINING ACTION QUEUE AND EXITED STATUS INTEGRATION
+   ===================================================================== */
+window.MG_TRANSFER_QUEUE = window.MG_TRANSFER_QUEUE || [];
+
+function phase2Esc(v){ return (typeof escapeHtml === 'function') ? escapeHtml(String(v == null ? '' : v)) : String(v == null ? '' : v); }
+function phase2Date(v){ return v ? (typeof fmtDate === 'function' ? fmtDate(v) : String(v)) : '—'; }
+
+async function loadTransferActionQueue(){
+  if (!window.MGHRM || typeof window.MGHRM.loadTransferActionQueue !== 'function') return [];
+  try {
+    const rows = await window.MGHRM.loadTransferActionQueue();
+    window.MG_TRANSFER_QUEUE = Array.isArray(rows) ? rows : [];
+    return window.MG_TRANSFER_QUEUE;
+  } catch (err) {
+    console.warn('[Phase 2] Transfer action queue load failed:', err);
+    return window.MG_TRANSFER_QUEUE || [];
+  }
+}
+window.loadTransferActionQueue = loadTransferActionQueue;
+
+function transferActionQueueHtml(rows){
+  rows = Array.isArray(rows) ? rows : [];
+  if (!rows.length) return '';
+  const overdue = rows.filter(r => Number(r.overdue_days || 0) > 0 && r.queue_status !== 'Not Joined').length;
+  const notJoined = rows.filter(r => r.queue_status === 'Not Joined').length;
+  return `<div class="card" style="margin:16px 0;border:2px solid ${overdue || notJoined ? 'var(--danger)' : 'var(--warning)'}">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+      <div><h3 style="margin:0">Transfer Joining Confirmation Required</h3><span class="sub">${rows.length} action${rows.length===1?'':'s'} pending${overdue ? ` · ${overdue} overdue` : ''}${notJoined ? ` · ${notJoined} not joined` : ''}</span></div>
+      <button type="button" class="btn" onclick="navigate('transfer')">Open Transfers</button>
+    </div>
+    <div class="card-body" style="display:grid;gap:10px">
+      ${rows.slice(0,8).map(r => `<div style="border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
+        <div><strong>${phase2Esc(r.full_name || 'Employee')}</strong> <span class="small-mute">System ID ${phase2Esc(r.employee_sys_id)}</span><br>
+          <span class="small-mute">${phase2Esc(r.current_project || 'Unassigned')} → ${phase2Esc(r.new_project || '')}</span><br>
+          <span class="small-mute">Effective ${phase2Date(r.effective_date)}${Number(r.overdue_days||0)>0 ? ` · <b style="color:var(--danger)">${r.overdue_days} day(s) overdue</b>` : ''}</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${r.queue_status === 'Not Joined'
+            ? `<button class="btn" onclick="openNotJoinedFollowUp(${Number(r.transfer_id)})">Resolve Not Joined</button>`
+            : `<button class="btn success" onclick="openConfirmTransferJoining(${Number(r.transfer_id)})">Confirm Joined</button><button class="btn danger" onclick="openMarkTransferNotJoined(${Number(r.transfer_id)})">Not Joined</button>`}
+        </div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+window.transferActionQueueHtml = transferActionQueueHtml;
+
+async function phase2RefreshTransferState(){
+  try { if (window.MGHRM.reloadTransfers) DATA.transfers = await window.MGHRM.reloadTransfers(); } catch(e){}
+  try { if (typeof fetchEmployeesDirectly === 'function') await fetchEmployeesDirectly({ render:false, reason:'phase2-transfer' }); } catch(e){}
+  await loadTransferActionQueue();
+  try { if (currentPage === 'dashboard') await renderDashboard(); else if (currentPage === 'transfer') renderTransfer(); } catch(e){}
+}
+
+function openConfirmTransferJoining(transferId){
+  const row = (window.MG_TRANSFER_QUEUE || []).find(r => String(r.transfer_id) === String(transferId));
+  const date = row && row.effective_date ? String(row.effective_date).slice(0,10) : new Date().toISOString().slice(0,10);
+  openModal('Confirm Destination Joining', `<div class="form-grid">
+    <div class="form-group"><label>Employee</label><input value="${phase2Esc(row && row.full_name)}" disabled></div>
+    <div class="form-group"><label>Destination Project</label><input value="${phase2Esc(row && row.new_project)}" disabled></div>
+    <div class="form-group"><label>Actual Joining Date *</label><input id="p2JoinDate" type="date" value="${phase2Esc(date)}"></div>
+    <div class="form-group full"><label>Remarks</label><textarea id="p2JoinRemarks" rows="3"></textarea></div>
+  </div>`, `<button class="btn" onclick="closeModal()">Cancel</button><button class="btn success" onclick="confirmTransferJoined(${Number(transferId)})">Confirm Joined</button>`);
+}
+window.openConfirmTransferJoining = openConfirmTransferJoining;
+
+async function confirmTransferJoined(transferId){
+  if (!guardEdit()) return;
+  const date = document.getElementById('p2JoinDate')?.value;
+  const remarks = document.getElementById('p2JoinRemarks')?.value || '';
+  if (!date) return toast('Actual joining date is required.', 'error');
+  try {
+    await window.MGHRM.confirmTransferJoining(transferId, date, remarks);
+    closeModal(); toast('Destination joining confirmed and employee project updated.', 'success');
+    await phase2RefreshTransferState();
+  } catch(err) { toast('Joining confirmation failed: ' + (err.message || err), 'error'); }
+}
+window.confirmTransferJoined = confirmTransferJoined;
+
+function openMarkTransferNotJoined(transferId){
+  openModal('Mark Transfer as Not Joined', `<div class="form-grid">
+    <div class="form-group full"><label>Reason *</label><select id="p2NotJoinedReason"><option value="">Select reason</option><option>Employee Refused</option><option>Employee Unreachable</option><option>Continued at Previous Project</option><option>Released but Did Not Join</option><option>Resigned</option><option>Absconded</option><option>Medical Issue</option><option>Management Decision</option><option>Other</option></select></div>
+    <div class="form-group full"><label>Remarks</label><textarea id="p2NotJoinedRemarks" rows="3"></textarea></div>
+  </div>`, `<button class="btn" onclick="closeModal()">Cancel</button><button class="btn danger" onclick="markTransferNotJoinedUI(${Number(transferId)})">Not Joined</button>`);
+}
+window.openMarkTransferNotJoined = openMarkTransferNotJoined;
+
+async function markTransferNotJoinedUI(transferId){
+  if (!guardEdit()) return;
+  const reason = document.getElementById('p2NotJoinedReason')?.value;
+  const remarks = document.getElementById('p2NotJoinedRemarks')?.value || '';
+  if (!reason) return toast('Not-joined reason is required.', 'error');
+  try {
+    await window.MGHRM.markTransferNotJoined(transferId, reason, remarks);
+    closeModal(); toast('Transfer marked Not Joined. Select a follow-up action.', 'success');
+    await phase2RefreshTransferState(); openNotJoinedFollowUp(transferId);
+  } catch(err) { toast('Could not mark Not Joined: ' + (err.message || err), 'error'); }
+}
+window.markTransferNotJoinedUI = markTransferNotJoinedUI;
+
+function openNotJoinedFollowUp(transferId){
+  const row = (window.MG_TRANSFER_QUEUE || []).find(r => String(r.transfer_id) === String(transferId));
+  openModal('Resolve Not Joined Transfer', `<div class="alert warning" style="margin-bottom:12px">Employee project remains unchanged until a follow-up action is completed.</div>
+    <p><strong>${phase2Esc(row && row.full_name)}</strong></p><p class="small-mute">${phase2Esc(row && row.current_project)} → ${phase2Esc(row && row.new_project)}</p>`,
+    `<button class="btn" onclick="openRescheduleTransfer(${Number(transferId)})">Reschedule</button><button class="btn danger" onclick="openCancelTransfer(${Number(transferId)})">Cancel Transfer</button><button class="btn primary" onclick="startExitFromTransfer(${Number(transferId)})">Start Exit Process</button>`);
+}
+window.openNotJoinedFollowUp = openNotJoinedFollowUp;
+
+function openCancelTransfer(transferId){
+  openModal('Cancel Transfer', `<div class="form-group"><label>Cancellation Reason *</label><textarea id="p2CancelReason" rows="4"></textarea></div>`, `<button class="btn" onclick="closeModal()">Back</button><button class="btn danger" onclick="cancelTransferUI(${Number(transferId)})">Cancel Transfer</button>`);
+}
+async function cancelTransferUI(transferId){
+  const reason = document.getElementById('p2CancelReason')?.value.trim(); if(!reason) return toast('Cancellation reason is required.','error');
+  try { await window.MGHRM.cancelTransfer(transferId, reason); closeModal(); toast('Transfer cancelled. Employee remains at the previous project.','success'); await phase2RefreshTransferState(); } catch(err){ toast('Cancellation failed: '+(err.message||err),'error'); }
+}
+window.openCancelTransfer=openCancelTransfer; window.cancelTransferUI=cancelTransferUI;
+
+function openRescheduleTransfer(transferId){
+  openModal('Reschedule Transfer', `<div class="form-grid"><div class="form-group"><label>New Effective Date *</label><input id="p2RescheduleDate" type="date"></div><div class="form-group full"><label>Reason *</label><textarea id="p2RescheduleReason" rows="3"></textarea></div></div>`, `<button class="btn" onclick="closeModal()">Back</button><button class="btn primary" onclick="rescheduleTransferUI(${Number(transferId)})">Reschedule</button>`);
+}
+async function rescheduleTransferUI(transferId){
+  const date=document.getElementById('p2RescheduleDate')?.value, reason=document.getElementById('p2RescheduleReason')?.value.trim(); if(!date||!reason) return toast('New date and reason are required.','error');
+  try { await window.MGHRM.rescheduleTransfer(transferId,date,reason); closeModal(); toast('Transfer rescheduled.','success'); await phase2RefreshTransferState(); } catch(err){ toast('Reschedule failed: '+(err.message||err),'error'); }
+}
+window.openRescheduleTransfer=openRescheduleTransfer; window.rescheduleTransferUI=rescheduleTransferUI;
+
+function startExitFromTransfer(transferId){
+  const row=(window.MG_TRANSFER_QUEUE||[]).find(r=>String(r.transfer_id)===String(transferId));
+  closeModal(); navigate('exit');
+  setTimeout(function(){
+    const emp = row && typeof findEmp === 'function' ? findEmp(row.employee_sys_id) : null;
+    if (emp && typeof openExitPopup === 'function') openExitPopup(emp.id);
+    else toast('Open the Exit form for System ID '+(row?row.employee_sys_id:''), 'info');
+  },150);
+}
+window.startExitFromTransfer=startExitFromTransfer;
+
+// Compatibility function retained, but browser automation no longer mutates projects.
+async function applyScheduledTransfers(){ return loadTransferActionQueue(); }
+window.applyScheduledTransfers = applyScheduledTransfers;
+
+loadTransferActionQueue().catch(function(e){ console.warn('[Phase 2] initial queue load failed:', e); });
+window.addEventListener('focus', function(){ loadTransferActionQueue().catch(function(){}); });
 buildNotifications();
 try { if (typeof window.mgReminderTick === 'function') window.mgReminderTick(); } catch(e){}
 if (!window.__mgRemTickTimer){

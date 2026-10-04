@@ -95,7 +95,7 @@
         'main_gate_phone', 'admin_name', 'admin_phone', 'admin_whatsapp',
         'division', 'district', 'thana', 'division_id', 'district_id',
         'upazila_id', 'union_id', 'village', 'street', 'start_date',
-        'status', 'is_active', 'created_at', 'updated_at'
+        'status', 'is_active', 'meeting_attendance_enabled', 'created_at', 'updated_at'
        ],
       map: { 
         'Project ID': 'id',
@@ -111,7 +111,8 @@
         'District': 'district',
         'Thana': 'thana',
         'StartDate': 'start_date',
-        'Status': 'status'
+        'Status': 'status',
+        'MeetingAttendanceEnabled': 'meeting_attendance_enabled'
        }
     },
 
@@ -787,6 +788,10 @@
       parseMeetingRow(row);
     } else if (key === 'meetingAttendance') {
       parseMeetingAttendanceRow(row);
+    } else if (key === 'projects') {
+      var isMt = row.meeting_attendance_enabled !== undefined ? row.meeting_attendance_enabled : out.MeetingAttendanceEnabled;
+      out.MeetingAttendanceEnabled = isMt !== false;
+      out.meeting_attendance_enabled = isMt !== false;
     }
 
     return out;

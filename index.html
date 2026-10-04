@@ -3612,7 +3612,7 @@ function ico(name, size){
     file:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>',
     excel:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg>',
     calendar:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
-    settings:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg>',
+    settings:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
   };
   var res = map[name] || '';
   if(res){
@@ -8621,6 +8621,15 @@ function normProject(row) {
   var status = p.Status || p.status || (row.is_active === false ? 'Closed' : 'Active');
   var isActive = row.is_active !== undefined ? row.is_active : (status !== 'Closed' && status !== 'Inactive');
 
+  var mtEnabled = true;
+  if (p.MeetingAttendanceEnabled !== undefined) {
+    mtEnabled = p.MeetingAttendanceEnabled !== false;
+  } else if (p.meeting_attendance_enabled !== undefined) {
+    mtEnabled = p.meeting_attendance_enabled !== false;
+  } else if (row && row.meeting_attendance_enabled !== undefined) {
+    mtEnabled = row.meeting_attendance_enabled !== false;
+  }
+
   p['Project ID'] = id;
   p.id = id;
   p.ProjectName = name;
@@ -8662,6 +8671,8 @@ function normProject(row) {
   p.Status = status;
   p.status = status;
   p.is_active = isActive;
+  p.MeetingAttendanceEnabled = mtEnabled;
+  p.meeting_attendance_enabled = mtEnabled;
   return p;
 }
 window.normProject = normProject;
@@ -8673,7 +8684,23 @@ function isProjectActive(p){
   var st = p.Status || p.status;
   return !st || (st !== 'Closed' && st !== 'Inactive');
 }
+window.isProjectActive = isProjectActive;
 function activeProjects(){ return (DATA.projects || []).filter(isProjectActive); }
+window.activeProjects = activeProjects;
+
+/* Central resolver for Meeting Attendance Project Scope */
+function isMeetingAttendanceEligible(p){
+  if (!isProjectActive(p)) return false;
+  var mtEnabled = (p.MeetingAttendanceEnabled !== undefined) ? p.MeetingAttendanceEnabled : p.meeting_attendance_enabled;
+  return mtEnabled !== false;
+}
+window.isMeetingAttendanceEligible = isMeetingAttendanceEligible;
+
+function getMeetingEligibleProjects(){
+  return (DATA.projects || []).filter(isMeetingAttendanceEligible);
+}
+window.getMeetingEligibleProjects = getMeetingEligibleProjects;
+
 function projStaffCount(name){
   if (!name) return 0;
   return (DATA.employees || []).filter(function(e){
@@ -8928,6 +8955,9 @@ function openProjectForm(pid){
 function saveProject(existingId){
   const name = document.getElementById('pf_name').value.trim();
   if(!name){ toast('Project Name is required','error'); return; }
+  const existingProj = existingId ? DATA.projects.find(x=>String(x['Project ID'])===String(existingId) || String(x.id)===String(existingId)) : null;
+  const mtEnabled = existingProj ? ((existingProj.MeetingAttendanceEnabled !== undefined ? existingProj.MeetingAttendanceEnabled : existingProj.meeting_attendance_enabled) !== false) : true;
+
   const rec = {
     'Project ID': document.getElementById('pf_id').value.trim(),
     ProjectName: name,
@@ -8947,6 +8977,8 @@ function saveProject(existingId){
     Thana: bdUpzName((document.getElementById('pf_addrCascade_upz')||{}).value),
     StartDate: document.getElementById('pf_start').value,
     Status: document.getElementById('pf_status').value,
+    MeetingAttendanceEnabled: mtEnabled,
+    meeting_attendance_enabled: mtEnabled
   };
   if(rec.UnionID && rec.Village) rememberVillage(rec.UnionID, rec.Village);
   if(existingId){
@@ -8991,7 +9023,8 @@ function saveProject(existingId){
       street: rec.Street || null,
       start_date: rec.StartDate || null,
       status: rec.Status || 'Active',
-      is_active: rec.Status !== 'Closed' && rec.Status !== 'Inactive'
+      is_active: rec.Status !== 'Closed' && rec.Status !== 'Inactive',
+      meeting_attendance_enabled: mtEnabled
     };
     if (existingId) {
       sbClient.from('projects').update(dbPayload).or(`id.eq.${existingId},project_name.eq.${rec.ProjectName}`).then(() => fetchProjectsDirectly()).catch(err => console.warn('[Projects] Update offline/warning:', err));
@@ -13713,20 +13746,332 @@ window.mtSaveEndTime = function(iso, value){
               : 'End time cleared - the submit time will be used', 'info');
 };
 
+/* ============================================================
+   MEETING ATTENDANCE PROJECT SCOPE & SETTINGS
+   ============================================================ */
+window._mtSettingsStaged = {};
+window._mtSettingsOriginal = {};
+window._mtSettingsFilter = 'all';
+window._mtSettingsQuery = '';
+
 function mtActiveProjects(){
-  
-  return (DATA.projects||[])
-    .filter(p=>p.Status!=='Inactive' && p.Status!=='Closed')
-    .map(p=>p.ProjectName)
+  return (typeof getMeetingEligibleProjects === 'function' ? getMeetingEligibleProjects() : (DATA.projects||[]).filter(isProjectActive))
+    .map(p => p.ProjectName || p.project_name)
     .filter(Boolean)
-    .sort((a,b)=>a.localeCompare(b));
+    .sort((a,b) => a.localeCompare(b));
 }
+window.mtActiveProjects = mtActiveProjects;
+
 function mtEligible(){
-  
   const map = {};
-  mtActiveProjects().forEach(p=>{ map[p]=[]; });
+  mtActiveProjects().forEach(p => { map[p] = []; });
   return map;
 }
+window.mtEligible = mtEligible;
+
+window.openMeetingSettingsModal = function(){
+  if (typeof guardEdit === 'function' && !guardEdit()) return;
+
+  const activeList = (DATA.projects || []).filter(isProjectActive);
+  activeList.sort((a,b) => String(a.ProjectName || a.project_name || '').localeCompare(String(b.ProjectName || b.project_name || '')));
+
+  window._mtSettingsStaged = {};
+  window._mtSettingsOriginal = {};
+  window._mtSettingsFilter = 'all';
+  window._mtSettingsQuery = '';
+
+  activeList.forEach(p => {
+    const isInc = (p.MeetingAttendanceEnabled !== undefined ? p.MeetingAttendanceEnabled : p.meeting_attendance_enabled) !== false;
+    const key = String(p.id != null ? p.id : (p['Project ID'] != null ? p['Project ID'] : (p.ProjectName || p.project_name)));
+    window._mtSettingsStaged[key] = isInc;
+    window._mtSettingsOriginal[key] = isInc;
+  });
+
+  const modalHtml = `
+    <div style="font-size:13px;color:var(--text-muted,#64748b);margin-top:-6px;margin-bottom:14px;">
+      Choose which active projects participate in meeting attendance.
+    </div>
+
+    <div id="mtSettingsSummaryBar" style="display:flex;gap:14px;align-items:center;background:var(--bg-dim,#f8fafc);padding:10px 14px;border-radius:8px;border:1px solid var(--border,#e2e8f0);margin-bottom:12px;font-size:12.5px;flex-wrap:wrap;">
+      <span>Active Projects: <strong id="mtSettingsActiveCnt" style="color:var(--text,#0f172a);font-size:13.5px;">${activeList.length}</strong></span>
+      <span style="color:var(--border-strong,#cbd5e1);">|</span>
+      <span>Included: <strong id="mtSettingsIncCnt" style="color:var(--success,#059669);font-size:13.5px;">0</strong></span>
+      <span style="color:var(--border-strong,#cbd5e1);">|</span>
+      <span>Hidden: <strong id="mtSettingsHidCnt" style="color:var(--danger,#dc2626);font-size:13.5px;">0</strong></span>
+    </div>
+
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+      <div style="flex:1;min-width:200px;position:relative;">
+        <input id="mtSettingsSearch" type="search" placeholder="Search projects" autocomplete="off"
+               oninput="window.mtSettingsOnSearch(this.value)"
+               style="width:100%;padding:7px 12px;border:1px solid var(--border,#cbd5e1);border-radius:6px;font-size:13px;background:var(--card,#fff);color:var(--text,#0f172a);box-sizing:border-box;">
+      </div>
+      <div id="mtSettingsFilterChips" style="display:flex;gap:4px;">
+        <button type="button" class="btn sm mt-set-chip active" data-f="all" onclick="window.mtSettingsSetFilter('all')" style="padding:4px 10px;font-size:11.5px;font-weight:600;">All</button>
+        <button type="button" class="btn sm mt-set-chip" data-f="included" onclick="window.mtSettingsSetFilter('included')" style="padding:4px 10px;font-size:11.5px;font-weight:600;">Included</button>
+        <button type="button" class="btn sm mt-set-chip" data-f="hidden" onclick="window.mtSettingsSetFilter('hidden')" style="padding:4px 10px;font-size:11.5px;font-weight:600;">Hidden</button>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:11.5px;">
+      <span id="mtSettingsMatchCount" style="color:var(--text-muted,#64748b);">Showing ${activeList.length} projects</span>
+      <div style="display:flex;gap:6px;">
+        <button type="button" class="btn ghost sm" onclick="window.mtSettingsBulk(true)" style="padding:3px 8px;font-size:11px;border:1px solid var(--border,#cbd5e1);">Include All Active Projects</button>
+        <button type="button" class="btn ghost sm" onclick="window.mtSettingsBulk(false)" style="padding:3px 8px;font-size:11px;border:1px solid var(--border,#cbd5e1);">Hide Filtered</button>
+      </div>
+    </div>
+
+    <div id="mtSettingsList" style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:8px;background:var(--bg,#f8fafc);">
+    </div>
+  `;
+
+  openModal({
+    title: 'Meeting Attendance Settings',
+    body: modalHtml,
+    actions: `
+      <button type="button" class="btn" onclick="closeModal()">Cancel</button>
+      <button type="button" id="btnSaveMeetingSettings" class="btn primary disabled" disabled style="opacity:0.5;cursor:not-allowed;font-weight:700;" onclick="window.mtSettingsSave()">Save Changes</button>
+    `
+  });
+
+  window.mtSettingsRenderList();
+  window.mtSettingsUpdateCounts();
+};
+
+window.mtSettingsRenderList = function(){
+  const container = document.getElementById('mtSettingsList');
+  if (!container) return;
+
+  const activeList = (DATA.projects || []).filter(isProjectActive);
+  activeList.sort((a,b) => String(a.ProjectName || a.project_name || '').localeCompare(String(b.ProjectName || b.project_name || '')));
+
+  const q = String(window._mtSettingsQuery || '').toLowerCase().trim();
+  const f = window._mtSettingsFilter || 'all';
+
+  const filtered = activeList.filter(p => {
+    const key = String(p.id != null ? p.id : (p['Project ID'] != null ? p['Project ID'] : (p.ProjectName || p.project_name)));
+    const isInc = window._mtSettingsStaged[key] !== false;
+
+    if (f === 'included' && !isInc) return false;
+    if (f === 'hidden' && isInc) return false;
+
+    if (q) {
+      const name = String(p.ProjectName || p.project_name || '').toLowerCase();
+      const nameBn = String(p.ProjectNameBangla || p.project_name_bn || '').toLowerCase();
+      const code = String(p.id || p['Project ID'] || '').toLowerCase();
+      const admin = String(p['Admin Name'] || p.admin_name || '').toLowerCase();
+      const div = String(p.Division || p.division || '').toLowerCase();
+      const dist = String(p.District || p.district || '').toLowerCase();
+      const thana = String(p.Thana || p.thana || '').toLowerCase();
+      const hay = `${name} ${nameBn} ${code} ${admin} ${div} ${dist} ${thana}`;
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const countEl = document.getElementById('mtSettingsMatchCount');
+  if (countEl) {
+    countEl.textContent = `Showing ${filtered.length} of ${activeList.length} active projects`;
+  }
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div style="text-align:center;padding:32px 16px;color:var(--text-muted,#64748b);font-size:13px;">
+        No active projects match the selected filter / search.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = filtered.map(p => {
+    const key = String(p.id != null ? p.id : (p['Project ID'] != null ? p['Project ID'] : (p.ProjectName || p.project_name)));
+    const isInc = window._mtSettingsStaged[key] !== false;
+    const pName = p.ProjectName || p.project_name || '—';
+    const pNameBn = p.ProjectNameBangla || p.project_name_bn || '';
+    const staffCount = typeof projStaffCount === 'function' ? projStaffCount(pName) : 0;
+    const loc = [p.District || p.district, p.Thana || p.thana].filter(Boolean).join(', ');
+    const projId = p['Project ID'] != null ? p['Project ID'] : (p.id != null ? p.id : '');
+
+    const rowBg = isInc ? 'background:var(--card,#fff);border-color:var(--border,#e2e8f0);' : 'background:var(--bg-dim,#f8fafc);border-color:var(--border-strong,#cbd5e1);opacity:0.88;';
+    const statusPill = isInc
+      ? `<span class="badge success" style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;background:var(--success-soft,#ecfdf5);color:var(--success,#059669);border:1px solid rgba(16,185,129,0.3);white-space:nowrap;">Included in Meeting</span>`
+      : `<span class="badge" style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;white-space:nowrap;">Hidden from Meeting</span>`;
+
+    return `
+      <div class="mt-settings-row" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;border:1px solid var(--border);${rowBg}gap:12px;transition:all .15s ease;">
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px;">
+            <strong style="font-size:13.5px;color:var(--text,#0f172a);">${escapeHtml(pName)}</strong>
+            ${pNameBn ? `<span style="font-size:12px;color:var(--text-muted,#64748b);">(${escapeHtml(pNameBn)})</span>` : ''}
+            <span class="badge" style="background:#dcfce7;color:#166534;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;">Active</span>
+          </div>
+          <div style="font-size:11.5px;color:var(--text-muted,#64748b);display:flex;gap:10px;flex-wrap:wrap;">
+            ${projId ? `<span>ID: <strong>${projId}</strong></span>` : ''}
+            ${loc ? `<span>Loc: <strong>${escapeHtml(loc)}</strong></span>` : ''}
+            <span>Staff: <strong>${staffCount}</strong></span>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">
+          ${statusPill}
+          <label style="display:inline-flex;align-items:center;cursor:pointer;position:relative;" title="${isInc ? 'Click to hide from meeting attendance' : 'Click to include in meeting attendance'}">
+            <input type="checkbox" ${isInc ? 'checked' : ''} onchange="window.mtSettingsToggle('${escapeHtml(key)}', this.checked)" style="width:18px;height:18px;cursor:pointer;accent-color:var(--primary,#2563eb);">
+          </label>
+        </div>
+      </div>
+    `;
+  }).join('');
+};
+
+window.mtSettingsToggle = function(id, isChecked){
+  window._mtSettingsStaged[String(id)] = !!isChecked;
+  window.mtSettingsRenderList();
+  window.mtSettingsUpdateCounts();
+  window.mtSettingsCheckDirty();
+};
+
+window.mtSettingsOnSearch = function(val){
+  window._mtSettingsQuery = String(val || '');
+  window.mtSettingsRenderList();
+};
+
+window.mtSettingsSetFilter = function(f){
+  window._mtSettingsFilter = f || 'all';
+  document.querySelectorAll('.mt-set-chip').forEach(el => {
+    el.classList.toggle('active', el.getAttribute('data-f') === window._mtSettingsFilter);
+  });
+  window.mtSettingsRenderList();
+};
+
+window.mtSettingsBulk = function(targetState){
+  const activeList = (DATA.projects || []).filter(isProjectActive);
+  const q = String(window._mtSettingsQuery || '').toLowerCase().trim();
+
+  activeList.forEach(p => {
+    const key = String(p.id != null ? p.id : (p['Project ID'] != null ? p['Project ID'] : (p.ProjectName || p.project_name)));
+    if (q) {
+      const name = String(p.ProjectName || p.project_name || '').toLowerCase();
+      const code = String(p.id || p['Project ID'] || '').toLowerCase();
+      if (!name.includes(q) && !code.includes(q)) return;
+    }
+    window._mtSettingsStaged[key] = !!targetState;
+  });
+
+  window.mtSettingsRenderList();
+  window.mtSettingsUpdateCounts();
+  window.mtSettingsCheckDirty();
+};
+
+window.mtSettingsUpdateCounts = function(){
+  const activeList = (DATA.projects || []).filter(isProjectActive);
+  let incCount = 0;
+  let hidCount = 0;
+
+  activeList.forEach(p => {
+    const key = String(p.id != null ? p.id : (p['Project ID'] != null ? p['Project ID'] : (p.ProjectName || p.project_name)));
+    if (window._mtSettingsStaged[key] !== false) incCount++;
+    else hidCount++;
+  });
+
+  const actEl = document.getElementById('mtSettingsActiveCnt');
+  const incEl = document.getElementById('mtSettingsIncCnt');
+  const hidEl = document.getElementById('mtSettingsHidCnt');
+
+  if (actEl) actEl.textContent = activeList.length;
+  if (incEl) incEl.textContent = incCount;
+  if (hidEl) hidEl.textContent = hidCount;
+};
+
+window.mtSettingsCheckDirty = function(){
+  const changed = Object.keys(window._mtSettingsStaged).some(k => window._mtSettingsStaged[k] !== window._mtSettingsOriginal[k]);
+  const btn = document.getElementById('btnSaveMeetingSettings');
+  if (btn) {
+    btn.disabled = !changed;
+    btn.style.opacity = changed ? '1' : '0.5';
+    btn.style.cursor = changed ? 'pointer' : 'not-allowed';
+    btn.classList.toggle('disabled', !changed);
+  }
+  return changed;
+};
+
+window.mtSettingsSave = async function(){
+  if (typeof guardEdit === 'function' && !guardEdit()) return;
+
+  const changedKeys = Object.keys(window._mtSettingsStaged).filter(k => window._mtSettingsStaged[k] !== window._mtSettingsOriginal[k]);
+  if (changedKeys.length === 0) {
+    closeModal();
+    return;
+  }
+
+  const saveBtn = document.getElementById('btnSaveMeetingSettings');
+  const origText = saveBtn ? saveBtn.innerHTML : 'Save Changes';
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = 'Saving Changes...';
+  }
+
+  try {
+    const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
+                  || (window.MGHRM && window.MGHRM.sb)
+                  || window.sb
+                  || (typeof sb !== 'undefined' ? sb : null);
+
+    if (!sbClient) throw new Error('Database connection not established.');
+
+    for (const key of changedKeys) {
+      const newVal = window._mtSettingsStaged[key];
+      const proj = (DATA.projects || []).find(p => String(p.id) === String(key) || String(p['Project ID']) === String(key) || p.ProjectName === key);
+
+      let query = sbClient.from('projects').update({ meeting_attendance_enabled: newVal });
+      if (proj && proj.id != null && /^\d+$/.test(String(proj.id))) {
+        query = query.eq('id', Number(proj.id));
+      } else if (proj && proj['Project ID'] != null && /^\d+$/.test(String(proj['Project ID']))) {
+        query = query.eq('id', Number(proj['Project ID']));
+      } else if (proj && (proj.project_name || proj.ProjectName)) {
+        query = query.eq('project_name', proj.project_name || proj.ProjectName);
+      } else if (/^\d+$/.test(String(key))) {
+        query = query.eq('id', Number(key));
+      } else {
+        query = query.eq('project_name', key);
+      }
+
+      const { error } = await query;
+      if (error) throw error;
+    }
+
+    // Update in-memory local cache
+    changedKeys.forEach(key => {
+      const newVal = window._mtSettingsStaged[key];
+      const proj = (DATA.projects || []).find(p => String(p.id) === String(key) || String(p['Project ID']) === String(key) || p.ProjectName === key);
+      if (proj) {
+        proj.MeetingAttendanceEnabled = newVal;
+        proj.meeting_attendance_enabled = newVal;
+      }
+      window._mtSettingsOriginal[key] = newVal;
+    });
+
+    persist();
+
+    if (typeof fetchProjectsDirectly === 'function') {
+      await fetchProjectsDirectly().catch(() => {});
+    }
+
+    if (typeof renderMeeting === 'function') renderMeeting();
+    if (typeof renderAll === 'function') renderAll();
+
+    toast('Meeting attendance settings updated.', 'success');
+    closeModal();
+  } catch (err) {
+    console.error('[Meeting Scope Save Error]:', err);
+    toast('Error updating meeting attendance settings: ' + (err.message || err), 'error');
+  } finally {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = origText;
+    }
+    window.mtSettingsCheckDirty();
+  }
+};
 function mtIsFriday(iso){ return parseDate(iso)?.getDay()===5; }
 function mtDay(iso){
   if (!window.DATA) return null;
@@ -15758,7 +16103,12 @@ function renderMeeting(){
       <div class="card">
         <div class="card-header mt-hd">
           <div class="mt-hd-l">
-            <div class="mt-hd-kicker">Meeting Attendance</div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="mt-hd-kicker">Meeting Attendance</div>
+              <button type="button" class="btn ghost sm" id="btnMeetingSettings" title="Meeting Attendance Settings" aria-label="Meeting Attendance Settings" onclick="openMeetingSettingsModal()" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border-radius:6px;border:1px solid var(--border,#cbd5e1);background:var(--surface,#fff);color:var(--primary,#2563eb);cursor:pointer;transition:all .15s ease;" onmouseover="this.style.borderColor='var(--primary,#2563eb)';this.style.background='var(--primary-soft,#eff6ff)';" onmouseout="this.style.borderColor='var(--border,#cbd5e1)';this.style.background='var(--surface,#fff)';">
+                ${ico('settings', 15)}
+              </button>
+            </div>
             <h3 class="mt-hd-title">${fmtDateLong(today)}</h3>
             <div class="mt-hd-meta">
               <span class="mt-hd-pill dark" id="mtAttendanceCounterBadge">Attendance given: ${presentCount} / ${totalProjects}</span>

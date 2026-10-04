@@ -3258,7 +3258,36 @@ function fmtDateBnFormal(v){
   return `${toBnDigits(d.getDate())} ${monthsBn[d.getMonth()]}, ${toBnDigits(d.getFullYear())} খ্রিঃ`;
 }
 function daysAgo(v){ const d=parseDate(v); if(!d) return Infinity; return Math.floor((Date.now()-d.getTime())/86400000); }
-function todayISO(){ return new Date().toISOString().slice(0,10); }
+function todayISO(){
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+function normalizeDateOnly(val){
+  if (!val) return '';
+  if (typeof val === 'string') {
+    const s = val.trim();
+    const match = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (match) {
+      return `${match[1]}-${String(match[2]).padStart(2, '0')}-${String(match[3]).padStart(2, '0')}`;
+    }
+    const dMatch = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+    if (dMatch) {
+      return `${dMatch[3]}-${String(dMatch[2]).padStart(2, '0')}-${String(dMatch[1]).padStart(2, '0')}`;
+    }
+    return s.slice(0, 10);
+  }
+  if (val instanceof Date && !isNaN(val.getTime())) {
+    const y = val.getFullYear();
+    const m = String(val.getMonth() + 1).padStart(2, '0');
+    const day = String(val.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+  return String(val).trim().slice(0, 10);
+}
+window.normalizeDateOnly = normalizeDateOnly;
 function refNo(prefix='MG/SEC'){
   const d=new Date(); const yy=d.getFullYear(); const mm=String(d.getMonth()+1).padStart(2,'0');
   const seq=String(Math.floor(Math.random()*899+100)); return `${prefix}/${yy}/${mm}/${seq}`;
@@ -4010,48 +4039,66 @@ function ensureSystemIDs() {
 
 function normEmployee(row) {
   if (!row) return {};
+  let extra = {};
+  if (row.remarks) {
+    try {
+      if (typeof row.remarks === 'object' && row.remarks !== null) extra = row.remarks;
+      else if (typeof row.remarks === 'string' && row.remarks.startsWith('{')) extra = JSON.parse(row.remarks);
+    } catch(e) {}
+  }
+  const normJoinDate = normalizeDateOnly(row.join_date || extra.joinDate || '');
   return {
     id: row.id,
     employee_sys_id: row.id,
     
-    EmployeeID: row.employee_id || '',
-    employee_id: row.employee_id || '',
-    FullName: row.full_name || '',
-    FullNameBn: row.full_name_bn || '',
-    FullNameBangla: row.full_name_bn || '',
-    FatherName: row.father_name || '',
-    MotherName: row.mother_name || '',
-    DOB: row.dob || '',
-    PhoneNumber: row.phone || '',
-    NID: row.nid || '',
-    'NID/BirthCertificate': row.nid || '',
-    Education: row.education || '',
-    Religion: row.religion || '',
-    Height: row.height || '',
-    Weight: row.weight || 0,
-    MaritalStatus: row.marital_status || '',
-    SpouseName: row.spouse_name || '',
-    SpousePhoneNum: row.spouse_phone || '',
-    ECName: row.ec_name || '',
-    ECRelation: row.ec_relation || '',
-    ECPhoneNumber: row.ec_phone || '',
-    ECName2: row.ec_name2 || '',
-    ECRelation2: row.ec_relation2 || '',
-    ECPhoneNumber2: row.ec_phone2 || '',
-    ec_name: row.ec_name || '',
-    ec_relation: row.ec_relation || '',
-    ec_phone: row.ec_phone || '',
-    ec_name2: row.ec_name2 || '',
-    ec_relation2: row.ec_relation2 || '',
-    ec_phone2: row.ec_phone2 || '',
+    EmployeeID: row.employee_id || extra.empId || '',
+    employee_id: row.employee_id || extra.empId || '',
+    FullName: row.full_name || extra.nameEn || '',
+    FullNameBn: row.full_name_bn || extra.name || row.full_name || '',
+    FullNameBangla: row.full_name_bn || extra.name || row.full_name || '',
+    FatherName: row.father_name || extra.father || '',
+    FatherNameBn: row.father_name_bn || extra.fatherBn || '',
+    MotherName: row.mother_name || extra.mother || '',
+    MotherNameBn: row.mother_name_bn || extra.motherBn || '',
+    DOB: row.dob || extra.dob || '',
+    PhoneNumber: row.phone || extra.phone || '',
+    PhoneNumberBn: row.phone_bn || extra.phoneBn || '',
+    PhoneBn: row.phone_bn || extra.phoneBn || '',
+    NID: row.nid || extra.nid || '',
+    NIDBn: row.nid_bn || extra.nidBn || '',
+    'NID/BirthCertificate': row.nid || extra.nid || '',
+    Education: row.education || extra.education || '',
+    Religion: row.religion || extra.religion || '',
+    BloodGroup: row.blood_group || extra.bloodGroup || '',
+    blood_group: row.blood_group || extra.bloodGroup || '',
+    Height: row.height || extra.height || '',
+    Weight: row.weight || extra.weight || 0,
+    MaritalStatus: row.marital_status || extra.maritalStatus || '',
+    SpouseName: row.spouse_name || extra.spouse || '',
+    SpouseNameBn: row.spouse_name_bn || extra.spouseBn || '',
+    SpousePhoneNum: row.spouse_phone || extra.spousePhone || extra.spouseMobile || '',
+    ECName: row.ec_name || (extra.ec1 && extra.ec1.name) || '',
+    ECNameBn: row.ec_name_bn || (extra.ec1 && extra.ec1.nameBn) || '',
+    ECRelation: row.ec_relation || (extra.ec1 && extra.ec1.relation) || '',
+    ECPhoneNumber: row.ec_phone || (extra.ec1 && extra.ec1.mobile) || '',
+    ECName2: row.ec_name2 || (extra.ec2 && extra.ec2.name) || '',
+    ECRelation2: row.ec_relation2 || (extra.ec2 && extra.ec2.relation) || '',
+    ECPhoneNumber2: row.ec_phone2 || (extra.ec2 && extra.ec2.mobile) || '',
+    ec_name: row.ec_name || (extra.ec1 && extra.ec1.name) || '',
+    ec_name_bn: row.ec_name_bn || (extra.ec1 && extra.ec1.nameBn) || '',
+    ec_relation: row.ec_relation || (extra.ec1 && extra.ec1.relation) || '',
+    ec_phone: row.ec_phone || (extra.ec1 && extra.ec1.mobile) || '',
+    ec_name2: row.ec_name2 || (extra.ec2 && extra.ec2.name) || '',
+    ec_relation2: row.ec_relation2 || (extra.ec2 && extra.ec2.relation) || '',
+    ec_phone2: row.ec_phone2 || (extra.ec2 && extra.ec2.mobile) || '',
 
-    Division: row.division || '',
-    District: row.district || '',
-    Upazila: row.upazila || row.thana || '',
-    Union: row.union || '',
-    Village: row.village || '',
-    Street: row.street || '',
-    Thana: row.thana || row.upazila || '',
+    Division: row.division || (extra.presentAddress && extra.presentAddress.division) || '',
+    District: row.district || (extra.presentAddress && extra.presentAddress.district) || '',
+    Upazila: row.upazila || row.thana || (extra.presentAddress && (extra.presentAddress.upazila || extra.presentAddress.thana)) || '',
+    Union: row.union || (extra.presentAddress && extra.presentAddress.union) || '',
+    Village: row.village || (extra.presentAddress && extra.presentAddress.village) || '',
+    Street: row.street || (extra.presentAddress && extra.presentAddress.street) || '',
+    Thana: row.thana || row.upazila || (extra.presentAddress && (extra.presentAddress.thana || extra.presentAddress.upazila)) || '',
     division: row.division || '',
     district: row.district || '',
     upazila: row.upazila || row.thana || '',
@@ -4060,12 +4107,12 @@ function normEmployee(row) {
     street: row.street || '',
     thana: row.thana || row.upazila || '',
 
-    PermDivision: row.perm_division || '',
-    PermDistrict: row.perm_district || '',
-    PermUpazila: row.perm_upazila || '',
-    PermUnion: row.perm_union || '',
-    PermVillage: row.perm_village || '',
-    PermStreet: row.perm_street || '',
+    PermDivision: row.perm_division || (extra.permanentAddress && extra.permanentAddress.division) || '',
+    PermDistrict: row.perm_district || (extra.permanentAddress && extra.permanentAddress.district) || '',
+    PermUpazila: row.perm_upazila || (extra.permanentAddress && (extra.permanentAddress.upazila || extra.permanentAddress.thana)) || '',
+    PermUnion: row.perm_union || (extra.permanentAddress && extra.permanentAddress.union) || '',
+    PermVillage: row.perm_village || (extra.permanentAddress && extra.permanentAddress.village) || '',
+    PermStreet: row.perm_street || (extra.permanentAddress && extra.permanentAddress.street) || '',
     perm_division: row.perm_division || '',
     perm_district: row.perm_district || '',
     perm_upazila: row.perm_upazila || '',
@@ -4073,19 +4120,33 @@ function normEmployee(row) {
     perm_village: row.perm_village || '',
     perm_street: row.perm_street || '',
 
-    Address: row.address || '',
-    DivisionID: row.division_id || '',
-    DistrictID: row.district_id || '',
-    UpazilaID: row.upazila_id || '',
-    UnionID: row.union_id || '',
-    Village: row.village || '',
-    Street: row.street || '',
-    Designation: row.designation || '',
-    ProjectName: row.project_name || '',
-    JoinDate: row.join_date || '',
-    DutyHour: row.duty_hour || '8',
-    Salary: row.salary ? +row.salary : 0,
+    PresentPostOffice: row.present_post_office || (extra.presentAddress && extra.presentAddress.post_office) || (extra && extra.present_post_office) || '',
+    present_post_office: row.present_post_office || (extra.presentAddress && extra.presentAddress.post_office) || (extra && extra.present_post_office) || '',
+    PermanentPostOffice: row.permanent_post_office || (extra.permanentAddress && extra.permanentAddress.post_office) || (extra && extra.permanent_post_office) || '',
+    permanent_post_office: row.permanent_post_office || (extra.permanentAddress && extra.permanentAddress.post_office) || (extra && extra.permanent_post_office) || '',
+
+    PresentAddressDetails: row.present_address_details || (extra.presentAddress && extra.presentAddress.details) || (extra && extra.present_address_details) || [row.village || (extra.presentAddress && extra.presentAddress.village), row.street || (extra.presentAddress && extra.presentAddress.street)].filter(Boolean).join(', '),
+    present_address_details: row.present_address_details || (extra.presentAddress && extra.presentAddress.details) || (extra && extra.present_address_details) || [row.village || (extra.presentAddress && extra.presentAddress.village), row.street || (extra.presentAddress && extra.presentAddress.street)].filter(Boolean).join(', '),
+    PermanentAddressDetails: row.permanent_address_details || (extra.permanentAddress && extra.permanentAddress.details) || (extra && extra.permanent_address_details) || [row.perm_village || (extra.permanentAddress && extra.permanentAddress.village) || row.village, row.perm_street || (extra.permanentAddress && extra.permanentAddress.street) || row.street].filter(Boolean).join(', '),
+    permanent_address_details: row.permanent_address_details || (extra.permanentAddress && extra.permanentAddress.details) || (extra && extra.permanent_address_details) || [row.perm_village || (extra.permanentAddress && extra.permanentAddress.village) || row.village, row.perm_street || (extra.permanentAddress && extra.permanentAddress.street) || row.street].filter(Boolean).join(', '),
+
+    PresentAddressBn: row.present_address_bn || (extra && extra.presentAddressBn) || '',
+    present_address_bn: row.present_address_bn || (extra && extra.presentAddressBn) || '',
+    PermanentAddressBn: row.permanent_address_bn || (extra && extra.permanentAddressBn) || '',
+    permanent_address_bn: row.permanent_address_bn || (extra && extra.permanentAddressBn) || '',
+
+    DivisionID: row.division_id || (extra.presentAddress && extra.presentAddress.division_id) || '',
+    DistrictID: row.district_id || (extra.presentAddress && extra.presentAddress.district_id) || '',
+    UpazilaID: row.upazila_id || (extra.presentAddress && extra.presentAddress.upazila_id) || '',
+    UnionID: row.union_id || (extra.presentAddress && extra.presentAddress.union_id) || '',
+    Designation: row.designation || extra.desig || '',
+    ProjectName: row.project_name || extra.project || '',
+    JoinDate: normJoinDate,
+    join_date: normJoinDate,
+    DutyHour: row.duty_hour || (extra.dutyHours ? String(extra.dutyHours) : '8'),
+    Salary: row.salary ? +row.salary : (extra.salary && extra.salary.total ? +extra.salary.total : 0),
     Status: row.status || 'Active',
+    status: row.status || 'Active',
     ExitDate: row.exit_date || '',
     ExitReason: row.exit_reason || '',
     Remarks: row.remarks || '',
@@ -4096,6 +4157,57 @@ function normEmployee(row) {
   };
 }
 window.normEmployee = normEmployee;
+
+function cleanEmployeePayload(payload) {
+  if (!payload || typeof payload !== 'object') return {};
+  const allowed = [
+    'id', 'employee_id', 'full_name', 'full_name_bn',
+    'father_name', 'father_name_bn', 'mother_name', 'mother_name_bn',
+    'dob', 'phone', 'phone_bn', 'nid', 'nid_bn', 'education', 'religion',
+    'height', 'weight', 'marital_status', 'spouse_name', 'spouse_phone',
+    'ec_name', 'ec_relation', 'ec_phone',
+    'ec_name2', 'ec_relation2', 'ec_phone2',
+    'division', 'district', 'upazila', 'union', 'village', 'street',
+    'perm_division', 'perm_district', 'perm_upazila', 'perm_union', 'perm_village', 'perm_street',
+    'present_post_office', 'permanent_post_office',
+    'present_address_details', 'permanent_address_details',
+    'present_address_bn', 'permanent_address_bn',
+    'designation', 'project_name', 'join_date', 'duty_hour', 'salary',
+    'status', 'exit_date', 'exit_reason', 'remarks', 'photo_url'
+  ];
+  const out = {};
+  allowed.forEach(function (col) {
+    if (payload[col] !== undefined) {
+      out[col] = payload[col];
+    }
+  });
+  // Extra safeguard: explicitly guarantee non-existent/prohibited columns never reach Supabase
+  delete out.address;
+  delete out.address_bn;
+  delete out.present_address;
+  delete out.permanent_address;
+  delete out.present_address_en;
+  delete out.permanent_address_en;
+  delete out.thana;
+  delete out.division_id;
+  delete out.district_id;
+  delete out.upazila_id;
+  delete out.union_id;
+  delete out.blood_group;
+  delete out.spouse_name_bn;
+  delete out.ec_name_bn;
+  delete out.old_join_date;
+
+  if (out.join_date !== undefined) {
+    if (typeof out.join_date === 'string') {
+      out.join_date = out.join_date.trim().slice(0, 10) || null;
+    } else if (!out.join_date) {
+      out.join_date = null;
+    }
+  }
+  return out;
+}
+window.cleanEmployeePayload = cleanEmployeePayload;
 
 async function fetchEmployeesDirectly() {
   const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
@@ -4764,9 +4876,12 @@ function renderEmpTable(){
       </div>`;
     } else strip.innerHTML = '';
   }
-  document.getElementById('empCount').innerHTML = VERIFY_MODE
-    ? `${num(rows.length)} / ${num(DATA.employees.length)} ${'employees'} — <strong style="color:var(--success)">✓ ${'ticked'}: ${num(VERIFY_TICKS.size)}</strong> <span class="small-mute">(${'tick only — no other action'})</span>`
-    : `${num(rows.length)} / ${num(DATA.employees.length)} ${'employees'}`;
+  const empCountEl = document.getElementById('empCount');
+  if (empCountEl) {
+    empCountEl.innerHTML = VERIFY_MODE
+      ? `${num(rows.length)} / ${num(DATA.employees.length)} ${'employees'} — <strong style="color:var(--success)">✓ ${'ticked'}: ${num(VERIFY_TICKS.size)}</strong> <span class="small-mute">(${'tick only — no other action'})</span>`
+      : `${num(rows.length)} / ${num(DATA.employees.length)} ${'employees'}`;
+  }
   document.querySelectorAll('#empTable .tickcol').forEach(el=>el.style.display = VERIFY_MODE?'':'none');
 
   const tbody = document.getElementById('empTableBody');
@@ -4998,10 +5113,18 @@ function row(label,val,wide=false){
 }
 function switchTab(container, key){
   const c = document.getElementById(container);
-  c.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'));
-  event.target.classList.add('active');
+  if (c) {
+    c.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'));
+    const targetTab = c.querySelector('#natab-' + key) || c.querySelector('#tab-' + key);
+    if (targetTab) {
+      targetTab.classList.add('active');
+    } else if (typeof event !== 'undefined' && event && event.target && event.target.classList) {
+      event.target.classList.add('active');
+    }
+  }
   document.querySelectorAll(`[id^="tab-"]`).forEach(el=>el.classList.remove('active'));
-  document.getElementById('tab-'+key).classList.add('active');
+  const panel = document.getElementById('tab-' + key);
+  if (panel) panel.classList.add('active');
 }
 function empActionQuick(action, rid){
   closeModal();
@@ -5453,16 +5576,12 @@ window.mtCustomConfirm = function(title, message, btnClass, onConfirm) {
 };
 
 window.approveCandidate = function(id) {
-  window.mtCustomConfirm("Approve & Hire", "Are you sure you want to approve and hire this candidate?", "success", function() {
+  window.mtCustomConfirm("Approve & Hire", "Are you sure you want to approve and hire this candidate?", "success", async function() {
     const emp = (window.DATA.employees || []).find(e => String(e.id) === String(id) || String(e.EmployeeID) === String(id) || String(e.employee_id) === String(id));
     if(emp) {
       emp.Status = 'Active';
       emp.status = 'Active';
-      if (!emp.JoinDate && !emp.join_date) {
-        emp.JoinDate = (typeof todayISO === 'function' ? todayISO() : new Date().toISOString().split('T')[0]);
-        emp.join_date = emp.JoinDate;
-      }
-      // Direct sync with Supabase database
+      // Preserves candidate's selected join_date without defaulting to today
       const sbClient = window.sb || (window.MGHRM && window.MGHRM.sb);
       if (sbClient) {
         const targetId = emp.id != null ? emp.id : id;
@@ -5472,16 +5591,17 @@ window.approveCandidate = function(id) {
         } else {
           query = query.eq('employee_id', targetId);
         }
-        query.then(r => {
-          if (r.error) console.error('[Supabase Approve Error]:', r.error);
-          else console.log('⚡ Candidate approved in Supabase:', targetId);
-        }).catch(err => console.error('[Supabase Approve Catch]:', err));
-      }
-      if (window.MGHRM && typeof window.MGHRM.update === 'function') {
-        window.MGHRM.update('employees', emp.id || id, { status: 'Active' }).catch(console.error);
+        const { error } = await query;
+        if (error) {
+          console.error('[Supabase Approve Error]:', error);
+          toast('Error approving candidate: ' + (error.message || error), 'error');
+          return;
+        }
       }
       toast('Candidate approved & hired!', 'success');
-      persist(); // Instantly pushes the update to the database via app-core sync
+      if (typeof fetchEmployeesDirectly === 'function') {
+        await fetchEmployeesDirectly();
+      }
       if(typeof syncRecruitmentFromEmployees === 'function') syncRecruitmentFromEmployees();
       if(typeof renderPendingRecruitment === 'function') renderPendingRecruitment();
       if(typeof renderRecruitment === 'function') renderRecruitment();
@@ -6049,6 +6169,38 @@ function openApplicantForm(empKey){
   const refOrgVal = existing ? (existing.ReferenceOrg || existing.ReferenceOrganization || existing.reference_org || (existing.reference && existing.reference.org) || (existingRemarks.reference && existingRemarks.reference.org) || '') : (cand && cand.reference ? cand.reference.org : '');
   const refMobileVal = existing ? (existing.ReferenceMobile || existing.reference_mobile || (existing.reference && existing.reference.mobile) || (existingRemarks.reference && existingRemarks.reference.mobile) || '') : (cand && cand.reference ? cand.reference.mobile : '');
 
+  const presPostOfficeVal = existing
+    ? (existing.present_post_office || existing.PresentPostOffice || (existingRemarks && existingRemarks.present_post_office) || (existingRemarks && existingRemarks.presentAddress && existingRemarks.presentAddress.post_office) || '')
+    : (cand ? (cand.present_post_office || (cand.presentAddress && cand.presentAddress.post_office) || '') : '');
+
+  const presDetailsOldFallback = existing
+    ? [existing.village || existing.Village || (existing.presentAddress && existing.presentAddress.village), existing.street || existing.Street || (existing.presentAddress && existing.presentAddress.street)].filter(Boolean).join(', ')
+    : (cand ? [cand.village || (cand.presentAddress && cand.presentAddress.village), cand.street || (cand.presentAddress && cand.presentAddress.street)].filter(Boolean).join(', ') : '');
+
+  const presAddressDetailsVal = existing
+    ? (existing.present_address_details || existing.PresentAddressDetails || (existingRemarks && existingRemarks.present_address_details) || (existingRemarks && existingRemarks.presentAddress && existingRemarks.presentAddress.details) || presDetailsOldFallback)
+    : (cand ? (cand.present_address_details || (cand.presentAddress && cand.presentAddress.details) || presDetailsOldFallback) : '');
+
+  const presAddressBnVal = existing
+    ? (existing.PresentAddressBn || existing.present_address_bn || (existingRemarks && existingRemarks.presentAddressBn) || (existingRemarks && existingRemarks.presentAddress && existingRemarks.presentAddress.address_bn) || '')
+    : (cand ? (cand.presentAddressBn || '') : '');
+
+  const permPostOfficeVal = existing
+    ? (existing.permanent_post_office || existing.PermanentPostOffice || (existingRemarks && existingRemarks.permanent_post_office) || (existingRemarks && existingRemarks.permanentAddress && existingRemarks.permanentAddress.post_office) || '')
+    : (cand ? (cand.permanent_post_office || (cand.permanentAddress && cand.permanentAddress.post_office) || '') : '');
+
+  const permDetailsOldFallback = existing
+    ? [existing.perm_village || existing.PermVillage || (existing.permanentAddress && existing.permanentAddress.village) || existing.village || existing.Village, existing.perm_street || existing.PermStreet || (existing.permanentAddress && existing.permanentAddress.street) || existing.street || existing.Street].filter(Boolean).join(', ')
+    : (cand ? [cand.perm_village || (cand.permanentAddress && cand.permanentAddress.village), cand.perm_street || (cand.permanentAddress && cand.permanentAddress.street)].filter(Boolean).join(', ') : '');
+
+  const permAddressDetailsVal = existing
+    ? (existing.permanent_address_details || existing.PermanentAddressDetails || (existingRemarks && existingRemarks.permanent_address_details) || (existingRemarks && existingRemarks.permanentAddress && existingRemarks.permanentAddress.details) || permDetailsOldFallback)
+    : (cand ? (cand.permanent_address_details || (cand.permanentAddress && cand.permanentAddress.details) || permDetailsOldFallback) : '');
+
+  const permAddressBnVal = existing
+    ? (existing.PermanentAddressBn || existing.permanent_address_bn || (existingRemarks && existingRemarks.permanentAddressBn) || (existingRemarks && existingRemarks.permanentAddress && existingRemarks.permanentAddress.address_bn) || '')
+    : (cand ? (cand.permanentAddressBn || '') : '');
+
   openModal(isEdit ? 'Edit Employee Profile' : 'New Employee Registration', `
     <input type="hidden" id="na_editKey" value="${escapeHtml(empKey || '')}">
     <div class="tabs" id="naTabs">
@@ -6086,10 +6238,10 @@ function openApplicantForm(empKey){
         <h4>Present Address</h4>
         <div id="na_presCascade"></div>
         <div class="form-grid na-address-details">
-          <div class="field"><label>Village / Area</label><input id="na_pv" type="text" list="na_pvList" placeholder="Type village name" value="${escapeHtml(existing ? (existing.village||existing.Village||(existing.presentAddress&&existing.presentAddress.village)||'') : (cand ? (cand.village||(cand.presentAddress&&cand.presentAddress.village)||'') : ''))}" oninput="naSyncPresText()"><datalist id="na_pvList"></datalist></div>
-          <div class="field"><label>Street / House / Road</label><input id="na_pstreet" type="text" placeholder="House 12, Road 5" value="${escapeHtml(existing ? (existing.street||existing.Street||(existing.presentAddress&&existing.presentAddress.street)||'') : (cand ? (cand.street||(cand.presentAddress&&cand.presentAddress.street)||'') : ''))}"></div>
+          <div class="field"><label>Post Office</label><input id="na_presPostOffice" type="text" placeholder="Post office name and optional postal code" value="${escapeHtml(presPostOfficeVal)}"></div>
+          <div class="field"><label>Village / Area / Street / House / Road</label><input id="na_presAddressDetails" type="text" placeholder="Village, area, house, street or road" value="${escapeHtml(presAddressDetailsVal)}"></div>
         </div>
-        <div class="field na-generated-address"><label>Present Address (Bangla)</label><div class="na-input-action"><input id="na_presentAddressBn" type="text" readonly placeholder="Generated from the selected address"><button type="button" class="na-translate-icon" title="Generate Bangla address" aria-label="Generate present address in Bangla" onclick="generateSelectedAddressBangla('present',this)">✦</button></div></div>
+        <div class="field na-generated-address"><label>Present Address (Bangla)</label><div class="na-input-action"><input id="na_presentAddressBn" type="text" readonly placeholder="Generated from the selected address" value="${escapeHtml(presAddressBnVal)}"><button type="button" class="na-translate-icon" title="Generate Bangla address" aria-label="Generate present address in Bangla" onclick="generateSelectedAddressBangla('present',this)">✦</button></div></div>
       </section>
 
       <div class="na-address-separator"><span></span><label class="na-check"><input type="checkbox" id="na_sameAddr" onchange="naSameAsPresent(this)"><span>Same as Present Address</span></label><span></span></div>
@@ -6098,10 +6250,10 @@ function openApplicantForm(empKey){
         <h4>Permanent Address</h4>
         <div id="na_permCascade"></div>
         <div class="form-grid na-address-details">
-          <div class="field"><label>Village / Area</label><input id="na_permV" type="text" list="na_permVList" placeholder="Type village name" value="${escapeHtml(existing ? (existing.perm_village||existing.PermVillage||(existing.permanentAddress&&existing.permanentAddress.village)||existing.village||existing.Village||'') : (cand ? (cand.perm_village||(cand.permanentAddress&&cand.permanentAddress.village)||'') : ''))}"><datalist id="na_permVList"></datalist></div>
-          <div class="field"><label>Street / House / Road</label><input id="na_permstreet" type="text" placeholder="House 12, Road 5" value="${escapeHtml(existing ? (existing.perm_street||existing.PermStreet||(existing.permanentAddress&&existing.permanentAddress.street)||existing.street||existing.Street||'') : (cand ? (cand.perm_street||(cand.permanentAddress&&cand.permanentAddress.street)||'') : ''))}"></div>
+          <div class="field"><label>Post Office</label><input id="na_permPostOffice" type="text" placeholder="Post office name and optional postal code" value="${escapeHtml(permPostOfficeVal)}"></div>
+          <div class="field"><label>Village / Area / Street / House / Road</label><input id="na_permAddressDetails" type="text" placeholder="Village, area, house, street or road" value="${escapeHtml(permAddressDetailsVal)}"></div>
         </div>
-        <div class="field na-generated-address"><label>Permanent Address (Bangla)</label><div class="na-input-action"><input id="na_permanentAddressBn" type="text" readonly placeholder="Generated from the selected address"><button type="button" class="na-translate-icon" title="Generate Bangla address" aria-label="Generate permanent address in Bangla" onclick="generateSelectedAddressBangla('permanent',this)">✦</button></div></div>
+        <div class="field na-generated-address"><label>Permanent Address (Bangla)</label><div class="na-input-action"><input id="na_permanentAddressBn" type="text" readonly placeholder="Generated from the selected address" value="${escapeHtml(permAddressBnVal)}"><button type="button" class="na-translate-icon" title="Generate Bangla address" aria-label="Generate permanent address in Bangla" onclick="generateSelectedAddressBangla('permanent',this)">✦</button></div></div>
       </section>
     </div>
     <div id="tab-naEc" class="tab-panel">
@@ -6129,7 +6281,7 @@ function openApplicantForm(empKey){
     </div>
     <div id="tab-naJob" class="tab-panel">
       <div class="form-grid">
-        <div class="field"><label>Join Date *</label><input id="na_joinDate" type="date" value="${escapeHtml(existing ? (existing.JoinDate||existing.join_date||'') : (cand ? (cand.joinDate||cand.date||todayISO()) : todayISO()))}"></div>
+        <div class="field"><label>Join Date *</label><input id="na_joinDate" type="date" value="${escapeHtml(normalizeDateOnly(existing ? (existing.JoinDate||existing.join_date||'') : (cand ? (cand.joinDate||cand.date||todayISO()) : todayISO())))}"></div>
         <div class="field"><label>Designation *</label><select id="na_desig" onchange="naDesigSalary()">${desigOpts}</select></div>
         <div class="field"><label>Project *</label><select id="na_project" onchange="naSyncProjSummary()">${projOpts}</select></div>
         <div class="field"><label>Duty Hours</label><input id="na_dutyHours" type="number" placeholder="12" value="${existing ? (existing.DutyHour||existing.dutyHours||12) : (cand ? (cand.dutyHours||12) : 12)}"></div>
@@ -6213,6 +6365,13 @@ function naFillThanas(distId, thanaId){
 }
 function naSameAsPresent(chk){
   if(!chk.checked) return;
+  const poSrc = document.getElementById('na_presPostOffice'), poDst = document.getElementById('na_permPostOffice');
+  if(poSrc && poDst) poDst.value = poSrc.value;
+  const detSrc = document.getElementById('na_presAddressDetails'), detDst = document.getElementById('na_permAddressDetails');
+  if(detSrc && detDst) detDst.value = detSrc.value;
+  const bnSrc = document.getElementById('na_presentAddressBn'), bnDst = document.getElementById('na_permanentAddressBn');
+  if(bnSrc && bnDst && bnSrc.value) bnDst.value = bnSrc.value;
+
   ['pv','pstreet'].forEach(f=>{
     const x=document.getElementById('na_'+f), y=document.getElementById('na_'+(f==='pv'?'permV':'permstreet'));
     if(x&&y) y.value=x.value;
@@ -6307,6 +6466,7 @@ async function saveBasicInfoAndContinue(){
 
     const grossSalary = +(g('gross')) || (typeof salaryFor === 'function' && salaryFor(desig) ? +salaryFor(desig) : 0);
     const existingEmp = targetRecruitId ? (typeof findEmp === 'function' ? findEmp(targetRecruitId) : null) : null;
+    const isExistingEmployee = !!(existingEmp && (existingEmp.id || existingEmp.EmployeeID));
     const empCode = (existingEmp && (existingEmp.EmployeeID || existingEmp.employee_id)) || '';
 
     let existingExtra = {};
@@ -6337,6 +6497,21 @@ async function saveBasicInfoAndContinue(){
       spousePhone: spouseMobile
     });
 
+    const normSelectedJoin = normalizeDateOnly(joinDate);
+    const oldJoin = normalizeDateOnly(existingEmp && (existingEmp.JoinDate || existingEmp.join_date));
+
+    // Handle Join Date sensitive change if editing an existing saved employee
+    let finalJoinDate = normSelectedJoin || oldJoin;
+    if(isExistingEmployee && normSelectedJoin && oldJoin && normSelectedJoin !== oldJoin && existingEmp.Status !== 'Candidate'){
+      const confirmed = await confirmSensitiveJoinDateChange(oldJoin, normSelectedJoin, existingEmp);
+      if(!confirmed){
+        if(saveBtn){ saveBtn.disabled = false; saveBtn.innerHTML = origSaveText; }
+        if(primaryBtn){ primaryBtn.disabled = false; primaryBtn.innerHTML = origPrimaryText; }
+        return;
+      }
+      finalJoinDate = normSelectedJoin;
+    }
+
     const dbPayload = {
       employee_id: empCode,
       full_name: nameEn || name,
@@ -6355,64 +6530,86 @@ async function saveBasicInfoAndContinue(){
       spouse_phone: spouseMobile,
       designation: desig,
       project_name: project,
-      status: 'Candidate', // STRICT RULE: status must be 'Candidate'
-      join_date: joinDate || (existingEmp && (existingEmp.JoinDate || existingEmp.join_date)) || todayISO(),
       duty_hour: String(g('dutyHours') || (existingEmp && (existingEmp.DutyHour || existingEmp.duty_hour)) || 12),
       salary: grossSalary,
       remarks: JSON.stringify(mergedRemarks)
     };
 
-    let resultRecord = null;
-
-    if(window.MGHRM && typeof window.MGHRM.saveRecruitBasicInfo === 'function'){
-      const res = await window.MGHRM.saveRecruitBasicInfo(dbPayload, targetRecruitId);
-      if(Array.isArray(res) && res.length > 0){
-        resultRecord = res[0];
-      }
+    if(!isExistingEmployee){
+      // New recruitment registration begins as Candidate
+      dbPayload.status = 'Candidate';
+      dbPayload.join_date = finalJoinDate || todayISO();
     } else {
-      const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
-                    || (window.MGHRM && window.MGHRM.sb)
-                    || window.sb
-                    || (typeof sb !== 'undefined' ? sb : null);
+      // Editing existing employee: NEVER overwrite status! Preserve database status (Active, Inactive, Exited, etc.)
+      delete dbPayload.status;
+      if(finalJoinDate && finalJoinDate !== oldJoin){
+        dbPayload.join_date = finalJoinDate;
+      }
+    }
 
-      if(sbClient){
-        if(!targetRecruitId){
-          const { data, error } = await sbClient.from('employees').insert([dbPayload]).select();
-          if(error) throw error;
-          if(data && data.length > 0) resultRecord = data[0];
-        } else {
-          let query = sbClient.from('employees').update(dbPayload);
-          if(existingEmp && existingEmp.id){
-            query = query.eq('id', existingEmp.id);
-          } else if(/^\d+$/.test(String(targetRecruitId))){
-            query = query.eq('id', Number(targetRecruitId));
-          } else {
-            query = query.eq('employee_id', targetRecruitId);
+    // Clean payload strictly
+    const cleanPayload = cleanEmployeePayload(dbPayload);
+
+    let resultRecord = null;
+    const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
+                  || (window.MGHRM && window.MGHRM.sb)
+                  || window.sb
+                  || (typeof sb !== 'undefined' ? sb : null);
+
+    if(!sbClient) throw new Error('Supabase client is not connected.');
+
+    if(!isExistingEmployee){
+      const { data, error } = await sbClient.from('employees').insert([cleanPayload]).select();
+      if(error) throw error;
+      if(data && data.length > 0) resultRecord = data[0];
+    } else {
+      const targetPk = existingEmp.id || targetRecruitId;
+      let query = sbClient.from('employees').update(cleanPayload);
+      if(/^\d+$/.test(String(targetPk))){
+        query = query.eq('id', Number(targetPk));
+      } else {
+        query = query.eq('employee_id', targetPk);
+      }
+      const { data, error } = await query.select();
+      if(error) throw error;
+      if(data && data.length > 0) resultRecord = data[0];
+
+      // Reload from Supabase using employees.id to verify stored state and preserve status
+      const { data: reloaded, error: rErr } = await sbClient.from('employees').select('*').eq('id', Number(targetPk)).single();
+      if(!rErr && reloaded){
+        resultRecord = reloaded;
+        // Verify join date if changed
+        if(cleanPayload.join_date){
+          const reloadedJoin = normalizeDateOnly(reloaded.join_date);
+          const submittedJoin = normalizeDateOnly(cleanPayload.join_date);
+          if(reloadedJoin !== submittedJoin){
+            throw new Error(`Verification mismatch: Database stored join date '${reloadedJoin}' but expected '${submittedJoin}'.`);
           }
-          const { data, error } = await query.select();
-          if(error) throw error;
-          if(data && data.length > 0) resultRecord = data[0];
         }
       }
     }
 
     if(!resultRecord){
-      resultRecord = Object.assign({}, dbPayload, { id: targetRecruitId || Date.now() });
+      resultRecord = Object.assign({}, cleanPayload, { id: targetRecruitId || Date.now() });
     }
 
-    // 3. State Management (CRITICAL FOR PHASE 3):
-    // Extract generated id and store in global state variable
-    const targetId = resultRecord.id || (resultRecord[0] && resultRecord[0].id) || targetRecruitId;
+    const targetId = resultRecord.id || targetRecruitId;
     currentRecruitId = targetId;
     window.currentRecruitId = targetId;
     window.currentEditEmployeeId = targetId;
     if(editKeyInput) editKeyInput.value = targetId;
 
-    // Update local cache so Pending grid is instantly in sync
+    // Update local cache
     if(window.DATA && Array.isArray(window.DATA.employees)){
       const normRec = typeof normEmployee === 'function' ? normEmployee(resultRecord) : resultRecord;
-      if(!normRec.Status) normRec.Status = 'Candidate';
-      if(!normRec.status) normRec.status = 'Candidate';
+      if(isExistingEmployee && existingEmp){
+        // Preserve original status: Active -> Active, Inactive -> Inactive, Exited -> Exited
+        normRec.Status = resultRecord.status || existingEmp.Status || existingEmp.status || 'Active';
+        normRec.status = normRec.Status;
+      } else {
+        normRec.Status = 'Candidate';
+        normRec.status = 'Candidate';
+      }
       const existingIdx = window.DATA.employees.findIndex(e =>
         String(e.id) === String(targetId) ||
         (e.EmployeeID && e.EmployeeID === resultRecord.employee_id) ||
@@ -6425,26 +6622,13 @@ async function saveBasicInfoAndContinue(){
       }
     }
 
-    if(typeof syncRecruitmentFromEmployees === 'function'){
-      syncRecruitmentFromEmployees();
-    }
+    // Refresh views
+    if(typeof renderEmpTable === 'function') renderEmpTable();
+    if(typeof syncRecruitmentFromEmployees === 'function') syncRecruitmentFromEmployees();
+    if(typeof renderRecruitment === 'function') renderRecruitment();
+    if(typeof renderPendingRecruitment === 'function') renderPendingRecruitment();
 
-    // 4. UI Progression & Refresh:
-    // Call renderPendingRecruitment() so the new candidate immediately appears as a card in the Pending grid
-    if(typeof renderPendingRecruitment === 'function'){
-      renderPendingRecruitment();
-    }
-
-    // Trigger background fetch to ensure full DB sync
-    if(typeof fetchEmployeesDirectly === 'function'){
-      fetchEmployeesDirectly().then(() => {
-        if(typeof renderPendingRecruitment === 'function'){
-          renderPendingRecruitment();
-        }
-      }).catch(() => {});
-    }
-
-    // Visually advance form UI to the next section ("Address")
+    // Advance UI to Address tab
     const addrTab = document.getElementById('natab-naAddr');
     if(addrTab){
       addrTab.click();
@@ -6455,9 +6639,7 @@ async function saveBasicInfoAndContinue(){
       naRefreshPrimary();
     }
 
-    // Show small success toast
-    toast('Basic info saved. Profile created.', 'success');
-
+    toast('Basic info saved.', 'success');
   } catch(err){
     console.error('[Progressive Save] Error in saveBasicInfoAndContinue:', err);
     toast('Error saving basic info: ' + (err.message || err), 'error');
@@ -6495,52 +6677,142 @@ function getExistingRemarks(recruitId){
 }
 
 
-function confirmSensitiveJoinDateChange(currentDate,newDate){
-  currentDate=String(currentDate||'').slice(0,10);newDate=String(newDate||'').slice(0,10);
-  if(!currentDate||!newDate||currentDate===newDate)return Promise.resolve(true);
-  return new Promise(resolve=>{
-    const wrap=document.createElement('div');wrap.className='sensitive-confirm-back';
-    wrap.innerHTML=`<div class="sensitive-confirm-card" role="dialog" aria-modal="true" aria-labelledby="sensitiveJoinTitle"><div class="sensitive-confirm-icon">!</div><h3 id="sensitiveJoinTitle">Confirm Sensitive Change</h3><p>You are changing the employee's official joining date. This may affect service history, reports, payroll references and official documents.</p><div class="sensitive-date-grid"><div><span>Current Join Date</span><strong>${escapeHtml(currentDate)}</strong></div><div><span>New Join Date</span><strong>${escapeHtml(newDate)}</strong></div></div><label>Type <b>CONFIRM</b> to continue</label><input class="sensitive-confirm-input" autocomplete="off" spellcheck="false" placeholder="CONFIRM"><div class="sensitive-confirm-actions"><button type="button" class="btn sensitive-cancel">Cancel</button><button type="button" class="btn primary sensitive-proceed" disabled>Yes, Proceed</button></div></div>`;
-    document.body.appendChild(wrap);const input=wrap.querySelector('input'),proceed=wrap.querySelector('.sensitive-proceed');
-    const close=v=>{wrap.remove();resolve(v)};input.addEventListener('input',()=>{proceed.disabled=input.value.trim()!=='CONFIRM'});wrap.querySelector('.sensitive-cancel').onclick=()=>close(false);proceed.onclick=()=>close(true);input.focus();
+function confirmSensitiveJoinDateChange(currentDate, newDate, emp){
+  currentDate = normalizeDateOnly(currentDate);
+  newDate = normalizeDateOnly(newDate);
+  if(!currentDate || !newDate || currentDate === newDate) return Promise.resolve(true);
+
+  const empId = (emp && (emp.EmployeeID || emp.employee_id || emp.id)) || '—';
+  const empName = (emp && (emp.FullName || emp.full_name || emp.FullNameBn || emp.nameEn || emp.name)) || 'Employee';
+
+  return new Promise(resolve => {
+    const wrap = document.createElement('div');
+    wrap.className = 'sensitive-confirm-back';
+    wrap.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.65);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(3px);padding:16px;';
+    wrap.innerHTML = `
+      <div class="sensitive-confirm-card" role="dialog" aria-modal="true" aria-labelledby="sensitiveJoinTitle" style="background:var(--bg-card,#fff);max-width:500px;width:100%;border-radius:14px;padding:24px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);border:1px solid var(--border,#e2e8f0);animation:fadeIn .2s ease-out;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+          <div style="width:40px;height:40px;border-radius:50%;background:#fee2e2;color:#dc2626;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;flex-shrink:0;">!</div>
+          <h3 id="sensitiveJoinTitle" style="margin:0;font-size:18px;font-weight:700;color:var(--text,#0f172a);">Confirm Sensitive Change</h3>
+        </div>
+        <p style="font-size:13.5px;color:var(--text-muted,#475569);line-height:1.55;margin:0 0 16px;">
+          You are changing the employee's official joining date. This change may affect service history, reports, payroll references, appointment records, and official documents.
+        </p>
+        <div style="background:var(--bg-dim,#f8fafc);border-radius:10px;padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;font-size:13px;border:1px solid var(--border,#e2e8f0);">
+          <div><span style="display:block;font-size:11px;color:var(--text-muted,#64748b);text-transform:uppercase;font-weight:700;letter-spacing:.03em;">Employee ID</span><strong style="color:var(--text,#0f172a);font-size:13.5px;">${escapeHtml(empId)}</strong></div>
+          <div><span style="display:block;font-size:11px;color:var(--text-muted,#64748b);text-transform:uppercase;font-weight:700;letter-spacing:.03em;">Employee Name</span><strong style="color:var(--text,#0f172a);font-size:13.5px;">${escapeHtml(empName)}</strong></div>
+          <div><span style="display:block;font-size:11px;color:var(--text-muted,#64748b);text-transform:uppercase;font-weight:700;letter-spacing:.03em;">Current Joining Date</span><strong style="color:#dc2626;font-size:13.5px;">${escapeHtml(currentDate)}</strong></div>
+          <div><span style="display:block;font-size:11px;color:var(--text-muted,#64748b);text-transform:uppercase;font-weight:700;letter-spacing:.03em;">Proposed New Joining Date</span><strong style="color:#16a34a;font-size:13.5px;">${escapeHtml(newDate)}</strong></div>
+        </div>
+        <div style="margin-bottom:18px;">
+          <label for="sensitiveConfirmInput" style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text,#0f172a);">Type <strong style="color:#dc2626;font-family:monospace;letter-spacing:1px;">CONFIRM</strong> to authorize this change:</label>
+          <input id="sensitiveConfirmInput" type="text" autocomplete="off" placeholder="Type CONFIRM here" style="width:100%;padding:9px 12px;border:1px solid var(--border,#cbd5e1);border-radius:6px;font-size:14px;font-family:monospace;letter-spacing:1px;box-sizing:border-box;">
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">
+          <button type="button" class="btn sensitive-cancel" style="padding:8px 18px;border-radius:6px;font-weight:500;">Cancel</button>
+          <button type="button" class="btn primary sensitive-proceed" disabled style="background:#dc2626;border-color:#dc2626;color:#fff;padding:8px 18px;border-radius:6px;font-weight:600;opacity:0.4;cursor:not-allowed;">Confirm &amp; Apply Change</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(wrap);
+    const input = wrap.querySelector('#sensitiveConfirmInput');
+    const proceedBtn = wrap.querySelector('.sensitive-proceed');
+    input.addEventListener('input', function(){
+      if(input.value.trim() === 'CONFIRM'){
+        proceedBtn.disabled = false;
+        proceedBtn.style.opacity = '1';
+        proceedBtn.style.cursor = 'pointer';
+      } else {
+        proceedBtn.disabled = true;
+        proceedBtn.style.opacity = '0.4';
+        proceedBtn.style.cursor = 'not-allowed';
+      }
+    });
+    const close = v => { wrap.remove(); resolve(v); };
+    wrap.querySelector('.sensitive-cancel').onclick = () => close(false);
+    proceedBtn.onclick = () => {
+      if(input.value.trim() === 'CONFIRM'){
+        close(true);
+      }
+    };
+    wrap.onclick = e => { if(e.target === wrap) close(false); };
+    setTimeout(() => { if(input) input.focus(); }, 50);
   });
 }
 
 async function executeRecruitUpdate(dbPayload, recruitId){
   const currentEmp = typeof findEmp === 'function' ? findEmp(recruitId) : null;
   const oldJoin = currentEmp && (currentEmp.JoinDate || currentEmp.join_date);
-  if(dbPayload && dbPayload.join_date && oldJoin && String(dbPayload.join_date).slice(0,10)!==String(oldJoin).slice(0,10)){
-    const confirmed = await confirmSensitiveJoinDateChange(oldJoin, dbPayload.join_date);
-    if(!confirmed) throw new Error('Sensitive Join Date change was cancelled.');
+  
+  // Clean payload strictly using cleanEmployeePayload
+  const clean = cleanEmployeePayload(dbPayload);
+
+  const isExistingSavedEmp = currentEmp && currentEmp.Status !== 'Candidate' && oldJoin;
+  if(clean.join_date && isExistingSavedEmp){
+    const normOld = normalizeDateOnly(oldJoin);
+    const normNew = normalizeDateOnly(clean.join_date);
+    if(normOld && normNew && normOld !== normNew){
+      const confirmed = await confirmSensitiveJoinDateChange(normOld, normNew, currentEmp);
+      if(!confirmed) throw new Error('Sensitive Join Date change was cancelled.');
+    }
   }
-  if(window.MGHRM && typeof window.MGHRM.updateRecruitSection === 'function'){
-    const res = await window.MGHRM.updateRecruitSection(dbPayload, recruitId);
-    return (Array.isArray(res) && res[0]) ? res[0] : res;
-  }
+
   const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
                 || (window.MGHRM && window.MGHRM.sb)
                 || window.sb
                 || (typeof sb !== 'undefined' ? sb : null);
-  if(sbClient){
-    let query = sbClient.from('employees').update(dbPayload);
-    if(/^\d+$/.test(String(recruitId))){
-      query = query.eq('id', Number(recruitId));
-    } else {
-      query = query.eq('employee_id', recruitId);
-    }
-    const { data, error } = await query.select();
-    if(error) throw error;
-    return (data && data[0]) ? data[0] : null;
+
+  if(!sbClient){
+    throw new Error('Supabase client is not connected.');
   }
-  return null;
+
+  let query = sbClient.from('employees').update(clean);
+  if(/^\d+$/.test(String(recruitId))){
+    query = query.eq('id', Number(recruitId));
+  } else {
+    query = query.eq('employee_id', recruitId);
+  }
+  const { data, error } = await query.select();
+  if(error) throw error;
+  const updatedRecord = (data && data[0]) ? data[0] : null;
+
+  // Verification step: reload and verify join_date if submitted
+  if(clean.join_date){
+    const targetPk = (updatedRecord && updatedRecord.id) || (currentEmp && currentEmp.id) || recruitId;
+    if(targetPk && /^\d+$/.test(String(targetPk))){
+      const { data: verified, error: vErr } = await sbClient.from('employees').select('id, employee_id, join_date, status').eq('id', Number(targetPk)).single();
+      if(vErr) throw vErr;
+      if(!verified){
+        throw new Error('Verification failed: Employee row could not be reloaded.');
+      }
+      const reloadedDate = normalizeDateOnly(verified.join_date);
+      const expectedDate = normalizeDateOnly(clean.join_date);
+      if(reloadedDate !== expectedDate){
+        throw new Error(`Verification mismatch: Database stored join date '${reloadedDate}' but expected '${expectedDate}'.`);
+      }
+      if(currentEmp){
+        currentEmp.JoinDate = reloadedDate;
+        currentEmp.join_date = reloadedDate;
+        if(verified.status){
+          currentEmp.Status = verified.status;
+          currentEmp.status = verified.status;
+        }
+      }
+    }
+  }
+
+  return updatedRecord;
 }
 
 function resetApplicantForm(){
   const formIds = [
     'nameEn','name','father','mother','dob','nid','phone',
     'education','religion','bloodGroup','height','weight',
-    'maritalStatus','spouse','spouseMobile','pv','pstreet',
-    'permV','permstreet','ec1n','ec1r','ec1m','ec2n','ec2r','ec2m',
+    'maritalStatus','spouse','spouseMobile',
+    'presPostOffice','presAddressDetails','permPostOffice','permAddressDetails',
+    'pv','pstreet','permV','permstreet',
+    'presentAddressBn','permanentAddressBn',
+    'ec1n','ec1r','ec1m','ec2n','ec2r','ec2m',
     'rfn','rfd','rfo','rfm','dutyHours','gross','desig_summary','project_summary'
   ];
   formIds.forEach(f => {
@@ -6575,112 +6847,180 @@ async function saveAddressAndContinue(){
     return;
   }
 
-  function getSelectedOptionText(selectId) {
-    const el = document.getElementById(selectId);
-    if (!el) return '';
-    if (el.tagName === 'SELECT') {
-      if (el.selectedIndex < 0) return '';
-      const opt = el.options[el.selectedIndex];
-      if (!opt || !opt.value) return '';
-      const txt = (opt.getAttribute('data-en') || opt.text || '').trim();
-      if (/^(--|—|Select|বাছাই|আগে)/i.test(txt)) return '';
-      return txt;
-    }
-    const val = (el.value || '').trim();
-    if (/^(--|—|Select|বাছাই|আগে)/i.test(val)) return '';
-    return val;
+  // Null-safe button handling
+  const addressButton = document.getElementById('btnSaveAddress');
+  const primaryButton = document.getElementById('naPrimaryBtn');
+
+  const originalAddressHtml = addressButton ? addressButton.innerHTML : '';
+  const originalPrimaryHtml = primaryButton ? primaryButton.innerHTML : '';
+
+  if (addressButton) {
+    addressButton.disabled = true;
+    addressButton.innerHTML = 'Saving...';
   }
-
-  const presDivision = getSelectedOptionText('na_presCascade_div') || (window.__na_presAddr && (window.__na_presAddr.division || window.__na_presAddr.div)) || '';
-  const presDistrict = getSelectedOptionText('na_presCascade_dist') || (window.__na_presAddr && (window.__na_presAddr.district || window.__na_presAddr.dist)) || '';
-  const presUpazila = getSelectedOptionText('na_presCascade_upz') || (window.__na_presAddr && (window.__na_presAddr.upazila || window.__na_presAddr.thana || window.__na_presAddr.upz)) || '';
-  const presUnion = getSelectedOptionText('na_presCascade_uni') || (window.__na_presAddr && (window.__na_presAddr.union || window.__na_presAddr.uni)) || '';
-  const presVillage = (document.getElementById('na_pv') || {}).value ? document.getElementById('na_pv').value.trim() : '';
-  const presStreet = (document.getElementById('na_pstreet') || {}).value ? document.getElementById('na_pstreet').value.trim() : '';
-
-  const permDivision = getSelectedOptionText('na_permCascade_div') || (window.__na_permAddr && (window.__na_permAddr.division || window.__na_permAddr.div)) || '';
-  const permDistrict = getSelectedOptionText('na_permCascade_dist') || (window.__na_permAddr && (window.__na_permAddr.district || window.__na_permAddr.dist)) || '';
-  const permUpazila = getSelectedOptionText('na_permCascade_upz') || (window.__na_permAddr && (window.__na_permAddr.upazila || window.__na_permAddr.thana || window.__na_permAddr.upz)) || '';
-  const permUnion = getSelectedOptionText('na_permCascade_uni') || (window.__na_permAddr && (window.__na_permAddr.union || window.__na_permAddr.uni)) || '';
-  const permVillage = (document.getElementById('na_permV') || {}).value ? document.getElementById('na_permV').value.trim() : '';
-  const permStreet = (document.getElementById('na_permstreet') || {}).value ? document.getElementById('na_permstreet').value.trim() : '';
-
-  const presUniId = (document.getElementById('na_presCascade_uni') || {}).value || (window.__na_presAddr && (window.__na_presAddr.union_id || window.__na_presAddr.uniId)) || '';
-  const permUniId = (document.getElementById('na_permCascade_uni') || {}).value || (window.__na_permAddr && (window.__na_permAddr.union_id || window.__na_permAddr.uniId)) || '';
-
-  if(window.rememberVillage){
-    if(presUniId && presVillage) rememberVillage(presUniId, presVillage);
-    if(permUniId && permVillage) rememberVillage(permUniId, permVillage);
+  if (primaryButton) {
+    primaryButton.disabled = true;
+    primaryButton.innerHTML = 'Saving...';
   }
-
-  const presentAddress = {
-    village: presVillage,
-    street: presStreet,
-    union: presUnion,
-    upazila: presUpazila,
-    thana: presUpazila,
-    district: presDistrict,
-    division: presDivision,
-    division_id: (document.getElementById('na_presCascade_div') || {}).value || '',
-    district_id: (document.getElementById('na_presCascade_dist') || {}).value || '',
-    upazila_id: (document.getElementById('na_presCascade_upz') || {}).value || '',
-    union_id: (document.getElementById('na_presCascade_uni') || {}).value || ''
-  };
-
-  const permanentAddress = {
-    village: permVillage,
-    street: permStreet,
-    union: permUnion,
-    upazila: permUpazila,
-    thana: permUpazila,
-    district: permDistrict,
-    division: permDivision,
-    division_id: (document.getElementById('na_permCascade_div') || {}).value || '',
-    district_id: (document.getElementById('na_permCascade_dist') || {}).value || '',
-    upazila_id: (document.getElementById('na_permCascade_upz') || {}).value || '',
-    union_id: (document.getElementById('na_permCascade_uni') || {}).value || ''
-  };
-
-  const existingRemarks = getExistingRemarks(targetRecruitId);
-  const updatedRemarks = Object.assign({}, existingRemarks, {
-    presentAddress: presentAddress,
-    permanentAddress: permanentAddress
-  });
-
-  // Strict Rule: Map pure text columns (no numeric IDs)
-  const dbPayload = {
-    // 6 pure text columns for Present Address
-    division: presDivision,
-    district: presDistrict,
-    upazila: presUpazila,
-    union: presUnion,
-    village: presVillage,
-    street: presStreet,
-
-    // 6 pure text columns for Permanent Address
-    perm_division: permDivision,
-    perm_district: permDistrict,
-    perm_upazila: permUpazila,
-    perm_union: permUnion,
-    perm_village: permVillage,
-    perm_street: permStreet,
-    present_address_bn: g('presentAddressBn') || null,
-    permanent_address_bn: g('permanentAddressBn') || null,
-
-    // Backward compatibility
-    thana: presUpazila,
-    address: [presStreet, presVillage, presUnion, presUpazila, presDistrict, presDivision].filter(Boolean).join(', '),
-    remarks: JSON.stringify(updatedRemarks)
-  };
-
-  const btn = document.getElementById('btnSaveAddress');
-  const primaryBtn = document.getElementById('naPrimaryBtn');
-  const origBtnText = btn ? btn.innerHTML : '';
-  const origPriText = primaryBtn ? primaryBtn.innerHTML : '';
-  if(btn){ btn.disabled = true; btn.innerHTML = 'Saving...'; }
-  if(primaryBtn){ primaryBtn.disabled = true; primaryBtn.innerHTML = 'Saving...'; }
 
   try {
+    const g = id => (document.getElementById('na_' + id) || {}).value ? document.getElementById('na_' + id).value.trim() : '';
+
+    function getSelectedOptionText(selectId) {
+      const el = document.getElementById(selectId);
+      if (!el) return '';
+      if (el.tagName === 'SELECT') {
+        if (el.selectedIndex < 0) return '';
+        const opt = el.options[el.selectedIndex];
+        if (!opt || !opt.value) return '';
+        const txt = (opt.getAttribute('data-en') || opt.text || '').trim();
+        if (/^(--|—|Select|বাছাই|আগে)/i.test(txt)) return '';
+        return txt;
+      }
+      const val = (el.value || '').trim();
+      if (/^(--|—|Select|বাছাই|আগে)/i.test(val)) return '';
+      return val;
+    }
+
+    const presDivision = getSelectedOptionText('na_presCascade_div') || (window.__na_presAddr && (window.__na_presAddr.division || window.__na_presAddr.div)) || '';
+    const presDistrict = getSelectedOptionText('na_presCascade_dist') || (window.__na_presAddr && (window.__na_presAddr.district || window.__na_presAddr.dist)) || '';
+    const presUpazila  = getSelectedOptionText('na_presCascade_upz') || (window.__na_presAddr && (window.__na_presAddr.upazila || window.__na_presAddr.thana || window.__na_presAddr.upz)) || '';
+    const presUnion    = getSelectedOptionText('na_presCascade_uni') || (window.__na_presAddr && (window.__na_presAddr.union || window.__na_presAddr.uni)) || '';
+
+    const permDivision = getSelectedOptionText('na_permCascade_div') || (window.__na_permAddr && (window.__na_permAddr.division || window.__na_permAddr.div)) || '';
+    const permDistrict = getSelectedOptionText('na_permCascade_dist') || (window.__na_permAddr && (window.__na_permAddr.district || window.__na_permAddr.dist)) || '';
+    const permUpazila  = getSelectedOptionText('na_permCascade_upz') || (window.__na_permAddr && (window.__na_permAddr.upazila || window.__na_permAddr.thana || window.__na_permAddr.upz)) || '';
+    const permUnion    = getSelectedOptionText('na_permCascade_uni') || (window.__na_permAddr && (window.__na_permAddr.union || window.__na_permAddr.uni)) || '';
+
+    const presPostOffice = g('presPostOffice');
+    const presAddressDetails = g('presAddressDetails');
+    const permPostOffice = g('permPostOffice');
+    const permAddressDetails = g('permAddressDetails');
+
+    let presAddressBn = g('presentAddressBn');
+    let permAddressBn = g('permanentAddressBn');
+
+    // If Bangla addresses are not yet populated, compose them safely from available parts
+    if(!presAddressBn){
+      const presDivBn = employeeGeoBangla('division', (document.getElementById('na_presCascade_div') || {}).value || presDivision);
+      const presDistBn = employeeGeoBangla('district', (document.getElementById('na_presCascade_dist') || {}).value || presDistrict);
+      const presUpzBn = employeeGeoBangla('upazila', (document.getElementById('na_presCascade_upz') || {}).value || presUpazila);
+      const presUniBn = employeeGeoBangla('union', (document.getElementById('na_presCascade_uni') || {}).value || presUnion);
+      presAddressBn = composeBanglaAddress({
+        details: presAddressDetails,
+        postOffice: presPostOffice,
+        union: presUniBn,
+        upazila: presUpzBn,
+        district: presDistBn,
+        division: presDivBn
+      });
+      const pEl = document.getElementById('na_presentAddressBn');
+      if(pEl && presAddressBn) pEl.value = presAddressBn;
+    }
+
+    if(!permAddressBn){
+      const permDivBn = employeeGeoBangla('division', (document.getElementById('na_permCascade_div') || {}).value || permDivision);
+      const permDistBn = employeeGeoBangla('district', (document.getElementById('na_permCascade_dist') || {}).value || permDistrict);
+      const permUpzBn = employeeGeoBangla('upazila', (document.getElementById('na_permCascade_upz') || {}).value || permUpazila);
+      const permUniBn = employeeGeoBangla('union', (document.getElementById('na_permCascade_uni') || {}).value || permUnion);
+      permAddressBn = composeBanglaAddress({
+        details: permAddressDetails,
+        postOffice: permPostOffice,
+        union: permUniBn,
+        upazila: permUpzBn,
+        district: permDistBn,
+        division: permDivBn
+      });
+      const permEl = document.getElementById('na_permanentAddressBn');
+      if(permEl && permAddressBn) permEl.value = permAddressBn;
+    }
+
+    const existingEmp = typeof findEmp === 'function' ? findEmp(targetRecruitId) : null;
+
+    // Preserving old village & street values without erasing
+    const preservedVillage = (existingEmp && (existingEmp.village || existingEmp.Village)) || presAddressDetails || '';
+    const preservedStreet  = (existingEmp && (existingEmp.street || existingEmp.Street)) || '';
+    const preservedPermVillage = (existingEmp && (existingEmp.perm_village || existingEmp.PermVillage)) || permAddressDetails || '';
+    const preservedPermStreet  = (existingEmp && (existingEmp.perm_street || existingEmp.PermStreet)) || '';
+
+    const presentAddress = {
+      post_office: presPostOffice,
+      details: presAddressDetails,
+      village: preservedVillage,
+      street: preservedStreet,
+      union: presUnion,
+      upazila: presUpazila,
+      thana: presUpazila,
+      district: presDistrict,
+      division: presDivision,
+      division_id: (document.getElementById('na_presCascade_div') || {}).value || '',
+      district_id: (document.getElementById('na_presCascade_dist') || {}).value || '',
+      upazila_id: (document.getElementById('na_presCascade_upz') || {}).value || '',
+      union_id: (document.getElementById('na_presCascade_uni') || {}).value || ''
+    };
+
+    const permanentAddress = {
+      post_office: permPostOffice,
+      details: permAddressDetails,
+      village: preservedPermVillage,
+      street: preservedPermStreet,
+      union: permUnion,
+      upazila: permUpazila,
+      thana: permUpazila,
+      district: permDistrict,
+      division: permDivision,
+      division_id: (document.getElementById('na_permCascade_div') || {}).value || '',
+      district_id: (document.getElementById('na_permCascade_dist') || {}).value || '',
+      upazila_id: (document.getElementById('na_permCascade_upz') || {}).value || '',
+      union_id: (document.getElementById('na_permCascade_uni') || {}).value || ''
+    };
+
+    const existingRemarks = getExistingRemarks(targetRecruitId);
+    const updatedRemarks = Object.assign({}, existingRemarks, {
+      presentAddress: presentAddress,
+      permanentAddress: permanentAddress,
+      presentAddressBn: presAddressBn,
+      permanentAddressBn: permAddressBn,
+      present_post_office: presPostOffice,
+      permanent_post_office: permPostOffice,
+      present_address_details: presAddressDetails,
+      permanent_address_details: permAddressDetails
+    });
+
+    const dbPayload = {
+      division: presDivision,
+      district: presDistrict,
+      upazila: presUpazila,
+      union: presUnion,
+      village: preservedVillage,
+      street: preservedStreet,
+
+      perm_division: permDivision,
+      perm_district: permDistrict,
+      perm_upazila: permUpazila,
+      perm_union: permUnion,
+      perm_village: preservedPermVillage,
+      perm_street: preservedPermStreet,
+
+      present_post_office: presPostOffice || null,
+      permanent_post_office: permPostOffice || null,
+      present_address_details: presAddressDetails || null,
+      permanent_address_details: permAddressDetails || null,
+
+      present_address_bn: presAddressBn || null,
+      permanent_address_bn: permAddressBn || null,
+
+      remarks: JSON.stringify(updatedRemarks)
+    };
+
+    // Strip forbidden/unsupported properties
+    delete dbPayload.address;
+    delete dbPayload.address_bn;
+    delete dbPayload.present_address;
+    delete dbPayload.permanent_address;
+    delete dbPayload.present_address_en;
+    delete dbPayload.permanent_address_en;
+
     await executeRecruitUpdate(dbPayload, targetRecruitId);
 
     // Update local cache
@@ -6697,7 +7037,6 @@ async function saveAddressAndContinue(){
         emp.union = dbPayload.union;
         emp.village = dbPayload.village;
         emp.street = dbPayload.street;
-        emp.thana = dbPayload.thana;
         emp.perm_division = dbPayload.perm_division;
         emp.perm_district = dbPayload.perm_district;
         emp.perm_upazila = dbPayload.perm_upazila;
@@ -6711,7 +7050,6 @@ async function saveAddressAndContinue(){
         emp.Union = dbPayload.union;
         emp.Village = dbPayload.village;
         emp.Street = dbPayload.street;
-        emp.Thana = dbPayload.thana;
         emp.PermDivision = dbPayload.perm_division;
         emp.PermDistrict = dbPayload.perm_district;
         emp.PermUpazila = dbPayload.perm_upazila;
@@ -6719,11 +7057,28 @@ async function saveAddressAndContinue(){
         emp.PermVillage = dbPayload.perm_village;
         emp.PermStreet = dbPayload.perm_street;
 
+        emp.present_post_office = dbPayload.present_post_office;
+        emp.PresentPostOffice = dbPayload.present_post_office;
+        emp.permanent_post_office = dbPayload.permanent_post_office;
+        emp.PermanentPostOffice = dbPayload.permanent_post_office;
+        emp.present_address_details = dbPayload.present_address_details;
+        emp.PresentAddressDetails = dbPayload.present_address_details;
+        emp.permanent_address_details = dbPayload.permanent_address_details;
+        emp.PermanentAddressDetails = dbPayload.permanent_address_details;
+
+        emp.PresentAddressBn = dbPayload.present_address_bn;
+        emp.present_address_bn = dbPayload.present_address_bn;
+        emp.PermanentAddressBn = dbPayload.permanent_address_bn;
+        emp.permanent_address_bn = dbPayload.permanent_address_bn;
+
         emp.Remarks = dbPayload.remarks;
         emp.remarks = dbPayload.remarks;
       }
     }
 
+    if(typeof renderEmpTable === 'function'){
+      renderEmpTable();
+    }
     if(typeof syncRecruitmentFromEmployees === 'function'){
       syncRecruitmentFromEmployees();
     }
@@ -6747,8 +7102,8 @@ async function saveAddressAndContinue(){
     console.error('[Progressive Save] Error in saveAddressAndContinue:', err);
     toast('Error saving address: ' + (err.message || err), 'error');
   } finally {
-    if(btn){ btn.disabled = false; btn.innerHTML = origBtnText || 'Save & Continue →'; }
-    if(primaryBtn){ primaryBtn.disabled = false; primaryBtn.innerHTML = origPriText || 'Save & Continue'; }
+    if(addressButton){ addressButton.disabled = false; addressButton.innerHTML = originalAddressHtml || 'Save & Continue →'; }
+    if(primaryButton){ primaryButton.disabled = false; primaryButton.innerHTML = originalPrimaryHtml || 'Save & Continue'; }
   }
 }
 window.saveAddressAndContinue = saveAddressAndContinue;
@@ -6973,15 +7328,22 @@ async function saveJobAndComplete(){
     salary: salary
   });
 
+  const selectedJoinDate = normalizeDateOnly(g('joinDate'));
+  const currentEmp = typeof findEmp === 'function' ? findEmp(targetRecruitId) : null;
+  const existingJoin = normalizeDateOnly(currentEmp && (currentEmp.JoinDate || currentEmp.join_date));
+
   // Strict Rule: status column is not overwritten; keep it as is!
   const dbPayload = {
     designation: desig,
     project_name: project,
-    join_date: g('joinDate') || null,
     duty_hour: String(dutyHours),
     salary: gross,
     remarks: JSON.stringify(updatedRemarks)
   };
+  if(selectedJoinDate && (!existingJoin || selectedJoinDate !== existingJoin)){
+    dbPayload.join_date = selectedJoinDate;
+  }
+  delete dbPayload.old_join_date;
 
   const btn = document.getElementById('btnSaveJobComplete');
   const primaryBtn = document.getElementById('naPrimaryBtn');
@@ -7009,14 +7371,18 @@ async function saveJobAndComplete(){
         emp.duty_hour = dbPayload.duty_hour;
         emp.Salary = dbPayload.salary;
         emp.salary = dbPayload.salary;
+        if(dbPayload.join_date){
+          emp.JoinDate = dbPayload.join_date;
+          emp.join_date = dbPayload.join_date;
+        }
         emp.Remarks = dbPayload.remarks;
         emp.remarks = dbPayload.remarks;
       }
     }
 
     // 4. Final Submission / Completion:
-    // a) Show a final success toast: "Candidate profile completely saved!"
-    toast('Candidate profile completely saved!', 'success');
+    const isEditMode = !!((document.getElementById('na_editKey')||{}).value || window.currentEditEmployeeId);
+    toast(isEditMode ? 'Employee profile updated successfully!' : 'Candidate profile completely saved!', 'success');
 
     // b) Close the modal
     closeModal();
@@ -7029,7 +7395,10 @@ async function saveJobAndComplete(){
     window.currentRecruitId = null;
     window.currentEditEmployeeId = null;
 
-    // e) Re-render the pending recruitment grid to reflect any newly added details
+    // e) Re-render tables and grids
+    if(typeof renderEmpTable === 'function'){
+      renderEmpTable();
+    }
     if(typeof syncRecruitmentFromEmployees === 'function'){
       syncRecruitmentFromEmployees();
     }
@@ -7041,6 +7410,7 @@ async function saveJobAndComplete(){
     }
     if(typeof fetchEmployeesDirectly === 'function'){
       fetchEmployeesDirectly().then(() => {
+        if(typeof renderEmpTable === 'function') renderEmpTable();
         if(typeof syncRecruitmentFromEmployees === 'function') syncRecruitmentFromEmployees();
         if(typeof renderPendingRecruitment === 'function') renderPendingRecruitment();
         if(typeof renderRecruitment === 'function') renderRecruitment();
@@ -7114,11 +7484,12 @@ async function commitApplicantUpdate(editKey, a){
 
   const existingEmp = findEmp(editKey);
   const empCode = (a && a.empId != null) ? a.empId.trim() : ((existingEmp && (existingEmp.EmployeeID || existingEmp.employee_id)) || '');
+  const normJoin = normalizeDateOnly(a.joinDate) || normalizeDateOnly(existingEmp && (existingEmp.JoinDate || existingEmp.join_date)) || null;
 
   const dbPayload = {
     employee_id: empCode,
-    full_name: a.nameEn,
-    full_name_bn: a.name,
+    full_name: a.nameEn || a.name,
+    full_name_bn: a.name || a.nameEn,
     father_name: a.father,
     father_name_bn: a.fatherBn,
     mother_name: a.mother,
@@ -7132,23 +7503,31 @@ async function commitApplicantUpdate(editKey, a){
     religion: a.religion,
     height: String(a.height||''),
     weight: String(a.weight||'0'),
-    division_id: pa.division_id || pr.division_id || '',
-    district_id: pa.district_id || pr.district_id || '',
-    upazila_id: pa.upazila_id || pr.upazila_id || '',
-    union_id: pa.union_id || pr.union_id || '',
-    village: pa.village || pr.village || '',
-    street: pa.street || pr.street || '',
+    division: pr.division || '',
+    district: pr.district || '',
+    upazila: pr.upazila || pr.thana || '',
+    union: pr.union || '',
+    village: pr.village || '',
+    street: pr.street || '',
+    perm_division: pa.division || '',
+    perm_district: pa.district || '',
+    perm_upazila: pa.upazila || pa.thana || '',
+    perm_union: pa.union || '',
+    perm_village: pa.village || '',
+    perm_street: pa.street || '',
+    present_address_bn: a.presentAddressBn || null,
+    permanent_address_bn: a.permanentAddressBn || null,
     marital_status: a.maritalStatus,
     spouse_name: a.spouse,
     spouse_phone: a.spousePhone,
     ec_name: a.ec1 ? a.ec1.name : '',
     ec_relation: a.ec1 ? a.ec1.relation : '',
     ec_phone: a.ec1 ? a.ec1.mobile : '',
+    ec_name2: a.ec2 ? a.ec2.name : '',
+    ec_relation2: a.ec2 ? a.ec2.relation : '',
+    ec_phone2: a.ec2 ? a.ec2.mobile : '',
     designation: a.desig,
     project_name: a.project,
-    join_date: a.joinDate || (existingEmp && (existingEmp.JoinDate || existingEmp.join_date)) || null,
-    present_address_bn: a.presentAddressBn || null,
-    permanent_address_bn: a.permanentAddressBn || null,
     duty_hour: String(a.dutyHours || 12),
     salary: a.salary ? a.salary.total : 0,
     remarks: JSON.stringify(a)
@@ -7156,10 +7535,19 @@ async function commitApplicantUpdate(editKey, a){
   };
 
   const oldJoinDate = existingEmp && (existingEmp.JoinDate || existingEmp.join_date);
-  if(dbPayload.join_date && oldJoinDate && String(dbPayload.join_date).slice(0,10)!==String(oldJoinDate).slice(0,10)){
-    const confirmed = await confirmSensitiveJoinDateChange(oldJoinDate, dbPayload.join_date);
-    if(!confirmed){ toast('Join Date change cancelled.','error'); return; }
+  if(normJoin && oldJoinDate && existingEmp && existingEmp.Status !== 'Candidate'){
+    const normOld = normalizeDateOnly(oldJoinDate);
+    const normNew = normalizeDateOnly(normJoin);
+    if(normOld && normNew && normOld !== normNew){
+      const confirmed = await confirmSensitiveJoinDateChange(normOld, normNew, existingEmp);
+      if(!confirmed){ toast('Join Date change cancelled.','error'); return; }
+      dbPayload.join_date = normNew;
+    }
+  } else if(normJoin && !oldJoinDate){
+    dbPayload.join_date = normJoin;
   }
+
+  const cleanPayload = cleanEmployeePayload(dbPayload);
 
 
   // Check if it's a candidate from RECRUITMENT array
@@ -7174,11 +7562,15 @@ async function commitApplicantUpdate(editKey, a){
       dob: a.dob,
       nid: a.nid,
       phone: a.phone,
+      joinDate: dbPayload.join_date,
+      bloodGroup: a.bloodGroup,
       desig: a.desig,
       project: a.project,
       salary: a.salary,
       presentAddress: a.presentAddress,
       permanentAddress: a.permanentAddress,
+      presentAddressBn: a.presentAddressBn,
+      permanentAddressBn: a.permanentAddressBn,
       ec1: a.ec1,
       ec2: a.ec2,
       reference: a.reference
@@ -7197,7 +7589,7 @@ async function commitApplicantUpdate(editKey, a){
 
   if (sbClient) {
     try {
-      let query = sbClient.from('employees').update(dbPayload);
+      let query = sbClient.from('employees').update(cleanPayload);
       if (existingEmp && existingEmp.id) {
         query = query.eq('id', existingEmp.id);
       } else if (existingEmp && existingEmp.EmployeeID) {
@@ -7208,11 +7600,27 @@ async function commitApplicantUpdate(editKey, a){
         query = query.eq('employee_id', editKey);
       }
 
-      const { error } = await query;
+      let { error } = await query;
       if (error) {
         console.error('[Employees] Update error:', error);
         toast('Failed to update employee: ' + (error.message || error), 'error');
         return;
+      }
+
+      // Verification reload if join_date changed
+      if (cleanPayload.join_date && existingEmp) {
+        const verifyPk = existingEmp.id || editKey;
+        if (/^\d+$/.test(String(verifyPk))) {
+          const { data: verifiedEmp, error: verErr } = await sbClient.from('employees').select('id, join_date, status').eq('id', Number(verifyPk)).single();
+          if (verErr) throw verErr;
+          if (verifiedEmp) {
+            const reloadedDate = normalizeDateOnly(verifiedEmp.join_date);
+            const expectedDate = normalizeDateOnly(cleanPayload.join_date);
+            if (reloadedDate !== expectedDate) {
+              throw new Error(`Verification mismatch: Database stored '${reloadedDate}' but expected '${expectedDate}'`);
+            }
+          }
+        }
       }
     } catch(err) {
       console.error('[Employees] Exception:', err);
@@ -7223,7 +7631,7 @@ async function commitApplicantUpdate(editKey, a){
 
   window.currentEditEmployeeId = null;
   closeModal();
-  toast(`${a.nameEn} — updated successfully.`, 'success');
+  toast(`${a.nameEn || a.name} — updated successfully.`, 'success');
   await fetchEmployeesDirectly();
   if (typeof renderEmpTable === 'function') renderEmpTable();
   if (typeof renderRecruitment === 'function') renderRecruitment();
@@ -7232,30 +7640,47 @@ function collectApplicantData(g){
   const gross=+g('gross')||0;
   const pres = window.__na_presAddr || {};
   const perm = window.__na_permAddr || {};
-  const presVillage = g('pv'), permVillage = g('permV');
+  const presVillage = g('presAddressDetails') || g('pv');
+  const permVillage = g('permAddressDetails') || g('permV');
   // Save typed villages
   if(window.rememberVillage){
     if(pres.union_id && presVillage) rememberVillage(pres.union_id, presVillage);
     if(perm.union_id && permVillage) rememberVillage(perm.union_id, permVillage);
   }
+  const getOptText = id => {
+    const el = document.getElementById(id);
+    return (el && el.selectedIndex >= 0 && el.options[el.selectedIndex]) ? el.options[el.selectedIndex].text : '';
+  };
   // Legacy names for backward-compat
   const bdD = window.bdDistName||function(){return '';};
   const bdU = window.bdUpzName||function(){return '';};
   return {
-    empId: '', joinDate:g('joinDate'),
+    empId: '', joinDate:normalizeDateOnly(g('joinDate')),
     name:g('name'), nameEn:g('nameEn'), father:g('father'), fatherBn:g('fatherBn'), mother:g('mother'), motherBn:g('motherBn'), dob:g('dob'), nid:g('nid'), nidBn:g('nidBn'), phone:g('phone'), phoneBn:g('phoneBn'), presentAddressBn:g('presentAddressBn'), permanentAddressBn:g('permanentAddressBn'),
     education:g('education'), religion:g('religion')||'Islam', bloodGroup:g('bloodGroup'),
     height:g('height'), weight:g('weight'), maritalStatus:g('maritalStatus'),
     spouse:g('maritalStatus')==='Married'?g('spouse'):'', spousePhone:g('maritalStatus')==='Married'?g('spouseMobile'):'',
     presentAddress:{
-      village:presVillage, street:g('pstreet'),
-      thana:bdU(pres.upazila_id), district:bdD(pres.district_id),
-      division_id:pres.division_id||'', district_id:pres.district_id||'', upazila_id:pres.upazila_id||'', union_id:pres.union_id||''
+      post_office: g('presPostOffice'),
+      details: g('presAddressDetails'),
+      village: presVillage,
+      street: g('pstreet'),
+      union: getOptText('na_presCascade_uni') || pres.union || '',
+      upazila: getOptText('na_presCascade_upz') || bdU(pres.upazila_id) || pres.upazila || pres.thana || '',
+      thana: getOptText('na_presCascade_upz') || bdU(pres.upazila_id) || pres.upazila || pres.thana || '',
+      district: getOptText('na_presCascade_dist') || bdD(pres.district_id) || pres.district || '',
+      division: getOptText('na_presCascade_div') || pres.division || ''
     },
     permanentAddress:{
-      village:permVillage, street:g('permstreet'),
-      thana:bdU(perm.upazila_id), district:bdD(perm.district_id),
-      division_id:perm.division_id||'', district_id:perm.district_id||'', upazila_id:perm.upazila_id||'', union_id:perm.union_id||''
+      post_office: g('permPostOffice'),
+      details: g('permAddressDetails'),
+      village: permVillage,
+      street: g('permstreet'),
+      union: getOptText('na_permCascade_uni') || perm.union || '',
+      upazila: getOptText('na_permCascade_upz') || bdU(perm.upazila_id) || perm.upazila || perm.thana || '',
+      thana: getOptText('na_permCascade_upz') || bdU(perm.upazila_id) || perm.upazila || perm.thana || '',
+      district: getOptText('na_permCascade_dist') || bdD(perm.district_id) || perm.district || '',
+      division: getOptText('na_permCascade_div') || perm.division || ''
     },
     ec1:{name:g('ec1n'),relation:g('ec1r'),mobile:g('ec1m')},
     ec2:{name:g('ec2n'),relation:g('ec2r'),mobile:g('ec2m')},
@@ -7330,21 +7755,30 @@ async function commitApplicant(a){
     religion: a.religion,
     height: String(a.height||''),
     weight: String(a.weight||'0'),
-    division_id: pa.division_id || pr.division_id || '',
-    district_id: pa.district_id || pr.district_id || '',
-    upazila_id: pa.upazila_id || pr.upazila_id || '',
-    union_id: pa.union_id || pr.union_id || '',
-    village: pa.village || pr.village || '',
-    street: pa.street || pr.street || '',
+    division: pr.division || '',
+    district: pr.district || '',
+    upazila: pr.upazila || pr.thana || '',
+    union: pr.union || '',
+    village: pr.village || '',
+    street: pr.street || '',
+    perm_division: pa.division || '',
+    perm_district: pa.district || '',
+    perm_upazila: pa.upazila || pa.thana || '',
+    perm_union: pa.union || '',
+    perm_village: pa.village || '',
+    perm_street: pa.street || '',
     marital_status: a.maritalStatus,
     spouse_name: a.spouse,
     spouse_phone: a.spousePhone,
     ec_name: a.ec1 ? a.ec1.name : '',
     ec_relation: a.ec1 ? a.ec1.relation : '',
     ec_phone: a.ec1 ? a.ec1.mobile : '',
+    ec_name2: a.ec2 ? a.ec2.name : '',
+    ec_relation2: a.ec2 ? a.ec2.relation : '',
+    ec_phone2: a.ec2 ? a.ec2.mobile : '',
     designation: a.desig,
     project_name: a.project,
-    join_date: a.joinDate || null,
+    join_date: normalizeDateOnly(a.joinDate) || null,
     present_address_bn: a.presentAddressBn || null,
     permanent_address_bn: a.permanentAddressBn || null,
     duty_hour: String(a.dutyHours || 12),
@@ -7352,6 +7786,7 @@ async function commitApplicant(a){
     status: 'Candidate',
     remarks: JSON.stringify(a)
   };
+  const cleanPayload = cleanEmployeePayload(dbPayload);
 
   const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
                 || (window.MGHRM && window.MGHRM.sb)
@@ -7360,7 +7795,7 @@ async function commitApplicant(a){
 
   if (sbClient) {
     try {
-      const { error } = await sbClient.from('employees').insert([dbPayload]);
+      const { error } = await sbClient.from('employees').insert([cleanPayload]);
       if (error) {
         console.error('[Recruitment] Insert error:', error);
         toast('Failed to save candidate: ' + (error.message || error), 'error');
@@ -7419,7 +7854,12 @@ async function onboardCandidate(id){
 
   try {
     const emp = DATA.employees.find(e => String(e.id) === String(id) || String(e.EmployeeID) === String(id));
-    let query = sbClient.from('employees').update({ status: 'Active', join_date: todayISO() });
+    const existingJoin = emp && (emp.join_date || emp.JoinDate);
+    const updatePayload = { status: 'Active' };
+    if (!existingJoin && r && r.joinDate) {
+      updatePayload.join_date = normalizeDateOnly(r.joinDate);
+    }
+    let query = sbClient.from('employees').update(updatePayload);
     if (emp && emp.id) {
       query = query.eq('id', emp.id);
     } else {
@@ -7673,7 +8113,7 @@ function printAppointment(id){
       <tr><td><strong>শিক্ষাগত যোগ্যতাঃ</strong> ${r.education}</td><td><strong>এনআইডিঃ</strong> ${num(r.nid)}</td></tr>
       <tr><td><strong>মোবাইলঃ</strong> ${num(r.phone)}</td><td><strong>বিভাগঃ</strong> নিরাপত্তা</td></tr>
       <tr><td colspan="2"><strong>স্থায়ী ঠিকানাঃ</strong> ${paddr}</td></tr>
-      <tr><td><strong>যোগদানের তারিখঃ</strong> ${fmtDate(todayISO())}</td><td><strong>আইডি নংঃ</strong> ${r.empId||dot('',80)}</td></tr>
+      <tr><td><strong>যোগদানের তারিখঃ</strong> ${fmtDate(r.joinDate || r.JoinDate || todayISO())}</td><td><strong>আইডি নংঃ</strong> ${r.empId||dot('',80)}</td></tr>
       <tr><td><strong>পদবিঃ</strong> ${DESIG_BN[r.desig]||r.desig}</td><td><strong>কর্মস্থলঃ</strong> ${projName(r.project)}</td></tr>
     </table>
 
@@ -18937,9 +19377,220 @@ async function gTranslateBn(text) {
   return text.trim(); // Safe fallback, no network exfiltration
 }
 
-function employeeGeoBangla(kind,id){if(!id||!window.BDGEO)return '';let rows=[];if(kind==='division')rows=window.BDGEO.divisions||[];else Object.values(window.BDGEO[kind+'s']||{}).forEach(a=>rows.push(...a));const row=rows.find(x=>String(x.id)===String(id));return row?(row.bn||row.name_bn||row.bangla||row.en||''):'';}
-async function employeeAddressFragment(value,label){value=String(value||'').trim();if(!value)return '';const cfg=window.__mgAiCfg||(()=>{try{return JSON.parse(localStorage.getItem('mghrm_ai')||'{}')}catch(e){return {}}})();if(!cfg.key)return value;const u='https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(cfg.model||'gemini-2.5-flash-lite')+':generateContent?key='+encodeURIComponent(cfg.key);const r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:`Write only the professional Bangla form of this Bangladesh address ${label}: ${value}`}]}],generationConfig:{temperature:.1,maxOutputTokens:80}})});if(!r.ok)return value;const j=await r.json();return j?.candidates?.[0]?.content?.parts?.map(x=>x.text||'').join('').trim()||value;}
-async function generateSelectedAddressBangla(type,btn){const present=type==='present',state=(present?window.__na_presAddr:window.__na_permAddr)||{},out=document.getElementById(present?'na_presentAddressBn':'na_permanentAddressBn');if(!out)return;const old=btn.innerHTML;btn.disabled=true;btn.innerHTML='…';try{const house=await employeeAddressFragment(document.getElementById(present?'na_pstreet':'na_permstreet')?.value,'house or street'),village=await employeeAddressFragment(document.getElementById(present?'na_pv':'na_permV')?.value,'village'),parts=[];if(house)parts.push('বাসা: '+house);if(village)parts.push('গ্রাম: '+village);[['union','ইউনিয়ন'],['upazila','উপজেলা'],['district','জেলা'],['division','বিভাগ']].forEach(([k,l])=>{const ids={union:state.union_id||state.uniId,upazila:state.upazila_id||state.upzId,district:state.district_id||state.distId,division:state.division_id||state.divId};const value=employeeGeoBangla(k,ids[k]);if(value)parts.push(l+': '+value);});out.value=parts.join(', ');out.classList.add('na-user-filled');}finally{btn.disabled=false;btn.innerHTML=old;}}
+function employeeGeoBangla(kind, idOrName){
+  if(!idOrName || !window.BDGEO) return '';
+  const val = String(idOrName).trim().toLowerCase();
+  let list = [];
+  if(kind === 'division') {
+    list = window.BDGEO.divisions || [];
+  } else {
+    Object.values(window.BDGEO[kind + 's'] || {}).forEach(arr => list.push(...arr));
+  }
+  const match = list.find(x => String(x.id) === String(idOrName) || (x.en && x.en.toLowerCase() === val) || (x.bn && x.bn === idOrName));
+  return match ? (match.bn || match.name_bn || match.bangla || match.en || '') : '';
+}
+
+function cleanBanglaAddressFragment(value) {
+  let val = String(value || '').trim();
+  // Repeatedly remove leading labels/prefixes anywhere at beginning
+  while (/^(গ্রাম|এলাকা|বাসা|বাড়ি|রাস্তা|রোড|ডাকঘর)\s*:\s*/i.test(val)) {
+    val = val.replace(/^(গ্রাম|এলাকা|বাসা|বাড়ি|রাস্তা|রোড|ডাকঘর)\s*:\s*/i, '').trim();
+  }
+  return val
+    .replace(/,?\s*বাংলাদেশ\s*$/i, '')
+    .replace(/\s*,\s*,+/g, ', ')
+    .replace(/^[,\s]+|[,\s]+$/g, '')
+    .trim();
+}
+
+function composeBanglaAddress(opts) {
+  const parts = [];
+  const cleanDetail = cleanBanglaAddressFragment(opts.details);
+  const cleanPo = cleanBanglaAddressFragment(opts.postOffice);
+  const union = cleanBanglaAddressFragment(opts.union);
+  const upazila = cleanBanglaAddressFragment(opts.upazila);
+  const district = cleanBanglaAddressFragment(opts.district);
+  const division = cleanBanglaAddressFragment(opts.division);
+
+  // 1. General address detail
+  if (cleanDetail) {
+    if (/^(গ্রাম|বাসা|বাড়ি|রাস্তা|রোড|এলাকা)\s*:\s*/i.test(cleanDetail)) {
+      parts.push(cleanDetail);
+    } else {
+      parts.push('গ্রাম: ' + cleanDetail);
+    }
+  }
+
+  // 2. Post Office
+  if (cleanPo) {
+    parts.push('ডাকঘর: ' + cleanPo);
+  }
+
+  // 3. Union
+  if (union) {
+    parts.push('ইউনিয়ন: ' + union);
+  }
+
+  // 4. Upazila
+  if (upazila) {
+    parts.push('উপজেলা: ' + upazila);
+  }
+
+  // 5. District
+  if (district) {
+    parts.push('জেলা: ' + district);
+  }
+
+  // 6. Division
+  if (division) {
+    parts.push('বিভাগ: ' + division);
+  }
+
+  return parts
+    .join(', ')
+    .replace(/,?\s*বাংলাদেশ\s*$/i, '')
+    .replace(/\s*,\s*,+/g, ', ')
+    .replace(/^[,\s]+|[,\s]+$/g, '')
+    .trim();
+}
+
+async function translateAddressFragmentsAI(postOffice, details) {
+  postOffice = String(postOffice || '').trim();
+  details = String(details || '').trim();
+
+  if (!postOffice && !details) {
+    return { postOffice: '', details: '' };
+  }
+
+  const isBangla = s => !s || /^[\u0980-\u09FF\s\d০-৯,./\-_()]+$/.test(s);
+  if (isBangla(postOffice) && isBangla(details)) {
+    return {
+      postOffice: typeof toBnDigits === 'function' ? toBnDigits(postOffice) : postOffice,
+      details: typeof toBnDigits === 'function' ? toBnDigits(details) : details
+    };
+  }
+
+  const cfg = window.__mgAiCfg || (() => {
+    try { return JSON.parse(localStorage.getItem('mghrm_ai') || '{}'); } catch(e) { return {}; }
+  })();
+  const key = String(cfg.key || '').trim();
+  const model = String(cfg.model || 'gemini-2.5-flash-lite').trim();
+
+  if (!key) {
+    throw new Error('Configure the Gemini API key in AI Settings.');
+  }
+
+  const prompt = `Return JSON only. Convert these Bangladesh address fragments to professional Bangla values without labels or country name:\n{"postOffice":${JSON.stringify(postOffice)},"details":${JSON.stringify(details)}}`;
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.1,
+        maxOutputTokens: 120
+      }
+    })
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`Gemini API error (${res.status}): ${errText || res.statusText}`);
+  }
+
+  const json = await res.json();
+  const rawText = json?.candidates?.[0]?.content?.parts?.map(x => x.text || '').join('').trim() || '';
+
+  let parsed = null;
+  try {
+    const cleaned = rawText.replace(/^```[a-z]*\s*|```$/gi, '').trim();
+    parsed = JSON.parse(cleaned);
+  } catch (parseErr) {
+    const match = rawText.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        parsed = JSON.parse(match[0]);
+      } catch (e2) {}
+    }
+    if (!parsed) {
+      const poMatch = rawText.match(/"postOffice"\s*:\s*"([^"]+)"/);
+      const detMatch = rawText.match(/"details"\s*:\s*"([^"]+)"/);
+      if (poMatch || detMatch) {
+        parsed = {
+          postOffice: poMatch ? poMatch[1] : '',
+          details: detMatch ? detMatch[1] : ''
+        };
+      }
+    }
+  }
+
+  if (!parsed) {
+    throw new Error('Could not parse translation result from AI. Please try again.');
+  }
+
+  return {
+    postOffice: parsed.postOffice || '',
+    details: parsed.details || ''
+  };
+}
+
+async function generateSelectedAddressBangla(type, btn){
+  const present = type === 'present';
+  const state = (present ? window.__na_presAddr : window.__na_permAddr) || {};
+  const out = document.getElementById(present ? 'na_presentAddressBn' : 'na_permanentAddressBn');
+  if(!out) return;
+
+  const poInput = document.getElementById(present ? 'na_presPostOffice' : 'na_permPostOffice');
+  const detailsInput = document.getElementById(present ? 'na_presAddressDetails' : 'na_permAddressDetails');
+
+  const rawPo = poInput ? poInput.value.trim() : '';
+  let rawDetails = detailsInput ? detailsInput.value.trim() : '';
+  if(!rawDetails){
+    const legStreet = (document.getElementById(present ? 'na_pstreet' : 'na_permstreet') || {}).value || '';
+    const legVillage = (document.getElementById(present ? 'na_pv' : 'na_permV') || {}).value || '';
+    rawDetails = [legVillage, legStreet].filter(Boolean).join(', ').trim();
+  }
+
+  const oldHtml = btn ? btn.innerHTML : '';
+  if(btn){
+    btn.disabled = true;
+    btn.innerHTML = '…';
+  }
+
+  try {
+    const translated = await translateAddressFragmentsAI(rawPo, rawDetails);
+
+    // Read division, district, upazila, union Bangla names from bd-geo.json (stable IDs, NEVER sent to Gemini)
+    const unionVal = employeeGeoBangla('union', state.union_id || state.uniId || (document.getElementById(present ? 'na_presCascade_uni' : 'na_permCascade_uni') || {}).value || state.union);
+    const upazilaVal = employeeGeoBangla('upazila', state.upazila_id || state.upzId || (document.getElementById(present ? 'na_presCascade_upz' : 'na_permCascade_upz') || {}).value || state.upazila);
+    const districtVal = employeeGeoBangla('district', state.district_id || state.distId || (document.getElementById(present ? 'na_presCascade_dist' : 'na_permCascade_dist') || {}).value || state.district);
+    const divisionVal = employeeGeoBangla('division', state.division_id || state.divId || (document.getElementById(present ? 'na_presCascade_div' : 'na_permCascade_div') || {}).value || state.division);
+
+    const fullBangla = composeBanglaAddress({
+      details: translated.details || rawDetails,
+      postOffice: translated.postOffice || rawPo,
+      union: unionVal,
+      upazila: upazilaVal,
+      district: districtVal,
+      division: divisionVal
+    });
+
+    out.value = fullBangla;
+    out.classList.add('na-user-filled');
+    out.dispatchEvent(new Event('input', { bubbles: true }));
+  } catch(err){
+    console.error('[Bangla Address AI] Translation error:', err);
+    toast(err.message || 'AI translation failed. Please check key or enter manually.', 'error');
+  } finally {
+    if(btn){
+      btn.disabled = false;
+      btn.innerHTML = oldHtml || '✦';
+    }
+  }
+}
 function copyBanglaDigits(srcId,dstId,btn){const src=document.getElementById(srcId),dst=document.getElementById(dstId);if(!src||!dst||!src.value.trim()){toast('Enter the number first.','error');return;}dst.value=toBnDigits(src.value.trim());}
 async function translateEmployeeFieldAI(srcId,dstId,fieldType,btn){const src=document.getElementById(srcId),dst=document.getElementById(dstId);if(!src||!dst||!src.value.trim()){toast('Enter the English value first.','error');return;}const cfg=window.__mgAiCfg||(()=>{try{return JSON.parse(localStorage.getItem('mghrm_ai')||'{}')}catch(e){return {}}})();const key=String(cfg.key||'').trim(),model=String(cfg.model||'gemini-2.5-flash-lite').trim();if(!key){toast('Configure the Gemini API key in AI Settings.','error');return;}btn.disabled=true;const old=btn.innerHTML;btn.innerHTML='…';try{const prompt=`Translate this ${fieldType} into concise, professional Bangla for a formal Bangladesh employment document. Preserve proper names accurately. Output only the translated text.\n\n${src.value.trim()}`;const url='https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent?key='+encodeURIComponent(key);const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:.15,maxOutputTokens:300}})});if(!response.ok)throw new Error('Gemini request failed');const data=await response.json();const output=data?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('').trim();if(!output)throw new Error('No translation returned');dst.value=output.replace(/^```[a-z]*\s*|```$/gi,'').trim();dst.dispatchEvent(new Event('input',{bubbles:true}));}catch(error){toast('AI translation failed.','error');}finally{btn.disabled=false;btn.innerHTML=old;}}
 async function translateField(srcId, dstId, btn){
@@ -19648,7 +20299,8 @@ function rehireEmployee(recordId, applicant){
     reason: (ex&&ex.ExitReason) || ''
   });
   e.Status = 'Active';
-  e.JoinDate = todayISO();
+  e.JoinDate = (applicant && normalizeDateOnly(applicant.joinDate)) || todayISO();
+  e.join_date = e.JoinDate;
   delete e.ExitDate;
   if(applicant){
     if(applicant.project) e.ProjectName = applicant.project;

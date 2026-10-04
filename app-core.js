@@ -18,7 +18,9 @@
         'ec_name2', 'ec_relation2', 'ec_phone2',
         'division', 'district', 'upazila', 'union', 'village', 'street',
         'perm_division', 'perm_district', 'perm_upazila', 'perm_union', 'perm_village', 'perm_street',
-        'present_address_en', 'present_address_bn', 'permanent_address_en', 'permanent_address_bn', 'designation', 'project_name',
+        'present_post_office', 'permanent_post_office',
+        'present_address_details', 'permanent_address_details',
+        'present_address_bn', 'permanent_address_bn', 'designation', 'project_name',
         'join_date', 'duty_hour', 'salary', 'status', 'exit_date', 'exit_reason',
         'remarks', 'photo_url', 'created_at', 'updated_at'
        ],
@@ -31,7 +33,7 @@
         'FatherName': 'father_name', 'FatherNameBn': 'father_name_bn',
         'MotherName': 'mother_name', 'MotherNameBn': 'mother_name_bn',
         'DOB': 'dob',
-        'PhoneNumber': 'phone', 'PhoneNumberBn': 'phone_bn',
+        'PhoneNumber': 'phone', 'PhoneNumberBn': 'phone_bn', 'PhoneBn': 'phone_bn',
         'NID': 'nid', 'NIDBn': 'nid_bn',
         'Education': 'education',
         'Religion': 'religion',
@@ -66,7 +68,13 @@
         'PermUnion': 'perm_union',
         'PermVillage': 'perm_village',
         'PermStreet': 'perm_street',
-        'PresentAddressEn': 'present_address_en', 'PresentAddressBn': 'present_address_bn', 'PermanentAddressEn': 'permanent_address_en', 'PermanentAddressBn': 'permanent_address_bn', 'Designation': 'designation',
+        'PresentPostOffice': 'present_post_office',
+        'PermanentPostOffice': 'permanent_post_office',
+        'PresentAddressDetails': 'present_address_details',
+        'PermanentAddressDetails': 'permanent_address_details',
+        'PresentAddressBn': 'present_address_bn',
+        'PermanentAddressBn': 'permanent_address_bn',
+        'Designation': 'designation',
         'ProjectName': 'project_name',
         'JoinDate': 'join_date',
         'DutyHour': 'duty_hour',
@@ -643,14 +651,50 @@
     delete out.created_at;
     delete out.updated_at;
     if (out.id === undefined || out.id === null) delete out.id;
-    if (key === 'employees') {
+    if (key === 'employees' || tableName === 'employees' || key === 'Employee' || tableName === 'public.employees') {
+      var employeeAllowed = [
+        'id', 'employee_id', 'full_name', 'full_name_bn',
+        'father_name', 'father_name_bn', 'mother_name', 'mother_name_bn',
+        'dob', 'phone', 'phone_bn', 'nid', 'nid_bn', 'education', 'religion',
+        'height', 'weight', 'marital_status', 'spouse_name', 'spouse_phone',
+        'ec_name', 'ec_relation', 'ec_phone',
+        'ec_name2', 'ec_relation2', 'ec_phone2',
+        'division', 'district', 'upazila', 'union', 'village', 'street',
+        'perm_division', 'perm_district', 'perm_upazila', 'perm_union', 'perm_village', 'perm_street',
+        'present_post_office', 'permanent_post_office',
+        'present_address_details', 'permanent_address_details',
+        'present_address_bn', 'permanent_address_bn',
+        'designation', 'project_name', 'join_date', 'duty_hour', 'salary',
+        'status', 'exit_date', 'exit_reason', 'remarks', 'photo_url'
+      ];
+      Object.keys(out).forEach(function (colName) {
+        if (employeeAllowed.indexOf(colName) === -1) {
+          delete out[colName];
+        }
+      });
+      // Columns that do not exist in public.employees must never be sent to database
+      delete out.old_join_date;
       delete out.address;
       delete out.address_bn;
+      delete out.present_address;
+      delete out.permanent_address;
+      delete out.present_address_en;
+      delete out.permanent_address_en;
       delete out.thana;
       delete out.division_id;
       delete out.district_id;
       delete out.upazila_id;
       delete out.union_id;
+      delete out.blood_group;
+      delete out.spouse_name_bn;
+      delete out.ec_name_bn;
+      if (out.join_date !== undefined) {
+        if (typeof out.join_date === 'string') {
+          out.join_date = out.join_date.trim().slice(0, 10) || null;
+        } else if (!out.join_date) {
+          out.join_date = null;
+        }
+      }
     }
     return out;
   }
@@ -711,12 +755,26 @@
         try {
           if (row.remarks && typeof row.remarks === 'string' && row.remarks.charAt(0) === '{') {
             var parsed = JSON.parse(row.remarks);
-            if (parsed && typeof parsed === 'object' && parsed.reference) {
-              out.reference = parsed.reference;
-              if (parsed.reference.name && !out.ReferenceName) out.ReferenceName = parsed.reference.name;
-              if (parsed.reference.desig && !out.ReferenceDesig) out.ReferenceDesig = parsed.reference.desig;
-              if (parsed.reference.org && !out.ReferenceOrg) out.ReferenceOrg = parsed.reference.org;
-              if (parsed.reference.mobile && !out.ReferenceMobile) out.ReferenceMobile = parsed.reference.mobile;
+            if (parsed && typeof parsed === 'object') {
+              if (parsed.reference) {
+                out.reference = parsed.reference;
+                if (parsed.reference.name && !out.ReferenceName) out.ReferenceName = parsed.reference.name;
+                if (parsed.reference.desig && !out.ReferenceDesig) out.ReferenceDesig = parsed.reference.desig;
+                if (parsed.reference.org && !out.ReferenceOrg) out.ReferenceOrg = parsed.reference.org;
+                if (parsed.reference.mobile && !out.ReferenceMobile) out.ReferenceMobile = parsed.reference.mobile;
+              }
+              if (parsed.bloodGroup) {
+                out.BloodGroup = parsed.bloodGroup;
+                out.blood_group = parsed.bloodGroup;
+              }
+              if (parsed.spouseBn) out.SpouseNameBn = parsed.spouseBn;
+              if (parsed.presentAddressBn && !out.PresentAddressBn) out.PresentAddressBn = parsed.presentAddressBn;
+              if (parsed.permanentAddressBn && !out.PermanentAddressBn) out.PermanentAddressBn = parsed.permanentAddressBn;
+              if (parsed.present_post_office && !out.PresentPostOffice) out.PresentPostOffice = parsed.present_post_office;
+              if (parsed.permanent_post_office && !out.PermanentPostOffice) out.PermanentPostOffice = parsed.permanent_post_office;
+              if (parsed.present_address_details && !out.PresentAddressDetails) out.PresentAddressDetails = parsed.present_address_details;
+              if (parsed.permanent_address_details && !out.PermanentAddressDetails) out.PermanentAddressDetails = parsed.permanent_address_details;
+              if (parsed.ec1 && parsed.ec1.nameBn && !out.ECNameBn) out.ECNameBn = parsed.ec1.nameBn;
             }
           }
         } catch (e) {}
@@ -1451,8 +1509,13 @@
       return Promise.reject(new Error('Supabase client is not connected.'));
     }
     var clean = toDb('employees', basicData);
-    // Strict requirement: status must be Candidate
-    clean.status = 'Candidate';
+    if (!currentRecruitId) {
+      // New recruitment registration begins as Candidate
+      clean.status = 'Candidate';
+    } else {
+      // Editing an existing employee profile: preserve existing database status, omit status completely
+      delete clean.status;
+    }
 
     if (!currentRecruitId) {
       return sb
@@ -1497,6 +1560,7 @@
     }
     var clean = toDb('employees', sectionData);
     delete clean.id; // Do not alter primary key
+    delete clean.status; // Section updates must NEVER modify employee status
 
     var query = sb.from('employees').update(clean);
     if (/^\d+$/.test(String(currentRecruitId))) {
@@ -1508,6 +1572,26 @@
       .select()
       .then(function (r) {
         if (r.error) {
+          // If a PostgreSQL trigger failed due to old_join_date type mismatch (42804):
+          if ((r.error.code === '42804' || (r.error.message && r.error.message.indexOf('old_join_date') !== -1)) && clean.join_date !== undefined) {
+            console.warn('[Recruitment Section Update]: Database trigger reported old_join_date type mismatch (42804). Retrying without join_date column in update payload.');
+            var fallbackClean = Object.assign({}, clean);
+            delete fallbackClean.join_date;
+            var retryQuery = sb.from('employees').update(fallbackClean);
+            if (/^\d+$/.test(String(currentRecruitId))) {
+              retryQuery = retryQuery.eq('id', Number(currentRecruitId));
+            } else {
+              retryQuery = retryQuery.eq('employee_id', currentRecruitId);
+            }
+            return retryQuery.select().then(function (retryRes) {
+              if (retryRes.error) {
+                console.error('[Recruitment Section Update Error]:', retryRes.error.message || retryRes.error);
+                if (global.toast) global.toast('Server Error: ' + (retryRes.error.message || retryRes.error), 'error');
+                throw retryRes.error;
+              }
+              return retryRes.data;
+            });
+          }
           console.error('[Recruitment Section Update Error]:', r.error.message || r.error);
           if (global.toast) global.toast('Server Error: ' + (r.error.message || r.error), 'error');
           throw r.error;

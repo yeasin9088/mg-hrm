@@ -8628,6 +8628,15 @@ function normProject(row) {
     mtEnabled = p.meeting_attendance_enabled !== false;
   } else if (row && row.meeting_attendance_enabled !== undefined) {
     mtEnabled = row.meeting_attendance_enabled !== false;
+  } else {
+    try {
+      var localScopes = JSON.parse(localStorage.getItem('mghrm_meeting_attendance_scopes') || '{}');
+      if (name && localScopes[name] !== undefined) {
+        mtEnabled = localScopes[name] !== false;
+      } else if (id && localScopes[String(id)] !== undefined) {
+        mtEnabled = localScopes[String(id)] !== false;
+      }
+    } catch (e) {}
   }
 
   p['Project ID'] = id;
@@ -9027,9 +9036,25 @@ function saveProject(existingId){
       meeting_attendance_enabled: mtEnabled
     };
     if (existingId) {
-      sbClient.from('projects').update(dbPayload).or(`id.eq.${existingId},project_name.eq.${rec.ProjectName}`).then(() => fetchProjectsDirectly()).catch(err => console.warn('[Projects] Update offline/warning:', err));
+      sbClient.from('projects').update(dbPayload).or(`id.eq.${existingId},project_name.eq.${rec.ProjectName}`).then(() => fetchProjectsDirectly()).catch(err => {
+        if (err && (err.code === 'PGRST204' || (err.message && err.message.includes('meeting_attendance_enabled')))) {
+          const fallbackPayload = Object.assign({}, dbPayload);
+          delete fallbackPayload.meeting_attendance_enabled;
+          sbClient.from('projects').update(fallbackPayload).or(`id.eq.${existingId},project_name.eq.${rec.ProjectName}`).then(() => fetchProjectsDirectly()).catch(e => console.warn('[Projects] Update fallback failed:', e));
+        } else {
+          console.warn('[Projects] Update offline/warning:', err);
+        }
+      });
     } else {
-      sbClient.from('projects').insert([dbPayload]).then(() => fetchProjectsDirectly()).catch(err => console.warn('[Projects] Insert offline/warning:', err));
+      sbClient.from('projects').insert([dbPayload]).then(() => fetchProjectsDirectly()).catch(err => {
+        if (err && (err.code === 'PGRST204' || (err.message && err.message.includes('meeting_attendance_enabled')))) {
+          const fallbackPayload = Object.assign({}, dbPayload);
+          delete fallbackPayload.meeting_attendance_enabled;
+          sbClient.from('projects').insert([fallbackPayload]).then(() => fetchProjectsDirectly()).catch(e => console.warn('[Projects] Insert fallback failed:', e));
+        } else {
+          console.warn('[Projects] Insert offline/warning:', err);
+        }
+      });
     }
   }
 }
@@ -14010,45 +14035,71 @@ window.mtSettingsSave = async function(){
     saveBtn.innerHTML = 'Saving Changes...';
   }
 
+  let dbWarning = null;
+
   try {
     const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
                   || (window.MGHRM && window.MGHRM.sb)
                   || window.sb
                   || (typeof sb !== 'undefined' ? sb : null);
 
-    if (!sbClient) throw new Error('Database connection not established.');
+    if (sbClient) {
+      for (const key of changedKeys) {
+        const newVal = window._mtSettingsStaged[key];
+        const proj = (DATA.projects || []).find(p => String(p.id) === String(key) || String(p['Project ID']) === String(key) || p.ProjectName === key);
 
-    for (const key of changedKeys) {
-      const newVal = window._mtSettingsStaged[key];
-      const proj = (DATA.projects || []).find(p => String(p.id) === String(key) || String(p['Project ID']) === String(key) || p.ProjectName === key);
+        let query = sbClient.from('projects').update({ meeting_attendance_enabled: newVal });
+        if (proj && proj.id != null && /^\d+$/.test(String(proj.id))) {
+          query = query.eq('id', Number(proj.id));
+        } else if (proj && proj['Project ID'] != null && /^\d+$/.test(String(proj['Project ID']))) {
+          query = query.eq('id', Number(proj['Project ID']));
+        } else if (proj && (proj.project_name || proj.ProjectName)) {
+          query = query.eq('project_name', proj.project_name || proj.ProjectName);
+        } else if (/^\d+$/.test(String(key))) {
+          query = query.eq('id', Number(key));
+        } else {
+          query = query.eq('project_name', key);
+        }
 
-      let query = sbClient.from('projects').update({ meeting_attendance_enabled: newVal });
-      if (proj && proj.id != null && /^\d+$/.test(String(proj.id))) {
-        query = query.eq('id', Number(proj.id));
-      } else if (proj && proj['Project ID'] != null && /^\d+$/.test(String(proj['Project ID']))) {
-        query = query.eq('id', Number(proj['Project ID']));
-      } else if (proj && (proj.project_name || proj.ProjectName)) {
-        query = query.eq('project_name', proj.project_name || proj.ProjectName);
-      } else if (/^\d+$/.test(String(key))) {
-        query = query.eq('id', Number(key));
-      } else {
-        query = query.eq('project_name', key);
+        const { error } = await query;
+        if (error) {
+          if (error.code === 'PGRST204' || (error.message && error.message.includes('meeting_attendance_enabled'))) {
+            dbWarning = 'Settings applied locally. Note: run "project_meeting_attendance_scope_migration.sql" in Supabase SQL editor to sync column to database.';
+            console.warn('[Meeting Scope Save]: ' + dbWarning, error);
+            break; // Stop further DB column update attempts since column is pending in DB
+          } else {
+            throw error;
+          }
+        }
       }
-
-      const { error } = await query;
-      if (error) throw error;
     }
 
-    // Update in-memory local cache
+    // Update in-memory local cache and local storage fallback
+    let localScopes = {};
+    try {
+      localScopes = JSON.parse(localStorage.getItem('mghrm_meeting_attendance_scopes') || '{}');
+    } catch (e) {
+      localScopes = {};
+    }
+
     changedKeys.forEach(key => {
       const newVal = window._mtSettingsStaged[key];
       const proj = (DATA.projects || []).find(p => String(p.id) === String(key) || String(p['Project ID']) === String(key) || p.ProjectName === key);
       if (proj) {
         proj.MeetingAttendanceEnabled = newVal;
         proj.meeting_attendance_enabled = newVal;
+        if (proj.ProjectName) localScopes[proj.ProjectName] = newVal;
+        if (proj.project_name) localScopes[proj.project_name] = newVal;
+        if (proj.id != null) localScopes[String(proj.id)] = newVal;
+        if (proj['Project ID'] != null) localScopes[String(proj['Project ID'])] = newVal;
       }
+      localScopes[key] = newVal;
       window._mtSettingsOriginal[key] = newVal;
     });
+
+    try {
+      localStorage.setItem('mghrm_meeting_attendance_scopes', JSON.stringify(localScopes));
+    } catch (e) {}
 
     persist();
 
@@ -14059,7 +14110,11 @@ window.mtSettingsSave = async function(){
     if (typeof renderMeeting === 'function') renderMeeting();
     if (typeof renderAll === 'function') renderAll();
 
-    toast('Meeting attendance settings updated.', 'success');
+    if (dbWarning) {
+      toast(dbWarning, 'warning', 7000);
+    } else {
+      toast('Meeting attendance settings updated.', 'success');
+    }
     closeModal();
   } catch (err) {
     console.error('[Meeting Scope Save Error]:', err);

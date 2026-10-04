@@ -12,7 +12,7 @@
       pk: 'id',
       allowed: [ 
         'id', 'employee_id', 'full_name', 'full_name_bn',
-        'father_name', 'mother_name', 'dob', 'phone', 'phone_bn', 'nid', 'nid_bn', 'education', 'religion',
+        'father_name', 'father_name_bn', 'mother_name', 'mother_name_bn', 'dob', 'phone', 'phone_bn', 'nid', 'nid_bn', 'education', 'religion',
         'height', 'weight', 'marital_status', 'spouse_name', 'spouse_phone',
         'ec_name', 'ec_relation', 'ec_phone',
         'ec_name2', 'ec_relation2', 'ec_phone2',

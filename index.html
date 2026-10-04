@@ -2729,6 +2729,7 @@ input:focus, select:focus, textarea:focus {
 #tab-naAddr .na-check{display:inline-flex!important;align-items:center;gap:7px;margin:0!important;padding:5px 9px;border:1px solid color-mix(in srgb,var(--primary) 28%,var(--border));border-radius:999px;background:var(--primary-soft);color:var(--primary);font-size:11.5px!important;font-weight:750!important;cursor:pointer}
 #tab-naAddr .na-check input{width:15px!important;height:15px!important;min-height:0!important;accent-color:var(--primary)}
 </style>
+<style id="sensitive-join-date-ui">.sensitive-confirm-back{position:fixed;inset:0;z-index:200000;background:rgba(15,23,42,.58);backdrop-filter:blur(6px);display:grid;place-items:center;padding:18px}.sensitive-confirm-card{width:min(520px,96vw);background:var(--surface,#fff);border:1px solid color-mix(in srgb,var(--primary) 25%,var(--border));border-radius:18px;padding:24px;box-shadow:0 28px 80px rgba(15,23,42,.3);color:var(--text)}.sensitive-confirm-icon{width:38px;height:38px;border-radius:12px;background:#fff7ed;color:#c2410c;display:grid;place-items:center;font-weight:900;font-size:20px;margin-bottom:12px}.sensitive-confirm-card h3{margin:0 0 8px;font-size:19px}.sensitive-confirm-card p{margin:0 0 16px;color:var(--text-muted);font-size:13px;line-height:1.55}.sensitive-date-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}.sensitive-date-grid div{padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-dim)}.sensitive-date-grid span{display:block;font-size:10px;color:var(--text-muted);font-weight:700;text-transform:uppercase}.sensitive-date-grid strong{display:block;margin-top:4px}.sensitive-confirm-card label{display:block;font-size:12px;font-weight:700;margin-bottom:6px}.sensitive-confirm-input{width:100%;height:42px;border:1px solid color-mix(in srgb,var(--primary) 35%,var(--border));border-radius:10px;padding:0 12px;text-transform:uppercase;letter-spacing:.08em}.sensitive-confirm-input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 14%,transparent)}.sensitive-confirm-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}.sensitive-proceed:disabled{opacity:.45;cursor:not-allowed}@media(max-width:540px){.sensitive-date-grid{grid-template-columns:1fr}}</style>
 </head>
 <body>
 <!-- ===== PHASE 8: Branded boot screen ===== -->
@@ -6035,8 +6036,10 @@ function openApplicantForm(empKey){
   const projOpts = usageSortedOptions(activeProjects().map(p=>p.ProjectName), projCounts).map(p=>`<option ${getProj === p ? 'selected' : ''}>${p}</option>`).join('');
   const desigOpts = usageSortedOptions(DESIGNATIONS, desigCounts).map(d=>`<option ${getDesig === d ? 'selected' : ''}>${d}</option>`).join('');
   const relOpts = usageSortedOptions(['Islam','Hindu','Buddhist','Christian'], relCounts).map(r=>`<option ${getRel === r ? 'selected' : ''}>${r}</option>`).join('');
-  const eduOpts = ['SSC','HSC','JSC','Diploma','Degree','Honours','Masters'].map(ed=>`<option ${existing && (existing.Education === ed || existing.education === ed) || (cand && cand.education === ed) ? 'selected' : ''}>${ed}</option>`).join('');
-  const bgOpts = ['O+','B+','A+','AB+','O-','B-','A-','AB-'].map(bg=>`<option ${existing && (existing.BloodGroup === bg || existing.bloodGroup === bg) || (cand && cand.bloodGroup === bg) ? 'selected' : ''}>${bg}</option>`).join('');
+  const selectedEdu = existing ? (existing.Education || existing.education || 'SSC') : (cand ? (cand.education || 'SSC') : 'SSC');
+  const eduOpts = ['No Formal Education','PSC / Primary','JSC / JDC','SSC / Dakhil','SSC','HSC / Alim','HSC','Diploma','Technical / Vocational','Degree / Pass Course','Honours','Masters','Postgraduate','Other'].map(ed=>`<option ${selectedEdu === ed ? 'selected' : ''}>${ed}</option>`).join('');
+  const selectedBg = existing ? (existing.BloodGroup || existing.blood_group || '') : (cand ? (cand.bloodGroup || '') : '');
+  const bgOpts = ['<option value="">Select Blood Group</option>'].concat(['A+','A-','B+','B-','AB+','AB-','O+','O-','Unknown'].map(bg=>`<option ${selectedBg === bg ? 'selected' : ''}>${bg}</option>`)).join('');
   
   const marStat = existing ? (existing.MaritalStatus || existing.marital_status || '') : (cand ? cand.maritalStatus : '');
   const marOpts = `<option ${marStat==='Unmarried'?'selected':''}>Unmarried</option><option ${marStat==='Married'?'selected':''}>Married</option>`;
@@ -6259,15 +6262,15 @@ async function saveBasicInfoAndContinue(){
 
   const nameEn = g('nameEn');
   const name = g('name') || nameEn;
-  const phone = g('phone');
-  const nid = g('nid');
+  const phone = g('phone'), phoneBn = g('phoneBn');
+  const nid = g('nid'), nidBn = g('nidBn');
   const dob = g('dob');
   const father = g('father'), fatherBn = g('fatherBn');
   const mother = g('mother'), motherBn = g('motherBn');
   const joinDate = g('joinDate');
   const education = g('education') || 'SSC';
   const religion = g('religion') || 'Islam';
-  const bloodGroup = g('bloodGroup') || 'O+';
+  const bloodGroup = g('bloodGroup') || '';
   const height = g('height') || '5\' 6"';
   const weight = g('weight') || '60';
   const maritalStatus = g('maritalStatus') || 'Unmarried';
@@ -6317,8 +6320,9 @@ async function saveBasicInfoAndContinue(){
       bloodGroup: bloodGroup,
       nameEn: nameEn,
       name: name,
-      father: father,
-      mother: mother,
+      father: father, fatherBn: fatherBn,
+      mother: mother, motherBn: motherBn,
+      phoneBn: phoneBn, nidBn: nidBn,
       dob: dob,
       nid: nid,
       phone: phone,
@@ -6340,8 +6344,8 @@ async function saveBasicInfoAndContinue(){
       father_name: father, father_name_bn: fatherBn,
       mother_name: mother, mother_name_bn: motherBn,
       dob: dob,
-      phone: phone,
-      nid: nid,
+      phone: phone, phone_bn: phoneBn,
+      nid: nid, nid_bn: nidBn,
       education: education,
       religion: religion,
       height: String(height || ''),
@@ -6490,7 +6494,25 @@ function getExistingRemarks(recruitId){
   return extra;
 }
 
+
+function confirmSensitiveJoinDateChange(currentDate,newDate){
+  currentDate=String(currentDate||'').slice(0,10);newDate=String(newDate||'').slice(0,10);
+  if(!currentDate||!newDate||currentDate===newDate)return Promise.resolve(true);
+  return new Promise(resolve=>{
+    const wrap=document.createElement('div');wrap.className='sensitive-confirm-back';
+    wrap.innerHTML=`<div class="sensitive-confirm-card" role="dialog" aria-modal="true" aria-labelledby="sensitiveJoinTitle"><div class="sensitive-confirm-icon">!</div><h3 id="sensitiveJoinTitle">Confirm Sensitive Change</h3><p>You are changing the employee's official joining date. This may affect service history, reports, payroll references and official documents.</p><div class="sensitive-date-grid"><div><span>Current Join Date</span><strong>${escapeHtml(currentDate)}</strong></div><div><span>New Join Date</span><strong>${escapeHtml(newDate)}</strong></div></div><label>Type <b>CONFIRM</b> to continue</label><input class="sensitive-confirm-input" autocomplete="off" spellcheck="false" placeholder="CONFIRM"><div class="sensitive-confirm-actions"><button type="button" class="btn sensitive-cancel">Cancel</button><button type="button" class="btn primary sensitive-proceed" disabled>Yes, Proceed</button></div></div>`;
+    document.body.appendChild(wrap);const input=wrap.querySelector('input'),proceed=wrap.querySelector('.sensitive-proceed');
+    const close=v=>{wrap.remove();resolve(v)};input.addEventListener('input',()=>{proceed.disabled=input.value.trim()!=='CONFIRM'});wrap.querySelector('.sensitive-cancel').onclick=()=>close(false);proceed.onclick=()=>close(true);input.focus();
+  });
+}
+
 async function executeRecruitUpdate(dbPayload, recruitId){
+  const currentEmp = typeof findEmp === 'function' ? findEmp(recruitId) : null;
+  const oldJoin = currentEmp && (currentEmp.JoinDate || currentEmp.join_date);
+  if(dbPayload && dbPayload.join_date && oldJoin && String(dbPayload.join_date).slice(0,10)!==String(oldJoin).slice(0,10)){
+    const confirmed = await confirmSensitiveJoinDateChange(oldJoin, dbPayload.join_date);
+    if(!confirmed) throw new Error('Sensitive Join Date change was cancelled.');
+  }
   if(window.MGHRM && typeof window.MGHRM.updateRecruitSection === 'function'){
     const res = await window.MGHRM.updateRecruitSection(dbPayload, recruitId);
     return (Array.isArray(res) && res[0]) ? res[0] : res;
@@ -6642,6 +6664,8 @@ async function saveAddressAndContinue(){
     perm_union: permUnion,
     perm_village: permVillage,
     perm_street: permStreet,
+    present_address_bn: g('presentAddressBn') || null,
+    permanent_address_bn: g('permanentAddressBn') || null,
 
     // Backward compatibility
     thana: presUpazila,
@@ -6953,6 +6977,7 @@ async function saveJobAndComplete(){
   const dbPayload = {
     designation: desig,
     project_name: project,
+    join_date: g('joinDate') || null,
     duty_hour: String(dutyHours),
     salary: gross,
     remarks: JSON.stringify(updatedRemarks)
@@ -7095,10 +7120,14 @@ async function commitApplicantUpdate(editKey, a){
     full_name: a.nameEn,
     full_name_bn: a.name,
     father_name: a.father,
+    father_name_bn: a.fatherBn,
     mother_name: a.mother,
+    mother_name_bn: a.motherBn,
     dob: a.dob,
     phone: a.phone,
+    phone_bn: a.phoneBn,
     nid: a.nid,
+    nid_bn: a.nidBn,
     education: a.education,
     religion: a.religion,
     height: String(a.height||''),
@@ -7117,11 +7146,21 @@ async function commitApplicantUpdate(editKey, a){
     ec_phone: a.ec1 ? a.ec1.mobile : '',
     designation: a.desig,
     project_name: a.project,
+    join_date: a.joinDate || (existingEmp && (existingEmp.JoinDate || existingEmp.join_date)) || null,
+    present_address_bn: a.presentAddressBn || null,
+    permanent_address_bn: a.permanentAddressBn || null,
     duty_hour: String(a.dutyHours || 12),
     salary: a.salary ? a.salary.total : 0,
     remarks: JSON.stringify(a)
     // CRITICAL CONSTRAINT: status is NOT updated here to preserve pipeline/active/inactive status!
   };
+
+  const oldJoinDate = existingEmp && (existingEmp.JoinDate || existingEmp.join_date);
+  if(dbPayload.join_date && oldJoinDate && String(dbPayload.join_date).slice(0,10)!==String(oldJoinDate).slice(0,10)){
+    const confirmed = await confirmSensitiveJoinDateChange(oldJoinDate, dbPayload.join_date);
+    if(!confirmed){ toast('Join Date change cancelled.','error'); return; }
+  }
+
 
   // Check if it's a candidate from RECRUITMENT array
   const cand = RECRUITMENT.find(x => String(x.id) === String(editKey));
@@ -7204,7 +7243,7 @@ function collectApplicantData(g){
   const bdU = window.bdUpzName||function(){return '';};
   return {
     empId: '', joinDate:g('joinDate'),
-    name:g('name'), nameEn:g('nameEn'), father:g('father'), mother:g('mother'), dob:g('dob'), nid:g('nid'), phone:g('phone'),
+    name:g('name'), nameEn:g('nameEn'), father:g('father'), fatherBn:g('fatherBn'), mother:g('mother'), motherBn:g('motherBn'), dob:g('dob'), nid:g('nid'), nidBn:g('nidBn'), phone:g('phone'), phoneBn:g('phoneBn'), presentAddressBn:g('presentAddressBn'), permanentAddressBn:g('permanentAddressBn'),
     education:g('education'), religion:g('religion')||'Islam', bloodGroup:g('bloodGroup'),
     height:g('height'), weight:g('weight'), maritalStatus:g('maritalStatus'),
     spouse:g('maritalStatus')==='Married'?g('spouse'):'', spousePhone:g('maritalStatus')==='Married'?g('spouseMobile'):'',
@@ -7282,11 +7321,11 @@ async function commitApplicant(a){
     employee_id: newEmpId,
     full_name: a.nameEn || a.name,
     full_name_bn: a.name,
-    father_name: a.father,
-    mother_name: a.mother,
+    father_name: a.father, father_name_bn: a.fatherBn,
+    mother_name: a.mother, mother_name_bn: a.motherBn,
     dob: a.dob,
-    phone: a.phone,
-    nid: a.nid,
+    phone: a.phone, phone_bn: a.phoneBn,
+    nid: a.nid, nid_bn: a.nidBn,
     education: a.education,
     religion: a.religion,
     height: String(a.height||''),
@@ -7305,7 +7344,9 @@ async function commitApplicant(a){
     ec_phone: a.ec1 ? a.ec1.mobile : '',
     designation: a.desig,
     project_name: a.project,
-    join_date: todayISO(),
+    join_date: a.joinDate || null,
+    present_address_bn: a.presentAddressBn || null,
+    permanent_address_bn: a.permanentAddressBn || null,
     duty_hour: String(a.dutyHours || 12),
     salary: a.salary ? a.salary.total : 0,
     status: 'Candidate',

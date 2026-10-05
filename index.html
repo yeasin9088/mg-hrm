@@ -6228,6 +6228,55 @@ const SALARY_DEFAULTS = {
 };
 function salaryFor(d){ return (COMPANY.salaryMap && COMPANY.salaryMap[d]) || SALARY_DEFAULTS[d] || ''; }
 
+const RELATION_OPTIONS = [
+  // Nearest relations on top
+  'Father',
+  'Mother',
+  'Spouse',
+  'Wife',
+  'Husband',
+  'Brother',
+  'Sister',
+  'Son',
+  'Daughter',
+  // Extended Family
+  'Uncle',
+  'Aunt',
+  'Cousin',
+  'Nephew',
+  'Niece',
+  'Grandfather',
+  'Grandmother',
+  'Father-in-law',
+  'Mother-in-law',
+  'Brother-in-law',
+  'Sister-in-law',
+  'Son-in-law',
+  'Daughter-in-law',
+  // Other Relations
+  'Guardian',
+  'Relative',
+  'Friend',
+  'Neighbor',
+  'Colleague',
+  'Other'
+];
+
+function buildRelationOptions(selectedVal){
+  const cur = String(selectedVal || '').trim().toLowerCase();
+  let matched = false;
+  let out = '<option value="">Select Relation</option>';
+  RELATION_OPTIONS.forEach(r => {
+    const isSel = !matched && cur && (r.toLowerCase() === cur);
+    if(isSel) matched = true;
+    out += `<option value="${escapeHtml(r)}" ${isSel ? 'selected' : ''}>${escapeHtml(r)}</option>`;
+  });
+  if(selectedVal && !matched && String(selectedVal).trim()){
+    out += `<option value="${escapeHtml(selectedVal)}" selected>${escapeHtml(selectedVal)}</option>`;
+  }
+  return out;
+}
+
 function openApplicantForm(empKey){
   const isEdit = !!empKey;
   window.currentEditEmployeeId = empKey || null;
@@ -6263,8 +6312,8 @@ function openApplicantForm(empKey){
   const getDesig = existing ? (existing.Designation || existing.designation || '') : (cand ? (cand.desig || '') : '');
   const getRel = existing ? (existing.Religion || existing.religion || 'Islam') : (cand ? (cand.religion || 'Islam') : 'Islam');
 
-  const projOpts = usageSortedOptions(activeProjects().map(p=>p.ProjectName), projCounts).map(p=>`<option ${getProj === p ? 'selected' : ''}>${p}</option>`).join('');
-  const desigOpts = usageSortedOptions(DESIGNATIONS, desigCounts).map(d=>`<option ${getDesig === d ? 'selected' : ''}>${d}</option>`).join('');
+  const projOpts = ['<option value="">Select Project</option>'].concat(usageSortedOptions(activeProjects().map(p=>p.ProjectName), projCounts).map(p=>`<option value="${escapeHtml(p)}" ${getProj === p ? 'selected' : ''}>${escapeHtml(p)}</option>`)).join('');
+  const desigOpts = ['<option value="">Select Designation</option>'].concat(usageSortedOptions(DESIGNATIONS, desigCounts).map(d=>`<option value="${escapeHtml(d)}" ${getDesig === d ? 'selected' : ''}>${escapeHtml(d)}</option>`)).join('');
   const relOpts = usageSortedOptions(['Islam','Hindu','Buddhist','Christian'], relCounts).map(r=>`<option ${getRel === r ? 'selected' : ''}>${r}</option>`).join('');
   const selectedEdu = existing ? (existing.Education || existing.education || 'SSC') : (cand ? (cand.education || 'SSC') : 'SSC');
   const eduOpts = ['No Formal Education','PSC / Primary','JSC / JDC','SSC / Dakhil','SSC','HSC / Alim','HSC','Diploma','Technical / Vocational','Degree / Pass Course','Honours','Masters','Postgraduate','Other'].map(ed=>`<option ${selectedEdu === ed ? 'selected' : ''}>${ed}</option>`).join('');
@@ -6310,6 +6359,10 @@ function openApplicantForm(empKey){
   const permAddressBnVal = existing
     ? (existing.PermanentAddressBn || existing.permanent_address_bn || (existingRemarks && existingRemarks.permanentAddressBn) || (existingRemarks && existingRemarks.permanentAddress && existingRemarks.permanentAddress.address_bn) || '')
     : (cand ? (cand.permanentAddressBn || '') : '');
+
+  const ec1RelVal = existing ? (existing.ec_relation||existing.ECRelation||(existing.ec1&&existing.ec1.relation)||'') : (cand ? (cand.ec_relation||(cand.ec1&&cand.ec1.relation)||'') : '');
+  const ec2RelVal = existing ? (existing.ec_relation2||existing.ECRelation2||(existing.ec2&&existing.ec2.relation)||'') : (cand ? (cand.ec_relation2||(cand.ec2&&cand.ec2.relation)||'') : '');
+  const joinDateVal = existing ? (existing.JoinDate || existing.join_date || '') : (cand ? (cand.joinDate || '') : '');
 
   openModal(isEdit ? 'Edit Employee Profile' : 'New Employee Registration', `
     <input type="hidden" id="na_editKey" value="${escapeHtml(empKey || '')}">
@@ -6370,14 +6423,14 @@ function openApplicantForm(empKey){
       <h4 style="font-size:13px;margin-bottom:8px">Emergency Contact 1</h4>
       <div class="form-grid">
         ${fld('ec1n','Name','text','',existing ? (existing.ec_name||existing.ECName||(existing.ec1&&existing.ec1.name)||'') : (cand ? (cand.ec_name||(cand.ec1&&cand.ec1.name)||'') : ''))}
-        ${fld('ec1r','Relation','text','',existing ? (existing.ec_relation||existing.ECRelation||(existing.ec1&&existing.ec1.relation)||'') : (cand ? (cand.ec_relation||(cand.ec1&&cand.ec1.relation)||'') : ''))}
+        <div class="field"><label>Relation</label><select id="na_ec1r">${buildRelationOptions(ec1RelVal)}</select></div>
         ${fld('ec1m','Mobile','text','01XXXXXXXXX',existing ? (existing.ec_phone||existing.ECPhoneNumber||(existing.ec1&&existing.ec1.mobile)||'') : (cand ? (cand.ec_phone||(cand.ec1&&cand.ec1.mobile)||'') : ''))}
       </div>
       <div class="divider"></div>
       <h4 style="font-size:13px;margin-bottom:8px">Emergency Contact 2</h4>
       <div class="form-grid">
         ${fld('ec2n','Name','text','',existing ? (existing.ec_name2||existing.ECName2||(existing.ec2&&existing.ec2.name)||'') : (cand ? (cand.ec_name2||(cand.ec2&&cand.ec2.name)||'') : ''))}
-        ${fld('ec2r','Relation','text','',existing ? (existing.ec_relation2||existing.ECRelation2||(existing.ec2&&existing.ec2.relation)||'') : (cand ? (cand.ec_relation2||(cand.ec2&&cand.ec2.relation)||'') : ''))}
+        <div class="field"><label>Relation</label><select id="na_ec2r">${buildRelationOptions(ec2RelVal)}</select></div>
         ${fld('ec2m','Mobile','text','01XXXXXXXXX',existing ? (existing.ec_phone2||existing.ECPhoneNumber2||(existing.ec2&&existing.ec2.mobile)||'') : (cand ? (cand.ec_phone2||(cand.ec2&&cand.ec2.mobile)||'') : ''))}
       </div>
     </div>
@@ -6391,7 +6444,7 @@ function openApplicantForm(empKey){
     </div>
     <div id="tab-naJob" class="tab-panel">
       <div class="form-grid">
-        <div class="field"><label>Join Date *</label><input id="na_joinDate" type="date" value="${escapeHtml(normalizeDateOnly(existing ? (existing.JoinDate||existing.join_date||'') : (cand ? (cand.joinDate||cand.date||todayISO()) : todayISO())))}"></div>
+        <div class="field"><label>Join Date *</label><input id="na_joinDate" type="date" value="${escapeHtml(normalizeDateOnly(joinDateVal))}"></div>
         <div class="field"><label>Designation *</label><select id="na_desig" onchange="naDesigSalary()">${desigOpts}</select></div>
         <div class="field"><label>Project *</label><select id="na_project" onchange="naSyncProjSummary()">${projOpts}</select></div>
         <div class="field"><label>Duty Hours</label><input id="na_dutyHours" type="number" placeholder="12" value="${existing ? (existing.DutyHour||existing.dutyHours||12) : (cand ? (cand.dutyHours||12) : 12)}"></div>
@@ -6399,7 +6452,7 @@ function openApplicantForm(empKey){
       <div class="divider"></div>
       <h4 style="font-size:13px;margin-bottom:8px">Salary Structure (BDT)</h4>
       <div class="form-grid">
-        <div class="field"><label>Gross Salary *</label><input id="na_gross" type="number" placeholder="12800" value="${existing ? (existing.Salary||(existing.salary&&existing.salary.total)||'') : (cand && cand.salary ? cand.salary.total : '')}" oninput="naSalaryBreak()"></div>
+        <div class="field"><label>Gross Salary *</label><input id="na_gross" type="number" placeholder="e.g. 12800" value="${existing ? (existing.Salary||(existing.salary&&existing.salary.total)||'') : (cand && cand.salary ? cand.salary.total : '')}" oninput="naSalaryBreak()"></div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px">
         <div style="background:var(--bg-dim);border-radius:8px;padding:8px 10px"><div class="small-mute" style="font-size:10.5px">Basic (60%)</div><div id="na_bBasic" style="font-weight:700">—</div></div>
@@ -6407,7 +6460,7 @@ function openApplicantForm(empKey){
         <div style="background:var(--bg-dim);border-radius:8px;padding:8px 10px"><div class="small-mute" style="font-size:10.5px">Medical (10%)</div><div id="na_bMed" style="font-weight:700">—</div></div>
         <div style="background:var(--bg-dim);border-radius:8px;padding:8px 10px"><div class="small-mute" style="font-size:10.5px">Others (10%)</div><div id="na_bOth" style="font-weight:700">—</div></div>
       </div>
-      <p class="small-mute" style="margin-top:8px">${'Selecting a post auto-fills the gross salary; it is broken down 60/20/10/10.'}</p>
+      <p class="small-mute" style="margin-top:8px">${'Gross salary is broken down 60/20/10/10 (Basic 60%, House Rent 20%, Medical 10%, Others 10%).'}</p>
     </div>
     <div id="dupHint" class="small-mute" style="margin-top:8px"></div>
     <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:12px">
@@ -6507,9 +6560,6 @@ function naDesigSalary(){
   const p = (document.getElementById('na_project')||{}).value;
   const pSum = document.getElementById('na_project_summary');
   if(pSum && p) pSum.value = p;
-  const g = document.getElementById('na_gross');
-  const s = salaryFor(d);
-  if(g && s!=='') g.value = s;
   naSalaryBreak();
 }
 function naSalaryBreak(){
@@ -6990,7 +7040,7 @@ function resetApplicantForm(){
     'pv','pstreet','permV','permstreet',
     'presentAddressBn','permanentAddressBn',
     'ec1n','ec1r','ec1m','ec2n','ec2r','ec2m',
-    'rfn','rfd','rfo','rfm','dutyHours','gross','desig_summary','project_summary'
+    'rfn','rfd','rfo','rfm','joinDate','desig','project','dutyHours','gross','desig_summary','project_summary'
   ];
   formIds.forEach(f => {
     const el = document.getElementById('na_' + f);
@@ -6999,6 +7049,8 @@ function resetApplicantForm(){
       else el.value = '';
     }
   });
+  const elDuty = document.getElementById('na_dutyHours');
+  if(elDuty) elDuty.value = '12';
   const sameAddrChk = document.getElementById('na_sameAddr');
   if(sameAddrChk) sameAddrChk.checked = false;
   const editKey = document.getElementById('na_editKey');
@@ -7484,10 +7536,36 @@ async function saveJobAndComplete(){
   }
 
   const g = id => (document.getElementById('na_' + id) || {}).value || '';
-  const desig = g('desig') || g('desig_summary') || 'Security Guard';
-  const project = g('project') || g('project_summary') || (typeof activeProjects === 'function' && activeProjects()[0] ? activeProjects()[0].ProjectName : 'Unassigned');
+  const selectedJoinDate = normalizeDateOnly(g('joinDate'));
+  const desig = g('desig') || g('desig_summary');
+  const project = g('project') || g('project_summary');
   const dutyHours = +(g('dutyHours')) || 12;
-  const gross = +(g('gross')) || (typeof salaryFor === 'function' && salaryFor(desig) ? +salaryFor(desig) : 0);
+  const gross = +(g('gross')) || 0;
+
+  if(!selectedJoinDate){
+    toast('Please select Join Date.', 'warning');
+    const el = document.getElementById('na_joinDate');
+    if(el) el.focus();
+    return;
+  }
+  if(!desig){
+    toast('Please select Designation.', 'warning');
+    const el = document.getElementById('na_desig');
+    if(el) el.focus();
+    return;
+  }
+  if(!project){
+    toast('Please select Project.', 'warning');
+    const el = document.getElementById('na_project');
+    if(el) el.focus();
+    return;
+  }
+  if(!gross){
+    toast('Please enter Gross Salary.', 'warning');
+    const el = document.getElementById('na_gross');
+    if(el) el.focus();
+    return;
+  }
 
   const salary = {
     basic: Math.round(gross * 0.6),
@@ -7505,7 +7583,6 @@ async function saveJobAndComplete(){
     salary: salary
   });
 
-  const selectedJoinDate = normalizeDateOnly(g('joinDate'));
   const currentEmp = typeof findEmp === 'function' ? findEmp(targetRecruitId) : null;
   const existingJoin = normalizeDateOnly(currentEmp && (currentEmp.JoinDate || currentEmp.join_date));
 

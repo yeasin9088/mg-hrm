@@ -206,6 +206,95 @@ body.lang-bn { font-family: var(--font-bn), var(--font-en); }
 .notif-dropdown .nd-head h4 { font-size: 13.5px; font-weight: 700; }
 .notif-dropdown .nd-head span { font-size: 11px; color: var(--text-muted); }
 
+/* ============ FULL SCREEN MODE ============ */
+.fullscreen-btn {
+  position: relative; width: 38px; height: 38px; border-radius: 8px;
+  background: white; border: 1px solid var(--border);
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+  color: var(--text-2); box-shadow: var(--shadow-sm); flex-shrink: 0;
+  transition: all .15s ease; user-select: none;
+}
+.fullscreen-btn:hover {
+  border-color: var(--primary); color: var(--primary);
+  background: var(--primary-soft);
+  transform: translateY(-1px);
+}
+.fullscreen-btn:active {
+  transform: translateY(0);
+}
+.fullscreen-btn.is-active {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.fullscreen-btn svg { width: 17px; height: 17px; }
+
+#mobileFullscreenToggleBtn {
+  width: 36px; height: 36px;
+  color: var(--text-2);
+}
+#mobileFullscreenToggleBtn:hover, #mobileFullscreenToggleBtn.is-active {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+html.is-pseudo-fullscreen, body.is-pseudo-fullscreen {
+  overflow: hidden !important;
+  width: 100vw !important;
+  height: 100vh !important;
+}
+body.is-pseudo-fullscreen .layout {
+  position: fixed !important;
+  top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+  width: 100vw !important; height: 100vh !important;
+  z-index: 99999 !important;
+  background: var(--bg) !important;
+  overflow-y: auto !important;
+}
+
+/* Subtle exit pill in fullscreen mode */
+.fullscreen-indicator-pill {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-70px);
+  background: rgba(15, 23, 42, 0.94);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  z-index: 100000;
+  cursor: pointer;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease, background 0.2s ease;
+  opacity: 0;
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  user-select: none;
+}
+.fullscreen-indicator-pill:hover {
+  background: rgba(30, 27, 75, 0.98);
+}
+.fullscreen-indicator-pill svg {
+  width: 14px; height: 14px;
+}
+.fullscreen-indicator-pill .pill-close {
+  display: inline-flex; align-items: center; justify-content: center;
+  margin-left: 4px; padding: 2px 7px; border-radius: 10px;
+  background: rgba(255,255,255,0.2); font-size: 10px; font-weight: 700;
+  color: #fff;
+}
+body.is-fullscreen-mode .fullscreen-indicator-pill.show-pill {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .global-search {
   position: relative; width: 280px;
 }
@@ -2994,6 +3083,15 @@ input:focus, select:focus, textarea:focus {
   <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="mtCloseSidebarMobile()"></div>
 
   <main class="main">
+    <!-- Floating Fullscreen Indicator Pill (Auto-hides, revealed on top edge hover or toggle) -->
+    <div class="fullscreen-indicator-pill" id="fullscreenIndicatorPill" onclick="exitFullScreen()" title="Click to Exit Full Screen (Esc)" role="button" tabindex="0">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
+      </svg>
+      <span>Full Screen Mode Active</span>
+      <span class="pill-close">Esc to exit</span>
+    </div>
+
     <div class="mobile-header" id="mobileHeader" style="display: none;">
       <button type="button" class="btn ghost icon-only" onclick="mtToggleSidebar()" aria-label="Open Navigation Menu" style="padding: 7px; border: 1px solid var(--border); border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; background: var(--card, #fff); cursor: pointer;">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3006,7 +3104,11 @@ input:focus, select:focus, textarea:focus {
         <div style="width: 28px; height: 28px; border-radius: 6px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 11px;">MG</div>
         <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--text);">Mahbub Group</h3>
       </div>
-      <div style="width: 36px;"></div>
+      <button type="button" class="btn ghost icon-only" id="mobileFullscreenToggleBtn" onclick="toggleFullScreen()" aria-label="Toggle Full Screen" title="Toggle Full Screen (F11 / Shift+F)" style="padding: 7px; border: 1px solid var(--border); border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; background: var(--card, #fff); cursor: pointer; color: var(--text-2);">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+        </svg>
+      </button>
     </div>
     <div class="topbar">
       <div class="topbar-left">
@@ -3014,6 +3116,11 @@ input:focus, select:focus, textarea:focus {
         <p id="pageSub"></p>
       </div>
       <div class="topbar-right">
+        <button type="button" class="fullscreen-btn" id="fullscreenToggleBtn" onclick="toggleFullScreen()" title="Enter Full Screen (F11 / Shift+F)" aria-label="Toggle Full Screen Mode">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+          </svg>
+        </button>
         <div class="notif-bell" id="notifBell" onclick="toggleNotifDropdown(event)" title="Notifications">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           <span class="notif-badge" id="notifBadge" style="display:none" aria-live="polite">0</span>
@@ -3136,6 +3243,9 @@ const I18N = {
     nav_reports:"Reports", nav_reports_all:"All Reports",
     nav_system:"System", nav_settings:"Settings",
     print_preview:"Document Preview",
+    fullscreen_enter:"Enter Full Screen",
+    fullscreen_exit:"Exit Full Screen",
+    fullscreen_tip:"Full Screen Mode (F11 / Shift+F)",
     footer_note:"© Mahbub Group Security · MG HRM Suite · Auto-saves to server, this device & OneDrive folder (when linked)",
   }
 };
@@ -12616,7 +12726,39 @@ function renderSettings(){
         </div>
       </div>
 
-      
+      <div style="display:flex;flex-direction:column;gap:18px">
+        <!-- Card 3: Display & View Mode -->
+        <div class="card">
+          <div class="card-header">
+            <h3>Display & View Mode</h3>
+            <span class="sub">Full screen view, workspace layout & keyboard shortcuts</span>
+          </div>
+          <div class="card-body">
+            <p class="small-mute" style="margin-bottom:14px">
+              Maximize your screen area for data-rich dashboards, employee master tables, Parade State monitoring, and monthly reports.
+            </p>
+            <div style="background:var(--bg-dim);padding:14px 16px;border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+              <div>
+                <strong style="font-size:13.5px;display:block;color:var(--text)">Full Screen View</strong>
+                <span class="small-mute" id="settingsFsStatus">${(typeof isFullScreen==='function'&&isFullScreen()) ? 'Currently in Full Screen Mode' : 'Currently in standard windowed view'}</span>
+              </div>
+              <button type="button" class="btn ${(typeof isFullScreen==='function'&&isFullScreen()) ? 'secondary' : 'primary'}" id="settingsFsBtn" onclick="toggleFullScreen()" style="display:inline-flex;align-items:center;gap:6px;">
+                ${(typeof isFullScreen==='function'&&isFullScreen()) ? 
+                  `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg><span>Exit Full Screen</span>` :
+                  `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg><span>Enter Full Screen</span>`
+                }
+              </button>
+            </div>
+            <div style="font-size:12px;color:var(--text-2);line-height:1.6;border-top:1px solid var(--border);padding-top:12px;">
+              <div style="font-weight:600;margin-bottom:6px;color:var(--text)">Quick Keyboard Shortcuts:</div>
+              <ul style="padding-left:18px;margin:0;display:flex;flex-direction:column;gap:5px">
+                <li><kbd style="background:var(--card);border:1px solid var(--border-strong);padding:2px 6px;border-radius:4px;font-size:11px;font-family:inherit">F11</kbd> or <kbd style="background:var(--card);border:1px solid var(--border-strong);padding:2px 6px;border-radius:4px;font-size:11px;font-family:inherit">Alt</kbd>+<kbd style="background:var(--card);border:1px solid var(--border-strong);padding:2px 6px;border-radius:4px;font-size:11px;font-family:inherit">Enter</kbd> or <kbd style="background:var(--card);border:1px solid var(--border-strong);padding:2px 6px;border-radius:4px;font-size:11px;font-family:inherit">Shift</kbd>+<kbd style="background:var(--card);border:1px solid var(--border-strong);padding:2px 6px;border-radius:4px;font-size:11px;font-family:inherit">F</kbd>: Toggle Full Screen Mode</li>
+                <li><kbd style="background:var(--card);border:1px solid var(--border-strong);padding:2px 6px;border-radius:4px;font-size:11px;font-family:inherit">Esc</kbd>: Exit Full Screen Mode anytime</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
 
     </div>`;
 
@@ -20901,6 +21043,178 @@ async function checkPendingToast(force){
 
 /* ============ Orchestration ============ */
 
+/* ============ FULL SCREEN MODE CORE ============ */
+const FS_ENTER_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>';
+const FS_EXIT_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>';
+
+window.isFullScreen = function() {
+  return !!(
+    document.fullscreenElement ||
+    document.webkitFullscreenElement ||
+    document.mozFullScreenElement ||
+    document.msFullscreenElement ||
+    document.body.classList.contains('is-pseudo-fullscreen')
+  );
+};
+
+window.updateFullScreenUI = function(active) {
+  if (typeof active === 'undefined') {
+    active = window.isFullScreen();
+  }
+
+  // Update body classes
+  document.body.classList.toggle('is-fullscreen-mode', active);
+  if (!active) {
+    document.body.classList.remove('is-pseudo-fullscreen');
+    document.documentElement.classList.remove('is-pseudo-fullscreen');
+  }
+
+  // Update topbar desktop button
+  const topbarBtn = document.getElementById('fullscreenToggleBtn');
+  if (topbarBtn) {
+    topbarBtn.classList.toggle('is-active', active);
+    topbarBtn.title = active ? 'Exit Full Screen (Esc / Shift+F)' : 'Enter Full Screen (F11 / Shift+F)';
+    topbarBtn.setAttribute('aria-label', active ? 'Exit Full Screen Mode' : 'Enter Full Screen Mode');
+    topbarBtn.innerHTML = active ? FS_EXIT_SVG : FS_ENTER_SVG;
+  }
+
+  // Update mobile header button
+  const mobileBtn = document.getElementById('mobileFullscreenToggleBtn');
+  if (mobileBtn) {
+    mobileBtn.classList.toggle('is-active', active);
+    mobileBtn.title = active ? 'Exit Full Screen' : 'Enter Full Screen';
+    mobileBtn.setAttribute('aria-label', active ? 'Exit Full Screen Mode' : 'Enter Full Screen Mode');
+    mobileBtn.innerHTML = active ? FS_EXIT_SVG : FS_ENTER_SVG;
+  }
+
+  // Update Settings page elements if open
+  const settingsStatus = document.getElementById('settingsFsStatus');
+  const settingsBtn = document.getElementById('settingsFsBtn');
+  if (settingsStatus) {
+    settingsStatus.textContent = active ? 'Currently in Full Screen Mode' : 'Currently in standard windowed view';
+  }
+  if (settingsBtn) {
+    settingsBtn.className = 'btn ' + (active ? 'secondary' : 'primary');
+    settingsBtn.innerHTML = active ?
+      (FS_EXIT_SVG + '<span>Exit Full Screen</span>') :
+      (FS_ENTER_SVG + '<span>Enter Full Screen</span>');
+  }
+
+  // Update floating indicator pill
+  const pill = document.getElementById('fullscreenIndicatorPill');
+  if (pill) {
+    if (active) {
+      pill.classList.add('show-pill');
+      clearTimeout(window.__fsPillTimeout);
+      window.__fsPillTimeout = setTimeout(() => {
+        pill.classList.remove('show-pill');
+      }, 3500);
+    } else {
+      pill.classList.remove('show-pill');
+      clearTimeout(window.__fsPillTimeout);
+    }
+  }
+};
+
+window.enterFullScreen = async function() {
+  const elem = document.documentElement;
+  try {
+    if (elem.requestFullscreen) {
+      await elem.requestFullscreen();
+    } else if (elem.webkitRequestFullscreen) {
+      await elem.webkitRequestFullscreen();
+    } else if (elem.mozRequestFullScreen) {
+      await elem.mozRequestFullScreen();
+    } else if (elem.msRequestFullscreen) {
+      await elem.msRequestFullscreen();
+    } else {
+      throw new Error('Native Fullscreen API not supported');
+    }
+    window.updateFullScreenUI(true);
+    toast('Entered Full Screen mode (Press Esc or click to exit)', 'success');
+  } catch (err) {
+    // Graceful fallback to pseudo-fullscreen (e.g. inside sandboxed iframes)
+    document.body.classList.add('is-pseudo-fullscreen');
+    document.documentElement.classList.add('is-pseudo-fullscreen');
+    window.updateFullScreenUI(true);
+    toast('Entered Full Screen view (Press Esc or click to exit)', 'success');
+  }
+};
+
+window.exitFullScreen = async function() {
+  try {
+    if (document.exitFullscreen && document.fullscreenElement) {
+      await document.exitFullscreen();
+    } else if (document.webkitExitFullscreen && document.webkitFullscreenElement) {
+      await document.webkitExitFullscreen();
+    } else if (document.mozCancelFullScreen && document.mozFullScreenElement) {
+      await document.mozCancelFullScreen();
+    } else if (document.msExitFullscreen && document.msFullscreenElement) {
+      await document.msExitFullscreen();
+    }
+  } catch (err) {
+    console.warn('exitFullscreen notification:', err);
+  }
+  document.body.classList.remove('is-pseudo-fullscreen');
+  document.documentElement.classList.remove('is-pseudo-fullscreen');
+  window.updateFullScreenUI(false);
+  toast('Exited Full Screen mode', 'info');
+};
+
+window.toggleFullScreen = function() {
+  if (window.isFullScreen()) {
+    window.exitFullScreen();
+  } else {
+    window.enterFullScreen();
+  }
+};
+
+// Event listeners for browser fullscreen state changes
+['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(evt => {
+  document.addEventListener(evt, () => {
+    const active = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+    window.updateFullScreenUI(active);
+  });
+});
+
+// Keyboard shortcut listeners: F11, Alt+Enter, Shift+F, Esc
+window.addEventListener('keydown', function(e) {
+  if (e.key === 'F11') {
+    e.preventDefault();
+    window.toggleFullScreen();
+    return;
+  }
+  if (e.altKey && e.key === 'Enter') {
+    e.preventDefault();
+    window.toggleFullScreen();
+    return;
+  }
+  if (e.shiftKey && (e.key === 'F' || e.key === 'f') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    const tag = (e.target && e.target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable)) {
+      return;
+    }
+    e.preventDefault();
+    window.toggleFullScreen();
+    return;
+  }
+  if (e.key === 'Escape' && document.body.classList.contains('is-pseudo-fullscreen')) {
+    window.exitFullScreen();
+  }
+});
+
+// Mouse hover near top edge reveals indicator pill when in fullscreen
+window.addEventListener('mousemove', function(e) {
+  if (!window.isFullScreen()) return;
+  const pill = document.getElementById('fullscreenIndicatorPill');
+  if (!pill) return;
+  if (e.clientY <= 30) {
+    pill.classList.add('show-pill');
+  } else if (e.clientY > 85 && !pill.matches(':hover')) {
+    pill.classList.remove('show-pill');
+  }
+});
+
 window.mtToggleSidebar = function() {
   const sidebar = document.querySelector('.sidebar');
   const layout = document.querySelector('.layout');
@@ -21052,6 +21366,7 @@ function renderAll(){
   if(typeof checkSalaryReminder==='function') checkSalaryReminder(false);
   const bell = document.getElementById('notifBell');
   if(bell) bell.style.display = 'grid';
+  if(typeof window.updateFullScreenUI==='function') window.updateFullScreenUI();
   checkPendingToast();
 }
 restoreState();

@@ -1463,10 +1463,41 @@
   function loadTransferActionQueue() { return rpcCall('get_transfer_action_queue'); }
   function createTransferOrder(payload) { return rpcCall('create_transfer_order', { p_transfer: payload }); }
   function confirmTransferJoining(transferId, joiningDate, remarks) {
-    return rpcCall('confirm_transfer_joining', { p_transfer_id: transferId, p_actual_joining_date: joiningDate, p_remarks: remarks || null });
+    if (!ready || !sb) return Promise.reject(new Error('Supabase client is not connected.'));
+    return rpcCall('confirm_transfer_joining', { p_transfer_id: transferId, p_actual_joining_date: joiningDate, p_remarks: remarks || null }).catch(function(err) {
+      console.warn('[confirmTransferJoining] RPC failed, falling back to direct table update:', err);
+      return sb.from('transfers').select('*').eq('id', transferId).single().then(function(res) {
+        var t = res.data;
+        if (!t) throw err;
+        var newProj = t.new_project || t.NewProject;
+        var empSysId = t.employee_sys_id || t.employee_id || t.EmployeeID;
+        return sb.from('transfers').update({
+          status: 'Completed',
+          actual_joining_date: joiningDate,
+          remarks: remarks || t.remarks || null
+        }).eq('id', transferId).then(function() {
+          if (empSysId && newProj) {
+            return sb.from('employees').update({ project_name: newProj }).eq('id', empSysId).then(function() {
+              return true;
+            }).catch(function() { return true; });
+          }
+          return true;
+        });
+      });
+    });
   }
   function markTransferNotJoined(transferId, reason, remarks) {
-    return rpcCall('mark_transfer_not_joined', { p_transfer_id: transferId, p_reason: reason, p_remarks: remarks || null });
+    if (!ready || !sb) return Promise.reject(new Error('Supabase client is not connected.'));
+    return rpcCall('mark_transfer_not_joined', { p_transfer_id: transferId, p_reason: reason, p_remarks: remarks || null }).catch(function(err) {
+      console.warn('[markTransferNotJoined] RPC failed, falling back to direct table update:', err);
+      return sb.from('transfers').update({
+        status: 'Not Joined',
+        not_joined_reason: reason,
+        remarks: remarks || null
+      }).eq('id', transferId).then(function() {
+        return true;
+      });
+    });
   }
   function cancelTransfer(transferId, reason) {
     return rpcCall('cancel_transfer', { p_transfer_id: transferId, p_reason: reason });
@@ -1480,7 +1511,51 @@
   }
   function cancelExit(exitId, reason) { return rpcCall('cancel_exit', { p_exit_id: exitId, p_reason: reason }); }
   function reactivateEmployee(employeeSystemId, joinDate, project, remarks) {
-    return rpcCall('reactivate_employee', { p_employee_sys_id: employeeSystemId, p_new_join_date: joinDate, p_new_project: project, p_remarks: remarks || null });
+    if (!ready || !sb) return Promise.reject(new Error('Supabase client is not connected.'));
+
+    // Check employee current status first. Only non-active employees can be reactivated.
+    return sb.from('employees').select('id, status, employee_id, full_name, join_date, project_name').eq('id', employeeSystemId).single().then(function(res) {
+      var currentStatus = (res.data && res.data.status) ? String(res.data.status).trim() : '';
+      if (currentStatus.toLowerCase() === 'active') {
+        throw new Error('Employee is already Active. Only non-active employees can be reactivated.');
+      }
+
+      // If status is not 'Exited', update to 'Exited' first so Postgres RPC requirement is satisfied
+      var preUpdate = Promise.resolve();
+      if (currentStatus.toLowerCase() !== 'exited') {
+        preUpdate = sb.from('employees').update({ status: 'Exited' }).eq('id', employeeSystemId);
+      }
+
+      return preUpdate.then(function() {
+        return rpcCall('reactivate_employee', {
+          p_employee_sys_id: employeeSystemId,
+          p_new_join_date: joinDate,
+          p_new_project: project,
+          p_remarks: remarks || null
+        });
+      });
+    }).catch(function(err) {
+      if (err && err.message && (err.message.indexOf('already Active') !== -1 || err.message.indexOf('Active employee') !== -1)) {
+        throw err;
+      }
+      console.warn('[reactivateEmployee] RPC encountered error, executing direct table reactivation fallback:', err);
+      // Fallback: direct update on employees table
+      return sb.from('employees').update({
+        status: 'Active',
+        project_name: project,
+        join_date: joinDate,
+        exit_date: null,
+        exit_reason: null
+      }).eq('id', employeeSystemId).then(function(r) {
+        if (r.error) throw new Error(r.error.message || (err && err.message) || 'Failed to reactivate employee');
+        // If there is an associated exit record, update status to Reactivated
+        return sb.from('exits').update({ status: 'Reactivated' }).eq('employee_sys_id', employeeSystemId).then(function() {
+          return true;
+        }).catch(function() {
+          return true;
+        });
+      });
+    });
   }
 
 

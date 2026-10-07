@@ -1895,6 +1895,151 @@ body.print-bw .mrep.m2 tbody tr:nth-child(even) { background: #f5f5f5 !important
   .trp-foot .btn{flex:1 1 calc(50% - 4px);justify-content:center}
 }
 
+/* ============ MODERN TRANSFER QUEUE & MODALS ============ */
+.trq-card {
+  margin: 16px 0;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--primary);
+  background: var(--card);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: box-shadow .2s ease, border-color .2s ease;
+}
+.trq-card:hover {
+  box-shadow: var(--shadow-md);
+}
+.trq-card.has-overdue {
+  border-top-color: var(--danger);
+}
+.trq-card.has-not-joined {
+  border-top-color: var(--warning);
+}
+.trq-head {
+  padding: 14px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,.95), rgba(248,249,252,.8));
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.trq-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.trq-icon-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: linear-gradient(135deg, var(--primary), var(--purple));
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  box-shadow: 0 2px 8px rgba(79,70,229,.25);
+  flex-shrink: 0;
+}
+.trq-body {
+  padding: 14px 18px;
+  display: grid;
+  gap: 10px;
+}
+.trq-item {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 16px;
+  background: #ffffff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  transition: all .15s ease;
+  box-shadow: 0 1px 2px rgba(15,23,42,.03);
+}
+.trq-item:hover {
+  border-color: #c7d2fe;
+  box-shadow: 0 3px 10px rgba(79,70,229,.08);
+  transform: translateY(-1px);
+}
+.trq-item-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1 1 320px;
+  min-width: 0;
+}
+.trq-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--sidebar-alt), var(--primary));
+  color: #fff;
+  font-weight: 800;
+  font-size: 15px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(49,46,129,.2);
+}
+.trq-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.trq-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.trq-name {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.25;
+}
+.trq-route-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  margin-top: 4px;
+  background: var(--bg-dim);
+  padding: 3px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+.trq-route-from {
+  font-weight: 600;
+  color: var(--text-2);
+}
+.trq-route-arrow {
+  color: var(--primary);
+  font-weight: 800;
+}
+.trq-route-to {
+  font-weight: 700;
+  color: var(--purple);
+}
+.trq-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+.trq-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 /* ============================================================
    RICH TEXT EDITOR (rte) — Disciplinary letter body
    ============================================================ */
@@ -5124,7 +5269,7 @@ function openEmpDetail(recordId){
         <button class="btn sm" onclick="empActionQuick('transfer','${escapeHtml(empKey)}')">${'Transfer'}</button>
         <button class="btn sm" onclick="empActionQuick('disciplinary','${escapeHtml(empKey)}')">${'Notice'}</button>
         <button class="btn sm" onclick="empActionQuick('leave','${escapeHtml(empKey)}')">${'Leave'}</button>
-        ${e.Status==='Active'?`<button class="btn sm danger" onclick="empActionQuick('exit','${escapeHtml(empKey)}')">${'Exit'}</button>`:`<button class="btn sm primary" onclick="promptReactivate('${escapeHtml(empKey)}')">${'Reactivate'}</button>`}
+        ${String(e.Status||'').trim().toLowerCase()==='active'?`<button class="btn sm danger" onclick="empActionQuick('exit','${escapeHtml(empKey)}')">${'Exit'}</button>`:`<button class="btn sm primary" onclick="promptReactivate('${escapeHtml(empKey)}')">${'Reactivate'}</button>`}
         <button class="btn sm" onclick="closeModal();openApplicantForm('${escapeHtml(empKey)}')">${ico('edit')} ${'Edit'}</button>
         <button type="button" class="btn sm danger" onclick="deleteEmployeeDirectly(${jsQ(empKey)})">${ico('trash')} ${'Delete'}</button>
         <button class="btn sm primary" onclick="printEmpProfile('${escapeHtml(empKey)}')">${ico('print')} ${'Print Profile'}</button>
@@ -9656,7 +9801,7 @@ function renderTransfer(){
         <table>
           <thead><tr>
             <th>#</th><th>ID</th><th>${'Name'}</th><th>${'From'}</th><th>${'To'}</th>
-            <th>${'Date'}</th><th>${'Status'}</th><th style="width:64px"></th>
+            <th>${'Date'}</th><th>${'Status'}</th><th style="min-width:140px;text-align:right">${'Actions'}</th>
           </tr></thead>
           <tbody id="trTableBody"></tbody>
         </table>
@@ -9697,8 +9842,12 @@ function renderTransferTable(){
         const e = findEmpByAction(t);
         const empId = e ? (e.id || e.EmployeeID || '') : (t.EmployeeID || '—');
         const trStatus = t.status || t.Status || 'Scheduled';
-        const pillClass = trStatus === 'Cancelled' ? 'inactive'
-          : trStatus === 'Completed' ? 'completed'
+        const isCancelled = trStatus === 'Cancelled';
+        const isCompleted = trStatus === 'Completed';
+        const isNotJoined = trStatus === 'Not Joined';
+        const pillClass = isCancelled ? 'inactive'
+          : isCompleted ? 'completed'
+          : isNotJoined ? 'danger'
           : (trStatus === 'Awaiting Confirmation' || trStatus === 'Join Pending') ? 'warning' : 'scheduled';
         return `<tr class="row-click" onclick="openTransferPopup(${jsQ(t.id)})" style="cursor:pointer">
           <td>${escapeHtml(num(t.id))}</td>
@@ -9708,8 +9857,15 @@ function renderTransferTable(){
           <td>${escapeHtml(projName(t.NewProject))}</td>
           <td>${escapeHtml(fmtDate(t.TransferDate))}</td>
           <td><span class="pill ${pillClass}">${escapeHtml(trStatus)}</span></td>
-          <td onclick="event.stopPropagation()"><button class="btn ghost sm" type="button"
-              onclick="reprintTransfer(${jsQ(t.id)})">${ico('print')}</button></td>
+          <td onclick="event.stopPropagation()" style="text-align:right;white-space:nowrap">
+            ${(!isCancelled && !isCompleted && !isNotJoined)
+              ? `<button class="btn sm" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:4px 8px;font-size:11px;font-weight:700;margin-right:4px;box-shadow:0 1px 3px rgba(16,185,129,.25)" title="Confirm Destination Joined" onclick="openConfirmTransferJoining(${jsQ(t.id)})">✓ Joined</button><button class="btn sm" style="background:#fee2e2;color:var(--danger);border:1px solid #fca5a5;padding:4px 7px;font-size:11px;font-weight:600;margin-right:4px" title="Mark Not Joined" onclick="openMarkTransferNotJoined(${jsQ(t.id)})">✕</button>`
+              : (isNotJoined
+                  ? `<button class="btn sm" style="background:#fef3c7;color:#92400e;border:1px solid #f59e0b;padding:4px 8px;font-size:11px;font-weight:700;margin-right:4px" title="Resolve Not Joined" onclick="openNotJoinedFollowUp(${jsQ(t.id)})">⚡ Resolve</button>`
+                  : '')
+            }
+            <button class="btn ghost sm" type="button" title="Print Transfer Letter" onclick="reprintTransfer(${jsQ(t.id)})">${ico('print')}</button>
+          </td>
         </tr>`;
       }).join('');
     }
@@ -9742,7 +9898,7 @@ function openTransferPopup(tid){
   const isCancelled = status==='Cancelled';
   const isCompleted = status==='Completed';
   const isPendingJoin = (status==='Join Pending' || status==='Awaiting Confirmation');
-  const pillCls = isCancelled ? 'inactive' : isCompleted ? 'completed' : (isPendingJoin ? 'warning' : 'scheduled');
+  const pillCls = isCancelled ? 'inactive' : isCompleted ? 'completed' : (status==='Not Joined' ? 'danger' : (isPendingJoin ? 'warning' : 'scheduled'));
   const statusPill = '<span class="pill ' + escapeHtml(pillCls) + '">' + escapeHtml(status) + '</span>';
 
   const emp = findEmpByAction(t);
@@ -9798,10 +9954,15 @@ function openTransferPopup(tid){
         '<span class="trp-spacer"></span>' +
         (isCancelled
           ? '<button type="button" class="btn outline" onclick="restoreTransferOrder(' + jsQ(t.id) + ')">Restore</button>'
-          : '<button type="button" class="btn danger" onclick="cancelTransferOrder(' + jsQ(t.id) + ')">Cancel Order</button>') +
-        ((!isCancelled && !isCompleted)
-          ? '<button type="button" class="btn trp-btn-ok" onclick="confirmTransferJoined(' + jsQ(t.id) + ')">Confirm Joined</button>'
-          : '') +
+          : (status === 'Not Joined'
+              ? '<button type="button" class="btn warning" style="font-weight:700" onclick="openNotJoinedFollowUp(' + jsQ(t.id) + ')">⚡ Resolve Not Joined</button>'
+              : (!isCompleted
+                  ? '<button type="button" class="btn trp-btn-danger" style="background:linear-gradient(135deg,#fee2e2,#fecaca);color:var(--danger);border:1px solid #fca5a5;font-weight:700" onclick="openMarkTransferNotJoined(' + jsQ(t.id) + ')">✕ Not Joined</button>' +
+                    '<button type="button" class="btn trp-btn-ok" style="background:linear-gradient(135deg,var(--success),#10b981);color:#fff;border:none;font-weight:700" onclick="openConfirmTransferJoining(' + jsQ(t.id) + ')">✓ Confirm Joined</button>'
+                  : '')
+            )
+        ) +
+        (!isCancelled ? '<button type="button" class="btn danger" onclick="cancelTransferOrder(' + jsQ(t.id) + ')">Cancel Order</button>' : '') +
         '<button type="button" class="btn trp-btn-danger" onclick="deleteTransferRecord(' + jsQ(t.id) + ')">Delete Record</button>' +
       '</div>' +
 
@@ -9809,43 +9970,6 @@ function openTransferPopup(tid){
 
   openModal('Transfer #' + escapeHtml(t.id), body);
 }
-
-function confirmTransferJoined(tid){
-  if(!guardEdit()) return;
-  const t = DATA.transfers.find(x=>String(x.id)===String(tid)); if(!t) return;
-
-  const newProj = t.NewProject || t.new_project || '';
-  const newBn   = t.NewProjectBangla || t.new_project_bn || '';
-  if(!newProj){ toast('This transfer has no target project', 'error'); return; }
-
-  const emp = findEmpByAction(t) || findEmp(t.EmployeeID || t.employee_id || t.employee_sys_id);
-  if(!emp){ toast('Employee not found in the employees table', 'error'); return; }
-
-  window.mtCustomConfirm(
-    'Confirm Joined',
-    'Mark this transfer as Completed and set the employee project to "' + newProj + '"? The Employees table will be updated.',
-    'primary',
-    async function(){
-      try {
-        t.Status = 'Completed'; t.status = 'Completed';
-        emp.ProjectName = newProj;
-        if(newBn) emp.ProjectNameBangla = newBn;
-
-        if(window.MGHRM && typeof window.MGHRM.update === 'function'){
-          await window.MGHRM.update('employees', emp.id, { project_name: newProj });
-          await window.MGHRM.update('transfers', t.id, { status:'Completed', Status:'Completed' });
-        }
-        logActivity('update','transfers', tid, 'Joining confirmed - project set to ' + newProj);
-        toast('Joining confirmed - ' + emp.FullName + ' moved to ' + newProj, 'success');
-        persist(); closeModal(); renderTransfer();
-      } catch(err){
-        console.error(err);
-        toast('Error: ' + (err.message || err), 'error');
-      }
-    }
-  );
-}
-window.confirmTransferJoined = confirmTransferJoined;
 
 function deleteTransferRecord(tid){
   if(!guardEdit()) return;
@@ -11747,7 +11871,7 @@ function openExitPopup(eid){
       <div class="pop-row"><span>Current Status</span><b>${escapeHtml(emp?emp.Status:'—')}</b></div>
     </div>
     <div class="pop-hint">⚠ Employee current status comes from Employeetbl.Status; use "Reactivate" to restore.</div>`,
-    `${emp?`<button class="btn primary" onclick="promptReactivate(${jsQ(empKey)}, ${jsQ(x.ExitID)})">Reactivate</button>`:''}
+    `${emp && String(emp.Status||'').trim().toLowerCase() !== 'active' ? `<button class="btn primary" onclick="promptReactivate(${jsQ(empKey)}, ${jsQ(x.ExitID)})">Reactivate</button>` : ''}
      ${emp?`<button class="btn" onclick="closeModal();openEmpDetail(${jsQ(empKey)})">Edit</button>`:''}
      <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteExit(${jsQ(x.ExitID)})">Delete</button>
      <button class="btn" onclick="closeModal()">Close</button>`);
@@ -11756,6 +11880,10 @@ function promptReactivate(empKey, exitId){
   if(!guardEdit()) return;
   const emp = findEmp(empKey);
   if(!emp) return;
+  const curStatus = String(emp.Status || emp.status || '').trim().toLowerCase();
+  if(curStatus === 'active'){
+    return toast('Employee is already Active. Only non-active employees can be reactivated.', 'warning');
+  }
   const activeProjs = activeProjects().sort((a,b)=>a.ProjectName.localeCompare(b.ProjectName));
   openModal('Select Project for Reactivation', `
     <div class="form-grid">
@@ -11772,7 +11900,7 @@ function promptReactivate(empKey, exitId){
       </div>
     </div>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
-      <button class="btn" onclick="openExitPopup(${jsQ(exitId)})">Cancel</button>
+      <button class="btn" onclick="${exitId ? `openExitPopup(${jsQ(exitId)})` : 'closeModal()'}">Cancel</button>
       <button class="btn primary" onclick="confirmReactivate(${jsQ(empKey)}, ${jsQ(exitId)})">Confirm Reactivation</button>
     </div>
   `);
@@ -11781,15 +11909,48 @@ function promptReactivate(empKey, exitId){
 async function confirmReactivate(empId, exitId){
   if(!guardEdit()) return;
   const employee=findEmp(empId); if(!employee || employee.id==null) return toast('Employee system ID is missing.','error');
+  const curStatus = String(employee.Status || employee.status || '').trim().toLowerCase();
+  if(curStatus === 'active'){
+    return toast('Employee is already Active and cannot be reactivated.','error');
+  }
   const project=document.getElementById('reactivateProj')?.value;
   const joinDate=document.getElementById('reactivateJoinDate')?.value;
   if(!project||!joinDate) return toast('Project and new joining date are required.','error');
   try{
-    await window.MGHRM.reactivateEmployee(employee.id,joinDate,project,'Reactivated from Employee Exit screen');
-    if(window.MGHRM.reloadExits) DATA.exits=await window.MGHRM.reloadExits();
+    if(window.MGHRM && typeof window.MGHRM.reactivateEmployee === 'function'){
+      await window.MGHRM.reactivateEmployee(employee.id,joinDate,project,'Reactivated to ' + project);
+    } else if (window.sb) {
+      const { error: upErr } = await window.sb.from('employees').update({
+        status: 'Active',
+        project_name: project,
+        join_date: joinDate,
+        exit_date: null,
+        exit_reason: null
+      }).eq('id', employee.id);
+      if (upErr) throw upErr;
+    }
+
+    // Sync in-memory employee record
+    employee.Status = 'Active';
+    employee.status = 'Active';
+    employee.ProjectName = project;
+    employee.project_name = project;
+    employee.JoinDate = joinDate;
+    employee.join_date = joinDate;
+    delete employee.ExitDate;
+    delete employee.exit_date;
+    delete employee.ExitReason;
+    delete employee.exit_reason;
+
+    if(window.MGHRM && typeof window.MGHRM.reloadExits === 'function') {
+      DATA.exits = await window.MGHRM.reloadExits();
+    }
     if(typeof fetchEmployeesDirectly==='function') await fetchEmployeesDirectly();
-    closeModal(); toast(`${employee.FullName} reactivated successfully`,'success');
+    closeModal();
+    toast(`${employee.FullName || employee.name || 'Employee'} reactivated successfully`,'success');
     if(typeof renderExit==='function') renderExit();
+    if(typeof renderEmployees==='function') renderEmployees();
+    if(typeof renderDashboard==='function') renderDashboard();
   }catch(err){ console.error('[Reactivation] failed:',err); toast('Reactivation failed: '+(err.message||err),'error'); }
 }
 function deleteExit(eid){
@@ -21973,6 +22134,46 @@ window.MG_TRANSFER_QUEUE = window.MG_TRANSFER_QUEUE || [];
 function phase2Esc(v){ return (typeof escapeHtml === 'function') ? escapeHtml(String(v == null ? '' : v)) : String(v == null ? '' : v); }
 function phase2Date(v){ return v ? (typeof fmtDate === 'function' ? fmtDate(v) : String(v)) : '—'; }
 
+function findTransferObject(transferId){
+  const sid = String(transferId != null ? transferId : '');
+  const qRow = (window.MG_TRANSFER_QUEUE || []).find(r => String(r.transfer_id) === sid);
+  const dRow = (window.DATA && Array.isArray(window.DATA.transfers) ? window.DATA.transfers : []).find(t => String(t.id) === sid);
+
+  let emp = null;
+  if (dRow && typeof findEmpByAction === 'function') emp = findEmpByAction(dRow);
+  if (!emp && dRow && typeof findEmp === 'function') emp = findEmp(dRow.EmployeeID || dRow.employee_id || dRow.employee_sys_id);
+  if (!emp && qRow && typeof findEmp === 'function') emp = findEmp(qRow.employee_sys_id);
+
+  const fullName = (qRow && qRow.full_name) || (dRow && (dRow.FullName || dRow.full_name)) || (emp && (emp.FullName || emp.full_name)) || 'Employee';
+  const sysId = (qRow && qRow.employee_sys_id) || (dRow && (dRow.employee_sys_id || dRow.EmployeeID || dRow.employee_id)) || (emp && (emp.id || emp.EmployeeID)) || '';
+  const employeeId = (emp && (emp.EmployeeID || emp.id)) || (dRow && (dRow.EmployeeID || dRow.employee_id)) || sysId || '—';
+  const currentProject = (qRow && qRow.current_project) || (dRow && (dRow.CurrentProject || dRow.current_project)) || (emp && (emp.ProjectName || emp.project_name)) || 'Unassigned';
+  const newProject = (qRow && qRow.new_project) || (dRow && (dRow.NewProject || dRow.new_project)) || '';
+  const effectiveDate = (qRow && qRow.effective_date) || (dRow && (dRow.TransferDate || dRow.transfer_date)) || (typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0, 10));
+  const rawStatus = (qRow && (qRow.queue_status || qRow.status)) || (dRow && (dRow.status || dRow.Status)) || 'Scheduled';
+  const overdueDays = qRow ? Number(qRow.overdue_days || 0) : 0;
+  const designation = (dRow && (dRow.Designation || dRow.designation)) || (emp && (emp.Designation || emp.designation)) || '';
+
+  return {
+    transfer_id: sid,
+    id: sid,
+    full_name: fullName,
+    employee_sys_id: sysId,
+    employee_id: employeeId,
+    designation: designation,
+    current_project: currentProject,
+    new_project: newProject,
+    effective_date: effectiveDate,
+    status: rawStatus,
+    queue_status: rawStatus,
+    overdue_days: overdueDays,
+    qRow: qRow,
+    dRow: dRow,
+    emp: emp
+  };
+}
+window.findTransferObject = findTransferObject;
+
 async function loadTransferActionQueue(){
   if (!window.MGHRM || typeof window.MGHRM.loadTransferActionQueue !== 'function') return [];
   try {
@@ -21991,91 +22192,446 @@ function transferActionQueueHtml(rows){
   if (!rows.length) return '';
   const overdue = rows.filter(r => Number(r.overdue_days || 0) > 0 && r.queue_status !== 'Not Joined').length;
   const notJoined = rows.filter(r => r.queue_status === 'Not Joined').length;
-  return `<div class="card" style="margin:16px 0;border:2px solid ${overdue || notJoined ? 'var(--danger)' : 'var(--warning)'}">
-    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;gap:12px">
-      <div><h3 style="margin:0">Transfer Joining Confirmation Required</h3><span class="sub">${rows.length} action${rows.length===1?'':'s'} pending${overdue ? ` · ${overdue} overdue` : ''}${notJoined ? ` · ${notJoined} not joined` : ''}</span></div>
-      <button type="button" class="btn" onclick="navigate('transfer')">Open Transfers</button>
+  const headerTone = overdue > 0 ? 'has-overdue' : (notJoined > 0 ? 'has-not-joined' : '');
+
+  return `<div class="card trq-card ${headerTone}">
+    <div class="trq-head">
+      <div class="trq-title-wrap">
+        <div class="trq-icon-badge">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 3h5v5M4 20L20.2 3.8M21 16v5h-5M15 15l5.1 5.1M4 4l5 5"/>
+          </svg>
+        </div>
+        <div>
+          <h3 style="margin:0;font-size:15px;font-weight:800;color:var(--text);letter-spacing:-.2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span>Transfer Joining Confirmation Required</span>
+            <span class="pill primary" style="font-size:11px;font-weight:700">${rows.length} Action${rows.length===1?'':'s'} Pending</span>
+            ${overdue ? `<span class="pill danger" style="font-size:11px;font-weight:700">⚠️ ${overdue} Overdue</span>` : ''}
+            ${notJoined ? `<span class="pill warning" style="font-size:11px;font-weight:700">⚠️ ${notJoined} Not Joined</span>` : ''}
+          </h3>
+          <span class="sub" style="font-size:12px;color:var(--text-muted);margin-top:2px;display:block">
+            Pending destination arrival verification — verify arrival to activate new project in system
+          </span>
+        </div>
+      </div>
+      <button type="button" class="btn outline" style="font-weight:700;font-size:12px;display:inline-flex;align-items:center;gap:6px" onclick="navigate('transfer')">
+        <span>Open Transfers</span>
+        <span style="font-size:14px">➔</span>
+      </button>
     </div>
-    <div class="card-body" style="display:grid;gap:10px">
-      ${rows.slice(0,8).map(r => `<div style="border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
-        <div><strong>${phase2Esc(r.full_name || 'Employee')}</strong> <span class="small-mute">System ID ${phase2Esc(r.employee_sys_id)}</span><br>
-          <span class="small-mute">${phase2Esc(r.current_project || 'Unassigned')} → ${phase2Esc(r.new_project || '')}</span><br>
-          <span class="small-mute">Effective ${phase2Date(r.effective_date)}${Number(r.overdue_days||0)>0 ? ` · <b style="color:var(--danger)">${r.overdue_days} day(s) overdue</b>` : ''}</span>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          ${r.queue_status === 'Not Joined'
-            ? `<button class="btn" onclick="openNotJoinedFollowUp(${Number(r.transfer_id)})">Resolve Not Joined</button>`
-            : `<button class="btn success" onclick="openConfirmTransferJoining(${Number(r.transfer_id)})">Confirm Joined</button><button class="btn danger" onclick="openMarkTransferNotJoined(${Number(r.transfer_id)})">Not Joined</button>`}
-        </div>
-      </div>`).join('')}
+    <div class="trq-body">
+      ${rows.slice(0,8).map(r => {
+        const initials = String(r.full_name || '?').trim().split(/\s+/).slice(0,2).map(w=>w.charAt(0)).join('').toUpperCase() || '?';
+        const isNotJoined = r.queue_status === 'Not Joined';
+        const isOverdue = Number(r.overdue_days || 0) > 0 && !isNotJoined;
+
+        return `<div class="trq-item">
+          <div class="trq-item-info">
+            <div class="trq-avatar">${escapeHtml(initials)}</div>
+            <div class="trq-meta">
+              <div class="trq-name-row">
+                <span class="trq-name">${phase2Esc(r.full_name || 'Employee')}</span>
+                <span class="chip" style="font-size:11px;font-weight:700">ID ${phase2Esc(r.employee_sys_id)}</span>
+                ${isNotJoined ? `<span class="pill warning" style="font-size:10.5px;font-weight:700">Not Joined</span>` : ''}
+                ${isOverdue ? `<span class="pill danger" style="font-size:10.5px;font-weight:700">⚠️ ${r.overdue_days}d overdue</span>` : ''}
+              </div>
+              <div class="trq-route-pill">
+                <span class="trq-route-from">${phase2Esc(r.current_project || 'Unassigned')}</span>
+                <span class="trq-route-arrow">➔</span>
+                <span class="trq-route-to">${phase2Esc(r.new_project || 'Destination')}</span>
+              </div>
+              <div class="trq-detail-row">
+                <span>📅 Effective: <b>${phase2Date(r.effective_date)}</b></span>
+                <span>Order #${phase2Esc(r.transfer_id)}</span>
+              </div>
+            </div>
+          </div>
+          <div class="trq-actions">
+            ${isNotJoined
+              ? `<button type="button" class="btn" style="background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;border:1px solid #f59e0b;font-weight:700;font-size:12px;box-shadow:var(--shadow-sm)" onclick="openNotJoinedFollowUp(${Number(r.transfer_id)})">⚡ Resolve Not Joined</button>`
+              : `<button type="button" class="btn" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;font-weight:700;font-size:12px;padding:8px 14px;box-shadow:0 2px 6px rgba(16,185,129,.3)" onclick="openConfirmTransferJoining(${Number(r.transfer_id)})">✓ Confirm Joined</button>
+                 <button type="button" class="btn" style="background:linear-gradient(135deg,#fff1f2,#ffe4e6);color:#be123c;border:1px solid #fecdd3;font-weight:600;font-size:12px;padding:8px 12px" onclick="openMarkTransferNotJoined(${Number(r.transfer_id)})">✕ Not Joined</button>`
+            }
+            <button type="button" class="btn ghost sm" title="View Transfer Order" onclick="openTransferPopup(${Number(r.transfer_id)})" style="padding:6px 9px">👁</button>
+          </div>
+        </div>`;
+      }).join('')}
     </div>
   </div>`;
 }
 window.transferActionQueueHtml = transferActionQueueHtml;
 
 async function phase2RefreshTransferState(){
-  try { if (window.MGHRM.reloadTransfers) DATA.transfers = await window.MGHRM.reloadTransfers(); } catch(e){}
+  try { if (window.MGHRM && window.MGHRM.reloadTransfers) DATA.transfers = await window.MGHRM.reloadTransfers(); } catch(e){}
   try { if (typeof fetchEmployeesDirectly === 'function') await fetchEmployeesDirectly({ render:false, reason:'phase2-transfer' }); } catch(e){}
   await loadTransferActionQueue();
-  try { if (currentPage === 'dashboard') await renderDashboard(); else if (currentPage === 'transfer') renderTransfer(); } catch(e){}
+  try {
+    if (typeof currentPage !== 'undefined' && currentPage === 'dashboard' && typeof renderDashboard === 'function') {
+      await renderDashboard();
+    } else if (typeof currentPage !== 'undefined' && currentPage === 'transfer' && typeof renderTransfer === 'function') {
+      renderTransfer();
+    }
+  } catch(e){}
 }
 
 function openConfirmTransferJoining(transferId){
-  const row = (window.MG_TRANSFER_QUEUE || []).find(r => String(r.transfer_id) === String(transferId));
-  const date = row && row.effective_date ? String(row.effective_date).slice(0,10) : new Date().toISOString().slice(0,10);
-  openModal('Confirm Destination Joining', `<div class="form-grid">
-    <div class="form-group"><label>Employee</label><input value="${phase2Esc(row && row.full_name)}" disabled></div>
-    <div class="form-group"><label>Destination Project</label><input value="${phase2Esc(row && row.new_project)}" disabled></div>
-    <div class="form-group"><label>Actual Joining Date *</label><input id="p2JoinDate" type="date" value="${phase2Esc(date)}"></div>
-    <div class="form-group full"><label>Remarks</label><textarea id="p2JoinRemarks" rows="3"></textarea></div>
-  </div>`, `<button class="btn" onclick="closeModal()">Cancel</button><button class="btn success" onclick="confirmTransferJoined(${Number(transferId)})">Confirm Joined</button>`);
+  const item = findTransferObject(transferId);
+  const dateVal = item.effective_date ? String(item.effective_date).slice(0, 10) : (typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0, 10));
+  const initials = String(item.full_name || '?').trim().split(/\s+/).slice(0, 2).map(w=>w.charAt(0)).join('').toUpperCase() || '?';
+  const todayStr = typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0, 10);
+
+  const body = `
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <!-- Top Hero Banner with theme styling -->
+      <div style="background:linear-gradient(135deg,#eef2ff,#e0e7ff);border:1px solid #c7d2fe;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px">
+        <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,var(--primary),var(--purple));color:#fff;display:grid;place-items:center;font-weight:800;font-size:16px;flex-shrink:0;box-shadow:0 2px 8px rgba(79,70,229,.25)">
+          ${escapeHtml(initials)}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:16px;font-weight:800;color:var(--text);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+            ${escapeHtml(item.full_name)}
+          </div>
+          <div style="font-size:12px;color:var(--primary);font-weight:600;margin-top:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span>Employee ID: <b>${escapeHtml(item.employee_id)}</b></span>
+            ${item.designation ? `<span>· ${escapeHtml(item.designation)}</span>` : ''}
+            <span>· Order #${escapeHtml(item.transfer_id)}</span>
+          </div>
+        </div>
+        <span class="pill scheduled" style="font-size:11px;font-weight:700">Transfer</span>
+      </div>
+
+      <!-- Route visualizer -->
+      <div style="background:var(--bg-dim);border:1px dashed var(--border-strong);border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:12px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--text-muted)">From (Current Project)</div>
+          <div style="font-size:13.5px;font-weight:700;color:var(--text);margin-top:3px;word-break:break-word">${escapeHtml(item.current_project)}</div>
+        </div>
+        <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--purple));color:#fff;display:grid;place-items:center;font-weight:800;font-size:14px;flex-shrink:0">
+          ➔
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--purple)">To (Destination Project)</div>
+          <div style="font-size:14px;font-weight:800;color:var(--purple);margin-top:3px;word-break:break-word">${escapeHtml(item.new_project)}</div>
+        </div>
+      </div>
+
+      <!-- Form Section -->
+      <div class="form-grid" style="grid-template-columns:1fr;gap:12px">
+        <div class="form-group">
+          <label style="font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:space-between">
+            <span>Actual Destination Joining Date <span style="color:var(--danger)">*</span></span>
+            <span style="font-size:11px;font-weight:500;color:var(--text-muted)">Scheduled on Order: ${escapeHtml(phase2Date(item.effective_date))}</span>
+          </label>
+          <input id="p2JoinDate" type="date" value="${escapeHtml(dateVal)}" style="font-size:14px;font-weight:600;padding:9px 12px;border:1px solid var(--border-strong);border-radius:8px;width:100%;background:#fff">
+          <!-- Quick Preset Chips -->
+          <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+            <button type="button" class="btn ghost sm" style="font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:6px" onclick="document.getElementById('p2JoinDate').value='${escapeHtml(dateVal)}'">Use Transfer Date (${escapeHtml(dateVal)})</button>
+            <button type="button" class="btn ghost sm" style="font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:6px" onclick="document.getElementById('p2JoinDate').value='${todayStr}'">Today (${todayStr})</button>
+          </div>
+        </div>
+
+        <div class="form-group full">
+          <label style="font-weight:700;font-size:13px">Remarks / Joining Notes (Optional)</label>
+          <textarea id="p2JoinRemarks" rows="2" placeholder="e.g. Reported for duty on morning shift, orientation completed..." style="font-size:13px;padding:9px 12px;border:1px solid var(--border-strong);border-radius:8px;width:100%;background:#fff"></textarea>
+        </div>
+      </div>
+
+      <!-- Informative Success Notice -->
+      <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px;font-size:12.5px;color:#065f46">
+        <span style="font-size:16px;color:#059669;font-weight:800">✓</span>
+        <span>Confirming destination joining will immediately set <b>${escapeHtml(item.full_name)}</b>'s project in the master database to <b>${escapeHtml(item.new_project)}</b> and mark this transfer Completed.</span>
+      </div>
+    </div>
+  `;
+
+  openModal(
+    'Confirm Destination Joining',
+    body,
+    `<button type="button" class="btn ghost" onclick="closeModal()">Cancel</button>
+     <button type="button" class="btn" style="background:linear-gradient(135deg,var(--success),#10b981);color:#fff;border:none;font-weight:700;padding:9px 20px;box-shadow:0 2px 8px rgba(16,185,129,.25)" onclick="confirmTransferJoined(${Number(item.transfer_id)})">✓ Confirm Joined</button>`
+  );
 }
 window.openConfirmTransferJoining = openConfirmTransferJoining;
 
-async function confirmTransferJoined(transferId){
+async function confirmTransferJoined(transferId, explicitDate, explicitRemarks){
   if (!guardEdit()) return;
-  const date = document.getElementById('p2JoinDate')?.value;
-  const remarks = document.getElementById('p2JoinRemarks')?.value || '';
-  if (!date) return toast('Actual joining date is required.', 'error');
+  const item = findTransferObject(transferId);
+  if (!item) return toast('Transfer record not found', 'error');
+
+  let date = explicitDate || document.getElementById('p2JoinDate')?.value;
+  if (!date) {
+    date = item.effective_date ? String(item.effective_date).slice(0, 10) : (typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0, 10));
+  }
+  const remarks = (explicitRemarks !== undefined) ? explicitRemarks : (document.getElementById('p2JoinRemarks')?.value || '');
+
+  const newProj = item.new_project;
+  if (!newProj) return toast('This transfer has no target destination project', 'error');
+
+  const emp = item.emp || (typeof findEmpByAction === 'function' && item.dRow ? findEmpByAction(item.dRow) : null) || (typeof findEmp === 'function' ? findEmp(item.employee_sys_id || item.employee_id) : null);
+
   try {
-    await window.MGHRM.confirmTransferJoining(transferId, date, remarks);
-    closeModal(); toast('Destination joining confirmed and employee project updated.', 'success');
+    if (window.MGHRM && typeof window.MGHRM.confirmTransferJoining === 'function') {
+      try {
+        await window.MGHRM.confirmTransferJoining(Number(transferId), date, remarks);
+      } catch (rpcErr) {
+        console.warn('[confirmTransferJoined] RPC call failed, falling back to direct update:', rpcErr);
+        if (window.MGHRM.update) {
+          if (emp && emp.id) await window.MGHRM.update('employees', emp.id, { project_name: newProj });
+          await window.MGHRM.update('transfers', transferId, { status: 'Completed', Status: 'Completed', actual_joining_date: date, remarks: remarks });
+        }
+      }
+    }
+
+    // Immediate local cache update
+    if (item.dRow) {
+      item.dRow.Status = 'Completed';
+      item.dRow.status = 'Completed';
+      item.dRow.actual_joining_date = date;
+      if (remarks) item.dRow.remarks = remarks;
+    }
+    if (window.DATA && Array.isArray(window.DATA.transfers)) {
+      const match = window.DATA.transfers.find(x => String(x.id) === String(transferId));
+      if (match) {
+        match.Status = 'Completed';
+        match.status = 'Completed';
+        match.actual_joining_date = date;
+        if (remarks) match.remarks = remarks;
+      }
+    }
+
+    if (emp) {
+      emp.ProjectName = newProj;
+      emp.project_name = newProj;
+      const targetProj = (window.DATA && Array.isArray(window.DATA.projects)) ? window.DATA.projects.find(p => p.ProjectName === newProj) : null;
+      if (targetProj && (targetProj.ProjectNameBangla || targetProj.project_name_bn)) {
+        emp.ProjectNameBangla = targetProj.ProjectNameBangla || targetProj.project_name_bn;
+      }
+    }
+
+    if (typeof logActivity === 'function') {
+      logActivity('update', 'transfers', transferId, 'Destination joining confirmed on ' + date + ' - assigned to ' + newProj);
+    }
+    if (typeof persist === 'function') persist();
+
+    closeModal();
+    toast('Destination joining confirmed! ' + item.full_name + ' is now assigned to ' + newProj + '.', 'success');
     await phase2RefreshTransferState();
-  } catch(err) { toast('Joining confirmation failed: ' + (err.message || err), 'error'); }
+  } catch(err) {
+    console.error(err);
+    toast('Joining confirmation failed: ' + (err.message || err), 'error');
+  }
 }
 window.confirmTransferJoined = confirmTransferJoined;
 
 function openMarkTransferNotJoined(transferId){
-  openModal('Mark Transfer as Not Joined', `<div class="form-grid">
-    <div class="form-group full"><label>Reason *</label><select id="p2NotJoinedReason"><option value="">Select reason</option><option>Employee Refused</option><option>Employee Unreachable</option><option>Continued at Previous Project</option><option>Released but Did Not Join</option><option>Resigned</option><option>Absconded</option><option>Medical Issue</option><option>Management Decision</option><option>Other</option></select></div>
-    <div class="form-group full"><label>Remarks</label><textarea id="p2NotJoinedRemarks" rows="3"></textarea></div>
-  </div>`, `<button class="btn" onclick="closeModal()">Cancel</button><button class="btn danger" onclick="markTransferNotJoinedUI(${Number(transferId)})">Not Joined</button>`);
+  const item = findTransferObject(transferId);
+  const body = `
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <!-- Warning Banner -->
+      <div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fde68a;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+        <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;display:grid;place-items:center;font-size:18px;flex-shrink:0;box-shadow:0 2px 6px rgba(245,158,11,.25)">
+          ⚠️
+        </div>
+        <div>
+          <div style="font-size:15px;font-weight:800;color:#92400e">Destination Non-Arrival Report</div>
+          <div style="font-size:12px;color:#b45309;margin-top:2px">Employee has not joined at the scheduled destination post.</div>
+        </div>
+      </div>
+
+      <!-- Employee & Route summary -->
+      <div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;background:var(--card)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div>
+            <strong style="font-size:14.5px;color:var(--text)">${escapeHtml(item.full_name)}</strong>
+            <span style="font-size:11.5px;color:var(--text-muted);margin-left:6px">ID: ${escapeHtml(item.employee_id)}</span>
+          </div>
+          <span class="pill scheduled" style="font-size:11px">Order #${escapeHtml(item.transfer_id)}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;background:var(--bg-dim);padding:8px 12px;border-radius:8px">
+          <span style="font-weight:600;color:var(--text-2)">${escapeHtml(item.current_project)}</span>
+          <span style="color:var(--primary);font-weight:800">➔</span>
+          <span style="font-weight:700;color:var(--purple)">${escapeHtml(item.new_project)}</span>
+          <span style="margin-left:auto;font-size:11px;color:var(--text-muted)">Scheduled: ${escapeHtml(phase2Date(item.effective_date))}</span>
+        </div>
+      </div>
+
+      <!-- Reason Selector & Remarks -->
+      <div class="form-grid" style="grid-template-columns:1fr;gap:12px">
+        <div class="form-group full">
+          <label style="font-weight:700;font-size:13px">Reason for Not Joining <span style="color:var(--danger)">*</span></label>
+          <select id="p2NotJoinedReason" style="font-size:13.5px;font-weight:600;padding:9px 12px;border:1px solid var(--border-strong);border-radius:8px;width:100%;background:#fff">
+            <option value="">-- Select Non-Arrival Reason --</option>
+            <option value="Employee Refused">Employee Refused / Declined Assignment</option>
+            <option value="Employee Unreachable">Employee Unreachable / Absent</option>
+            <option value="Continued at Previous Project">Continued at Previous Project (Site/Client Request)</option>
+            <option value="Released but Did Not Join">Released from Previous Post but Did Not Report</option>
+            <option value="Resigned">Employee Submitted Resignation</option>
+            <option value="Absconded">Absconded / Left Without Notice</option>
+            <option value="Medical Issue">Medical / Health Issue</option>
+            <option value="Management Decision">Management / Client Decision</option>
+            <option value="Other">Other Specific Reason</option>
+          </select>
+        </div>
+
+        <div class="form-group full">
+          <label style="font-weight:700;font-size:13px">Remarks / Circumstances</label>
+          <textarea id="p2NotJoinedRemarks" rows="2" placeholder="Details regarding non-arrival, communication attempts, or notes..." style="font-size:13px;padding:9px 12px;border:1px solid var(--border-strong);border-radius:8px;width:100%;background:#fff"></textarea>
+        </div>
+      </div>
+
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px 14px;font-size:12px;color:#991b1b">
+        <b>Notice:</b> The employee's project remains <b>${escapeHtml(item.current_project)}</b> until a follow-up action (Reschedule, Cancel, or Exit) is completed.
+      </div>
+    </div>
+  `;
+
+  openModal(
+    'Mark Transfer as Not Joined',
+    body,
+    `<button type="button" class="btn ghost" onclick="closeModal()">Cancel</button>
+     <button type="button" class="btn" style="background:linear-gradient(135deg,var(--danger),#dc2626);color:#fff;border:none;font-weight:700;padding:9px 18px;box-shadow:0 2px 8px rgba(225,29,72,.25)" onclick="markTransferNotJoinedUI(${Number(item.transfer_id)})">✕ Confirm Not Joined</button>`
+  );
 }
 window.openMarkTransferNotJoined = openMarkTransferNotJoined;
 
 async function markTransferNotJoinedUI(transferId){
   if (!guardEdit()) return;
+  const item = findTransferObject(transferId);
   const reason = document.getElementById('p2NotJoinedReason')?.value;
   const remarks = document.getElementById('p2NotJoinedRemarks')?.value || '';
-  if (!reason) return toast('Not-joined reason is required.', 'error');
+  if (!reason) return toast('Please select a reason for Not Joined.', 'error');
+
   try {
-    await window.MGHRM.markTransferNotJoined(transferId, reason, remarks);
-    closeModal(); toast('Transfer marked Not Joined. Select a follow-up action.', 'success');
-    await phase2RefreshTransferState(); openNotJoinedFollowUp(transferId);
-  } catch(err) { toast('Could not mark Not Joined: ' + (err.message || err), 'error'); }
+    if (window.MGHRM && typeof window.MGHRM.markTransferNotJoined === 'function') {
+      try {
+        await window.MGHRM.markTransferNotJoined(Number(transferId), reason, remarks);
+      } catch (rpcErr) {
+        console.warn('[markTransferNotJoined] RPC call failed, falling back to direct update:', rpcErr);
+        if (window.MGHRM.update) {
+          await window.MGHRM.update('transfers', transferId, { status: 'Not Joined', Status: 'Not Joined', not_joined_reason: reason, remarks: remarks });
+        }
+      }
+    }
+
+    if (item && item.dRow) {
+      item.dRow.Status = 'Not Joined';
+      item.dRow.status = 'Not Joined';
+      item.dRow.not_joined_reason = reason;
+      if (remarks) item.dRow.remarks = remarks;
+    }
+    if (window.DATA && Array.isArray(window.DATA.transfers)) {
+      const match = window.DATA.transfers.find(x => String(x.id) === String(transferId));
+      if (match) {
+        match.Status = 'Not Joined';
+        match.status = 'Not Joined';
+        match.not_joined_reason = reason;
+        if (remarks) match.remarks = remarks;
+      }
+    }
+
+    if (typeof logActivity === 'function') {
+      logActivity('update', 'transfers', transferId, 'Transfer marked Not Joined: ' + reason);
+    }
+    if (typeof persist === 'function') persist();
+
+    closeModal();
+    toast('Transfer marked as Not Joined. Select a follow-up disposition.', 'warning');
+    await phase2RefreshTransferState();
+    openNotJoinedFollowUp(transferId);
+  } catch(err) {
+    console.error(err);
+    toast('Could not mark Not Joined: ' + (err.message || err), 'error');
+  }
 }
 window.markTransferNotJoinedUI = markTransferNotJoinedUI;
 
 function openNotJoinedFollowUp(transferId){
-  const row = (window.MG_TRANSFER_QUEUE || []).find(r => String(r.transfer_id) === String(transferId));
-  openModal('Resolve Not Joined Transfer', `<div class="alert warning" style="margin-bottom:12px">Employee project remains unchanged until a follow-up action is completed.</div>
-    <p><strong>${phase2Esc(row && row.full_name)}</strong></p><p class="small-mute">${phase2Esc(row && row.current_project)} → ${phase2Esc(row && row.new_project)}</p>`,
-    `<button class="btn" onclick="openRescheduleTransfer(${Number(transferId)})">Reschedule</button><button class="btn danger" onclick="openCancelTransfer(${Number(transferId)})">Cancel Transfer</button><button class="btn primary" onclick="startExitFromTransfer(${Number(transferId)})">Start Exit Process</button>`);
+  const item = findTransferObject(transferId);
+  const initials = String(item.full_name || '?').trim().split(/\s+/).slice(0, 2).map(w=>w.charAt(0)).join('').toUpperCase() || '?';
+
+  const body = `
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <!-- Status Notice -->
+      <div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fde68a;border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:12px">
+        <div style="width:38px;height:38px;border-radius:10px;background:#f59e0b;color:#fff;display:grid;place-items:center;font-size:16px;flex-shrink:0">⚠️</div>
+        <div style="font-size:13px;color:#92400e;line-height:1.4">
+          <b>Status: Not Joined.</b> Employee assignment remains at <b>${escapeHtml(item.current_project)}</b>. Select an action below to resolve this record.
+        </div>
+      </div>
+
+      <!-- Employee Summary -->
+      <div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;background:var(--card);display:flex;align-items:center;gap:12px">
+        <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--primary),var(--purple));color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px;flex-shrink:0">
+          ${escapeHtml(initials)}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;font-weight:800;color:var(--text)">${escapeHtml(item.full_name)}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">
+            ID: <b>${escapeHtml(item.employee_id)}</b> · Current: <b>${escapeHtml(item.current_project)}</b> ➔ Destination: <b style="color:var(--purple)">${escapeHtml(item.new_project)}</b>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Choice Cards -->
+      <div style="display:grid;grid-template-columns:1fr;gap:10px;margin-top:4px">
+        <div onclick="openRescheduleTransfer(${Number(transferId)})" style="cursor:pointer;border:1px solid var(--border);border-left:4px solid var(--primary);border-radius:10px;padding:12px 14px;background:#fff;display:flex;align-items:center;justify-content:space-between;transition:all .15s ease" onmouseover="this.style.boxShadow='var(--shadow-md)';this.style.borderColor='var(--primary)'" onmouseout="this.style.boxShadow='none';this.style.borderColor='var(--border)'">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:34px;height:34px;border-radius:8px;background:var(--primary-soft);color:var(--primary);display:grid;place-items:center;font-size:16px">📅</div>
+            <div>
+              <div style="font-weight:700;font-size:13.5px;color:var(--text)">Reschedule Transfer</div>
+              <div style="font-size:11.5px;color:var(--text-muted)">Set a new reporting / effective date for this destination assignment</div>
+            </div>
+          </div>
+          <span style="font-weight:800;color:var(--primary)">➔</span>
+        </div>
+
+        <div onclick="openCancelTransfer(${Number(transferId)})" style="cursor:pointer;border:1px solid var(--border);border-left:4px solid var(--danger);border-radius:10px;padding:12px 14px;background:#fff;display:flex;align-items:center;justify-content:space-between;transition:all .15s ease" onmouseover="this.style.boxShadow='var(--shadow-md)';this.style.borderColor='var(--danger)'" onmouseout="this.style.boxShadow='none';this.style.borderColor='var(--border)'">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:34px;height:34px;border-radius:8px;background:var(--danger-soft);color:var(--danger);display:grid;place-items:center;font-size:16px">✕</div>
+            <div>
+              <div style="font-weight:700;font-size:13.5px;color:var(--danger)">Cancel Transfer Order</div>
+              <div style="font-size:11.5px;color:var(--text-muted)">Void this transfer order; employee remains officially at ${escapeHtml(item.current_project)}</div>
+            </div>
+          </div>
+          <span style="font-weight:800;color:var(--danger)">➔</span>
+        </div>
+
+        <div onclick="startExitFromTransfer(${Number(transferId)})" style="cursor:pointer;border:1px solid var(--border);border-left:4px solid var(--purple);border-radius:10px;padding:12px 14px;background:#fff;display:flex;align-items:center;justify-content:space-between;transition:all .15s ease" onmouseover="this.style.boxShadow='var(--shadow-md)';this.style.borderColor='var(--purple)'" onmouseout="this.style.boxShadow='none';this.style.borderColor='var(--border)'">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:34px;height:34px;border-radius:8px;background:var(--purple-soft);color:var(--purple);display:grid;place-items:center;font-size:16px">🚪</div>
+            <div>
+              <div style="font-weight:700;font-size:13.5px;color:var(--purple)">Start Exit / Release Process</div>
+              <div style="font-size:11.5px;color:var(--text-muted)">If employee resigned or absconded, proceed to separation record</div>
+            </div>
+          </div>
+          <span style="font-weight:800;color:var(--purple)">➔</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  openModal('Resolve Not Joined Transfer', body, `<button type="button" class="btn ghost" onclick="closeModal()">Close</button>`);
 }
 window.openNotJoinedFollowUp = openNotJoinedFollowUp;
 
 function openCancelTransfer(transferId){
-  openModal('Cancel Transfer', `<div class="form-group"><label>Cancellation Reason *</label><textarea id="p2CancelReason" rows="4"></textarea></div>`, `<button class="btn" onclick="closeModal()">Back</button><button class="btn danger" onclick="cancelTransferUI(${Number(transferId)})">Cancel Transfer</button>`);
+  const item = findTransferObject(transferId);
+  const body = `
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;padding:12px 14px;font-size:12.5px;color:#991b1b">
+        <b>Are you sure you want to cancel this transfer?</b><br>
+        Employee <b>${escapeHtml(item.full_name)}</b> will remain permanently assigned to <b>${escapeHtml(item.current_project)}</b>.
+      </div>
+      <div class="form-group full">
+        <label style="font-weight:700;font-size:13px">Cancellation Reason <span style="color:var(--danger)">*</span></label>
+        <textarea id="p2CancelReason" rows="3" placeholder="Provide reason for cancelling this transfer order..." style="font-size:13px;padding:9px 12px;border:1px solid var(--border-strong);border-radius:8px;width:100%;background:#fff"></textarea>
+      </div>
+    </div>
+  `;
+  openModal('Cancel Transfer Order', body, `
+    <button type="button" class="btn ghost" onclick="openNotJoinedFollowUp(${Number(transferId)})">Back</button>
+    <button type="button" class="btn danger" style="font-weight:700" onclick="cancelTransferUI(${Number(transferId)})">Confirm Cancel Transfer</button>
+  `);
 }
 async function cancelTransferUI(transferId){
   const reason = document.getElementById('p2CancelReason')?.value.trim(); if(!reason) return toast('Cancellation reason is required.','error');
@@ -22084,7 +22640,29 @@ async function cancelTransferUI(transferId){
 window.openCancelTransfer=openCancelTransfer; window.cancelTransferUI=cancelTransferUI;
 
 function openRescheduleTransfer(transferId){
-  openModal('Reschedule Transfer', `<div class="form-grid"><div class="form-group"><label>New Effective Date *</label><input id="p2RescheduleDate" type="date"></div><div class="form-group full"><label>Reason *</label><textarea id="p2RescheduleReason" rows="3"></textarea></div></div>`, `<button class="btn" onclick="closeModal()">Back</button><button class="btn primary" onclick="rescheduleTransferUI(${Number(transferId)})">Reschedule</button>`);
+  const item = findTransferObject(transferId);
+  const currDate = item.effective_date ? String(item.effective_date).slice(0, 10) : (typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0, 10));
+  const body = `
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="background:var(--primary-soft);border:1px solid #c7d2fe;border-radius:10px;padding:12px 14px;font-size:12.5px;color:var(--primary)">
+        Rescheduling transfer for <b>${escapeHtml(item.full_name)}</b> to destination <b>${escapeHtml(item.new_project)}</b>.
+      </div>
+      <div class="form-grid" style="grid-template-columns:1fr;gap:12px">
+        <div class="form-group">
+          <label style="font-weight:700;font-size:13px">New Effective / Reporting Date <span style="color:var(--danger)">*</span></label>
+          <input id="p2RescheduleDate" type="date" value="${escapeHtml(currDate)}" style="font-size:14px;font-weight:600;padding:9px 12px;border:1px solid var(--border-strong);border-radius:8px;width:100%;background:#fff">
+        </div>
+        <div class="form-group full">
+          <label style="font-weight:700;font-size:13px">Reschedule Reason / Justification <span style="color:var(--danger)">*</span></label>
+          <textarea id="p2RescheduleReason" rows="2" placeholder="e.g. Employee requested 3 days extension, site handover delayed..." style="font-size:13px;padding:9px 12px;border:1px solid var(--border-strong);border-radius:8px;width:100%;background:#fff"></textarea>
+        </div>
+      </div>
+    </div>
+  `;
+  openModal('Reschedule Transfer Date', body, `
+    <button type="button" class="btn ghost" onclick="openNotJoinedFollowUp(${Number(transferId)})">Back</button>
+    <button type="button" class="btn primary" style="font-weight:700" onclick="rescheduleTransferUI(${Number(transferId)})">Confirm Reschedule</button>
+  `);
 }
 async function rescheduleTransferUI(transferId){
   const date=document.getElementById('p2RescheduleDate')?.value, reason=document.getElementById('p2RescheduleReason')?.value.trim(); if(!date||!reason) return toast('New date and reason are required.','error');
@@ -22093,12 +22671,12 @@ async function rescheduleTransferUI(transferId){
 window.openRescheduleTransfer=openRescheduleTransfer; window.rescheduleTransferUI=rescheduleTransferUI;
 
 function startExitFromTransfer(transferId){
-  const row=(window.MG_TRANSFER_QUEUE||[]).find(r=>String(r.transfer_id)===String(transferId));
+  const item = findTransferObject(transferId);
   closeModal(); navigate('exit');
   setTimeout(function(){
-    const emp = row && typeof findEmp === 'function' ? findEmp(row.employee_sys_id) : null;
+    const emp = item.emp || (typeof findEmp === 'function' ? findEmp(item.employee_sys_id || item.employee_id) : null);
     if (emp && typeof openExitPopup === 'function') openExitPopup(emp.id);
-    else toast('Open the Exit form for System ID '+(row?row.employee_sys_id:''), 'info');
+    else toast('Open the Exit form for System ID ' + (item.employee_sys_id || item.employee_id || ''), 'info');
   },150);
 }
 window.startExitFromTransfer=startExitFromTransfer;

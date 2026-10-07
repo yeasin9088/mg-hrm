@@ -4439,13 +4439,6 @@ function computeAlerts(){
       title: `${stagnant.length} employees 3+ years at same post`,
       detail: 'Consider rotation'});
   }
-  // Recent new hires still probation
-  const newHires = DATA.employees.filter(e=>e.Status==='Active' && e._joinDays<=90);
-  if(newHires.length){
-    alerts.push({severity:'success',icon:'check',
-      title: `${newHires.length} employees in probation (<90 days)`,
-      detail: 'Review needed'});
-  }
   return alerts;
 }
 function activityFeed(){
@@ -8830,7 +8823,7 @@ function printAppointment(id){
 
     <div style="font-weight:700;font-size:11pt;text-align:center;text-decoration:underline;margin:8px 0 6px">চাকরির শর্তাবলী</div>
     <ol style="font-size:10pt;line-height:1.45;padding-left:22px;margin:0">
-      <li style="margin-bottom:4px"><strong>নিয়োগের কার্যকারিতাঃ</strong> নিয়োগ উপরে উল্লিখিত যোগদানের তারিখ থেকে কার্যকর হবে। প্রথম <strong>৬ (ছয়) মাস</strong> শিক্ষানবিশ কাল হিসেবে বিবেচিত হবে, যে সময়কালে আপনার কর্মদক্ষতা, শৃঙ্খলা ও উপস্থিতি মূল্যায়ন করা হবে।</li>
+      <li style="margin-bottom:4px"><strong>নিয়োগের কার্যকারিতাঃ</strong> নিয়োগ উপরে উল্লিখিত যোগদানের তারিখ থেকে কার্যকর হবে।</li>
       <li style="margin-bottom:4px"><strong>বেতনঃ</strong> মূল মজুরিঃ ${toBnDigits(sal.basic)} টাকা, বাড়ি ভাড়াঃ ${toBnDigits(sal.houseRent)} টাকা, চিকিৎসা ভাতাঃ ${toBnDigits(sal.medical)} টাকা, অন্যান্যঃ ${toBnDigits(sal.other)} টাকা। <strong>মাসিক মোটঃ ${toBnDigits(sal.total)} টাকা।</strong></li>
       <li style="margin-bottom:4px"><strong>ডিউটির সময়সূচিঃ</strong> প্রতিদিন ${toBnDigits(r.dutyHours || 12)} ঘন্টা ডিউটি পালন করতে হবে। প্রয়োজনে দিন/রাতের শিফট রোটেশনে দায়িত্ব পালন করতে হবে।</li>
       <li style="margin-bottom:4px"><strong>ছুটিঃ</strong> ছুটির জন্য পূর্বাহ্নে যথাযথ কর্তৃপক্ষের অনুমোদন গ্রহণ করতে হবে। সাধারণত প্রতি ৩ (তিন) মাসে ছুটি নেওয়া যাবে। বিনানুমতিতে টানা ১০ (দশ) দিন অনুপস্থিত থাকলে তা স্বেচ্ছায় চাকরি ত্যাগ হিসেবে বিবেচিত হবে।</li>
@@ -10932,11 +10925,11 @@ function bangleTransferOrder({emp,np,td,iss,notes,refNo,fromProj,fromProjBn,trId
       </div>
       <div class="distribution">
         <strong>অনুলিপি:</strong>
-        <ol style="margin-left:22px;margin-top:2px">
-          <li>এইচআর ও অ্যাডমিন ম্যানেজার (হেড অফিস)।</li>
-          <li>অ্যাডমিন অফিসার (সংশ্লিষ্ট প্রজেক্ট)।</li>
-          <li>সংশ্লিষ্ট কর্মচারী — (অবগতির জন্য)।</li>
-          <li>ব্যক্তিগত ফাইল — (সংরক্ষণের জন্য)।</li>
+        <ol style="margin-left:0;margin-top:2px;list-style:none;padding-left:0">
+          <li>১। মানবসম্পদ ও প্রশাসন বিভাগ, প্রধান কার্যালয়।</li>
+          <li>২। প্রশাসনিক কর্মকর্তা, সংশ্লিষ্ট প্রতিষ্ঠান।</li>
+          <li>৩। সংশ্লিষ্ট কর্মচারী — অবগতির জন্য।</li>
+          <li>৪। ব্যক্তিগত নথি — সংরক্ষণের জন্য।</li>
         </ol>
       </div>
     </div>
@@ -11779,11 +11772,11 @@ function banglaDisciplinaryLetter({emp, templateKey, ref, incident, issue, desc}
       </div>
       <div class="distribution">
         <strong>অনুলিপি:</strong>
-        <ol style="margin-left:22px;margin-top:2px">
-          <li>এইচআর ও অ্যাডমিন ম্যানেজার (হেড অফিস)।</li>
-          <li>অ্যাডমিন অফিসার (সংশ্লিষ্ট প্রজেক্ট)।</li>
-          <li>সংশ্লিষ্ট কর্মচারী — (অবগতির জন্য)।</li>
-          <li>ব্যক্তিগত ফাইল — (সংরক্ষণের জন্য)।</li>
+        <ol style="margin-left:0;margin-top:2px;list-style:none;padding-left:0">
+          <li>১। মানবসম্পদ ও প্রশাসন বিভাগ, প্রধান কার্যালয়।</li>
+          <li>২। প্রশাসনিক কর্মকর্তা, সংশ্লিষ্ট প্রতিষ্ঠান।</li>
+          <li>৩। সংশ্লিষ্ট কর্মচারী — অবগতির জন্য।</li>
+          <li>৪। ব্যক্তিগত নথি — সংরক্ষণের জন্য।</li>
         </ol>
       </div>
     </div>
@@ -13845,22 +13838,16 @@ function buildNotifications(){
         detail:`Pending at "${r.stage}" stage for ${daysAgo(r.date)} days. Take next action.` });
     }
   });
-  DATA.employees.filter(e=>e.Status==='Active').forEach(e=>{
-    const d = parseDate(e.JoinDate); if(!d) return;
-    const left = Math.ceil((d.getTime()+183*86400000 - Date.now())/86400000);
-    const empRef = e.id || e.EmployeeID ;
-    if(left>=0 && left<=7 && !NOTIFICATIONS.find(x=>x.type==='prob'&&(String(x.ref)===String(empRef) || String(x.ref)===String(e.RecordID)))){
-      NOTIFICATIONS.push({ id:'prob'+empRef, type:'prob', ref:empRef, severity:'info',
-        createdAt: Date.now(), isRead: false,
-        title:`Probation period ending — ${e.FullName}`,
-        detail:`6 months from join date (${fmtDate(e.JoinDate)}) will be completed ${left===0?'today':'in '+left+' days'}. Decide on conversion to regular employee.` });
+  // Clear any legacy probation notifications
+  for(let i = NOTIFICATIONS.length - 1; i >= 0; i--){
+    if(NOTIFICATIONS[i] && NOTIFICATIONS[i].type === 'prob'){
+      NOTIFICATIONS.splice(i, 1);
     }
-  });
+  }
 }
 const NOTIF_META = {
   sc:            { icon:'warn',    tag:'Show-cause',    bg:'#fef3c7', color:'#d97706' },
   rec:           { icon:'users',   tag:'Recruitment',   bg:'#e0e7ff', color:'#4f46e5' },
-  prob:          { icon:'cake',    tag:'Probation',     bg:'#fce7f3', color:'#db2777' },
   transfer_join: { icon:'refresh', tag:'Transfer Join', bg:'#dcfce7', color:'#16a34a' },
   rehire:        { icon:'check',   tag:'Re-hire',       bg:'#e0f2fe', color:'#0284c7' },
   todo_rem:      { icon:'bell',    tag:'To-Do',         bg:'#fef3c7', color:'#d97706' },
@@ -13978,7 +13965,7 @@ window.renderNotifications = function() {
       transfer: notifs.filter(n => n.type === 'transfer_join').length,
       rec: notifs.filter(n => n.type === 'rec').length,
       sc: notifs.filter(n => n.type === 'sc').length,
-      prob: notifs.filter(n => n.type === 'prob' || n.type === 'rehire').length
+      rehire: notifs.filter(n => n.type === 'rehire').length
     };
 
     // 2. Filter chips row
@@ -13990,7 +13977,7 @@ window.renderNotifications = function() {
       { key: 'transfer', label: 'Transfers' },
       { key: 'rec', label: 'Recruitment' },
       { key: 'sc', label: 'Show-cause' },
-      { key: 'prob', label: 'Probation' }
+      { key: 'rehire', label: 'Re-hire' }
     ];
 
     const chipsHtml = '<div class="mg-notif-chips">' +
@@ -14021,7 +14008,7 @@ window.renderNotifications = function() {
       if (activeFilter === 'transfer' && n.type !== 'transfer_join') return false;
       if (activeFilter === 'rec' && n.type !== 'rec') return false;
       if (activeFilter === 'sc' && n.type !== 'sc') return false;
-      if (activeFilter === 'prob' && n.type !== 'prob' && n.type !== 'rehire') return false;
+      if (activeFilter === 'rehire' && n.type !== 'rehire') return false;
 
       if (q) {
         const txt = [n.title, n.meta, n.detail].filter(Boolean).join(' ').toLowerCase();
@@ -14050,7 +14037,7 @@ window.renderNotifications = function() {
         transfer: 'transfer',
         rec: 'recruitment',
         sc: 'show-cause',
-        prob: 'probation'
+        rehire: 're-hire'
       };
       const nameLabel = filterNameMap[activeFilter] ? (filterNameMap[activeFilter] + ' ') : '';
       summaryText = `You have <strong style="color:var(--text-main);">${totalFilteredUnread} unread</strong> ${nameLabel}${totalFilteredUnread === 1 ? 'message' : 'messages'}${urgentCount > 0 ? ` (<span style="color:var(--danger); font-weight:600;">${urgentCount} urgent</span>)` : ''}`;
@@ -14127,7 +14114,7 @@ window.renderNotifications = function() {
     else if (activeFilter === 'transfer') { emptyMessage = 'No pending transfer joins'; emptySub = 'All transfers have been processed.'; }
     else if (activeFilter === 'rec') { emptyMessage = 'No recruitment reminders'; emptySub = 'No applicants currently waiting for action.'; }
     else if (activeFilter === 'sc') { emptyMessage = 'No show-cause reminders'; emptySub = 'No outstanding show-cause reply alerts.'; }
-    else if (activeFilter === 'prob') { emptyMessage = 'No probation reminders'; emptySub = 'No employees nearing end of probation.'; }
+    else if (activeFilter === 'rehire') { emptyMessage = 'No re-hire reminders'; emptySub = 'No employees waiting for re-hire review.'; }
     else if (activeFilter === 'unread') { emptyMessage = 'No unread notifications'; emptySub = 'All notifications have been reviewed.'; }
     else if (q) { emptyMessage = 'No notifications matched your search'; emptySub = 'Try clearing the search box to see all.'; }
 
@@ -14174,7 +14161,7 @@ window.handleNotifClick = function(id, type) {
     } else if (type === 'rec') {
       markNotifAsRead(id);
       navigate('recruitment');
-    } else if (type === 'prob' || type === 'rehire') {
+    } else if (type === 'rehire') {
       markNotifAsRead(id);
       navigate('employees');
     } else if (type === 'sc') {
@@ -21647,7 +21634,7 @@ function printEmpProfile(recordId){
 let _pendingToastAt = 0, _pendingToastCount = -1;
 async function checkPendingToast(force){
   var notifs = window.NOTIFICATIONS || NOTIFICATIONS || [];
-  var actionable = ['transfer_join','sc','rec','prob','rehire'];
+  var actionable = ['transfer_join','sc','rec','rehire'];
   var actList = notifs.filter(function(x){ return x && actionable.indexOf(x.type) !== -1; });
   var n = actList.length;
   if(n === 0) return;

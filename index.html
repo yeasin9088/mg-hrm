@@ -1898,92 +1898,81 @@ body.print-bw .mrep.m2 tbody tr:nth-child(even) { background: #f5f5f5 !important
 /* ============ MODERN TRANSFER QUEUE & MODALS ============ */
 .trq-card {
   margin: 16px 0;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-lg, 10px);
   border: 1px solid var(--border);
-  border-top: 3px solid var(--primary);
-  background: var(--card);
-  box-shadow: var(--shadow-sm);
+  background: var(--card, #ffffff);
+  box-shadow: 0 1px 2px rgba(15,23,42,.03);
   overflow: hidden;
-  transition: box-shadow .2s ease, border-color .2s ease;
-}
-.trq-card:hover {
-  box-shadow: var(--shadow-md);
-}
-.trq-card.has-overdue {
-  border-top-color: var(--danger);
-}
-.trq-card.has-not-joined {
-  border-top-color: var(--warning);
+  transition: border-color .15s ease;
 }
 .trq-head {
-  padding: 14px 18px;
+  padding: 12px 18px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  background: linear-gradient(180deg, rgba(255,255,255,.95), rgba(248,249,252,.8));
+  background: #ffffff;
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
 }
 .trq-title-wrap {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 .trq-icon-badge {
-  width: 40px;
-  height: 40px;
-  border-radius: 11px;
-  background: linear-gradient(135deg, var(--primary), var(--purple));
-  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--bg-dim, #f1f5f9);
+  color: var(--text-2, #475569);
+  border: 1px solid var(--border);
   display: grid;
   place-items: center;
-  font-size: 16px;
-  box-shadow: 0 2px 8px rgba(79,70,229,.25);
   flex-shrink: 0;
 }
 .trq-body {
-  padding: 14px 18px;
+  padding: 12px 16px;
   display: grid;
-  gap: 10px;
+  gap: 8px;
+  background: #f8fafc;
 }
 .trq-item {
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 12px 16px;
+  border-radius: 8px;
+  padding: 10px 14px;
   background: #ffffff;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 14px;
   flex-wrap: wrap;
-  transition: all .15s ease;
-  box-shadow: 0 1px 2px rgba(15,23,42,.03);
+  transition: border-color .15s ease, background .15s ease;
 }
 .trq-item:hover {
-  border-color: #c7d2fe;
-  box-shadow: 0 3px 10px rgba(79,70,229,.08);
-  transform: translateY(-1px);
+  border-color: var(--border-strong, #cbd5e1);
+  background: #ffffff;
 }
 .trq-item-info {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   flex: 1 1 320px;
   min-width: 0;
 }
 .trq-avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, var(--sidebar-alt), var(--primary));
-  color: #fff;
-  font-weight: 800;
-  font-size: 15px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #334155;
+  font-weight: 700;
+  font-size: 12.5px;
+  border: 1px solid #e2e8f0;
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  box-shadow: 0 2px 6px rgba(49,46,129,.2);
+  letter-spacing: .2px;
 }
 .trq-meta {
   flex: 1 1 auto;
@@ -1996,48 +1985,121 @@ body.print-bw .mrep.m2 tbody tr:nth-child(even) { background: #f5f5f5 !important
   flex-wrap: wrap;
 }
 .trq-name {
-  font-size: 14.5px;
-  font-weight: 700;
-  color: var(--text);
-  line-height: 1.25;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text, #0f172a);
+  line-height: 1.3;
+}
+.trq-id-tag {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-variant-numeric: tabular-nums;
 }
 .trq-route-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  margin-top: 4px;
-  background: var(--bg-dim);
-  padding: 3px 9px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
+  margin-top: 3px;
+  background: #f8fafc;
+  padding: 2px 8px;
+  border-radius: 5px;
+  border: 1px solid #e2e8f0;
+  max-width: 100%;
 }
 .trq-route-from {
-  font-weight: 600;
-  color: var(--text-2);
+  font-weight: 500;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .trq-route-arrow {
-  color: var(--primary);
-  font-weight: 800;
+  color: #94a3b8;
+  font-size: 11px;
+  flex-shrink: 0;
 }
 .trq-route-to {
-  font-weight: 700;
-  color: var(--purple);
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .trq-detail-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   font-size: 11.5px;
-  color: var(--text-muted);
-  margin-top: 4px;
+  color: #64748b;
+  margin-top: 3px;
   flex-wrap: wrap;
 }
 .trq-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
   flex-wrap: wrap;
+}
+.trq-btn-confirm {
+  background: #0f766e;
+  color: #ffffff;
+  border: 1px solid #0f766e;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all .15s ease;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.trq-btn-confirm:hover {
+  background: #115e59;
+  border-color: #115e59;
+}
+.trq-btn-reject {
+  background: #ffffff;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all .15s ease;
+}
+.trq-btn-reject:hover {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+.trq-btn-view {
+  background: #ffffff;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .15s ease;
+}
+.trq-btn-view:hover {
+  color: #0f172a;
+  border-color: #94a3b8;
+  background: #f8fafc;
 }
 
 /* ============================================================
@@ -10160,9 +10222,9 @@ function renderTransferTable(){
           <td><span class="pill ${pillClass}">${escapeHtml(trStatus)}</span></td>
           <td onclick="event.stopPropagation()" style="text-align:right;white-space:nowrap">
             ${(!isCancelled && !isCompleted && !isNotJoined)
-              ? `<button class="btn sm" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:4px 8px;font-size:11px;font-weight:700;margin-right:4px;box-shadow:0 1px 3px rgba(16,185,129,.25)" title="Confirm Destination Joined" onclick="openConfirmTransferJoining(${jsQ(t.id)})">✓ Joined</button><button class="btn sm" style="background:#fee2e2;color:var(--danger);border:1px solid #fca5a5;padding:4px 7px;font-size:11px;font-weight:600;margin-right:4px" title="Mark Not Joined" onclick="openMarkTransferNotJoined(${jsQ(t.id)})">✕</button>`
+              ? `<button class="btn sm" style="background:#0f766e;color:#fff;border:1px solid #0f766e;padding:4px 8px;font-size:11px;font-weight:600;margin-right:4px;border-radius:5px" title="Confirm Destination Joined" onclick="openConfirmTransferJoining(${jsQ(t.id)})">✓ Joined</button><button class="btn sm" style="background:#fff;color:#475569;border:1px solid #cbd5e1;padding:4px 7px;font-size:11px;font-weight:500;margin-right:4px;border-radius:5px" title="Mark Not Joined" onclick="openMarkTransferNotJoined(${jsQ(t.id)})">✕</button>`
               : (isNotJoined
-                  ? `<button class="btn sm" style="background:#fef3c7;color:#92400e;border:1px solid #f59e0b;padding:4px 8px;font-size:11px;font-weight:700;margin-right:4px" title="Resolve Not Joined" onclick="openNotJoinedFollowUp(${jsQ(t.id)})">⚡ Resolve</button>`
+                  ? `<button class="btn sm" style="background:#fffbeb;color:#92400e;border:1px solid #fcd34d;padding:4px 8px;font-size:11px;font-weight:600;margin-right:4px;border-radius:5px" title="Resolve Not Joined" onclick="openNotJoinedFollowUp(${jsQ(t.id)})">⚡ Resolve</button>`
                   : '')
             }
             <button class="btn ghost sm" type="button" title="Print Transfer Letter" onclick="reprintTransfer(${jsQ(t.id)})">${ico('print')}</button>
@@ -10260,8 +10322,8 @@ function openTransferPopup(tid){
           : (status === 'Not Joined'
               ? '<button type="button" class="btn warning" style="font-weight:700" onclick="openNotJoinedFollowUp(' + jsQ(t.id) + ')">⚡ Resolve Not Joined</button>'
               : (!isCompleted
-                  ? '<button type="button" class="btn trp-btn-danger" style="background:linear-gradient(135deg,#fee2e2,#fecaca);color:var(--danger);border:1px solid #fca5a5;font-weight:700" onclick="openMarkTransferNotJoined(' + jsQ(t.id) + ')">✕ Not Joined</button>' +
-                    '<button type="button" class="btn trp-btn-ok" style="background:linear-gradient(135deg,var(--success),#10b981);color:#fff;border:none;font-weight:700" onclick="openConfirmTransferJoining(' + jsQ(t.id) + ')">✓ Confirm Joined</button>'
+                  ? '<button type="button" class="btn" style="background:#fff;color:#475569;border:1px solid #cbd5e1;font-weight:600;padding:8px 14px;border-radius:6px" onclick="openMarkTransferNotJoined(' + jsQ(t.id) + ')">✕ Not Joined</button>' +
+                    '<button type="button" class="btn" style="background:#0f766e;color:#fff;border:1px solid #0f766e;font-weight:600;padding:8px 16px;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,0.05)" onclick="openConfirmTransferJoining(' + jsQ(t.id) + ')">✓ Confirm Joined</button>'
                   : '')
             )
         ) +
@@ -22563,31 +22625,34 @@ function transferActionQueueHtml(rows){
   if (!rows.length) return '';
   const overdue = rows.filter(r => Number(r.overdue_days || 0) > 0 && r.queue_status !== 'Not Joined').length;
   const notJoined = rows.filter(r => r.queue_status === 'Not Joined').length;
-  const headerTone = overdue > 0 ? 'has-overdue' : (notJoined > 0 ? 'has-not-joined' : '');
 
-  return `<div class="card trq-card ${headerTone}">
+  return `<div class="card trq-card">
     <div class="trq-head">
       <div class="trq-title-wrap">
         <div class="trq-icon-badge">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M16 3h5v5M4 20L20.2 3.8M21 16v5h-5M15 15l5.1 5.1M4 4l5 5"/>
           </svg>
         </div>
         <div>
-          <h3 style="margin:0;font-size:15px;font-weight:800;color:var(--text);letter-spacing:-.2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <span>Transfer Joining Confirmation Required</span>
-            <span class="pill primary" style="font-size:11px;font-weight:700">${rows.length} Action${rows.length===1?'':'s'} Pending</span>
-            ${overdue ? `<span class="pill danger" style="font-size:11px;font-weight:700">⚠️ ${overdue} Overdue</span>` : ''}
-            ${notJoined ? `<span class="pill warning" style="font-size:11px;font-weight:700">⚠️ ${notJoined} Not Joined</span>` : ''}
-          </h3>
-          <span class="sub" style="font-size:12px;color:var(--text-muted);margin-top:2px;display:block">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <h3 style="margin:0;font-size:14px;font-weight:700;color:var(--text);letter-spacing:-.1px">
+              Transfer Joining Confirmation Required
+            </h3>
+            <span style="display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:2px 7px;border-radius:4px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;font-variant-numeric:tabular-nums">
+              ${rows.length} pending
+            </span>
+            ${overdue ? `<span style="display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:2px 7px;border-radius:4px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;font-variant-numeric:tabular-nums">${overdue} overdue</span>` : ''}
+            ${notJoined ? `<span style="display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:2px 7px;border-radius:4px;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;font-variant-numeric:tabular-nums">${notJoined} not joined</span>` : ''}
+          </div>
+          <span style="font-size:12px;color:var(--text-muted);margin-top:2px;display:block">
             Pending destination arrival verification — verify arrival to activate new project in system
           </span>
         </div>
       </div>
-      <button type="button" class="btn outline" style="font-weight:700;font-size:12px;display:inline-flex;align-items:center;gap:6px" onclick="navigate('transfer')">
+      <button type="button" class="btn outline sm" style="font-weight:600;font-size:12px;padding:6px 12px;display:inline-flex;align-items:center;gap:6px" onclick="navigate('transfer')">
         <span>Open Transfers</span>
-        <span style="font-size:14px">➔</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
       </button>
     </div>
     <div class="trq-body">
@@ -22602,28 +22667,40 @@ function transferActionQueueHtml(rows){
             <div class="trq-meta">
               <div class="trq-name-row">
                 <span class="trq-name">${phase2Esc(r.full_name || 'Employee')}</span>
-                <span class="chip" style="font-size:11px;font-weight:700">ID ${phase2Esc(r.employee_sys_id)}</span>
-                ${isNotJoined ? `<span class="pill warning" style="font-size:10.5px;font-weight:700">Not Joined</span>` : ''}
-                ${isOverdue ? `<span class="pill danger" style="font-size:10.5px;font-weight:700">⚠️ ${r.overdue_days}d overdue</span>` : ''}
+                <span class="trq-id-tag">ID ${phase2Esc(r.employee_sys_id)}</span>
+                ${isNotJoined ? `<span style="font-size:10.5px;font-weight:600;color:#991b1b;background:#fee2e2;border:1px solid #fecaca;padding:1px 6px;border-radius:4px">Not Joined</span>` : ''}
+                ${isOverdue ? `<span style="font-size:10.5px;font-weight:600;color:#92400e;background:#fef3c7;border:1px solid #fde68a;padding:1px 6px;border-radius:4px">${r.overdue_days}d overdue</span>` : ''}
               </div>
               <div class="trq-route-pill">
-                <span class="trq-route-from">${phase2Esc(r.current_project || 'Unassigned')}</span>
-                <span class="trq-route-arrow">➔</span>
-                <span class="trq-route-to">${phase2Esc(r.new_project || 'Destination')}</span>
+                <span class="trq-route-from" title="${escapeHtml(r.current_project || 'Unassigned')}">${phase2Esc(r.current_project || 'Unassigned')}</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="trq-route-arrow"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                <span class="trq-route-to" title="${escapeHtml(r.new_project || 'Destination')}">${phase2Esc(r.new_project || 'Destination')}</span>
               </div>
               <div class="trq-detail-row">
-                <span>📅 Effective: <b>${phase2Date(r.effective_date)}</b></span>
-                <span>Order #${phase2Esc(r.transfer_id)}</span>
+                <span style="display:inline-flex;align-items:center;gap:4px">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  Effective: <strong style="font-weight:600;color:var(--text)">${phase2Date(r.effective_date)}</strong>
+                </span>
+                <span style="color:#cbd5e1">·</span>
+                <span style="font-variant-numeric:tabular-nums">Order #${phase2Esc(r.transfer_id)}</span>
               </div>
             </div>
           </div>
           <div class="trq-actions">
             ${isNotJoined
-              ? `<button type="button" class="btn" style="background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;border:1px solid #f59e0b;font-weight:700;font-size:12px;box-shadow:var(--shadow-sm)" onclick="openNotJoinedFollowUp(${Number(r.transfer_id)})">⚡ Resolve Not Joined</button>`
-              : `<button type="button" class="btn" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;font-weight:700;font-size:12px;padding:8px 14px;box-shadow:0 2px 6px rgba(16,185,129,.3)" onclick="openConfirmTransferJoining(${Number(r.transfer_id)})">✓ Confirm Joined</button>
-                 <button type="button" class="btn" style="background:linear-gradient(135deg,#fff1f2,#ffe4e6);color:#be123c;border:1px solid #fecdd3;font-weight:600;font-size:12px;padding:8px 12px" onclick="openMarkTransferNotJoined(${Number(r.transfer_id)})">✕ Not Joined</button>`
+              ? `<button type="button" class="btn sm" style="background:#fffbeb;color:#92400e;border:1px solid #fcd34d;font-weight:600;font-size:12px;padding:6px 12px;border-radius:6px" onclick="openNotJoinedFollowUp(${Number(r.transfer_id)})">Resolve Not Joined</button>`
+              : `<button type="button" class="trq-btn-confirm" onclick="openConfirmTransferJoining(${Number(r.transfer_id)})">
+                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                   <span>Confirm Joined</span>
+                 </button>
+                 <button type="button" class="trq-btn-reject" onclick="openMarkTransferNotJoined(${Number(r.transfer_id)})">
+                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                   <span>Not Joined</span>
+                 </button>`
             }
-            <button type="button" class="btn ghost sm" title="View Transfer Order" onclick="openTransferPopup(${Number(r.transfer_id)})" style="padding:6px 9px">👁</button>
+            <button type="button" class="trq-btn-view" title="View Transfer Order" onclick="openTransferPopup(${Number(r.transfer_id)})">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
           </div>
         </div>`;
       }).join('')}
@@ -22654,35 +22731,35 @@ function openConfirmTransferJoining(transferId){
   const body = `
     <div style="display:flex;flex-direction:column;gap:14px">
       <!-- Top Hero Banner with theme styling -->
-      <div style="background:linear-gradient(135deg,#eef2ff,#e0e7ff);border:1px solid #c7d2fe;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px">
-        <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,var(--primary),var(--purple));color:#fff;display:grid;place-items:center;font-weight:800;font-size:16px;flex-shrink:0;box-shadow:0 2px 8px rgba(79,70,229,.25)">
+      <div style="background:var(--bg-dim, #f8fafc);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:12px">
+        <div style="width:40px;height:40px;border-radius:8px;background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;display:grid;place-items:center;font-weight:700;font-size:14px;flex-shrink:0">
           ${escapeHtml(initials)}
         </div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:16px;font-weight:800;color:var(--text);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+          <div style="font-size:15px;font-weight:700;color:var(--text);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
             ${escapeHtml(item.full_name)}
           </div>
-          <div style="font-size:12px;color:var(--primary);font-weight:600;margin-top:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
             <span>Employee ID: <b>${escapeHtml(item.employee_id)}</b></span>
             ${item.designation ? `<span>· ${escapeHtml(item.designation)}</span>` : ''}
             <span>· Order #${escapeHtml(item.transfer_id)}</span>
           </div>
         </div>
-        <span class="pill scheduled" style="font-size:11px;font-weight:700">Transfer</span>
+        <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0">Transfer</span>
       </div>
 
       <!-- Route visualizer -->
-      <div style="background:var(--bg-dim);border:1px dashed var(--border-strong);border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:12px">
+      <div style="background:#ffffff;border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px">
         <div style="flex:1;min-width:0">
-          <div style="font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--text-muted)">From (Current Project)</div>
-          <div style="font-size:13.5px;font-weight:700;color:var(--text);margin-top:3px;word-break:break-word">${escapeHtml(item.current_project)}</div>
+          <div style="font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted)">From (Current Project)</div>
+          <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-top:2px;word-break:break-word">${escapeHtml(item.current_project)}</div>
         </div>
-        <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--purple));color:#fff;display:grid;place-items:center;font-weight:800;font-size:14px;flex-shrink:0">
+        <div style="color:var(--text-muted);font-size:13px;flex-shrink:0">
           ➔
         </div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--purple)">To (Destination Project)</div>
-          <div style="font-size:14px;font-weight:800;color:var(--purple);margin-top:3px;word-break:break-word">${escapeHtml(item.new_project)}</div>
+          <div style="font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted)">To (Destination Project)</div>
+          <div style="font-size:13.5px;font-weight:700;color:var(--text);margin-top:2px;word-break:break-word">${escapeHtml(item.new_project)}</div>
         </div>
       </div>
 
@@ -22708,8 +22785,8 @@ function openConfirmTransferJoining(transferId){
       </div>
 
       <!-- Informative Success Notice -->
-      <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px;font-size:12.5px;color:#065f46">
-        <span style="font-size:16px;color:#059669;font-weight:800">✓</span>
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;font-size:12.5px;color:#166534">
+        <span style="font-size:15px;color:#16a34a;font-weight:700">✓</span>
         <span>Confirming destination joining will immediately set <b>${escapeHtml(item.full_name)}</b>'s project in the master database to <b>${escapeHtml(item.new_project)}</b> and mark this transfer Completed.</span>
       </div>
     </div>
@@ -22719,7 +22796,7 @@ function openConfirmTransferJoining(transferId){
     'Confirm Destination Joining',
     body,
     `<button type="button" class="btn ghost" onclick="closeModal()">Cancel</button>
-     <button type="button" class="btn" style="background:linear-gradient(135deg,var(--success),#10b981);color:#fff;border:none;font-weight:700;padding:9px 20px;box-shadow:0 2px 8px rgba(16,185,129,.25)" onclick="confirmTransferJoined(${Number(item.transfer_id)})">✓ Confirm Joined</button>`
+     <button type="button" class="btn" style="background:#0f766e;color:#fff;border:1px solid #0f766e;font-weight:600;padding:8px 18px;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,0.05)" onclick="confirmTransferJoined(${Number(item.transfer_id)})">✓ Confirm Joined</button>`
   );
 }
 window.openConfirmTransferJoining = openConfirmTransferJoining;
@@ -22799,29 +22876,29 @@ function openMarkTransferNotJoined(transferId){
   const body = `
     <div style="display:flex;flex-direction:column;gap:14px">
       <!-- Warning Banner -->
-      <div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fde68a;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px">
-        <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;display:grid;place-items:center;font-size:18px;flex-shrink:0;box-shadow:0 2px 6px rgba(245,158,11,.25)">
+      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:12px">
+        <div style="width:34px;height:34px;border-radius:6px;background:#fef3c7;color:#b45309;border:1px solid #fcd34d;display:grid;place-items:center;font-size:16px;flex-shrink:0">
           ⚠️
         </div>
         <div>
-          <div style="font-size:15px;font-weight:800;color:#92400e">Destination Non-Arrival Report</div>
+          <div style="font-size:14px;font-weight:700;color:#92400e">Destination Non-Arrival Report</div>
           <div style="font-size:12px;color:#b45309;margin-top:2px">Employee has not joined at the scheduled destination post.</div>
         </div>
       </div>
 
       <!-- Employee & Route summary -->
-      <div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;background:var(--card)">
+      <div style="border:1px solid var(--border);border-radius:8px;padding:12px 14px;background:var(--card)">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <div>
-            <strong style="font-size:14.5px;color:var(--text)">${escapeHtml(item.full_name)}</strong>
+            <strong style="font-size:14px;color:var(--text)">${escapeHtml(item.full_name)}</strong>
             <span style="font-size:11.5px;color:var(--text-muted);margin-left:6px">ID: ${escapeHtml(item.employee_id)}</span>
           </div>
-          <span class="pill scheduled" style="font-size:11px">Order #${escapeHtml(item.transfer_id)}</span>
+          <span style="font-size:11px;font-weight:600;padding:2px 7px;border-radius:4px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0">Order #${escapeHtml(item.transfer_id)}</span>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;background:var(--bg-dim);padding:8px 12px;border-radius:8px">
-          <span style="font-weight:600;color:var(--text-2)">${escapeHtml(item.current_project)}</span>
-          <span style="color:var(--primary);font-weight:800">➔</span>
-          <span style="font-weight:700;color:var(--purple)">${escapeHtml(item.new_project)}</span>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;background:#f8fafc;padding:8px 12px;border-radius:6px;border:1px solid #e2e8f0">
+          <span style="font-weight:500;color:var(--text-2)">${escapeHtml(item.current_project)}</span>
+          <span style="color:#94a3b8">➔</span>
+          <span style="font-weight:600;color:var(--text)">${escapeHtml(item.new_project)}</span>
           <span style="margin-left:auto;font-size:11px;color:var(--text-muted)">Scheduled: ${escapeHtml(phase2Date(item.effective_date))}</span>
         </div>
       </div>
@@ -22850,7 +22927,7 @@ function openMarkTransferNotJoined(transferId){
         </div>
       </div>
 
-      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px 14px;font-size:12px;color:#991b1b">
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;font-size:12px;color:#991b1b">
         <b>Notice:</b> The employee's project remains <b>${escapeHtml(item.current_project)}</b> until a follow-up action (Reschedule, Cancel, or Exit) is completed.
       </div>
     </div>
@@ -22860,7 +22937,7 @@ function openMarkTransferNotJoined(transferId){
     'Mark Transfer as Not Joined',
     body,
     `<button type="button" class="btn ghost" onclick="closeModal()">Cancel</button>
-     <button type="button" class="btn" style="background:linear-gradient(135deg,var(--danger),#dc2626);color:#fff;border:none;font-weight:700;padding:9px 18px;box-shadow:0 2px 8px rgba(225,29,72,.25)" onclick="markTransferNotJoinedUI(${Number(item.transfer_id)})">✕ Confirm Not Joined</button>`
+     <button type="button" class="btn" style="background:#dc2626;color:#fff;border:1px solid #dc2626;font-weight:600;padding:8px 18px;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,0.05)" onclick="markTransferNotJoinedUI(${Number(item.transfer_id)})">✕ Confirm Not Joined</button>`
   );
 }
 window.openMarkTransferNotJoined = openMarkTransferNotJoined;

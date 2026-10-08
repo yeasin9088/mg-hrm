@@ -3284,7 +3284,7 @@ input:focus, select:focus, textarea:focus {
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="./config.js"></script>
 <script src="./app-core.js"></script>
-<script src="./html2pdf.bundle.min.js"></script><script>
+<script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script><script>
 /* MGHRM Data Layer now loaded from app-core.js */
 
 </script>
@@ -24163,26 +24163,15 @@ setInterval(()=>checkPendingToast(true), 180000);
     if (typeof window.mgAiLoadCfg === 'function') {
       window.mgAiLoadCfg();
     }
+    // Reveal the application shell before network loading so a busy database
+    // never leaves the user on a blank screen.
+    show('authGate', false);
+    try { refreshAll(); } catch (shellErr) { console.warn('[MG HRM] initial shell render', shellErr); }
+
     return G.loadAll().then(function (d) {
       var n = fillData(d);
       hookPersist(); refreshAll();
-      show('authGate', false);
       console.log('[MG HRM] Supabase →', n, 'tables loaded');
-      if (typeof fetchProjectsDirectly === 'function') {
-        fetchProjectsDirectly().then(function () {
-          if (currentPage === 'projects' && typeof renderProjects === 'function') {
-            renderProjects();
-          }
-        });
-      }
-      if (typeof fetchEmployeesDirectly === 'function') {
-        fetchEmployeesDirectly().then(function () {
-          if (currentPage === 'employees' && typeof renderEmployees === 'function') {
-            renderEmployees();
-          }
-          if (typeof renderAll === 'function') renderAll();
-        });
-      }
 
       // Background periodic synchronization fallback for active views (every 35 seconds)
       if (!window.__mghrmSyncInterval) {

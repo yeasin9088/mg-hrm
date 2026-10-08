@@ -1123,39 +1123,62 @@
       'transfers', 'career', 'leaves', 'uniform', 'meetings',
       'meetingAttendance', 'todos', 'appSettings', 'recruitmentArchive'
     ];
-    return Promise.all(
-      keys.map(function (k) {
-        var query = client.from(TABLE_MAP[k].table).select('*');
-        if (deletedAtBuckets.indexOf(k) !== -1) {
-          query = query.is('deleted_at', null);
-        }
-        return query
-          .then(function (r) {
-            if (r.error) {
-              console.warn('[Supabase] load ' + k, r.error.message);
-              var fallback = (global.DATA && Array.isArray(global.DATA[k])) ? global.DATA[k] : [];
-              return [k, fallback];
-            }
-            return [
-              k,
-              (r.data || []).map(function (row) {
-                var rec = (k === 'employees' && typeof global.normEmployee === 'function')
-                  ? global.normEmployee(row)
-                  : fromDb(k, row);
-                if (k === 'projects' && typeof global.normProject === 'function') {
-                  rec = global.normProject(rec);
-                }
-                return rec;
-              })
-            ];
-          })
-          .catch(function (err) {
-            console.warn('[Supabase] fetch error for ' + k + ', falling back to cache:', err);
+    // Keep startup traffic below the PostgREST connection-pool limit.
+    // Critical UI buckets are loaded first; at most three requests run together.
+    var priority = ['employees', 'projects', 'appSettings', 'transfers', 'exits', 'demand', 'todos'];
+    keys.sort(function (a, b) {
+      var ai = priority.indexOf(a), bi = priority.indexOf(b);
+      if (ai === -1) ai = priority.length;
+      if (bi === -1) bi = priority.length;
+      return ai - bi;
+    });
+
+    function loadBucket(k) {
+      var query = client.from(TABLE_MAP[k].table).select('*');
+      if (deletedAtBuckets.indexOf(k) !== -1) {
+        query = query.is('deleted_at', null);
+      }
+      return query
+        .then(function (r) {
+          if (r.error) {
+            console.warn('[Supabase] load ' + k, r.error.message);
             var fallback = (global.DATA && Array.isArray(global.DATA[k])) ? global.DATA[k] : [];
             return [k, fallback];
-          });
-      })
-    ).then(function (pairs) {
+          }
+          return [
+            k,
+            (r.data || []).map(function (row) {
+              var rec = (k === 'employees' && typeof global.normEmployee === 'function')
+                ? global.normEmployee(row)
+                : fromDb(k, row);
+              if (k === 'projects' && typeof global.normProject === 'function') {
+                rec = global.normProject(rec);
+              }
+              return rec;
+            })
+          ];
+        })
+        .catch(function (err) {
+          console.warn('[Supabase] fetch error for ' + k + ', falling back to cache:', err);
+          var fallback = (global.DATA && Array.isArray(global.DATA[k])) ? global.DATA[k] : [];
+          return [k, fallback];
+        });
+    }
+
+    var nextKey = 0;
+    var pairs = new Array(keys.length);
+    function worker() {
+      var idx = nextKey++;
+      if (idx >= keys.length) return Promise.resolve();
+      return loadBucket(keys[idx]).then(function (pair) {
+        pairs[idx] = pair;
+        return worker();
+      });
+    }
+
+    return Promise.all([worker(), worker(), worker()]).then(function () {
+      return pairs;
+    }).then(function (pairs) {
       var out = {};
       pairs.forEach(function (p) {
         out[p[0]] = p[1];

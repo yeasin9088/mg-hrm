@@ -23212,8 +23212,31 @@ function openConfirmTransferJoining(transferId){
     'Confirm Destination Joining',
     body,
     `<button type="button" class="btn ghost" onclick="closeModal()">Cancel</button>
-     <button type="button" class="btn" style="background:#0f766e;color:#fff;border:1px solid #0f766e;font-weight:600;padding:8px 18px;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,0.05)" onclick="confirmTransferJoined(${Number(item.transfer_id)})">✓ Confirm Joined</button>`
+     <button type="button" id="p2ConfirmTransferJoinedBtn" class="btn" style="background:#0f766e;color:#fff;border:1px solid #0f766e;font-weight:600;padding:8px 18px;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,0.05)">✓ Confirm Joined</button>`
   );
+
+  // Bind the modal action directly to the canonical transfer primary key.
+  // This avoids dashboard inline-handler/context issues while preserving the
+  // same confirmation function used by the Transfer table.
+  const confirmBtn = document.getElementById('p2ConfirmTransferJoinedBtn');
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', async function () {
+      if (confirmBtn.disabled) return;
+      const originalText = confirmBtn.innerHTML;
+      confirmBtn.disabled = true;
+      confirmBtn.innerHTML = 'Confirming…';
+      try {
+        await confirmTransferJoined(item.transfer_id);
+      } finally {
+        // The modal normally closes on success. Restore the button only when
+        // the modal remains open after validation or a server-side failure.
+        if (document.body.contains(confirmBtn)) {
+          confirmBtn.disabled = false;
+          confirmBtn.innerHTML = originalText;
+        }
+      }
+    });
+  }
 }
 window.openConfirmTransferJoining = openConfirmTransferJoining;
 

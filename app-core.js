@@ -651,7 +651,9 @@
     }
     delete out.created_at;
     delete out.updated_at;
-    if (out.id === undefined || out.id === null) delete out.id;
+    if (out.id === undefined || out.id === null || out.id === '' || Number.isNaN(out.id) || (typeof out.id === 'string' && (out.id.indexOf('temp_') === 0 || out.id.indexOf('local_') === 0 || out.id.indexOf('rand_') === 0 || out.id.indexOf('new_') === 0))) {
+      delete out.id;
+    }
     if (key === 'employees' || tableName === 'employees' || key === 'Employee' || tableName === 'public.employees') {
       var employeeAllowed = [
         'id', 'employee_id', 'full_name', 'full_name_bn',

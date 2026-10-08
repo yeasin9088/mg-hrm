@@ -23914,7 +23914,21 @@ setInterval(()=>checkPendingToast(true), 180000);
     m.innerHTML = text;
   }
   function clearMsg(id){ var e=el(id); if(e) e.className = 'gate-msg'; }
-  function demo(html){  }
+  function demo(html){
+    var message = String(html || 'The application could not start.');
+    var gate = el('setupGate');
+    var target = el('setupMsg');
+    show('authGate', false);
+    show('setupGate', true);
+    if (target) {
+      target.className = 'gate-msg err';
+      target.innerHTML = message;
+    } else if (gate) {
+      gate.style.display = 'flex';
+    }
+    if (typeof window.mgBootDone === 'function') window.mgBootDone(true);
+    console.error('[MGHRM startup]', message.replace(/<[^>]*>/g, ''));
+  }
 
   
   function savedCfg(){
@@ -24301,7 +24315,11 @@ setInterval(()=>checkPendingToast(true), 180000);
 
   
   function boot(){
-    if (!G) { demo('Data-layer not loaded — check your internet connection.'); return; }
+    G = window.MGHRM || G;
+    if (!G || typeof G.connect !== 'function') {
+      demo('The application data layer did not load. Refresh once. If the problem continues, clear the site cache and reload.');
+      return;
+    }
     var c = savedCfg();
     if (!c) { showSetup(); return; }
     G.connect(c).then(function(){

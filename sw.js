@@ -2,7 +2,7 @@
    MG Security HRM — Service Worker
    Role: Cache application assets offline
    ===================================================================== */
-const CACHE = 'mghrm-v27';  /* v3.5: bumped v9→v10 (Transfer action buttons + Meeting overhaul + Employee history bug fix + Toast top-right + To-Do reorder + Import module + Wipe DB + Serial columns) */
+const CACHE = 'mghrm-v28';  /* v3.5: bumped v9→v10 (Transfer action buttons + Meeting overhaul + Employee history bug fix + Toast top-right + To-Do reorder + Import module + Wipe DB + Serial columns) */
 const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './bd-geo.json', './config.js', './app-core.js'];
 
 self.addEventListener('install', (e) => {
@@ -29,9 +29,18 @@ self.addEventListener('fetch', (e) => {
   }
   if (e.request.method !== 'GET') return;
 
+  // Core app files must bypass the browser HTTP cache after a deployment.
+  const isCoreAsset = url.pathname.endsWith('/index.html') ||
+    url.pathname.endsWith('/app-core.js') ||
+    url.pathname.endsWith('/config.js') ||
+    e.request.mode === 'navigate';
+  const networkRequest = isCoreAsset
+    ? new Request(e.request, { cache: 'reload' })
+    : e.request;
+
   // App shell files → network-first, fallback to cache
   e.respondWith(
-    fetch(e.request)
+    fetch(networkRequest)
       .then((res) => {
         const copy = res.clone();
         caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});

@@ -23028,21 +23028,45 @@ function findTransferObject(transferId){
 }
 window.findTransferObject = findTransferObject;
 
+function filterTransferActionQueue(rows){
+  rows = Array.isArray(rows) ? rows : [];
+  return rows.filter(function(row){
+    const transferId = row && (row.transfer_id != null ? row.transfer_id : row.id);
+    const item = transferId != null && typeof findTransferObject === 'function'
+      ? findTransferObject(transferId)
+      : null;
+    const employee = (item && item.emp) || (typeof findEmp === 'function'
+      ? findEmp((row && (row.employee_sys_id || row.employee_id)) || '')
+      : null);
+    const employeeStatus = String(employee && (employee.Status || employee.status) || '').trim().toLowerCase();
+    const transferStatus = String(
+      (item && item.dRow && (item.dRow.status || item.dRow.Status)) ||
+      (row && (row.queue_status || row.status || row.stored_status)) || ''
+    ).trim();
+
+    if (employeeStatus === 'exited') return false;
+    if (transferStatus === 'Completed' || transferStatus === 'Cancelled') return false;
+    return true;
+  });
+}
+window.filterTransferActionQueue = filterTransferActionQueue;
+
 async function loadTransferActionQueue(){
   if (!window.MGHRM || typeof window.MGHRM.loadTransferActionQueue !== 'function') return [];
   try {
     const rows = await window.MGHRM.loadTransferActionQueue();
-    window.MG_TRANSFER_QUEUE = Array.isArray(rows) ? rows : [];
+    window.MG_TRANSFER_QUEUE = filterTransferActionQueue(rows);
     return window.MG_TRANSFER_QUEUE;
   } catch (err) {
     console.warn('[Phase 2] Transfer action queue load failed:', err);
-    return window.MG_TRANSFER_QUEUE || [];
+    window.MG_TRANSFER_QUEUE = filterTransferActionQueue(window.MG_TRANSFER_QUEUE || []);
+    return window.MG_TRANSFER_QUEUE;
   }
 }
 window.loadTransferActionQueue = loadTransferActionQueue;
 
 function transferActionQueueHtml(rows){
-  rows = Array.isArray(rows) ? rows : [];
+  rows = filterTransferActionQueue(rows);
   if (!rows.length) return '';
   const overdue = rows.filter(r => Number(r.overdue_days || 0) > 0 && r.queue_status !== 'Not Joined').length;
   const notJoined = rows.filter(r => r.queue_status === 'Not Joined').length;

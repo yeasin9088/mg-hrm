@@ -1489,39 +1489,18 @@
   function createTransferOrder(payload) { return rpcCall('create_transfer_order', { p_transfer: payload }); }
   function confirmTransferJoining(transferId, joiningDate, remarks) {
     if (!ready || !sb) return Promise.reject(new Error('Supabase client is not connected.'));
-    return rpcCall('confirm_transfer_joining', { p_transfer_id: transferId, p_actual_joining_date: joiningDate, p_remarks: remarks || null }).catch(function(err) {
-      console.warn('[confirmTransferJoining] RPC failed, falling back to direct table update:', err);
-      return sb.from('transfers').select('*').eq('id', transferId).single().then(function(res) {
-        var t = res.data;
-        if (!t) throw err;
-        var newProj = t.new_project || t.NewProject;
-        var empSysId = t.employee_sys_id || t.employee_id || t.EmployeeID;
-        return sb.from('transfers').update({
-          status: 'Completed',
-          actual_joining_date: joiningDate,
-          remarks: remarks || t.remarks || null
-        }).eq('id', transferId).then(function() {
-          if (empSysId && newProj) {
-            return sb.from('employees').update({ project_name: newProj }).eq('id', empSysId).then(function() {
-              return true;
-            }).catch(function() { return true; });
-          }
-          return true;
-        });
-      });
+    return rpcCall('confirm_transfer_joining', {
+      p_transfer_id: transferId,
+      p_actual_joining_date: joiningDate,
+      p_remarks: remarks || null
     });
   }
   function markTransferNotJoined(transferId, reason, remarks) {
     if (!ready || !sb) return Promise.reject(new Error('Supabase client is not connected.'));
-    return rpcCall('mark_transfer_not_joined', { p_transfer_id: transferId, p_reason: reason, p_remarks: remarks || null }).catch(function(err) {
-      console.warn('[markTransferNotJoined] RPC failed, falling back to direct table update:', err);
-      return sb.from('transfers').update({
-        status: 'Not Joined',
-        not_joined_reason: reason,
-        remarks: remarks || null
-      }).eq('id', transferId).then(function() {
-        return true;
-      });
+    return rpcCall('mark_transfer_not_joined', {
+      p_transfer_id: transferId,
+      p_reason: reason,
+      p_remarks: remarks || null
     });
   }
   function cancelTransfer(transferId, reason) {

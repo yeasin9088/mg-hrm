@@ -10399,7 +10399,7 @@ function trClearFilters(){
 }
 
 function trStatusOptions(){
-  const set = new Set(['Scheduled', 'Awaiting Confirmation', 'Join Pending', 'Completed', 'Cancelled']);
+  const set = new Set(['Scheduled', 'Joining Pending', 'Not Joined', 'Completed', 'Cancelled']);
   DATA.transfers.forEach(function(t){
     const s = t.status || t.Status;
     if (s) set.add(s);
@@ -10570,10 +10570,12 @@ function renderTransferTable(){
         const isCancelled = trStatus === 'Cancelled';
         const isCompleted = trStatus === 'Completed';
         const isNotJoined = trStatus === 'Not Joined';
+        const effectiveDate = String(t.effective_date || t.TransferDate || t.transfer_date || '').slice(0, 10);
+        const isDueForJoining = trStatus === 'Joining Pending' || (trStatus === 'Scheduled' && effectiveDate && effectiveDate <= todayISO());
         const pillClass = isCancelled ? 'inactive'
           : isCompleted ? 'completed'
           : isNotJoined ? 'danger'
-          : (trStatus === 'Awaiting Confirmation' || trStatus === 'Join Pending') ? 'warning' : 'scheduled';
+          : trStatus === 'Joining Pending' ? 'warning' : 'scheduled';
         return `<tr class="row-click" onclick="openTransferPopup(${jsQ(t.id)})" style="cursor:pointer">
           <td>${escapeHtml(num(t.id))}</td>
           <td><span class="chip" style="font-size:11px;font-weight:600">${escapeHtml(num(empId))}</span></td>
@@ -10583,7 +10585,7 @@ function renderTransferTable(){
           <td>${escapeHtml(fmtDate(t.TransferDate))}</td>
           <td><span class="pill ${pillClass}">${escapeHtml(trStatus)}</span></td>
           <td onclick="event.stopPropagation()" style="text-align:right;white-space:nowrap">
-            ${(!isCancelled && !isCompleted && !isNotJoined)
+            ${isDueForJoining
               ? `<button class="btn sm" style="background:#0f766e;color:#fff;border:1px solid #0f766e;padding:4px 8px;font-size:11px;font-weight:600;margin-right:4px;border-radius:5px" title="Confirm Destination Joined" onclick="openConfirmTransferJoining(${jsQ(t.id)})">✓ Joined</button><button class="btn sm" style="background:#fff;color:#475569;border:1px solid #cbd5e1;padding:4px 7px;font-size:11px;font-weight:500;margin-right:4px;border-radius:5px" title="Mark Not Joined" onclick="openMarkTransferNotJoined(${jsQ(t.id)})">✕</button>`
               : (isNotJoined
                   ? `<button class="btn sm" style="background:#fffbeb;color:#92400e;border:1px solid #fcd34d;padding:4px 8px;font-size:11px;font-weight:600;margin-right:4px;border-radius:5px" title="Resolve Not Joined" onclick="openNotJoinedFollowUp(${jsQ(t.id)})">⚡ Resolve</button>`
@@ -10623,7 +10625,10 @@ function openTransferPopup(tid){
   const status = t.status || t.Status || 'Scheduled';
   const isCancelled = status==='Cancelled';
   const isCompleted = status==='Completed';
-  const isPendingJoin = (status==='Join Pending' || status==='Awaiting Confirmation');
+  const effectiveDate = String(t.effective_date || t.TransferDate || t.transfer_date || '').slice(0, 10);
+  const isDueForJoining = status === 'Joining Pending' || (status === 'Scheduled' && effectiveDate && effectiveDate <= todayISO());
+  const canCancel = ['Draft', 'Scheduled', 'Joining Pending', 'Not Joined'].includes(status);
+  const isPendingJoin = isDueForJoining;
   const pillCls = isCancelled ? 'inactive' : isCompleted ? 'completed' : (status==='Not Joined' ? 'danger' : (isPendingJoin ? 'warning' : 'scheduled'));
   const statusPill = '<span class="pill ' + escapeHtml(pillCls) + '">' + escapeHtml(status) + '</span>';
 
@@ -10677,19 +10682,19 @@ function openTransferPopup(tid){
         '<button type="button" class="btn ghost" onclick="closeModal()">Close</button>' +
         '<button type="button" class="btn outline" onclick="reprintTransfer(' + jsQ(t.id) + ')" title="Preview and Print Transfer Order">' + ico('print') + ' Print PDF</button>' +
         '<button type="button" class="btn success" style="background:linear-gradient(135deg,var(--success),#10b981);color:#fff;border:none;font-weight:700" onclick="downloadTransferPdfDirect(' + jsQ(t.id) + ')" title="Save & Download Transfer Order Directly as PDF">' + ico('download') + ' Save as PDF</button>' +
-        (!isCancelled ? '<button type="button" class="btn outline" onclick="editTransferOrder(' + jsQ(t.id) + ')">Edit</button>' : '') +
+        (!isCancelled && !isCompleted ? '<button type="button" class="btn outline" onclick="editTransferOrder(' + jsQ(t.id) + ')">Edit</button>' : '') +
         '<span class="trp-spacer"></span>' +
         (isCancelled
-          ? '<button type="button" class="btn outline" onclick="restoreTransferOrder(' + jsQ(t.id) + ')">Restore</button>'
+          ? ''
           : (status === 'Not Joined'
               ? '<button type="button" class="btn warning" style="font-weight:700" onclick="openNotJoinedFollowUp(' + jsQ(t.id) + ')">⚡ Resolve Not Joined</button>'
-              : (!isCompleted
+              : (isDueForJoining
                   ? '<button type="button" class="btn" style="background:#fff;color:#475569;border:1px solid #cbd5e1;font-weight:600;padding:8px 14px;border-radius:6px" onclick="openMarkTransferNotJoined(' + jsQ(t.id) + ')">✕ Not Joined</button>' +
                     '<button type="button" class="btn" style="background:#0f766e;color:#fff;border:1px solid #0f766e;font-weight:600;padding:8px 16px;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,0.05)" onclick="openConfirmTransferJoining(' + jsQ(t.id) + ')">✓ Confirm Joined</button>'
                   : '')
             )
         ) +
-        (!isCancelled ? '<button type="button" class="btn danger" onclick="cancelTransferOrder(' + jsQ(t.id) + ')">Cancel Order</button>' : '') +
+        (canCancel ? '<button type="button" class="btn danger" onclick="openCancelTransfer(' + jsQ(t.id) + ',\'details\')">Cancel Order</button>' : '') +
         '<button type="button" class="btn trp-btn-danger" onclick="deleteTransferRecord(' + jsQ(t.id) + ')">Delete Record</button>' +
       '</div>' +
 
@@ -11099,8 +11104,6 @@ async function submitTransfer(){
         throw new Error('Database connection not established.');
       }
 
-      const isFuture = new Date(td) > new Date();
-
       const targetProj = DATA.projects.find(p => p.ProjectName === np) || {};
       const npBn = targetProj.ProjectNameBangla || targetProj.project_name_bn || '';
 
@@ -11120,15 +11123,16 @@ async function submitTransfer(){
         transfer_date_bn: td ? toBnDigits(td) : '',
         issues_date: iss || '',
         issues_date_bn: iss ? toBnDigits(iss) : '',
-        notes: notes || '',
-        status: isFuture ? 'Scheduled' : 'Completed'
+        notes: notes || ''
       };
       
-      const { data: insertedTr, error: trErr } = await window.sb.rpc('commit_transfer', { p_transfer: payload, p_apply_now: !isFuture });
+      const { data: insertedTr, error: trErr } = await window.sb.rpc('commit_transfer', { p_transfer: payload, p_apply_now: false });
       if (trErr) throw trErr;
 
-      const savedRecord = (Array.isArray(insertedTr) ? insertedTr[0] : insertedTr) || null;
-      const insertedId = savedRecord ? savedRecord.id : '';
+      const rpcResult = (Array.isArray(insertedTr) ? insertedTr[0] : insertedTr) || null;
+      const savedRecord = rpcResult && rpcResult.transfer ? rpcResult.transfer : rpcResult;
+      if (!savedRecord || !savedRecord.id) throw new Error('Transfer was created but the saved record was not returned.');
+      const insertedId = savedRecord.id;
 
       // 1. Update Local State (prepended / unshifted)
       const mappedTransfer = (window.MGHRM && typeof window.MGHRM.fromDb === 'function' && savedRecord)
@@ -11151,8 +11155,8 @@ async function submitTransfer(){
             'Issues Date': iss || '',
             'Issues DateBangla': iss ? toBnDigits(iss) : '',
             Notes: notes || '',
-            Status: isFuture ? 'Scheduled' : 'Completed',
-            status: isFuture ? 'Scheduled' : 'Completed'
+            Status: savedRecord.status || 'Joining Pending',
+            status: savedRecord.status || 'Joining Pending'
           };
 
       if (!Array.isArray(DATA.transfers)) {
@@ -11160,10 +11164,6 @@ async function submitTransfer(){
       }
       DATA.transfers = [mappedTransfer, ...DATA.transfers.filter(t => String(t.id) !== String(insertedId))];
 
-      if (!isFuture) {
-        e.ProjectName = np;
-        if (npBn) e.ProjectNameBangla = npBn;
-      }
 
       // 2. Full Module Re-render (resets form, generates new memo, clears validation styles & updates table)
       if (typeof renderTransfer === 'function') {
@@ -11171,9 +11171,8 @@ async function submitTransfer(){
       }
 
       logActivity('create', 'transfers', insertedId, `Transfer for ${e.FullName} to ${np}`);
-      toast(isFuture 
-        ? 'Scheduled — employee project NOT changed (edit on Employees tab)'
-        : `Completed — ${e.FullName} transferred to ${np}`, 'success');
+      const createdStatus = savedRecord.status || 'Joining Pending';
+      toast(createdStatus + ' — employee project unchanged until destination joining is confirmed.', 'success');
         
       closeModal();
       if (typeof refreshAll === 'function') refreshAll();
@@ -14178,7 +14177,7 @@ window.markAllNotifsAsRead = function() {
    ============================================================ */
 var TR_AUTO_RUNNING = false;
 
-async function applyScheduledTransfers(){
+async function disabledLegacyAutoApplyScheduledTransfers(){
   if (TR_AUTO_RUNNING) return 0;
   if (typeof DATA === 'undefined' || !Array.isArray(DATA.transfers)) return 0;
   if (!window.MGHRM || typeof window.MGHRM.update !== 'function') return 0;
@@ -23140,6 +23139,12 @@ async function phase2RefreshTransferState(){
 
 function openConfirmTransferJoining(transferId){
   const item = findTransferObject(transferId);
+  if (!item) return toast('Transfer record not found', 'error');
+  const effectiveDate = String(item.effective_date || '').slice(0, 10);
+  const storedStatus = item.status || (item.dRow && (item.dRow.status || item.dRow.Status)) || '';
+  if (!(storedStatus === 'Joining Pending' || (storedStatus === 'Scheduled' && effectiveDate && effectiveDate <= todayISO()))) {
+    return toast('This transfer is not due for joining confirmation yet.', 'warning');
+  }
   const dateVal = item.effective_date ? String(item.effective_date).slice(0, 10) : (typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0, 10));
   const initials = String(item.full_name || '?').trim().split(/\s+/).slice(0, 2).map(w=>w.charAt(0)).join('').toUpperCase() || '?';
   const todayStr = typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0, 10);
@@ -23186,7 +23191,7 @@ function openConfirmTransferJoining(transferId){
             <span>Actual Destination Joining Date <span style="color:var(--danger)">*</span></span>
             <span style="font-size:11px;font-weight:500;color:var(--text-muted)">Scheduled on Order: ${escapeHtml(phase2Date(item.effective_date))}</span>
           </label>
-          <input id="p2JoinDate" type="date" value="${escapeHtml(dateVal)}" style="font-size:14px;font-weight:600;padding:9px 12px;border:1px solid var(--border-strong);border-radius:8px;width:100%;background:#fff">
+          <input id="p2JoinDate" type="date" value="${escapeHtml(dateVal)}" min="${escapeHtml(dateVal)}" max="${todayStr}" style="font-size:14px;font-weight:600;padding:9px 12px;border:1px solid var(--border-strong);border-radius:8px;width:100%;background:#fff">
           <!-- Quick Preset Chips -->
           <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
             <button type="button" class="btn ghost sm" style="font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:6px" onclick="document.getElementById('p2JoinDate').value='${escapeHtml(dateVal)}'">Use Transfer Date (${escapeHtml(dateVal)})</button>
@@ -23250,6 +23255,14 @@ async function confirmTransferJoined(transferId, explicitDate, explicitRemarks){
     date = item.effective_date ? String(item.effective_date).slice(0, 10) : (typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0, 10));
   }
   const remarks = (explicitRemarks !== undefined) ? explicitRemarks : (document.getElementById('p2JoinRemarks')?.value || '');
+  const effectiveDate = String(item.effective_date || '').slice(0, 10);
+  const today = todayISO();
+  const storedStatus = item.status || (item.dRow && (item.dRow.status || item.dRow.Status)) || '';
+  if (!(storedStatus === 'Joining Pending' || (storedStatus === 'Scheduled' && effectiveDate && effectiveDate <= today))) {
+    return toast('This transfer is not due for joining confirmation yet.', 'warning');
+  }
+  if (date < effectiveDate) return toast('Actual joining date cannot be before the transfer date.', 'error');
+  if (date > today) return toast('Actual joining date cannot be in the future.', 'error');
 
   const newProj = item.new_project;
   if (!newProj) return toast('This transfer has no target destination project', 'error');
@@ -23258,16 +23271,10 @@ async function confirmTransferJoined(transferId, explicitDate, explicitRemarks){
 
   try {
     if (window.MGHRM && typeof window.MGHRM.confirmTransferJoining === 'function') {
-      try {
         await window.MGHRM.confirmTransferJoining(Number(transferId), date, remarks);
-      } catch (rpcErr) {
-        console.warn('[confirmTransferJoined] RPC call failed, falling back to direct update:', rpcErr);
-        if (window.MGHRM.update) {
-          if (emp && emp.id) await window.MGHRM.update('employees', emp.id, { project_name: newProj });
-          await window.MGHRM.update('transfers', transferId, { status: 'Completed', Status: 'Completed', actual_joining_date: date, remarks: remarks });
-        }
+      } else {
+        throw new Error('Validated transfer confirmation service is unavailable.');
       }
-    }
 
     // Immediate local cache update
     if (item.dRow) {
@@ -23312,6 +23319,12 @@ window.confirmTransferJoined = confirmTransferJoined;
 
 function openMarkTransferNotJoined(transferId){
   const item = findTransferObject(transferId);
+  if (!item) return toast('Transfer record not found', 'error');
+  const effectiveDate = String(item.effective_date || '').slice(0, 10);
+  const storedStatus = item.status || (item.dRow && (item.dRow.status || item.dRow.Status)) || '';
+  if (!(storedStatus === 'Joining Pending' || (storedStatus === 'Scheduled' && effectiveDate && effectiveDate <= todayISO()))) {
+    return toast('This transfer is not due, so it cannot be marked Not Joined.', 'warning');
+  }
   const body = `
     <div style="display:flex;flex-direction:column;gap:14px">
       <!-- Status Notice -->
@@ -23385,22 +23398,20 @@ async function markTransferNotJoinedUI(transferId){
   if (!guardEdit()) return;
   const item = findTransferObject(transferId);
   const reason = document.getElementById('p2NotJoinedReason')?.value;
+  const effectiveDate = String(item.effective_date || '').slice(0, 10);
+  const storedStatus = item.status || (item.dRow && (item.dRow.status || item.dRow.Status)) || '';
+  if (!(storedStatus === 'Joining Pending' || (storedStatus === 'Scheduled' && effectiveDate && effectiveDate <= todayISO()))) {
+    return toast('This transfer is not due, so it cannot be marked Not Joined.', 'warning');
+  }
   const remarks = document.getElementById('p2NotJoinedRemarks')?.value || '';
   if (!reason) return toast('Please select a reason for Not Joined.', 'error');
 
   try {
     if (window.MGHRM && typeof window.MGHRM.markTransferNotJoined === 'function') {
-      try {
         await window.MGHRM.markTransferNotJoined(Number(transferId), reason, remarks);
-      } catch (rpcErr) {
-        console.warn('[markTransferNotJoined] RPC call failed, falling back to direct update:', rpcErr);
-        if (window.MGHRM.update) {
-          await window.MGHRM.update('transfers', transferId, { status: 'Not Joined', Status: 'Not Joined', not_joined_reason: reason, remarks: remarks });
-        }
+      } else {
+        throw new Error('Validated Not Joined service is unavailable.');
       }
-    } else if (window.MGHRM && window.MGHRM.update) {
-      await window.MGHRM.update('transfers', transferId, { status: 'Not Joined', Status: 'Not Joined', not_joined_reason: reason, remarks: remarks });
-    }
 
     if (item && item.dRow) {
       item.dRow.Status = 'Not Joined';
@@ -23478,7 +23489,7 @@ function openNotJoinedFollowUp(transferId){
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
         </div>
 
-        <div onclick="openCancelTransfer(${Number(transferId)})" style="cursor:pointer;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;background:#ffffff;display:flex;align-items:center;justify-content:space-between;transition:all .15s ease" onmouseover="this.style.borderColor='#94a3b8';this.style.background='#f8fafc'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='#ffffff'">
+        <div onclick="openCancelTransfer(${Number(transferId)},'notJoined')" style="cursor:pointer;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;background:#ffffff;display:flex;align-items:center;justify-content:space-between;transition:all .15s ease" onmouseover="this.style.borderColor='#94a3b8';this.style.background='#f8fafc'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='#ffffff'">
           <div style="display:flex;align-items:center;gap:12px">
             <div style="width:34px;height:34px;border-radius:6px;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;display:grid;place-items:center;flex-shrink:0">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
@@ -23511,7 +23522,7 @@ function openNotJoinedFollowUp(transferId){
 }
 window.openNotJoinedFollowUp = openNotJoinedFollowUp;
 
-function openCancelTransfer(transferId){
+function openCancelTransfer(transferId, source){
   const item = findTransferObject(transferId);
   const body = `
     <div style="display:flex;flex-direction:column;gap:12px">
@@ -23525,8 +23536,12 @@ function openCancelTransfer(transferId){
       </div>
     </div>
   `;
+  const backAction = source === 'notJoined'
+    ? `openNotJoinedFollowUp(${Number(transferId)})`
+    : 'closeModal()';
+  const backLabel = source === 'notJoined' ? 'Back' : 'Close';
   openModal('Cancel Transfer Order', body, `
-    <button type="button" class="btn ghost" onclick="openNotJoinedFollowUp(${Number(transferId)})">Back</button>
+    <button type="button" class="btn ghost" onclick="${backAction}">${backLabel}</button>
     <button type="button" class="btn danger" style="font-weight:600" onclick="cancelTransferUI(${Number(transferId)})">Confirm Cancel Transfer</button>
   `);
 }
@@ -23536,17 +23551,10 @@ async function cancelTransferUI(transferId){
 
   try {
     if (window.MGHRM && typeof window.MGHRM.cancelTransfer === 'function') {
-      try {
         await window.MGHRM.cancelTransfer(transferId, reason);
-      } catch(rpcErr) {
-        console.warn('[cancelTransfer] RPC failed, fallback to direct update:', rpcErr);
-        if (window.MGHRM.update) {
-          await window.MGHRM.update('transfers', transferId, { status: 'Cancelled', Status: 'Cancelled', cancellation_reason: reason });
-        }
+      } else {
+        throw new Error('Validated transfer cancellation service is unavailable.');
       }
-    } else if (window.MGHRM && window.MGHRM.update) {
-      await window.MGHRM.update('transfers', transferId, { status: 'Cancelled', Status: 'Cancelled', cancellation_reason: reason });
-    }
 
     const item = findTransferObject(transferId);
     if (item && item.dRow) {
@@ -23612,34 +23620,32 @@ async function rescheduleTransferUI(transferId){
 
   try {
     if (window.MGHRM && typeof window.MGHRM.rescheduleTransfer === 'function') {
-      try {
-        await window.MGHRM.rescheduleTransfer(transferId, date, reason);
-      } catch(rpcErr) {
-        console.warn('[rescheduleTransfer] RPC failed, fallback to direct update:', rpcErr);
-        if (window.MGHRM.update) {
-          await window.MGHRM.update('transfers', transferId, { effective_date: date, EffectiveDate: date, reschedule_reason: reason, status: 'Scheduled', Status: 'Scheduled' });
-        }
+        var rescheduledRecord = await window.MGHRM.rescheduleTransfer(transferId, date, reason);
+      } else {
+        throw new Error('Validated transfer reschedule service is unavailable.');
       }
-    } else if (window.MGHRM && window.MGHRM.update) {
-      await window.MGHRM.update('transfers', transferId, { effective_date: date, EffectiveDate: date, reschedule_reason: reason, status: 'Scheduled', Status: 'Scheduled' });
-    }
 
+    const returnedStatus = (rescheduledRecord && rescheduledRecord.status) || (date <= todayISO() ? 'Joining Pending' : 'Scheduled');
     const item = findTransferObject(transferId);
     if (item && item.dRow) {
       item.dRow.effective_date = date;
       item.dRow.EffectiveDate = date;
+      item.dRow.TransferDate = date;
+      item.dRow.transfer_date = date;
       item.dRow.reschedule_reason = reason;
-      item.dRow.Status = 'Scheduled';
-      item.dRow.status = 'Scheduled';
+      item.dRow.Status = returnedStatus;
+      item.dRow.status = returnedStatus;
     }
     if (window.DATA && Array.isArray(window.DATA.transfers)) {
       const match = window.DATA.transfers.find(x => String(x.id) === String(transferId));
       if (match) {
         match.effective_date = date;
         match.EffectiveDate = date;
+        match.TransferDate = date;
+        match.transfer_date = date;
         match.reschedule_reason = reason;
-        match.Status = 'Scheduled';
-        match.status = 'Scheduled';
+        match.Status = returnedStatus;
+        match.status = returnedStatus;
       }
     }
 
@@ -23649,7 +23655,7 @@ async function rescheduleTransferUI(transferId){
     if (typeof persist === 'function') persist();
 
     closeModal();
-    toast('Transfer rescheduled to ' + date + '.', 'success');
+    toast('Transfer rescheduled to ' + date + ' (' + returnedStatus + ').', 'success');
     await phase2RefreshTransferState();
     if (typeof renderTransfer === 'function') renderTransfer();
     if (typeof renderDashboard === 'function') renderDashboard();

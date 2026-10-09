@@ -4409,17 +4409,15 @@ async function renderDashboard(){
       const [
         { count: activeCount },
         { count: inactiveCount },
-        { count: exitedCount },
         { count: projCount }
       ] = await Promise.all([
         sb.from('employees').select('id', { count: 'exact', head: true }).eq('status', 'Active'),
         sb.from('employees').select('id', { count: 'exact', head: true }).eq('status', 'Inactive'),
-        sb.from('employees').select('id', { count: 'exact', head: true }).eq('status', 'Exited'),
         sb.from('projects').select('id', { count: 'exact', head: true })
       ]);
       
-      const totalEmps = activeCount + inactiveCount + exitedCount;
-      _dashboardLastData = { activeCount, inactiveCount, exitedCount, projCount, totalEmps };
+      const totalEmps = activeCount + inactiveCount;
+      _dashboardLastData = { activeCount, inactiveCount, projCount, totalEmps };
     } catch (err) {
       console.error('Supabase aggregation error:', err);
     }
@@ -4429,14 +4427,12 @@ async function renderDashboard(){
   const activeEmps = emps.filter(e => String(e.Status || e.status || 'Active').trim().toLowerCase() === 'active');
   const inactiveEmps = emps.filter(e => {
     const st = String(e.Status || e.status || '').trim().toLowerCase();
-    return st === 'inactive';
+    return st === 'inactive' || st === 'exited';
   });
 
-  const exitedEmps = emps.filter(e => String(e.Status || e.status || '').trim().toLowerCase() === 'exited');
   const activeCount = emps.length ? activeEmps.length : (_dashboardLastData?.activeCount || 0);
   const inactiveCount = emps.length ? inactiveEmps.length : (_dashboardLastData?.inactiveCount || 0);
-  const exitedCount = emps.length ? exitedEmps.length : (_dashboardLastData?.exitedCount || 0);
-  const totalEmps = activeCount + inactiveCount + exitedCount;
+  const totalEmps = activeCount + inactiveCount;
   const projCount = (DATA.projects && DATA.projects.length) ? DATA.projects.length : (_dashboardLastData?.projCount || 0);
 
   const parade = computeParade();
@@ -4498,7 +4494,6 @@ async function renderDashboard(){
     <div class="kpi-grid">
       ${kpi('Active Employees', num(activeCount), 'g', ico('users'), `${num(totalEmps)} total`,'','employees')}
       ${kpi('Inactive Employees', num(inactiveCount), 'r', ico('x'), `${num((inactiveCount*100/(totalEmps||1)).toFixed(1))}% of total`,'','employees')}
-      ${kpi('Exited Employees', num(exitedCount), 'r', ico('x'), `${num((exitedCount*100/(totalEmps||1)).toFixed(1))}% of total`,'','employees')}
       ${kpi('Total Projects', num(projCount), 'p', ico('home'), `${num(projCount)} total`,'','projects')}
       ${kpi('New Joins (30d)', num(recentJoins.length), 'b', ico('trend'), `+${num((recentJoins.length*100/(activeCount||1)).toFixed(1))}%`, 'up','recruitment')}
       ${kpi('Exits (30d)', num(recentExits.length), 'r', ico('x'), 'Turnover rate','','exit')}
@@ -5541,7 +5536,6 @@ async function renderEmployees(){
               <option value="All">All Statuses</option>
               <option value="Active" selected>Active</option>
               <option value="Inactive">Inactive</option>
-              <option value="Exited">Exited</option>
               <option value="Candidate">Candidate</option>
               <option value="Application Rejected">Application Rejected</option>
             </select>
@@ -5623,7 +5617,12 @@ function renderEmpTable(){
   const rows = senioritySort(DATA.employees.filter(e=>{
     if(projSel.length && projSel.indexOf(e.ProjectName) === -1) return false;
     if(deSel.length && deSel.indexOf(e.Designation) === -1) return false;
-    if(st && st !== 'All' && e.Status!==st) return false;
+    if(st && st !== 'All'){
+      const employeeStatus = String(e.Status || e.status || '').trim().toLowerCase();
+      if(st === 'Inactive'){
+        if(employeeStatus !== 'inactive' && employeeStatus !== 'exited') return false;
+      } else if(employeeStatus !== String(st).trim().toLowerCase()) return false;
+    }
     if(q){
       const hay = `${e.id||''} ${e.FullName||''} ${e.EmployeeID||''} ${e.PhoneNumber||''} ${e.Designation||''} ${e.ProjectName||''}`.toLowerCase();
       if(!hay.includes(q)) return false;
@@ -7383,7 +7382,7 @@ async function saveBasicInfoAndContinue(){
       dbPayload.status = 'Candidate';
       dbPayload.join_date = finalJoinDate || todayISO();
     } else {
-      // Editing existing employee: NEVER overwrite status! Preserve database status (Active, Inactive, Exited, etc.)
+      // Editing existing employee: NEVER overwrite status! Preserve database status (Active or Inactive)
       delete dbPayload.status;
       if(finalJoinDate && finalJoinDate !== oldJoin){
         dbPayload.join_date = finalJoinDate;
@@ -7446,7 +7445,7 @@ async function saveBasicInfoAndContinue(){
     if(window.DATA && Array.isArray(window.DATA.employees)){
       const normRec = typeof normEmployee === 'function' ? normEmployee(resultRecord) : resultRecord;
       if(isExistingEmployee && existingEmp){
-        // Preserve original status: Active -> Active, Inactive -> Inactive, Exited -> Exited
+        // Preserve original status: Active -> Active, Inactive -> Inactive
         normRec.Status = resultRecord.status || existingEmp.Status || existingEmp.status || 'Active';
         normRec.status = normRec.Status;
       } else {
@@ -10570,7 +10569,7 @@ function renderTransferTable(){
         const isCancelled = trStatus === 'Cancelled';
         const isCompleted = trStatus === 'Completed';
         const isNotJoined = trStatus === 'Not Joined';
-        const employeeExited = !!(e && String(e.Status || e.status || '').trim().toLowerCase() === 'exited');
+        const employeeInactive = !!(e && ['inactive','exited'].includes(String(e.Status || e.status || '').trim().toLowerCase()));
         const effectiveDate = String(t.effective_date || t.TransferDate || t.transfer_date || '').slice(0, 10);
         const isDueForJoining = trStatus === 'Joining Pending' || (trStatus === 'Scheduled' && effectiveDate && effectiveDate <= todayISO());
         const pillClass = isCancelled ? 'inactive'
@@ -10588,7 +10587,7 @@ function renderTransferTable(){
           <td onclick="event.stopPropagation()" style="text-align:right;white-space:nowrap">
             ${isDueForJoining
               ? `<button class="btn sm" style="background:#0f766e;color:#fff;border:1px solid #0f766e;padding:4px 8px;font-size:11px;font-weight:600;margin-right:4px;border-radius:5px" title="Confirm Destination Joined" onclick="openConfirmTransferJoining(${jsQ(t.id)})">✓ Joined</button><button class="btn sm" style="background:#fff;color:#475569;border:1px solid #cbd5e1;padding:4px 7px;font-size:11px;font-weight:500;margin-right:4px;border-radius:5px" title="Mark Not Joined" onclick="openMarkTransferNotJoined(${jsQ(t.id)})">✕</button>`
-              : (isNotJoined && !employeeExited
+              : (isNotJoined && !employeeInactive
                   ? `<button class="btn sm" style="background:#fffbeb;color:#92400e;border:1px solid #fcd34d;padding:4px 8px;font-size:11px;font-weight:600;margin-right:4px;border-radius:5px" title="Resolve Not Joined" onclick="openNotJoinedFollowUp(${jsQ(t.id)})">⚡ Resolve</button>`
                   : '')
             }
@@ -10634,7 +10633,7 @@ function openTransferPopup(tid){
   const statusPill = '<span class="pill ' + escapeHtml(pillCls) + '">' + escapeHtml(status) + '</span>';
 
   const emp = findEmpByAction(t);
-  const employeeExited = !!(emp && String(emp.Status || emp.status || '').trim().toLowerCase() === 'exited');
+  const employeeInactive = !!(emp && ['inactive','exited'].includes(String(emp.Status || emp.status || '').trim().toLowerCase()));
   const empProject = emp ? projName(emp.ProjectName) : '';
   /* The order's own "from" snapshot — authoritative for this popup. */
   const orderFrom = projName(t.CurrentProject || t.current_project || '');
@@ -10688,7 +10687,7 @@ function openTransferPopup(tid){
         '<span class="trp-spacer"></span>' +
         (isCancelled
           ? ''
-          : (status === 'Not Joined' && !employeeExited
+          : (status === 'Not Joined' && !employeeInactive
               ? '<button type="button" class="btn warning" style="font-weight:700" onclick="openNotJoinedFollowUp(' + jsQ(t.id) + ')">⚡ Resolve Not Joined</button>'
               : (isDueForJoining
                   ? '<button type="button" class="btn" style="background:#fff;color:#475569;border:1px solid #cbd5e1;font-weight:600;padding:8px 14px;border-radius:6px" onclick="openMarkTransferNotJoined(' + jsQ(t.id) + ')">✕ Not Joined</button>' +
@@ -12594,7 +12593,7 @@ function renderExit(){
           <div class="field wide"><label>${'Exit Reason'} *</label><textarea id="exReason" rows="3"></textarea></div>
         </div>
         <div style="margin-top:14px" class="btn-row">
-          <button class="btn danger" id="btnSubmitExit" onclick="submitExit()">${'Mark as Exited'}</button>
+          <button class="btn danger" id="btnSubmitExit" onclick="submitExit()">${'Mark as Inactive'}</button>
           <button class="btn" onclick="previewClearance()">${ico('print')} ${'Clearance Certificate'}</button>
           <button class="btn" onclick="previewExperience()">${ico('print')} ${'Experience Certificate'}</button>
         </div>
@@ -12781,7 +12780,7 @@ async function submitExit(){
   const employee=findEmp(rid);
   if(!employee || employee.id==null){ toast('Active employee with a System ID was not found.','error'); return; }
   const button=document.getElementById('btnSubmitExit');
-  window.mtCustomConfirm('Employee Exit','Complete this exit and set the employee status to Exited?','danger',async function(){
+  window.mtCustomConfirm('Employee Exit','Complete this exit and set the employee status to Inactive?','danger',async function(){
     if(button){ button.disabled=true; button.innerHTML='Saving...'; }
     try{
       const transferContext = window.__exitFromTransferContext;
@@ -12795,7 +12794,7 @@ async function submitExit(){
       await window.MGHRM.completeExit(exitId,exitDate,exitType,exitReason,'Completed from Employee Exit form');
       if (relatedTransferId && window.MGHRM && typeof window.MGHRM.cancelTransfer === 'function') {
         try {
-          await window.MGHRM.cancelTransfer(relatedTransferId, 'Employee Exited: ' + exitReason);
+          await window.MGHRM.cancelTransfer(relatedTransferId, 'Employee Inactivated through Exit: ' + exitReason);
         } catch (cancelErr) {
           // complete_exit may already have cancelled the linked transfer atomically.
           if (window.MGHRM.reloadTransfers) DATA.transfers = await window.MGHRM.reloadTransfers();
@@ -12808,11 +12807,11 @@ async function submitExit(){
       if(window.MGHRM.reloadExits) DATA.exits=await window.MGHRM.reloadExits();
       if(typeof fetchEmployeesDirectly==='function') await fetchEmployeesDirectly();
       if (typeof phase2RefreshTransferState === 'function') await phase2RefreshTransferState();
-      closeModal(); toast(`${employee.FullName} marked as Exited`,'success');
+      closeModal(); toast(`${employee.FullName} marked as Inactive`,'success');
       if(typeof renderExit==='function') renderExit();
       if(typeof renderEmpTable==='function') renderEmpTable();
     }catch(err){ console.error('[Exit] completion failed:',err); toast('Exit failed: '+(err.message||err),'error'); }
-    finally{ if(button){ button.disabled=false; button.innerHTML='Mark as Exited'; } }
+    finally{ if(button){ button.disabled=false; button.innerHTML='Mark as Inactive'; } }
   });
 }
 window.submitExit = submitExit;
@@ -21968,7 +21967,7 @@ function showDuplicateModal(dups, applicant, onForceNew){
   const rows = dups.map(d=>{
     const e = d.emp, empId = e.id || e.EmployeeID ;
     const ex = lastExitOf(empId);
-    const statusPill = e.Status==='Active' ? '<span class="pill active">Currently Active</span>' : '<span class="pill inactive">Exited</span>';
+    const statusPill = e.Status==='Active' ? '<span class="pill active">Currently Active</span>' : '<span class="pill inactive">Inactive</span>';
     const hist = ex ? `${'Joined'}: ${fmtDate(ex.JoinDate||e.JoinDate)} → ${'Left'}: ${fmtDate(ex.ExitDate||e.ExitDate)}` : '';
     return `<div style="border:1px solid var(--border-strong);border-radius:8px;padding:12px;margin-bottom:10px;background:var(--bg-dim)">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
@@ -23479,8 +23478,8 @@ function openNotJoinedFollowUp(transferId){
   const item = findTransferObject(transferId);
   if (!item) return toast('Transfer record not found', 'error');
   const linkedEmployee = item.emp || (typeof findEmp === 'function' ? findEmp(item.employee_sys_id || item.employee_id) : null);
-  if (linkedEmployee && String(linkedEmployee.Status || linkedEmployee.status || '').trim().toLowerCase() === 'exited') {
-    return toast('This employee is already Exited. The transfer no longer requires resolution.', 'info');
+  if (linkedEmployee && ['inactive','exited'].includes(String(linkedEmployee.Status || linkedEmployee.status || '').trim().toLowerCase())) {
+    return toast('This employee is already Inactive. The transfer no longer requires resolution.', 'info');
   }
   const initials = String(item.full_name || '?').trim().split(/\s+/).slice(0, 2).map(w=>w.charAt(0)).join('').toUpperCase() || '?';
 
@@ -23763,7 +23762,7 @@ function startExitFromTransfer(transferId){
     const formCard = document.querySelector('#page-exit .card');
     if (formCard) formCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-    toast('Exit form pre-filled for ' + (emp ? emp.FullName : (item.full_name || 'employee')) + '. Review and click Mark as Exited.', 'info');
+    toast('Exit form pre-filled for ' + (emp ? emp.FullName : (item.full_name || 'employee')) + '. Review and click Mark as Inactive.', 'info');
   }, 120);
 }
 window.startExitFromTransfer=startExitFromTransfer;

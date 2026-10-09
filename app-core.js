@@ -1524,19 +1524,12 @@
         throw new Error('Employee is already Active. Only non-active employees can be reactivated.');
       }
 
-      // If status is not 'Exited', update to 'Exited' first so Postgres RPC requirement is satisfied
-      var preUpdate = Promise.resolve();
-      if (currentStatus.toLowerCase() !== 'exited') {
-        preUpdate = sb.from('employees').update({ status: 'Exited' }).eq('id', employeeSystemId);
-      }
-
-      return preUpdate.then(function() {
-        return rpcCall('reactivate_employee', {
-          p_employee_sys_id: employeeSystemId,
-          p_new_join_date: joinDate,
-          p_new_project: project,
-          p_remarks: remarks || null
-        });
+      // Unified lifecycle model: every non-active employee is operationally Inactive.
+      return rpcCall('reactivate_employee', {
+        p_employee_sys_id: employeeSystemId,
+        p_new_join_date: joinDate,
+        p_new_project: project,
+        p_remarks: remarks || null
       });
     }).catch(function(err) {
       if (err && err.message && (err.message.indexOf('already Active') !== -1 || err.message.indexOf('Active employee') !== -1)) {

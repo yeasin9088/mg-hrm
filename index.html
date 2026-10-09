@@ -10570,6 +10570,7 @@ function renderTransferTable(){
         const isCancelled = trStatus === 'Cancelled';
         const isCompleted = trStatus === 'Completed';
         const isNotJoined = trStatus === 'Not Joined';
+        const employeeExited = !!(e && String(e.Status || e.status || '').trim().toLowerCase() === 'exited');
         const effectiveDate = String(t.effective_date || t.TransferDate || t.transfer_date || '').slice(0, 10);
         const isDueForJoining = trStatus === 'Joining Pending' || (trStatus === 'Scheduled' && effectiveDate && effectiveDate <= todayISO());
         const pillClass = isCancelled ? 'inactive'
@@ -10587,7 +10588,7 @@ function renderTransferTable(){
           <td onclick="event.stopPropagation()" style="text-align:right;white-space:nowrap">
             ${isDueForJoining
               ? `<button class="btn sm" style="background:#0f766e;color:#fff;border:1px solid #0f766e;padding:4px 8px;font-size:11px;font-weight:600;margin-right:4px;border-radius:5px" title="Confirm Destination Joined" onclick="openConfirmTransferJoining(${jsQ(t.id)})">✓ Joined</button><button class="btn sm" style="background:#fff;color:#475569;border:1px solid #cbd5e1;padding:4px 7px;font-size:11px;font-weight:500;margin-right:4px;border-radius:5px" title="Mark Not Joined" onclick="openMarkTransferNotJoined(${jsQ(t.id)})">✕</button>`
-              : (isNotJoined
+              : (isNotJoined && !employeeExited
                   ? `<button class="btn sm" style="background:#fffbeb;color:#92400e;border:1px solid #fcd34d;padding:4px 8px;font-size:11px;font-weight:600;margin-right:4px;border-radius:5px" title="Resolve Not Joined" onclick="openNotJoinedFollowUp(${jsQ(t.id)})">⚡ Resolve</button>`
                   : '')
             }
@@ -10633,6 +10634,7 @@ function openTransferPopup(tid){
   const statusPill = '<span class="pill ' + escapeHtml(pillCls) + '">' + escapeHtml(status) + '</span>';
 
   const emp = findEmpByAction(t);
+  const employeeExited = !!(emp && String(emp.Status || emp.status || '').trim().toLowerCase() === 'exited');
   const empProject = emp ? projName(emp.ProjectName) : '';
   /* The order's own "from" snapshot — authoritative for this popup. */
   const orderFrom = projName(t.CurrentProject || t.current_project || '');
@@ -10686,7 +10688,7 @@ function openTransferPopup(tid){
         '<span class="trp-spacer"></span>' +
         (isCancelled
           ? ''
-          : (status === 'Not Joined'
+          : (status === 'Not Joined' && !employeeExited
               ? '<button type="button" class="btn warning" style="font-weight:700" onclick="openNotJoinedFollowUp(' + jsQ(t.id) + ')">⚡ Resolve Not Joined</button>'
               : (isDueForJoining
                   ? '<button type="button" class="btn" style="background:#fff;color:#475569;border:1px solid #cbd5e1;font-weight:600;padding:8px 14px;border-radius:6px" onclick="openMarkTransferNotJoined(' + jsQ(t.id) + ')">✕ Not Joined</button>' +
@@ -12782,25 +12784,29 @@ async function submitExit(){
   window.mtCustomConfirm('Employee Exit','Complete this exit and set the employee status to Exited?','danger',async function(){
     if(button){ button.disabled=true; button.innerHTML='Saving...'; }
     try{
-      const payload={ employee_sys_id: employee.id, employee_id: employee.EmployeeID||'', full_name: employee.FullName||'', designation: employee.Designation||'', current_project: employee.ProjectName||'', join_date: employee.JoinDate||'', exit_reason: exitReason, exit_type: exitType, exit_date: exitDate, effective_exit_date: exitDate, issue_date: document.getElementById('exIssue')?.value||todayISO() };
+      const transferContext = window.__exitFromTransferContext;
+      const relatedTransferId = transferContext && String(transferContext.employeeSysId) === String(employee.id)
+        ? Number(transferContext.transferId)
+        : null;
+      const payload={ employee_sys_id: employee.id, employee_id: employee.EmployeeID||'', full_name: employee.FullName||'', designation: employee.Designation||'', current_project: employee.ProjectName||'', join_date: employee.JoinDate||'', exit_reason: exitReason, exit_type: exitType, exit_date: exitDate, effective_exit_date: exitDate, issue_date: document.getElementById('exIssue')?.value||todayISO(), related_transfer_id: relatedTransferId };
       const result=await window.MGHRM.createExitDraft(payload);
       const exitId=Number(result?.exit?.id);
       if(!exitId) throw new Error('Exit draft was not returned by the server.');
       await window.MGHRM.completeExit(exitId,exitDate,exitType,exitReason,'Completed from Employee Exit form');
+      if (relatedTransferId && window.MGHRM && typeof window.MGHRM.cancelTransfer === 'function') {
+        try {
+          await window.MGHRM.cancelTransfer(relatedTransferId, 'Employee Exited: ' + exitReason);
+        } catch (cancelErr) {
+          // complete_exit may already have cancelled the linked transfer atomically.
+          if (window.MGHRM.reloadTransfers) DATA.transfers = await window.MGHRM.reloadTransfers();
+          const linked = Array.isArray(DATA.transfers) ? DATA.transfers.find(t => String(t.id) === String(relatedTransferId)) : null;
+          const linkedStatus = linked && (linked.status || linked.Status);
+          if (linkedStatus !== 'Cancelled') throw new Error('Employee was exited, but the related transfer could not be resolved: ' + (cancelErr.message || cancelErr));
+        }
+      }
+      window.__exitFromTransferContext = null;
       if(window.MGHRM.reloadExits) DATA.exits=await window.MGHRM.reloadExits();
       if(typeof fetchEmployeesDirectly==='function') await fetchEmployeesDirectly();
-      // Also cancel any pending/not joined transfer for this employee
-      if (window.DATA && Array.isArray(window.DATA.transfers)) {
-        window.DATA.transfers.forEach(t => {
-          if (String(t.EmployeeID) === String(employee.EmployeeID) || String(t.employee_sys_id) === String(employee.id)) {
-            if (t.Status === 'Scheduled' || t.Status === 'Not Joined' || t.status === 'Not Joined') {
-              t.Status = 'Cancelled';
-              t.status = 'Cancelled';
-              t.cancellation_reason = 'Employee Exited: ' + exitReason;
-            }
-          }
-        });
-      }
       if (typeof phase2RefreshTransferState === 'function') await phase2RefreshTransferState();
       closeModal(); toast(`${employee.FullName} marked as Exited`,'success');
       if(typeof renderExit==='function') renderExit();
@@ -23447,6 +23453,11 @@ window.markTransferNotJoinedUI = markTransferNotJoinedUI;
 
 function openNotJoinedFollowUp(transferId){
   const item = findTransferObject(transferId);
+  if (!item) return toast('Transfer record not found', 'error');
+  const linkedEmployee = item.emp || (typeof findEmp === 'function' ? findEmp(item.employee_sys_id || item.employee_id) : null);
+  if (linkedEmployee && String(linkedEmployee.Status || linkedEmployee.status || '').trim().toLowerCase() === 'exited') {
+    return toast('This employee is already Exited. The transfer no longer requires resolution.', 'info');
+  }
   const initials = String(item.full_name || '?').trim().split(/\s+/).slice(0, 2).map(w=>w.charAt(0)).join('').toUpperCase() || '?';
 
   const body = `
@@ -23668,6 +23679,11 @@ window.openRescheduleTransfer=openRescheduleTransfer; window.rescheduleTransferU
 
 function startExitFromTransfer(transferId){
   const item = findTransferObject(transferId);
+  if (!item) return toast('Transfer record not found', 'error');
+  window.__exitFromTransferContext = {
+    transferId: Number(transferId),
+    employeeSysId: item.employee_sys_id != null ? String(item.employee_sys_id) : ''
+  };
   const emp = item.emp || (typeof findEmp === 'function' ? (findEmp(item.employee_sys_id) || findEmp(item.employee_id)) : null);
   const empKey = emp ? (emp.id || emp.EmployeeID) : (item.employee_sys_id || item.employee_id);
 

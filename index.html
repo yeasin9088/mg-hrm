@@ -4433,7 +4433,12 @@ async function renderDashboard(){
   const activeCount = emps.length ? activeEmps.length : (_dashboardLastData?.activeCount || 0);
   const inactiveCount = emps.length ? inactiveEmps.length : (_dashboardLastData?.inactiveCount || 0);
   const totalEmps = activeCount + inactiveCount;
-  const projCount = (DATA.projects && DATA.projects.length) ? DATA.projects.length : (_dashboardLastData?.projCount || 0);
+  const projectRows = Array.isArray(DATA.projects) ? DATA.projects : [];
+  const totalProjectCount = projectRows.length || (_dashboardLastData?.projCount || 0);
+  const activeProjectCount = projectRows.length
+    ? projectRows.filter(p => typeof isProjectActive === 'function' ? isProjectActive(p) : true).length
+    : totalProjectCount;
+  const inactiveProjectCount = Math.max(0, totalProjectCount - activeProjectCount);
 
   const parade = computeParade();
   const totalDemand = parade.reduce((s,p)=>s+p.demandTotal,0);
@@ -4494,7 +4499,7 @@ async function renderDashboard(){
     <div class="kpi-grid">
       ${kpi('Active Employees', num(activeCount), 'g', ico('users'), `${num(totalEmps)} total`,'','employees')}
       ${kpi('Inactive Employees', num(inactiveCount), 'r', ico('x'), `${num((inactiveCount*100/(totalEmps||1)).toFixed(1))}% of total`,'','employees')}
-      ${kpi('Total Projects', num(projCount), 'p', ico('home'), `${num(projCount)} total`,'','projects')}
+      ${kpi('Active Projects', num(activeProjectCount), 'p', ico('home'), `${num(inactiveProjectCount)} inactive / closed`,'','projects')}
       ${kpi('New Joins (30d)', num(recentJoins.length), 'b', ico('trend'), `+${num((recentJoins.length*100/(activeCount||1)).toFixed(1))}%`, 'up','recruitment')}
       ${kpi('Exits (30d)', num(recentExits.length), 'r', ico('x'), 'Turnover rate','','exit')}
       ${kpi('Manpower Shortage', num(shortage), 'y', ico('warn'), `${num(shortagePct)}% shortage`, 'down','parade')}

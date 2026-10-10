@@ -13110,6 +13110,7 @@ function renderSalary(){
 /* ============ REPORTS ============ */
 function renderReports(){
   const reports = [
+    {key:'workforceSummary', icon:'trend', color:'p', title:'Workforce Movement Summary', desc:'Executive workforce movement and transfer performance'},
     {key:'newJoins',    icon:'trend',    color:'g', title:'Monthly New Joins',      desc:'All new employees who joined this month'},
     {key:'exits',       icon:'x',        color:'r', title:'Monthly Exits',          desc:'All exits during selected month'},
     {key:'transfers',   icon:'refresh',  color:'b', title:'Monthly Transfers',      desc:'All transfers during selected month'},
@@ -13122,6 +13123,8 @@ function renderReports(){
     {key:'contractExp', icon:'file',     color:'r', title:'Contract Expiry',        desc:'Contracts ending within 60 days'},
     {key:'salarySlip',  icon:'file',     color:'g', title:'Salary Slip',            desc:'Print individual A4 salary slip'},
     {key:'analytics',   icon:'trend',    color:'b', title:'Analytics Dashboard',    desc:'Project·designation·6-month trends'},
+    {key:'managementAnalytics', icon:'trend', color:'p', title:'Management Analytics', desc:'Trend, exit rate, attrition and transfer performance'},
+    {key:'dataQuality', icon:'warn', color:'y', title:'Workflow Data Quality', desc:'Employee, exit and transfer consistency checks'},
     {key:'activityLog', icon:'file',     color:'b', title:'Activity Log',           desc:'Last 500 audit trail events'},
   ];
   document.getElementById('page-reports').innerHTML = `
@@ -13129,7 +13132,20 @@ function renderReports(){
       <div class="card-header">
         <h3>${'Reports Center'}</h3>
         <div class="btn-row">
+          <select id="reportDateMode" onchange="toggleReportDateMode();renderReportSelected()" style="padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit">
+            <option value="month">Monthly</option><option value="quarter">Quarterly</option><option value="year">Yearly</option><option value="custom">Custom Range</option>
+          </select>
           <select id="reportMonth" onchange="renderReportSelected()" style="padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit">${monthOptions()}</select>
+          <input id="reportDateFrom" type="date" onchange="renderReportSelected()" style="display:none;padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit">
+          <input id="reportDateTo" type="date" onchange="renderReportSelected()" style="display:none;padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit">
+          <select id="reportProject" onchange="renderReportSelected()" style="padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit">
+            <option value="">All Projects</option>${(DATA.projects||[]).map(p=>`<option value="${escapeHtml(p.ProjectName||p.project_name||'')}">${escapeHtml(p.ProjectName||p.project_name||'')}</option>`).join('')}
+          </select>
+          <select id="reportDesignation" onchange="renderReportSelected()" style="padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit">
+            <option value="">All Designations</option>${Array.from(new Set((DATA.employees||[]).map(e=>e.Designation).filter(Boolean))).sort().map(d=>`<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('')}
+          </select>
+          <select id="reportEmployeeStatus" onchange="renderReportSelected()" style="padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit"><option value="">All Employee Statuses</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
+          <select id="reportProjectScope" onchange="renderReportSelected()" style="padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit"><option value="all">All Projects</option><option value="active">Active Projects</option><option value="inactive">Inactive / Closed Projects</option></select>
         </div>
       </div>
       <div class="card-body">
@@ -13146,7 +13162,7 @@ function renderReports(){
     </div>
     <div id="reportOutput"></div>
   `;
-  showReport('newJoins');
+  showReport('workforceSummary');
 }
 function monthOptions(){
   const monthsEn=['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -13160,18 +13176,133 @@ function monthOptions(){
   }
   return html;
 }
-let currentReport = 'newJoins';
+function toggleReportDateMode(){
+  const custom=document.getElementById('reportDateMode')?.value==='custom';
+  const month=document.getElementById('reportMonth');
+  const from=document.getElementById('reportDateFrom');
+  const to=document.getElementById('reportDateTo');
+  if(month) month.style.display=custom?'none':'';
+  if(from) from.style.display=custom?'':'';
+  if(to) to.style.display=custom?'':'';
+}
+function getReportFilterContext(){
+  const mode=document.getElementById('reportDateMode')?.value||'month';
+  const monthVal=document.getElementById('reportMonth')?.value||todayISO().slice(0,7);
+  let start,end,label;
+  if(mode==='custom'){
+    const from=document.getElementById('reportDateFrom')?.value||monthVal+'-01';
+    const to=document.getElementById('reportDateTo')?.value||todayISO();
+    start=new Date(from+'T00:00:00').getTime();
+    end=new Date(to+'T23:59:59').getTime()+1;
+    label=`${fmtDate(from)} to ${fmtDate(to)}`;
+  }else{
+    const parts=monthVal.split('-').map(Number), year=parts[0], month=parts[1];
+    if(mode==='quarter'){
+      const q=Math.floor((month-1)/3), startMonth=q*3;
+      start=new Date(year,startMonth,1).getTime(); end=new Date(year,startMonth+3,1).getTime(); label=`Q${q+1} ${year}`;
+    }else if(mode==='year'){
+      start=new Date(year,0,1).getTime(); end=new Date(year+1,0,1).getTime(); label=String(year);
+    }else{
+      start=new Date(year,month-1,1).getTime(); end=new Date(year,month,1).getTime();
+      label=new Date(year,month-1,1).toLocaleString('en-US',{month:'long',year:'numeric'});
+    }
+  }
+  return {mode,start,end,label,project:document.getElementById('reportProject')?.value||'',designation:document.getElementById('reportDesignation')?.value||'',employeeStatus:document.getElementById('reportEmployeeStatus')?.value||'',projectScope:document.getElementById('reportProjectScope')?.value||'all'};
+}
+function reportInRange(value,ctx){ const x=parseDate(value)?.getTime(); return !!x&&x>=ctx.start&&x<ctx.end; }
+function reportMatches(record,ctx,projectFields,designationFields){
+  if(ctx.project){ const v=projectFields.map(k=>record?.[k]).find(Boolean)||''; if(String(v)!==String(ctx.project)) return false; }
+  if(ctx.designation){ const v=designationFields.map(k=>record?.[k]).find(Boolean)||''; if(String(v)!==String(ctx.designation)) return false; }
+  if(ctx.employeeStatus){ const st=String(record?.Status||record?.status||''); if(ctx.employeeStatus==='Inactive' ? !['Inactive','Exited'].includes(st) : st!==ctx.employeeStatus) return false; }
+  if(ctx.projectScope!=='all'){
+    const projectName=projectFields.map(k=>record?.[k]).find(Boolean)||'';
+    const project=(DATA.projects||[]).find(p=>String(p.ProjectName||p.project_name||'')===String(projectName));
+    const active=!project || (typeof isProjectActive==='function'?isProjectActive(project):true);
+    if(ctx.projectScope==='active'&&!active) return false;
+    if(ctx.projectScope==='inactive'&&active) return false;
+  }
+  return true;
+}
+function getMonthlyReportRows(kind){
+  const ctx=getReportFilterContext(); let rows=[];
+  if(kind==='newJoins') rows=(DATA.employees||[]).filter(r=>reportInRange(r.JoinDate||r.join_date,ctx)&&reportMatches(r,ctx,['ProjectName','project_name'],['Designation','designation']));
+  else if(kind==='exits') rows=(DATA.exits||[]).filter(r=>reportInRange(r.ExitDate||r.exit_date,ctx)&&reportMatches(r,ctx,['CurrentProject','current_project'],['Designation','designation']));
+  else if(kind==='transfers') rows=(DATA.transfers||[]).filter(r=>reportInRange(r.TransferDate||r.transfer_date||r.effective_date,ctx)&&reportMatches(r,ctx,['CurrentProject','current_project','NewProject','new_project'],['Designation','designation']));
+  else if(kind==='disciplinary') rows=(DATA.disciplinary||[]).filter(r=>reportInRange(r.IssueDate||r.issue_date,ctx)&&reportMatches(r,ctx,['ProjectName','project_name'],['Designation','designation']));
+  return {rows,ctx};
+}
+function getManagementAnalyticsData(){
+  const ctx=getReportFilterContext(), ms=30*24*60*60*1000, buckets=[];
+  for(let i=5;i>=0;i--){ const d=new Date(ctx.end-1); d.setMonth(d.getMonth()-i); const y=d.getFullYear(),m=d.getMonth(); const a=new Date(y,m,1).getTime(),b=new Date(y,m+1,1).getTime(); buckets.push({label:d.toLocaleString('en-US',{month:'short',year:'2-digit'}),joins:(DATA.employees||[]).filter(e=>{const x=parseDate(e.JoinDate||e.join_date)?.getTime();return x&&x>=a&&x<b;}).length,exits:(DATA.exits||[]).filter(e=>{const x=parseDate(e.ExitDate||e.exit_date)?.getTime();return x&&x>=a&&x<b;}).length}); }
+  const summary=getWorkforceSummaryData();
+  const active=(DATA.employees||[]).filter(e=>String(e.Status||e.status)==='Active').length;
+  const inactive=(DATA.employees||[]).filter(e=>['Inactive','Exited'].includes(String(e.Status||e.status))).length;
+  const exitRate=(active+summary.exits.length)?+(summary.exits.length*100/(active+summary.exits.length)).toFixed(1):0;
+  const transferDetails=summary.transfers.map(t=>{const due=parseDate(t.TransferDate||t.transfer_date||t.effective_date),done=parseDate(t.actual_joining_date||t.ActualJoiningDate);return due&&done?Math.max(0,Math.round((done-due)/ms)):null;}).filter(v=>v!=null);
+  const avgDelay=transferDetails.length?+(transferDetails.reduce((a,b)=>a+b,0)/transferDetails.length).toFixed(1):0;
+  const notJoined=summary.transfers.filter(t=>String(t.status||t.Status)==='Not Joined').length;
+  return {ctx,summary,buckets,active,inactive,exitRate,avgDelay,notJoined};
+}
+function managementAnalyticsHtml(d){
+  const max=Math.max(1,...d.buckets.flatMap(x=>[x.joins,x.exits]));
+  const trend=d.buckets.map(x=>`<div style="flex:1;min-width:70px;text-align:center"><div style="height:110px;display:flex;align-items:flex-end;justify-content:center;gap:5px"><i style="width:14px;height:${x.joins*90/max}px;background:#10b981;border-radius:4px 4px 0 0"></i><i style="width:14px;height:${x.exits*90/max}px;background:#ef4444;border-radius:4px 4px 0 0"></i></div><b>${x.label}</b><div class="small-mute">${x.joins} / ${x.exits}</div></div>`).join('');
+  return `<div class="card"><div class="card-header"><h3>Management Analytics</h3></div><div class="card-body"><div class="mrep-kpis">${mrepKpi('Exit Rate',d.exitRate+'%','Selected period','#dc2626')}${mrepKpi('Active / Inactive',d.active+' / '+d.inactive,'Current workforce','#2563eb')}${mrepKpi('Avg Transfer Delay',d.avgDelay+' days','Completed transfers','#d97706')}${mrepKpi('Not Joined',d.notJoined,'Selected period','#dc2626')}</div><h4 style="margin:20px 0 8px">Six-month Joins / Formal Exits Trend</h4><div style="display:flex;gap:12px;border:1px solid var(--border);padding:14px;border-radius:10px">${trend}</div><p class="small-mute" style="margin-top:8px">Green = joins, red = formal exits. Exit rate uses selected-period exits relative to current active workforce plus those exits.</p></div></div>`;
+}
+function getWorkflowDataQuality(){
+  const issues=[];
+  (DATA.employees||[]).forEach(e=>{ if(!e.id) issues.push(['Employee','Missing system ID',e.FullName||e.full_name||'Unknown']); if(!e.EmployeeID&&!e.employee_id) issues.push(['Employee','Missing employee ID',e.FullName||e.full_name||'Unknown']); if(!e.ProjectName&&!e.project_name) issues.push(['Employee','Missing project',e.FullName||e.full_name||'Unknown']); });
+  const seen=new Set(); (DATA.exits||[]).forEach(x=>{const k=String(x.employee_sys_id||x.EmployeeID||'')+'|'+String(x.ExitDate||x.exit_date||'');if(seen.has(k))issues.push(['Exit','Possible duplicate exit',x.FullName||x.full_name||k]);seen.add(k);if(!(x.ExitDate||x.exit_date))issues.push(['Exit','Missing exit date',x.FullName||x.full_name||'Unknown']);});
+  (DATA.transfers||[]).forEach(t=>{const st=String(t.status||t.Status||'');if(st==='Completed'&&!(t.actual_joining_date||t.ActualJoiningDate))issues.push(['Transfer','Completed without joining date',t.FullName||t.full_name||String(t.id)]);if(!(t.employee_sys_id||t.id))issues.push(['Transfer','Missing employee/system reference',t.FullName||t.full_name||'Unknown']);});
+  return issues;
+}
+function dataQualityHtml(){const issues=getWorkflowDataQuality();const rows=issues.map((x,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(x[0])}</td><td>${escapeHtml(x[1])}</td><td>${escapeHtml(x[2])}</td></tr>`).join('');return `<div class="card"><div class="card-header"><h3>Workflow Data Quality</h3></div><div class="card-body"><p class="small-mute"><strong>${issues.length}</strong> potential consistency issue(s). Review before official reporting.</p><div class="table-wrap"><table><thead><tr><th>#</th><th>Area</th><th>Issue</th><th>Record</th></tr></thead><tbody>${rows||'<tr><td colspan="4" style="text-align:center;color:#059669">No listed consistency issues found</td></tr>'}</tbody></table></div></div></div>`;}
+function getWorkforceSummaryData(){
+  const ctx=getReportFilterContext();
+  const joins=getMonthlyReportRows('newJoins').rows;
+  const exits=getMonthlyReportRows('exits').rows;
+  const transfers=getMonthlyReportRows('transfers').rows;
+  const disciplinary=getMonthlyReportRows('disciplinary').rows;
+  const completed=transfers.filter(t=>String(t.status||t.Status||'')==='Completed').length;
+  const cancelled=transfers.filter(t=>String(t.status||t.Status||'')==='Cancelled').length;
+  const eligible=Math.max(0,transfers.length-cancelled);
+  const completionRate=eligible?+(completed*100/eligible).toFixed(1):0;
+  const netMovement=joins.length-exits.length;
+  const projectMap={};
+  joins.forEach(r=>{ const k=r.ProjectName||r.project_name||'Unassigned'; (projectMap[k]||(projectMap[k]={joins:0,exits:0})).joins++; });
+  exits.forEach(r=>{ const k=r.CurrentProject||r.current_project||'Unassigned'; (projectMap[k]||(projectMap[k]={joins:0,exits:0})).exits++; });
+  const projects=Object.entries(projectMap).map(([project,v])=>({project,joins:v.joins,exits:v.exits,net:v.joins-v.exits})).sort((a,b)=>Math.abs(b.net)-Math.abs(a.net)||a.project.localeCompare(b.project));
+  return {ctx,joins,exits,transfers,disciplinary,completed,cancelled,eligible,completionRate,netMovement,projects};
+}
+function workforceSummaryHtml(data,printMode){
+  const sign=data.netMovement>0?'+':'';
+  const projectRows=data.projects.map((r,i)=>`<tr><td>${i+1}</td><td><strong>${escapeHtml(r.project)}</strong></td><td class="num">${r.joins}</td><td class="num">${r.exits}</td><td class="num" style="font-weight:700;color:${r.net>0?'#059669':r.net<0?'#dc2626':'#64748b'}">${r.net>0?'+':''}${r.net}</td></tr>`).join('');
+  const kpis=`<div class="mrep-kpis">
+    ${mrepKpi('New Joins',data.joins.length,'Selected period','#059669')}
+    ${mrepKpi('Formal Exits',data.exits.length,'Selected period','#dc2626')}
+    ${mrepKpi('Net Movement',sign+data.netMovement,'Joins minus formal exits',data.netMovement>=0?'#059669':'#dc2626')}
+    ${mrepKpi('Transfer Completion',data.completionRate+'%',data.completed+' of '+data.eligible+' eligible','#2563eb')}
+    ${mrepKpi('Disciplinary',data.disciplinary.length,'Selected period','#d97706')}
+  </div>`;
+  const body=`${kpis}<div style="margin-top:18px"><h4 style="margin:0 0 10px">Project-wise Workforce Movement</h4><div class="table-wrap"><table><thead><tr><th>#</th><th>Project</th><th class="num">Joins</th><th class="num">Formal Exits</th><th class="num">Net</th></tr></thead><tbody>${projectRows||'<tr><td colspan="5" style="text-align:center;color:#94a3b8">No workforce movements in this period</td></tr>'}</tbody></table></div></div>`;
+  if(printMode) return mrepShell2({title:'Workforce Movement Summary',subtitle:data.ctx.label+' · executive operational summary',meta:`<b>${data.transfers.length}</b> Transfers · <b>${data.cancelled}</b> Cancelled`,body});
+  return `<div class="card"><div class="card-header"><h3>Workforce Movement Summary</h3><div class="btn-row"><button class="btn sm" onclick="printReport()">${ico('print')} Print</button></div></div><div class="card-body" id="reportPrintable"><p class="small-mute" style="margin-bottom:14px">${escapeHtml(data.ctx.label)} · executive operational summary</p>${body}</div></div>`;
+}
+let currentReport = 'workforceSummary';
 function renderReportSelected(){ showReport(currentReport); }
 function showReport(kind){
   currentReport = kind;
-  const monthVal = document.getElementById('reportMonth').value;
-  const [yr,mo] = monthVal.split('-').map(Number);
-  const start = new Date(yr,mo-1,1).getTime();
-  const end   = new Date(yr,mo,1).getTime();
-  const inMonth = v=>{ const x=parseDate(v)?.getTime(); return x&&x>=start&&x<end; };
+  const reportFilter = getReportFilterContext();
+  const monthVal = document.getElementById('reportMonth')?.value || todayISO().slice(0,7);
+  const inMonth = v=>reportInRange(v,reportFilter);
   let out='';
-  if(kind==='newJoins'){
-    const list = DATA.employees.filter(e=>inMonth(e.JoinDate)).sort((a,b)=> (parseDate(a.JoinDate)?.getTime()||0) - (parseDate(b.JoinDate)?.getTime()||0));
+  if(kind==='workforceSummary'){
+    out=workforceSummaryHtml(getWorkforceSummaryData(),false);
+  } else if(kind==='managementAnalytics'){
+    out=managementAnalyticsHtml(getManagementAnalyticsData());
+  } else if(kind==='dataQuality'){
+    out=dataQualityHtml();
+  } else if(kind==='newJoins'){
+    const list = getMonthlyReportRows('newJoins').rows.sort((a,b)=> (parseDate(a.JoinDate)?.getTime()||0) - (parseDate(b.JoinDate)?.getTime()||0));
     out = `<div class="card"><div class="card-header"><h3>${'Monthly New Joins'}</h3>
       <div class="btn-row"><button class="btn success sm" onclick="exportReport('newJoins')">${ico('excel')} Excel</button><button class="btn sm" onclick="printReport()">${ico('print')} Print</button></div></div>
       <div class="card-body" id="reportPrintable">
@@ -13180,7 +13311,7 @@ function showReport(kind){
           ${list.map((e,i)=>`<tr><td>${num(i+1)}</td><td>${num(e.EmployeeID||'')}</td><td>${e.FullName}</td><td>${desig(e.Designation)}</td><td>${projName(e.ProjectName)}</td><td>${fmtDate(e.JoinDate)}</td></tr>`).join('')}
         </tbody></table></div></div></div>`;
   } else if(kind==='exits'){
-    const list = DATA.exits.filter(x=>inMonth(x.ExitDate)).sort((a,b)=> (parseDate(a.ExitDate)?.getTime()||0) - (parseDate(b.ExitDate)?.getTime()||0));
+    const list = getMonthlyReportRows('exits').rows.sort((a,b)=> (parseDate(a.ExitDate)?.getTime()||0) - (parseDate(b.ExitDate)?.getTime()||0));
     out = `<div class="card"><div class="card-header"><h3>${'Monthly Exits'}</h3>
       <div class="btn-row"><button class="btn success sm" onclick="exportReport('exits')">${ico('excel')} Excel</button><button class="btn sm" onclick="printReport()">${ico('print')} Print</button></div></div>
       <div class="card-body" id="reportPrintable">
@@ -13189,7 +13320,7 @@ function showReport(kind){
           ${list.map((x,i)=>`<tr><td>${num(i+1)}</td><td>${num(x.EmployeeID)}</td><td>${x.FullName}</td><td>${desig(x.Designation)}</td><td>${fmtDate(x.ExitDate)}</td><td class="small-mute" style="max-width:300px">${x.ExitReason||''}</td></tr>`).join('')}
         </tbody></table></div></div></div>`;
   } else if(kind==='transfers'){
-    const list = DATA.transfers.filter(t=>inMonth(t.TransferDate)).sort((a,b)=> (parseDate(a.TransferDate)?.getTime()||0) - (parseDate(b.TransferDate)?.getTime()||0));
+    const list = getMonthlyReportRows('transfers').rows.sort((a,b)=> (parseDate(a.TransferDate)?.getTime()||0) - (parseDate(b.TransferDate)?.getTime()||0));
     out = `<div class="card"><div class="card-header"><h3>${'Monthly Transfers'}</h3>
       <div class="btn-row"><button class="btn success sm" onclick="exportReport('transfers')">${ico('excel')} Excel</button><button class="btn sm" onclick="printReport()">${ico('print')} Print</button></div></div>
       <div class="card-body" id="reportPrintable">
@@ -13198,7 +13329,7 @@ function showReport(kind){
           ${list.map((t,i)=>`<tr><td>${num(i+1)}</td><td>${fmtDate(t.TransferDate)}</td><td>${t.FullName}</td><td>${projName(t.CurrentProject)}</td><td>${projName(t.NewProject)}</td></tr>`).join('')}
         </tbody></table></div></div></div>`;
   } else if(kind==='disciplinary'){
-    const list = DATA.disciplinary.filter(d=>inMonth(d.IssueDate)).sort((a,b)=> (parseDate(a.IssueDate)?.getTime()||0) - (parseDate(b.IssueDate)?.getTime()||0));
+    const list = getMonthlyReportRows('disciplinary').rows.sort((a,b)=> (parseDate(a.IssueDate)?.getTime()||0) - (parseDate(b.IssueDate)?.getTime()||0));
     out = `<div class="card"><div class="card-header"><h3>${'Monthly Disciplinary'}</h3>
       <div class="btn-row"><button class="btn success sm" onclick="exportReport('disciplinary')">${ico('excel')} Excel</button><button class="btn sm" onclick="printReport()">${ico('print')} Print</button></div></div>
       <div class="card-body" id="reportPrintable">
@@ -13419,7 +13550,21 @@ function showReport(kind){
   }
   document.getElementById('reportOutput').innerHTML = out;
 }
-function exportReport(kind){ toast(`${kind} report exported to CSV`, 'success'); }
+function exportReport(kind){
+  const result=getMonthlyReportRows(kind), rows=result.rows, ctx=result.ctx;
+  const specs={
+    newJoins:{headers:['Employee ID','Name','Designation','Project','Join Date'],map:r=>[r.EmployeeID||r.employee_id||'',r.FullName||r.full_name||'',r.Designation||r.designation||'',r.ProjectName||r.project_name||'',r.JoinDate||r.join_date||'']},
+    exits:{headers:['Employee ID','Name','Designation','Project','Exit Date','Exit Type','Reason'],map:r=>[r.EmployeeID||r.employee_id||'',r.FullName||r.full_name||'',r.Designation||r.designation||'',r.CurrentProject||r.current_project||'',r.ExitDate||r.exit_date||'',r.ExitType||r.exit_type||'',r.ExitReason||r.exit_reason||'']},
+    transfers:{headers:['Employee ID','Name','Designation','From','To','Effective Date','Status'],map:r=>[r.EmployeeID||r.employee_id||'',r.FullName||r.full_name||'',r.Designation||r.designation||'',r.CurrentProject||r.current_project||'',r.NewProject||r.new_project||'',r.TransferDate||r.transfer_date||r.effective_date||'',r.status||r.Status||'']},
+    disciplinary:{headers:['Reference','Employee ID','Name','Designation','Project','Action Type','Issue Date'],map:r=>[r.RefNo||r.ref_no||'',r.EmployeeID||r.employee_id||'',r.FullName||r.full_name||'',r.Designation||r.designation||'',r.ProjectName||r.project_name||'',r.ActionType||r.action_type||'',r.IssueDate||r.issue_date||'']}
+  };
+  const spec=specs[kind]; if(!spec) return toast('CSV export is not available for this report.','warning');
+  const csvRows=[spec.headers].concat(rows.map(spec.map));
+  const csv=csvRows.map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=`${kind}_${ctx.mode==='month'?(document.getElementById('reportMonth')?.value||todayISO().slice(0,7)):'custom'}.csv`; a.click(); URL.revokeObjectURL(a.href);
+  toast(`${rows.length} filtered rows exported to CSV`,'success');
+}
 
 
 function printSalarySlip(){
@@ -13521,33 +13666,33 @@ function mrepShell2({title, subtitle, meta, body, landscape}){
   </div>`;
 }
 function printReport(){
+  const reportFilter=getReportFilterContext();
   const monthVal = document.getElementById('reportMonth')?.value || todayISO().slice(0,7);
-  const [yr,mo] = monthVal.split('-').map(Number);
-  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const mLabel = `${monthNames[mo-1]} ${yr}`;
-  const start = new Date(yr,mo-1,1).getTime(), end = new Date(yr,mo,1).getTime();
-  const inMonth = v=>{ const x=parseDate(v)?.getTime(); return x&&x>=start&&x<end; };
+  const inMonth=v=>reportInRange(v,reportFilter);
+  const mLabel=reportFilter.label;
   let html = '';
-  if(currentReport==='newJoins'){
-    const list = DATA.employees.filter(e=>inMonth(e.JoinDate)).sort((a,b)=> (parseDate(a.JoinDate)?.getTime()||0) - (parseDate(b.JoinDate)?.getTime()||0));
+  if(currentReport==='workforceSummary'){
+    html=workforceSummaryHtml(getWorkforceSummaryData(),true);
+  } else if(currentReport==='newJoins'){
+    const list = getMonthlyReportRows('newJoins').rows.sort((a,b)=> (parseDate(a.JoinDate)?.getTime()||0) - (parseDate(b.JoinDate)?.getTime()||0));
     const rows = list.map((e,i)=>`<tr><td class="num">${i+1}</td><td>${e.EmployeeID||''}</td><td><strong>${e.FullName}</strong></td><td>${e.Designation||''}</td><td>${e.ProjectName||''}</td><td>${fmtDate(e.JoinDate)}</td></tr>`).join('');
     html = mrepShell2({ title:'Monthly New Joins Report', subtitle:`${mLabel} · all employees who joined during the month`,
       meta:`<b>${list.length}</b> New Joins <i>·</i> ${mLabel}`,
       body:`<table><thead><tr><th>#</th><th>ID</th><th>Name</th><th>Designation</th><th>Project</th><th>Join Date</th></tr></thead><tbody>${rows||'<tr><td colspan="6" style="text-align:center;color:#94a3b8">No joins this month</td></tr>'}</tbody></table>` });
   } else if(currentReport==='exits'){
-    const list = DATA.exits.filter(x=>inMonth(x.ExitDate)).sort((a,b)=> (parseDate(a.ExitDate)?.getTime()||0) - (parseDate(b.ExitDate)?.getTime()||0));
+    const list = getMonthlyReportRows('exits').rows.sort((a,b)=> (parseDate(a.ExitDate)?.getTime()||0) - (parseDate(b.ExitDate)?.getTime()||0));
     const rows = list.map((x,i)=>`<tr><td class="num">${i+1}</td><td>${x.EmployeeID||''}</td><td><strong>${x.FullName}</strong></td><td>${x.Designation||''}</td><td>${x.CurrentProject||''}</td><td>${fmtDate(x.ExitDate)}</td><td>${x.ExitReason||''}</td></tr>`).join('');
     html = mrepShell2({ title:'Monthly Exits Report', subtitle:`${mLabel} · all separations during the month`,
       meta:`<b>${list.length}</b> Exits <i>·</i> ${mLabel}`,
       body:`<table><thead><tr><th>#</th><th>ID</th><th>Name</th><th>Designation</th><th>Project</th><th>Exit Date</th><th>Reason</th></tr></thead><tbody>${rows||'<tr><td colspan="7" style="text-align:center;color:#94a3b8">No exits this month</td></tr>'}</tbody></table>` });
   } else if(currentReport==='transfers'){
-    const list = DATA.transfers.filter(t=>inMonth(t.TransferDate)).sort((a,b)=> (parseDate(a.TransferDate)?.getTime()||0) - (parseDate(b.TransferDate)?.getTime()||0));
+    const list = getMonthlyReportRows('transfers').rows.sort((a,b)=> (parseDate(a.TransferDate)?.getTime()||0) - (parseDate(b.TransferDate)?.getTime()||0));
     const rows = list.map((t,i)=>`<tr><td class="num">${i+1}</td><td>${fmtDate(t.TransferDate)}</td><td><strong>${t.FullName}</strong></td><td>${t.Designation||''}</td><td>${t.CurrentProject||''}</td><td>${t.NewProject||''}</td></tr>`).join('');
     html = mrepShell2({ title:'Monthly Transfers Report', subtitle:`${mLabel} · all transfer orders effective in the month`,
       meta:`<b>${list.length}</b> Transfers <i>·</i> ${mLabel}`,
       body:`<table><thead><tr><th>#</th><th>Date</th><th>Name</th><th>Designation</th><th>From</th><th>To</th></tr></thead><tbody>${rows||'<tr><td colspan="6" style="text-align:center;color:#94a3b8">No transfers this month</td></tr>'}</tbody></table>` });
   } else if(currentReport==='disciplinary'){
-    const list = DATA.disciplinary.filter(d=>inMonth(d.IssueDate)).sort((a,b)=> (parseDate(a.IssueDate)?.getTime()||0) - (parseDate(b.IssueDate)?.getTime()||0));
+    const list = getMonthlyReportRows('disciplinary').rows.sort((a,b)=> (parseDate(a.IssueDate)?.getTime()||0) - (parseDate(b.IssueDate)?.getTime()||0));
     const rows = list.map((d,i)=>`<tr><td class="num">${i+1}</td><td>${d.RefNo||''}</td><td><strong>${d.FullName}</strong></td><td>${d.Designation||''}</td><td>${d.ProjectName||''}</td><td>${d.ActionType||''}</td><td>${fmtDate(d.IssueDate)}</td></tr>`).join('');
     html = mrepShell2({ title:'Monthly Disciplinary Actions Report', subtitle:`${mLabel} · all actions issued during the month`,
       meta:`<b>${list.length}</b> Actions <i>·</i> ${mLabel}`,

@@ -4448,15 +4448,16 @@ async function renderDashboard(){
 
   // Solid 30-day date math baseline
   const now = new Date();
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const last30End = new Date(now); last30End.setHours(23, 59, 59, 999);
+  const thirtyDaysAgo = new Date(last30End);
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
   thirtyDaysAgo.setHours(0, 0, 0, 0);
 
   const isWithinLast30Days = (v) => {
     const d = parseDate(v);
     if (!d) return false;
     const t = d.getTime();
-    return t >= thirtyDaysAgo.getTime() && t <= (now.getTime() + 86400000);
+    return t >= thirtyDaysAgo.getTime() && t <= last30End.getTime();
   };
 
   // 1. New Joiners (Last 30 Days)
@@ -13133,9 +13134,11 @@ function renderReports(){
         <h3>${'Reports Center'}</h3>
         <div class="btn-row">
           <select id="reportDateMode" onchange="toggleReportDateMode();renderReportSelected()" style="padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit">
-            <option value="month">Monthly</option><option value="quarter">Quarterly</option><option value="year">Yearly</option><option value="custom">Custom Range</option>
+            <option value="last30">Last 30 Days</option><option value="month">Monthly</option><option value="quarter">Quarterly</option><option value="year">Yearly</option><option value="custom">Custom Range</option>
           </select>
           <select id="reportMonth" onchange="renderReportSelected()" style="padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit">${monthOptions()}</select>
+          <select id="reportQuarter" onchange="renderReportSelected()" style="display:none;padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit"><option value="1">Q1</option><option value="2">Q2</option><option value="3">Q3</option><option value="4">Q4</option></select>
+          <select id="reportYear" onchange="renderReportSelected()" style="display:none;padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit">${Array.from({length:8},(_,i)=>{const y=new Date().getFullYear()-i;return `<option value="${y}">${y}</option>`}).join('')}</select>
           <input id="reportDateFrom" type="date" onchange="renderReportSelected()" style="display:none;padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit">
           <input id="reportDateTo" type="date" onchange="renderReportSelected()" style="display:none;padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit">
           <select id="reportProject" onchange="renderReportSelected()" style="padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit">
@@ -13162,6 +13165,7 @@ function renderReports(){
     </div>
     <div id="reportOutput"></div>
   `;
+  toggleReportDateMode();
   showReport('workforceSummary');
 }
 function monthOptions(){
@@ -13177,34 +13181,42 @@ function monthOptions(){
   return html;
 }
 function toggleReportDateMode(){
-  const custom=document.getElementById('reportDateMode')?.value==='custom';
+  const mode=document.getElementById('reportDateMode')?.value||'last30';
   const month=document.getElementById('reportMonth');
+  const quarter=document.getElementById('reportQuarter');
+  const year=document.getElementById('reportYear');
   const from=document.getElementById('reportDateFrom');
   const to=document.getElementById('reportDateTo');
-  if(month) month.style.display=custom?'none':'';
-  if(from) from.style.display=custom?'':'';
-  if(to) to.style.display=custom?'':'';
+  if(month) month.style.display=mode==='month'?'':'none';
+  if(quarter) quarter.style.display=mode==='quarter'?'':'none';
+  if(year) year.style.display=(mode==='quarter'||mode==='year')?'':'none';
+  if(from) from.style.display=mode==='custom'?'':'none';
+  if(to) to.style.display=mode==='custom'?'':'none';
 }
 function getReportFilterContext(){
-  const mode=document.getElementById('reportDateMode')?.value||'month';
+  const mode=document.getElementById('reportDateMode')?.value||'last30';
   const monthVal=document.getElementById('reportMonth')?.value||todayISO().slice(0,7);
   let start,end,label;
-  if(mode==='custom'){
+  if(mode==='last30'){
+    const endDate=new Date(); endDate.setHours(23,59,59,999);
+    const startDate=new Date(endDate); startDate.setDate(startDate.getDate()-29); startDate.setHours(0,0,0,0);
+    start=startDate.getTime(); end=endDate.getTime()+1; label=`Last 30 Days (${fmtDate(todayISO(new Date(start)))} to ${fmtDate(todayISO(new Date(endDate)))})`;
+  }else if(mode==='custom'){
     const from=document.getElementById('reportDateFrom')?.value||monthVal+'-01';
     const to=document.getElementById('reportDateTo')?.value||todayISO();
     start=new Date(from+'T00:00:00').getTime();
     end=new Date(to+'T23:59:59').getTime()+1;
     label=`${fmtDate(from)} to ${fmtDate(to)}`;
   }else{
-    const parts=monthVal.split('-').map(Number), year=parts[0], month=parts[1];
+    const parts=monthVal.split('-').map(Number), selectedYear=Number(document.getElementById('reportYear')?.value||parts[0]), month=parts[1];
     if(mode==='quarter'){
-      const q=Math.floor((month-1)/3), startMonth=q*3;
-      start=new Date(year,startMonth,1).getTime(); end=new Date(year,startMonth+3,1).getTime(); label=`Q${q+1} ${year}`;
+      const q=Number(document.getElementById('reportQuarter')?.value||1), startMonth=(q-1)*3;
+      start=new Date(selectedYear,startMonth,1).getTime(); end=new Date(selectedYear,startMonth+3,1).getTime(); label=`Q${q} ${selectedYear}`;
     }else if(mode==='year'){
-      start=new Date(year,0,1).getTime(); end=new Date(year+1,0,1).getTime(); label=String(year);
+      start=new Date(selectedYear,0,1).getTime(); end=new Date(selectedYear+1,0,1).getTime(); label=String(selectedYear);
     }else{
-      start=new Date(year,month-1,1).getTime(); end=new Date(year,month,1).getTime();
-      label=new Date(year,month-1,1).toLocaleString('en-US',{month:'long',year:'numeric'});
+      start=new Date(parts[0],month-1,1).getTime(); end=new Date(parts[0],month,1).getTime();
+      label=new Date(parts[0],month-1,1).toLocaleString('en-US',{month:'long',year:'numeric'});
     }
   }
   return {mode,start,end,label,project:document.getElementById('reportProject')?.value||'',designation:document.getElementById('reportDesignation')?.value||'',employeeStatus:document.getElementById('reportEmployeeStatus')?.value||'',projectScope:document.getElementById('reportProjectScope')?.value||'all'};

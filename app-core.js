@@ -2275,7 +2275,7 @@
     var limit = Math.max(1, Math.min(200, Number(options.limit) || 100));
     return notificationSession().then(function (session) {
       return notificationClient().from('notifications')
-        .select('id,event_id,recipient_user_id,category,severity,priority,title,message,entity_type,entity_id,employee_sys_id,project_id,action_label,action_route,action_params,status,scheduled_for,expires_at,delivered_at,read_at,opened_at,actioned_at,completed_at,dismissed_at,snoozed_until,dedupe_key,repeat_count,escalation_level,parent_notification_id,created_at,updated_at')
+        .select('id,event_id,recipient_user_id,category,severity,priority,title,message,entity_type,entity_id,employee_sys_id,project_id,action_label,action_route,action_params,status,scheduled_for,expires_at,read_at,opened_at,actioned_at,completed_at,dismissed_at,snoozed_until,dedupe_key,repeat_count,escalation_level,parent_notification_id,created_at,updated_at')
         .eq('recipient_user_id', session.user.id)
         .order('created_at', { ascending: false })
         .limit(limit);

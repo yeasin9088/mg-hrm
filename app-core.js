@@ -2258,6 +2258,97 @@
     return pushingPromise;
   }
 
+  /* ---------- Notification Repository (Phase 2C) ----------------------- */
+  function notificationClient() {
+    var client = (typeof _client === 'function' ? _client() : null) || sb || global.sb;
+    if (!client) throw new Error('Supabase client is not connected.');
+    return client;
+  }
+  function notificationSession() {
+    return getSession().then(function (session) {
+      if (!session || !session.user) throw new Error('Authenticated session required.');
+      return session;
+    });
+  }
+  function notificationList(options) {
+    options = options || {};
+    var limit = Math.max(1, Math.min(200, Number(options.limit) || 100));
+    return notificationSession().then(function (session) {
+      return notificationClient().from('notifications')
+        .select('id,event_id,recipient_user_id,category,severity,priority,title,message,entity_type,entity_id,employee_sys_id,project_id,action_label,action_route,action_params,status,scheduled_for,expires_at,delivered_at,read_at,opened_at,actioned_at,completed_at,dismissed_at,snoozed_until,dedupe_key,repeat_count,escalation_level,parent_notification_id,created_at,updated_at')
+        .eq('recipient_user_id', session.user.id)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+    }).then(function (r) { if (r.error) throw r.error; return r.data || []; });
+  }
+  function notificationGetPreferences() {
+    return notificationSession().then(function (session) {
+      return notificationClient().from('notification_preferences').select('*')
+        .eq('user_id', session.user.id).order('category', { ascending: true });
+    }).then(function (r) { if (r.error) throw r.error; return r.data || []; });
+  }
+  function notificationUpdatePreferences(patch, category) {
+    patch = Object.assign({}, patch || {});
+    category = category || '*';
+    return notificationSession().then(function (session) {
+      patch.user_id = session.user.id;
+      patch.category = category;
+      return notificationClient().from('notification_preferences')
+        .upsert(patch, { onConflict: 'user_id,category' }).select().single();
+    }).then(function (r) { if (r.error) throw r.error; return r.data; });
+  }
+  function notificationListDevices() {
+    return notificationSession().then(function (session) {
+      return notificationClient().from('push_subscriptions')
+        .select('id,device_label,browser_name,platform_name,permission_state,is_active,last_seen_at,last_success_at,last_failure_at,failure_count,revoked_at,created_at,updated_at')
+        .eq('user_id', session.user.id).order('created_at', { ascending: false });
+    }).then(function (r) { if (r.error) throw r.error; return r.data || []; });
+  }
+  function notificationMarkRead(id) { return rpcCall('notification_mark_read', { p_notification_id: id }); }
+  function notificationMarkAllRead() { return rpcCall('notification_mark_all_read', {}); }
+  function notificationOpen(id) { return rpcCall('notification_open', { p_notification_id: id }); }
+  function notificationSnooze(id, until) { return rpcCall('notification_snooze', { p_notification_id: id, p_snoozed_until: until }); }
+  function notificationDismiss(id) { return rpcCall('notification_dismiss', { p_notification_id: id }); }
+  function notificationCompleteIfResolved(id) { return rpcCall('notification_complete_if_resolved', { p_notification_id: id }); }
+  function notificationRegisterDevice(data) {
+    data = data || {};
+    return rpcCall('push_subscription_register', {
+      p_endpoint: data.endpoint,
+      p_p256dh_key: data.p256dh_key,
+      p_auth_key: data.auth_key,
+      p_device_label: data.device_label || null,
+      p_browser_name: data.browser_name || null,
+      p_platform_name: data.platform_name || null,
+      p_user_agent: data.user_agent || null
+    });
+  }
+  function notificationRevokeDevice(id) { return rpcCall('push_subscription_revoke', { p_subscription_id: id }); }
+  function notificationUpdateDevice(id, data) {
+    data = data || {};
+    return rpcCall('push_subscription_update_device', {
+      p_subscription_id: id,
+      p_device_label: data.device_label || null,
+      p_browser_name: data.browser_name || null,
+      p_platform_name: data.platform_name || null,
+      p_touch_last_seen: data.touch_last_seen !== false
+    });
+  }
+  var NotificationRepository = {
+    list: notificationList,
+    getPreferences: notificationGetPreferences,
+    updatePreferences: notificationUpdatePreferences,
+    listDevices: notificationListDevices,
+    markRead: notificationMarkRead,
+    markAllRead: notificationMarkAllRead,
+    open: notificationOpen,
+    snooze: notificationSnooze,
+    dismiss: notificationDismiss,
+    completeIfResolved: notificationCompleteIfResolved,
+    registerDevice: notificationRegisterDevice,
+    revokeDevice: notificationRevokeDevice,
+    updateDevice: notificationUpdateDevice
+  };
+
   global.MGHRM = {
     connect: connect,
     isReady: isReady,
@@ -2268,6 +2359,7 @@
     onChange: onChange,
     currentUser: currentUser,
     myProfile: myProfile,
+    notifications: NotificationRepository,
     loadAll: loadAll,
     captureBaseline: captureBaseline,
     reconstructMeetings: reconstructMeetingsData,
@@ -2311,7 +2403,7 @@
     _view: sqlView,
     client: sb,
     sb: sb,
-    version: '2.1.1'
+    version: '2.2.0'
   };
 
   // Expose appData as alias to MGHRM data layer

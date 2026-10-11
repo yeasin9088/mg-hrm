@@ -18338,6 +18338,201 @@ function printDailySummary(iso) {
       }, 200);
     };
   <\/script>
+<script>
+/* ===== Notification Inbox server integration: Phase 2C ===== */
+(function () {
+  'use strict';
+  if (window.__mgNotificationPhase2C) return;
+  window.__mgNotificationPhase2C = true;
+
+  window.MG_NOTIFICATION_ENGINE_MODE = window.MG_NOTIFICATION_ENGINE_MODE || 'hybrid';
+  window.MG_BACKEND_NOTIFICATIONS = window.MG_BACKEND_NOTIFICATIONS || [];
+  window.MG_LEGACY_NOTIFICATIONS = window.MG_LEGACY_NOTIFICATIONS || [];
+  window.MG_NOTIFICATION_STATE = window.MG_NOTIFICATION_STATE || { loading:false, loaded:false, error:null, lastLoadedAt:null };
+
+  function repo() { return window.MGHRM && window.MGHRM.notifications; }
+  function epoch(v) { var n = v ? Date.parse(v) : NaN; return isNaN(n) ? Date.now() : n; }
+  function safeStatusRead(r) {
+    return !!r.read_at || ['Read','Actioned','Completed','Dismissed','Expired','Cancelled'].indexOf(r.status) !== -1;
+  }
+  function typeOf(r) {
+    var t = String((r.action_params && r.action_params.notification_type) || r.event_type || r.category || r.entity_type || 'general').toLowerCase();
+    var aliases = { transfer:'transfer_join', recruitment:'rec', disciplinary:'sc', todo:'todo_rem', employee:'rehire' };
+    return aliases[t] || t.replace(/[^a-z0-9_]+/g, '_');
+  }
+  window.mgNormalizeBackendNotification = function (r) {
+    return {
+      id:r.id, backendId:r.id, source:'backend', isBackend:true,
+      type:typeOf(r), category:r.category || 'System', severity:String(r.severity || 'Info').toLowerCase(),
+      priority:r.priority || 'Normal', title:r.title || 'Notification', detail:r.message || '',
+      ref:r.entity_id != null ? String(r.entity_id) : '', entityType:r.entity_type || '', entityId:r.entity_id,
+      employeeSysId:r.employee_sys_id, projectId:r.project_id, actionLabel:r.action_label || '',
+      actionRoute:r.action_route || '', actionParams:r.action_params || {}, status:r.status || 'Ready',
+      isRead:safeStatusRead(r), createdAt:epoch(r.created_at), scheduledFor:r.scheduled_for,
+      snoozedUntil:r.snoozed_until, dedupeKey:r.dedupe_key || '', raw:r
+    };
+  };
+  function legacyKey(n) {
+    if (!n) return '';
+    if (n.dedupeKey) return 'd:' + n.dedupeKey;
+    return 'e:' + String(n.entityType || n.type || '') + ':' + String(n.entityId != null ? n.entityId : n.ref || '');
+  }
+  window.mgRebuildNotificationView = function () {
+    var mode = window.MG_NOTIFICATION_ENGINE_MODE;
+    var current = Array.isArray(window.NOTIFICATIONS) ? window.NOTIFICATIONS : (typeof NOTIFICATIONS !== 'undefined' ? NOTIFICATIONS : []);
+    current.filter(function(n){ return n && !n.isBackend; }).forEach(function(n){
+      n.source='legacy'; n.isBackend=false;
+      var key=legacyKey(n), pos=window.MG_LEGACY_NOTIFICATIONS.findIndex(function(x){return legacyKey(x)===key;});
+      if(pos===-1) window.MG_LEGACY_NOTIFICATIONS.push(n); else window.MG_LEGACY_NOTIFICATIONS[pos]=n;
+    });
+    var legacy = window.MG_LEGACY_NOTIFICATIONS.slice();
+    var backend = (window.MG_BACKEND_NOTIFICATIONS || []).map(window.mgNormalizeBackendNotification);
+    var merged = [];
+    if (mode === 'legacy' || mode === 'shadow') merged = legacy;
+    else if (mode === 'server') merged = backend;
+    else {
+      var owned = {};
+      backend.forEach(function(n){ owned[legacyKey(n)] = true; merged.push(n); });
+      legacy.forEach(function(n){ if (!owned[legacyKey(n)]) merged.push(n); });
+    }
+    merged.sort(function(a,b){ return (b.createdAt || 0) - (a.createdAt || 0); });
+    current.splice.apply(current, [0, current.length].concat(merged));
+    window.NOTIFICATIONS = current;
+    if (typeof updateNotifBadge === 'function') updateNotifBadge();
+    var dd=document.getElementById('notifDropdown');
+    if (dd && dd.classList.contains('open') && typeof renderNotifDropdown === 'function') renderNotifDropdown();
+    var page=document.getElementById('page-notifications');
+    if (page && page.style.display !== 'none' && typeof renderNotifications === 'function') renderNotifications();
+    return current;
+  };
+  window.mgLoadBackendNotifications = async function () {
+    if (!repo() || window.MG_NOTIFICATION_STATE.loading) return [];
+    window.MG_NOTIFICATION_STATE.loading=true; window.MG_NOTIFICATION_STATE.error=null;
+    try {
+      var rows=await repo().list({limit:100});
+      window.MG_BACKEND_NOTIFICATIONS=rows || [];
+      window.MG_NOTIFICATION_STATE.loaded=true;
+      window.MG_NOTIFICATION_STATE.lastLoadedAt=Date.now();
+      window.mgRebuildNotificationView();
+      return rows;
+    } catch(e) {
+      window.MG_NOTIFICATION_STATE.error=(e && e.message) || String(e);
+      console.warn('[Notification Inbox]', e);
+      return [];
+    } finally { window.MG_NOTIFICATION_STATE.loading=false; }
+  };
+
+  var legacyMarkRead=window.markNotifAsRead;
+  window.markNotifAsRead=async function(id){
+    var n=(window.NOTIFICATIONS || []).find(function(x){return String(x.id)===String(id);});
+    if (!n || !n.isBackend) return legacyMarkRead ? legacyMarkRead(id) : undefined;
+    if (n.isRead) return true;
+    try { await repo().markRead(n.backendId); n.isRead=true; if(n.raw)n.raw.read_at=new Date().toISOString(); window.mgRebuildNotificationView(); return true; }
+    catch(e){ if(typeof toast==='function')toast('Could not mark notification as read: '+((e&&e.message)||e),'error'); return false; }
+  };
+  var legacyMarkAll=window.markAllNotifsAsRead;
+  window.markAllNotifsAsRead=async function(){
+    try {
+      if (repo()) await repo().markAllRead();
+      (window.MG_BACKEND_NOTIFICATIONS || []).forEach(function(r){ if(!r.read_at)r.read_at=new Date().toISOString(); });
+      if (legacyMarkAll) legacyMarkAll();
+      window.mgRebuildNotificationView(); return true;
+    } catch(e){ if(typeof toast==='function')toast('Could not mark all notifications as read: '+((e&&e.message)||e),'error'); return false; }
+  };
+  function knownRoute(route) {
+    route=String(route||'').replace(/^#?\/?/,'').split('?')[0];
+    var allowed=['dashboard','notifications','todo','transfer','employees','recruitment','disciplinary','leave','uniform','meetings','reports'];
+    return allowed.indexOf(route)!==-1 ? route : '';
+  }
+  var legacyClick=window.handleNotifClick;
+  window.handleNotifClick=async function(id,type){
+    var n=(window.NOTIFICATIONS || []).find(function(x){return String(x.id)===String(id);});
+    if (!n || !n.isBackend) return legacyClick ? legacyClick(id,type) : undefined;
+    try { await repo().open(n.backendId); n.isRead=true; n.status='Actioned'; }
+    catch(e){ if(typeof toast==='function')toast('Could not open notification: '+((e&&e.message)||e),'error'); return; }
+    var dd=document.getElementById('notifDropdown'); if(dd)dd.classList.remove('open');
+    var route=knownRoute(n.actionRoute);
+    if(!route){ var map={todo:'todo',transfer:'transfer',exit:'employees',leave:'leave',uniform_supply_order:'uniform',uniform_delivery_issue:'uniform',uniform_delivery_bill:'uniform',employee:'employees',disciplinary:'disciplinary',recruitment:'recruitment'}; route=map[n.entityType] || 'notifications'; }
+    if(route==='todo' && n.ref && typeof window.mgTodoNotifOpen==='function') window.mgTodoNotifOpen(n.ref);
+    else if(typeof navigate==='function') navigate(route);
+    window.mgRebuildNotificationView();
+  };
+  window.mgBackendNotifSnooze=async function(id,minutes){
+    var n=(window.NOTIFICATIONS||[]).find(function(x){return String(x.id)===String(id);}); if(!n||!n.isBackend)return;
+    minutes=Math.max(1,Number(minutes)||Number((window.MG_TD_CFG||{}).snoozeMin)||15);
+    try{await repo().snooze(n.backendId,new Date(Date.now()+minutes*60000).toISOString()); await window.mgLoadBackendNotifications(); if(typeof toast==='function')toast('Snoozed for '+minutes+' minutes','info');}
+    catch(e){if(typeof toast==='function')toast(((e&&e.message)||String(e)),'error');}
+  };
+  window.mgBackendNotifDismiss=async function(id){
+    var n=(window.NOTIFICATIONS||[]).find(function(x){return String(x.id)===String(id);}); if(!n||!n.isBackend)return;
+    try{await repo().dismiss(n.backendId); await window.mgLoadBackendNotifications();}
+    catch(e){if(typeof toast==='function')toast(((e&&e.message)||String(e)),'error');}
+  };
+  window.mgBackendNotifComplete=async function(id){
+    var n=(window.NOTIFICATIONS||[]).find(function(x){return String(x.id)===String(id);}); if(!n||!n.isBackend)return;
+    try{await repo().completeIfResolved(n.backendId); await window.mgLoadBackendNotifications(); if(typeof toast==='function')toast('Notification completed','success');}
+    catch(e){if(typeof toast==='function')toast(((e&&e.message)||String(e)),'error');}
+  };
+
+  var oldCard=window.mgNotifCardHtml;
+  if(oldCard) window.mgNotifCardHtml=function(n,opts){
+    var html=oldCard(n,opts);
+    if(!n || !n.isBackend || (opts&&opts.compact)) return html;
+    var actions='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+
+      '<button type="button" class="btn ghost sm" onclick="event.stopPropagation();mgBackendNotifSnooze(\''+n.id+'\')">Snooze</button>'+
+      '<button type="button" class="btn ghost sm" onclick="event.stopPropagation();mgBackendNotifDismiss(\''+n.id+'\')">Dismiss</button>'+
+      '<button type="button" class="btn primary sm" onclick="event.stopPropagation();mgBackendNotifComplete(\''+n.id+'\')">Complete if resolved</button></div>';
+    return html.replace(/(<\/div>\s*)$/,actions+'$1');
+  };
+
+  function dbToCfg(r){ return {master:r.notification_enabled!==false,toast:r.toast_enabled!==false,toastMax:r.toast_max_visible||2,toastGapSec:r.toast_gap_seconds||60,snoozeMin:r.default_snooze_minutes||15,quietOn:r.quiet_hours_enabled!==false,quietStart:String(r.quiet_hours_start||'22:00').slice(0,5),quietEnd:String(r.quiet_hours_end||'07:00').slice(0,5),systemPush:r.system_push_enabled!==false,minimumPriority:r.minimum_priority||'Low',timezone:r.timezone||'Asia/Dhaka'}; }
+  window.mgNotifCfgLoad=async function(){
+    var cached={}; try{cached=JSON.parse(localStorage.getItem('mghrm_notif_cfg')||'{}')||{};}catch(e){}
+    window.MG_TD_CFG=Object.assign({},window.MG_TD_CFG_DEFAULTS||{},cached);
+    try{var rows=await repo().getPreferences();var row=(rows||[]).find(function(x){return x.category==='*';})||rows[0];if(row){window.MG_TD_CFG=Object.assign({},window.MG_TD_CFG,dbToCfg(row));localStorage.setItem('mghrm_notif_cfg',JSON.stringify(window.MG_TD_CFG));}return window.MG_TD_CFG;}
+    catch(e){console.warn('[Notification Preferences]',e);return window.MG_TD_CFG;}
+  };
+  window.mgNotifCfgSave=async function(patch){
+    var previous=Object.assign({},window.MG_TD_CFG||{}); var next=Object.assign({},previous,patch||{}); window.MG_TD_CFG=next;
+    var db={notification_enabled:next.master!==false,in_app_enabled:true,toast_enabled:next.toast!==false,system_push_enabled:next.systemPush!==false,minimum_priority:next.minimumPriority||'Low',quiet_hours_enabled:next.quietOn!==false,quiet_hours_start:next.quietStart||'22:00',quiet_hours_end:next.quietEnd||'07:00',urgent_bypass_enabled:true,timezone:next.timezone||'Asia/Dhaka',default_snooze_minutes:Math.max(1,Number(next.snoozeMin)||15),toast_max_visible:Math.max(1,Math.min(3,Number(next.toastMax)||2)),toast_gap_seconds:Math.max(10,Math.min(600,Number(next.toastGapSec)||60))};
+    try{await repo().updatePreferences(db,'*');localStorage.setItem('mghrm_notif_cfg',JSON.stringify(next));return true;}
+    catch(e){window.MG_TD_CFG=previous;if(typeof toast==='function')toast('Settings were not saved: '+((e&&e.message)||e),'error');return false;}
+  };
+
+  window.mgLoadNotificationDevices=async function(){ try{return await repo().listDevices();}catch(e){console.warn('[Notification Devices]',e);return [];} };
+  window.mgEnableDeviceNotifications=async function(){
+    if(!('Notification' in window)||!('serviceWorker' in navigator)){if(typeof toast==='function')toast('Device notifications are unsupported in this browser','warning');return 'unsupported';}
+    var permission=Notification.permission;
+    if(permission==='default') permission=await Notification.requestPermission();
+    if(permission!=='granted'){if(typeof toast==='function')toast('Device notification permission is blocked','warning');return 'blocked';}
+    if(typeof toast==='function')toast('Permission granted. Web Push subscription will activate after VAPID setup in Phase 4.','info');
+    return 'not_configured';
+  };
+  window.mgOpenDeviceNotifications=async function(){
+    var supported=('Notification' in window)&&('serviceWorker' in navigator);
+    var permission=supported?Notification.permission:'unsupported';
+    var devices=await window.mgLoadNotificationDevices();
+    var state=!supported?'Unsupported':permission==='denied'?'Blocked':devices.some(function(d){return d.is_active;})?'Enabled':devices.some(function(d){return d.revoked_at||d.permission_state==='revoked';})?'Revoked':'Not configured';
+    var rows=devices.length?devices.map(function(d){return '<div style="padding:8px 0;border-top:1px solid var(--border)"><strong>'+escapeHtml(d.device_label||d.browser_name||'Device')+'</strong><div style="font-size:12px;color:var(--text-mute)">'+escapeHtml((d.platform_name||'')+' · '+(d.permission_state||state))+'</div></div>';}).join(''):'<div style="font-size:12px;color:var(--text-mute)">No registered devices.</div>';
+    var html='<div style="display:flex;flex-direction:column;gap:12px"><div><strong>Device notifications:</strong> '+escapeHtml(state)+'</div>'+rows+'<div style="font-size:12px;color:var(--text-mute)">Subscription delivery activates after VAPID and the push sender are configured.</div></div>';
+    var actions='<button type="button" class="btn ghost sm" onclick="closeModal()">Close</button><button type="button" class="btn primary sm" onclick="mgEnableDeviceNotifications().then(function(){mgOpenDeviceNotifications();})">Enable Device Notifications</button>';
+    if(typeof openModal==='function')openModal('Device notifications',html,actions);
+  };
+  var oldOpenSettings=window.mtOpenNotifSettings;
+  if(oldOpenSettings) window.mtOpenNotifSettings=function(){
+    oldOpenSettings();
+    setTimeout(function(){
+      var modal=document.getElementById('modal'); if(!modal)return;
+      var footer=modal.querySelector('.modal-actions,.modal-footer');
+      if(footer&&!footer.querySelector('[data-device-notifications]')){var b=document.createElement('button');b.type='button';b.className='btn ghost sm';b.setAttribute('data-device-notifications','1');b.textContent='Device notifications';b.onclick=window.mgOpenDeviceNotifications;footer.insertBefore(b,footer.firstChild);}
+    },0);
+  };
+
+  function start(){ window.mgLoadBackendNotifications(); window.mgNotifCfgLoad(); }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){setTimeout(start,500);}); else setTimeout(start,500);
+  if(window.MGHRM && typeof window.MGHRM.onChange==='function') window.MGHRM.onChange(function(ev,session){ if(session&&session.user)start(); else{window.MG_BACKEND_NOTIFICATIONS=[];window.mgRebuildNotificationView();} });
+})();
+</script>
 </body>
 </html>`;
 

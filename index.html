@@ -20594,7 +20594,8 @@ window.mtOpenNotifSettings = function(){
       'Every note has its own schedule. There is no global cycle: a note set to every 1 hour reminds hourly, a note set to custom dates reminds only on those dates.</div>' +
   '</div>';
 
-  var actions = '<button type="button" class="btn ghost sm" onclick="mtResetNotifSettings()">Reset to defaults</button>' +
+  var actions = '<button type="button" class="btn ghost sm" data-device-notifications="1" onclick="mgOpenDeviceNotifications()">Device notifications</button>' +
+                '<button type="button" class="btn ghost sm" onclick="mtResetNotifSettings()">Reset to defaults</button>' +
                 '<button type="button" class="btn primary sm" onclick="mtSaveNotifSettings()">Save</button>';
   if (typeof openModal === 'function') openModal('Reminder settings', html, actions);
 };
@@ -24867,15 +24868,7 @@ setInterval(()=>checkPendingToast(true), 180000);
     var actions='<button type="button" class="btn ghost sm" onclick="closeModal()">Close</button><button type="button" class="btn primary sm" onclick="mgEnableDeviceNotifications().then(function(){mgOpenDeviceNotifications();})">Enable Device Notifications</button>';
     if(typeof openModal==='function')openModal('Device notifications',html,actions);
   };
-  var oldOpenSettings=window.mtOpenNotifSettings;
-  if(oldOpenSettings) window.mtOpenNotifSettings=function(){
-    oldOpenSettings();
-    setTimeout(function(){
-      var modal=document.getElementById('modal'); if(!modal)return;
-      var footer=modal.querySelector('.modal-actions,.modal-footer');
-      if(footer&&!footer.querySelector('[data-device-notifications]')){var b=document.createElement('button');b.type='button';b.className='btn ghost sm';b.setAttribute('data-device-notifications','1');b.textContent='Device notifications';b.onclick=window.mgOpenDeviceNotifications;footer.insertBefore(b,footer.firstChild);}
-    },0);
-  };
+
 
   window.mgHandleSystemNotificationClick=function(data){
     data=data||{};

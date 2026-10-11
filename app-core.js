@@ -2298,11 +2298,17 @@
     }).then(function (r) { if (r.error) throw r.error; return r.data; });
   }
   function notificationListDevices() {
-    return notificationSession().then(function (session) {
-      return notificationClient().from('push_subscriptions')
-        .select('id,device_label,browser_name,platform_name,permission_state,is_active,last_seen_at,last_success_at,last_failure_at,failure_count,revoked_at,created_at,updated_at')
-        .eq('user_id', session.user.id).order('created_at', { ascending: false });
-    }).then(function (r) { if (r.error) throw r.error; return r.data || []; });
+    return notificationSession().then(function () {
+      return notificationClient().rpc('push_subscription_list_devices');
+    }).then(function (r) {
+      if (r.error) throw r.error;
+      return (r.data || []).map(function (row) {
+        var item = Object.assign({}, row);
+        item.id = row.subscription_id;
+        delete item.subscription_id;
+        return item;
+      });
+    });
   }
   function notificationMarkRead(id) { return rpcCall('notification_mark_read', { p_notification_id: id }); }
   function notificationMarkAllRead() { return rpcCall('notification_mark_all_read', {}); }
@@ -2440,7 +2446,7 @@
     _view: sqlView,
     client: sb,
     sb: sb,
-    version: '2.3.0'
+    version: '2.4.0'
   };
 
   // Expose appData as alias to MGHRM data layer

@@ -24816,6 +24816,27 @@ setInterval(()=>checkPendingToast(true), 180000);
     },0);
   };
 
+  window.mgHandleSystemNotificationClick=function(data){
+    data=data||{};
+    var route=String(data.route||'notifications').replace(/^#?\/?/,'').split('?')[0];
+    var allowed=['dashboard','notifications','todo','transfer','employees','recruitment','disciplinary','leave','uniform','meetings','reports'];
+    if(allowed.indexOf(route)===-1)route='notifications';
+    if(data.notificationId){
+      var n=(window.NOTIFICATIONS||[]).find(function(x){return String(x.id)===String(data.notificationId);});
+      if(n&&n.isBackend){window.handleNotifClick(n.id,n.type);return;}
+    }
+    if(route==='todo'&&data.entityId&&typeof window.mgTodoNotifOpen==='function')window.mgTodoNotifOpen(data.entityId);
+    else if(typeof navigate==='function')navigate(route);
+  };
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.addEventListener('message',function(event){
+      var data=event.data||{};
+      if(data.type==='MG_NOTIFICATION_CLICK')window.mgHandleSystemNotificationClick(data);
+    });
+    var initialRoute=new URLSearchParams(location.search).get('notification_route');
+    if(initialRoute)setTimeout(function(){window.mgHandleSystemNotificationClick({route:initialRoute});},900);
+  }
+
   window.mgHandleNotificationRealtime=function(payload){
     if(!payload)return;
     var rows=window.MG_BACKEND_NOTIFICATIONS || [];

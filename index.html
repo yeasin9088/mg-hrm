@@ -24788,13 +24788,74 @@ setInterval(()=>checkPendingToast(true), 180000);
   };
 
   window.mgLoadNotificationDevices=async function(){ try{return await repo().listDevices();}catch(e){console.warn('[Notification Devices]',e);return [];} };
+  function mgUrlBase64ToUint8Array(value){
+    var padding='='.repeat((4-value.length%4)%4);
+    var base64=(value+padding).replace(/-/g,'+').replace(/_/g,'/');
+    var raw=atob(base64), out=new Uint8Array(raw.length);
+    for(var i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);
+    return out;
+  }
+  function mgPushKey(subscription,name){
+    var key=subscription.getKey(name);
+    if(!key)throw new Error('Browser did not provide the '+name+' subscription key.');
+    var bytes=new Uint8Array(key), binary='';
+    for(var i=0;i<bytes.length;i++)binary+=String.fromCharCode(bytes[i]);
+    return btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  }
+  function mgBrowserName(){
+    var ua=navigator.userAgent;
+    if(/Edg\//.test(ua))return 'Microsoft Edge';
+    if(/Firefox\//.test(ua))return 'Firefox';
+    if(/Chrome\//.test(ua))return 'Chrome';
+    if(/Safari\//.test(ua))return 'Safari';
+    return 'Browser';
+  }
   window.mgEnableDeviceNotifications=async function(){
-    if(!('Notification' in window)||!('serviceWorker' in navigator)){if(typeof toast==='function')toast('Device notifications are unsupported in this browser','warning');return 'unsupported';}
-    var permission=Notification.permission;
-    if(permission==='default') permission=await Notification.requestPermission();
-    if(permission!=='granted'){if(typeof toast==='function')toast('Device notification permission is blocked','warning');return 'blocked';}
-    if(typeof toast==='function')toast('Permission granted. Web Push subscription will activate after VAPID setup in Phase 4.','info');
-    return 'not_configured';
+    if(!repo())throw new Error('Notification repository is unavailable.');
+    if(!window.isSecureContext||!('Notification' in window)||!('serviceWorker' in navigator)||!('PushManager' in window)){
+      if(typeof toast==='function')toast('Device notifications are unsupported in this browser or connection.','warning');
+      return 'unsupported';
+    }
+    try{
+      var permission=Notification.permission;
+      if(permission==='default')permission=await Notification.requestPermission();
+      if(permission!=='granted'){
+        if(typeof toast==='function')toast('Device notification permission is blocked. Enable it in browser site settings.','warning');
+        return 'blocked';
+      }
+      var registration=await navigator.serviceWorker.ready;
+      var config=await repo().getWebPushConfig();
+      var subscription=await registration.pushManager.getSubscription();
+      if(subscription){
+        var options=subscription.options||{};
+        var existingKey=options.applicationServerKey?new Uint8Array(options.applicationServerKey):null;
+        var expectedKey=mgUrlBase64ToUint8Array(config.publicKey);
+        var same=existingKey&&existingKey.length===expectedKey.length&&existingKey.every(function(v,i){return v===expectedKey[i];});
+        if(!same){await subscription.unsubscribe();subscription=null;}
+      }
+      if(!subscription){
+        subscription=await registration.pushManager.subscribe({
+          userVisibleOnly:true,
+          applicationServerKey:mgUrlBase64ToUint8Array(config.publicKey)
+        });
+      }
+      var result=await repo().registerDevice({
+        endpoint:subscription.endpoint,
+        p256dh_key:mgPushKey(subscription,'p256dh'),
+        auth_key:mgPushKey(subscription,'auth'),
+        device_label:mgBrowserName()+' on '+(navigator.platform||'device'),
+        browser_name:mgBrowserName(),
+        platform_name:navigator.platform||null,
+        user_agent:navigator.userAgent
+      });
+      if(typeof toast==='function')toast('Device notifications enabled successfully.','success');
+      await window.mgLoadNotificationDevices();
+      return result||'enabled';
+    }catch(e){
+      console.error('[Device Notifications]',e);
+      if(typeof toast==='function')toast('Could not enable device notifications: '+((e&&e.message)||String(e)),'error');
+      return 'error';
+    }
   };
   window.mgOpenDeviceNotifications=async function(){
     var supported=('Notification' in window)&&('serviceWorker' in navigator);

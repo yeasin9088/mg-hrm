@@ -2316,6 +2316,17 @@
   function notificationSnooze(id, until) { return rpcCall('notification_snooze', { p_notification_id: id, p_snoozed_until: until }); }
   function notificationDismiss(id) { return rpcCall('notification_dismiss', { p_notification_id: id }); }
   function notificationCompleteIfResolved(id) { return rpcCall('notification_complete_if_resolved', { p_notification_id: id }); }
+  function notificationGetWebPushConfig() {
+    return notificationSession().then(function () {
+      return notificationClient().functions.invoke('web-push-config', { body: {} });
+    }).then(function (r) {
+      if (r.error) throw r.error;
+      if (!r.data || r.data.configured !== true || !r.data.publicKey) {
+        throw new Error('Web Push configuration is unavailable.');
+      }
+      return { publicKey: r.data.publicKey };
+    });
+  }
   function notificationRegisterDevice(data) {
     data = data || {};
     return rpcCall('push_subscription_register', {
@@ -2379,6 +2390,7 @@
     getPreferences: notificationGetPreferences,
     updatePreferences: notificationUpdatePreferences,
     listDevices: notificationListDevices,
+    getWebPushConfig: notificationGetWebPushConfig,
     markRead: notificationMarkRead,
     markAllRead: notificationMarkAllRead,
     open: notificationOpen,
@@ -2446,7 +2458,7 @@
     _view: sqlView,
     client: sb,
     sb: sb,
-    version: '2.4.0'
+    version: '2.5.0'
   };
 
   // Expose appData as alias to MGHRM data layer

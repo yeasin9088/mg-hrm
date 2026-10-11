@@ -24816,9 +24816,39 @@ setInterval(()=>checkPendingToast(true), 180000);
     },0);
   };
 
-  function start(){ window.mgLoadBackendNotifications(); window.mgNotifCfgLoad(); }
+  window.mgHandleNotificationRealtime=function(payload){
+    if(!payload)return;
+    var rows=window.MG_BACKEND_NOTIFICATIONS || [];
+    var eventType=payload.eventType;
+    var record=payload.new || payload.old;
+    if(!record || !record.id)return;
+    var pos=rows.findIndex(function(r){return String(r.id)===String(record.id);});
+    if(eventType==='DELETE'){
+      if(pos!==-1)rows.splice(pos,1);
+    }else if(pos===-1){
+      rows.unshift(record);
+    }else{
+      rows[pos]=record;
+    }
+    window.MG_BACKEND_NOTIFICATIONS=rows;
+    window.mgRebuildNotificationView();
+  };
+  async function start(){
+    await window.mgLoadBackendNotifications();
+    window.mgNotifCfgLoad();
+    if(repo() && typeof repo().subscribe==='function'){
+      try{await repo().subscribe(window.mgHandleNotificationRealtime);}catch(e){console.warn('[Notification Realtime]',e);}
+    }
+  }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){setTimeout(start,500);}); else setTimeout(start,500);
-  if(window.MGHRM && typeof window.MGHRM.onChange==='function') window.MGHRM.onChange(function(ev,session){ if(session&&session.user)start(); else{window.MG_BACKEND_NOTIFICATIONS=[];window.mgRebuildNotificationView();} });
+  if(window.MGHRM && typeof window.MGHRM.onChange==='function') window.MGHRM.onChange(function(ev,session){
+    if(session&&session.user)start();
+    else{
+      if(repo()&&typeof repo().unsubscribe==='function')repo().unsubscribe();
+      window.MG_BACKEND_NOTIFICATIONS=[];
+      window.mgRebuildNotificationView();
+    }
+  });
 })();
 </script>
 </body>

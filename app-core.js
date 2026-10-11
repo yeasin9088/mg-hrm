@@ -2333,6 +2333,41 @@
       p_touch_last_seen: data.touch_last_seen !== false
     });
   }
+  var _notificationRealtimeChannel = null;
+  var _notificationRealtimeUserId = null;
+  function notificationUnsubscribeRealtime() {
+    var client = (typeof _client === 'function' ? _client() : null) || sb || global.sb;
+    var channel = _notificationRealtimeChannel;
+    _notificationRealtimeChannel = null;
+    _notificationRealtimeUserId = null;
+    if (!client || !channel || typeof client.removeChannel !== 'function') return Promise.resolve(true);
+    return Promise.resolve(client.removeChannel(channel)).then(function () { return true; }).catch(function () { return false; });
+  }
+  function notificationSubscribeRealtime(callback) {
+    return notificationSession().then(function (session) {
+      var client = notificationClient();
+      var userId = session.user.id;
+      if (_notificationRealtimeChannel && _notificationRealtimeUserId === userId) return _notificationRealtimeChannel;
+      return notificationUnsubscribeRealtime().then(function () {
+        _notificationRealtimeUserId = userId;
+        _notificationRealtimeChannel = client
+          .channel('mghrm-notifications-' + userId)
+          .on('postgres_changes', {
+            event: '*', schema: 'public', table: 'notifications',
+            filter: 'recipient_user_id=eq.' + userId
+          }, function (payload) {
+            if (typeof callback === 'function') callback(payload);
+          })
+          .subscribe(function (status, err) {
+            if (status === 'SUBSCRIBED') console.log('[Notification Realtime] Connected');
+            else if (status === 'CHANNEL_ERROR') console.warn('[Notification Realtime] Channel error; REST refresh remains available.', err || '');
+            else if (status === 'CLOSED') console.info('[Notification Realtime] Channel closed.');
+            else if (status === 'TIMED_OUT') console.warn('[Notification Realtime] Channel timed out; REST refresh remains available.');
+          });
+        return _notificationRealtimeChannel;
+      });
+    });
+  }
   var NotificationRepository = {
     list: notificationList,
     getPreferences: notificationGetPreferences,
@@ -2346,7 +2381,9 @@
     completeIfResolved: notificationCompleteIfResolved,
     registerDevice: notificationRegisterDevice,
     revokeDevice: notificationRevokeDevice,
-    updateDevice: notificationUpdateDevice
+    updateDevice: notificationUpdateDevice,
+    subscribe: notificationSubscribeRealtime,
+    unsubscribe: notificationUnsubscribeRealtime
   };
 
   global.MGHRM = {
@@ -2403,7 +2440,7 @@
     _view: sqlView,
     client: sb,
     sb: sb,
-    version: '2.2.0'
+    version: '2.3.0'
   };
 
   // Expose appData as alias to MGHRM data layer

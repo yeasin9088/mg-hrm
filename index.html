@@ -3597,15 +3597,19 @@ input:focus, select:focus, textarea:focus {
           <line x1="3" y1="18" x2="21" y2="18"/>
         </svg>
       </button>
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <div style="width: 28px; height: 28px; border-radius: 6px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 11px;">MG</div>
-        <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--text);">Mahbub Group</h3>
+      <div class="mobile-brand-lockup">
+        <span class="mobile-brand-logo" id="mobileBrandLogo" aria-hidden="true">MG</span>
+        <h3>Mahbub Group</h3>
       </div>
-      <button type="button" class="btn ghost icon-only" id="mobileFullscreenToggleBtn" onclick="toggleFullScreen()" aria-label="Toggle Full Screen" title="Toggle Full Screen (F11 / Shift+F)" style="padding: 7px; border: 1px solid var(--border); border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; background: var(--card, #fff); cursor: pointer; color: var(--text-2);">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
-        </svg>
-      </button>
+      <div class="mobile-header-actions">
+        <button type="button" class="btn ghost icon-only" id="mobileFullscreenToggleBtn" onclick="toggleFullScreen()" aria-label="Toggle Full Screen" title="Toggle Full Screen">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+        </button>
+        <button type="button" class="btn ghost icon-only mobile-notif-toggle" id="mobileNotifToggle" onclick="toggleNotifDropdown(event)" aria-label="Open notifications" aria-controls="notifDropdown" aria-expanded="false" title="Notifications">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="mobile-notif-badge" id="mobileNotifBadge" style="display:none" aria-live="polite">0</span>
+        </button>
+      </div>
     </div>
     <div class="topbar">
       <div class="topbar-left">
@@ -14830,6 +14834,8 @@ function updateNotifBadge(){
   if(b){ b.style.display = unreadCount > 0 ? 'grid' : 'none'; b.textContent = unreadCount > 99 ? '99+' : unreadCount; }
   const nb = document.getElementById('navNotifBadge');
   if(nb){ nb.style.display = unreadCount > 0 ? '' : 'none'; nb.textContent = unreadCount > 99 ? '99+' : unreadCount; }
+  const mb = document.getElementById('mobileNotifBadge');
+  if(mb){ mb.style.display = unreadCount > 0 ? 'grid' : 'none'; mb.textContent = unreadCount > 99 ? '99+' : unreadCount; }
 }
 function toggleNotifDropdown(ev){
   if(ev) ev.stopPropagation();
@@ -25003,5 +25009,56 @@ setInterval(()=>checkPendingToast(true), 180000);
 @media(max-width:768px){.mg-n-page-compact{margin-top:-4px}.mg-n-compact-head{position:sticky;top:0;z-index:7;background:var(--bg,var(--card,#fff));min-height:40px}.mg-n-compact-tabs{position:sticky;top:40px;z-index:6;background:var(--bg,var(--card,#fff))}.mg-n-filter-drawer .mg-n-tools{grid-template-columns:1fr 1fr}.mg-n-filter-drawer .mg-n-search{grid-column:1/-1}.mg-n-filter-drawer .mg-n-clear{grid-column:auto}.mg-n-page-list{margin:0;border-radius:8px}.mg-n-page .mg-n-card{min-height:76px;padding:10px 9px}.mg-n-page .mg-n-avatar{width:32px;height:32px}.mg-n-page .mg-n-title{font-size:12.5px}.mg-n-page .mg-n-message{font-size:11.5px}.mg-n-page .mg-n-chip{font-size:9px}.mg-n-link-action{min-height:32px;display:inline-flex;align-items:center}.mg-n-more summary{width:36px;height:32px}.mg-n-menu{position:fixed;left:12px;right:12px;top:auto;bottom:max(12px,env(safe-area-inset-bottom));min-width:0}.mg-n-menu button{min-height:44px;font-size:13px}.notif-dropdown.mg-n-panel .mg-n-list{height:calc(100dvh - 142px)}.notif-dropdown.mg-n-panel .mg-n-panel-head{min-height:48px}.notif-dropdown.mg-n-panel .mg-n-tabs{padding:4px 7px}.notif-dropdown.mg-n-panel .mg-n-panel-foot{padding-bottom:max(7px,env(safe-area-inset-bottom))}}
 @media(max-width:420px){.mg-n-filter-drawer .mg-n-tools{grid-template-columns:1fr 1fr}.mg-n-filter-drawer .mg-n-search{grid-column:1/-1}.mg-n-compact-title{font-size:14px}}
 </style>
+<!-- MG MOBILE HEADER + NOTIFICATION SHEET FIX START -->
+<style id="mgMobileHeaderNotificationFix">
+.mobile-brand-lockup{display:flex;align-items:center;gap:8px;min-width:0}
+.mobile-brand-lockup h3{margin:0;font-size:15px;font-weight:750;color:var(--text);white-space:nowrap}
+.mobile-brand-logo{width:30px;height:30px;border-radius:7px;display:grid;place-items:center;overflow:hidden;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:#fff;font-size:10px;font-weight:800;flex:0 0 auto}
+.mobile-brand-logo img{width:100%;height:100%;display:block;object-fit:contain;background:#fff}
+.mobile-header-actions{display:flex;align-items:center;gap:6px}
+.mobile-header-actions .icon-only{position:relative;width:36px;height:36px;padding:0!important;border:1px solid var(--border)!important;border-radius:7px!important;display:inline-flex;align-items:center;justify-content:center;background:var(--card,#fff)!important;color:var(--text-2);cursor:pointer}
+.mobile-notif-badge{position:absolute;right:-4px;top:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:var(--danger,#e11d48);color:#fff;font-size:9px;font-weight:800;place-items:center;border:2px solid var(--card,#fff)}
+@media(max-width:768px){
+  .mobile-header{padding:8px 12px!important;min-height:52px}
+  .topbar{padding-top:10px!important;padding-bottom:8px!important;gap:0!important}
+  .topbar-right{display:none!important}
+  .topbar-left h2{font-size:20px!important;line-height:1.2}
+  .topbar-left p{font-size:11px!important;margin-top:2px!important}
+  body.mg-notif-open:before{content:"";position:fixed;inset:0;background:rgba(15,23,42,.32);z-index:10040}
+  .notif-dropdown.mg-n-panel{position:fixed!important;left:0!important;right:0!important;top:auto!important;bottom:0!important;width:100%!important;height:min(78dvh,680px)!important;max-height:78dvh!important;border:0!important;border-top:1px solid var(--mg-n-border)!important;border-radius:18px 18px 0 0!important;z-index:10050!important;box-shadow:0 -18px 50px rgba(15,23,42,.24)!important;transform:translateY(105%)!important;opacity:0;visibility:hidden;transition:transform .22s ease,opacity .18s ease,visibility 0s linear .22s!important}
+  .notif-dropdown.mg-n-panel.open{transform:translateY(0)!important;opacity:1;visibility:visible;transition:transform .22s ease,opacity .18s ease!important}
+  .notif-dropdown.mg-n-panel:before{content:"";display:block;width:38px;height:4px;border-radius:999px;background:#cbd5e1;margin:7px auto 1px}
+  .notif-dropdown.mg-n-panel .mg-n-list{height:calc(min(78dvh,680px) - 143px)!important;max-height:none!important}
+  .notif-dropdown.mg-n-panel .mg-n-panel-head{padding-top:5px!important;min-height:43px!important}
+  .notif-dropdown.mg-n-panel .mg-n-panel-foot{padding-bottom:max(8px,env(safe-area-inset-bottom))!important}
+}
+@media(max-width:380px){.mobile-brand-lockup h3{font-size:13px}.mobile-header{padding-left:9px!important;padding-right:9px!important}.mobile-header-actions{gap:4px}}
+@media(prefers-reduced-motion:reduce){.notif-dropdown.mg-n-panel{transition:none!important}}
+</style>
+<script>
+(function(){
+  function syncMobileBrandLogo(){
+    var el=document.getElementById('mobileBrandLogo');
+    if(!el)return;
+    if(typeof COMPANY!=='undefined'&&COMPANY&&COMPANY.logoDataUrl){
+      el.innerHTML='<img src="'+COMPANY.logoDataUrl+'" alt="">';
+    }
+  }
+  function syncMobileNotificationState(){
+    var dd=document.getElementById('notifDropdown');
+    var btn=document.getElementById('mobileNotifToggle');
+    if(btn)btn.setAttribute('aria-expanded',dd&&dd.classList.contains('open')?'true':'false');
+  }
+  function init(){
+    syncMobileBrandLogo();
+    if(typeof updateNotifBadge==='function')updateNotifBadge();
+    var dd=document.getElementById('notifDropdown');
+    if(dd)new MutationObserver(syncMobileNotificationState).observe(dd,{attributes:true,attributeFilter:['class']});
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+  window.addEventListener('load',syncMobileBrandLogo,{once:true});
+})();
+</script>
+<!-- MG MOBILE HEADER + NOTIFICATION SHEET FIX END -->
 </body>
 </html>

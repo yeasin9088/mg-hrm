@@ -3605,7 +3605,7 @@ input:focus, select:focus, textarea:focus {
         <button type="button" class="btn ghost icon-only" id="mobileFullscreenToggleBtn" onclick="toggleFullScreen()" aria-label="Toggle Full Screen" title="Toggle Full Screen">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
         </button>
-        <button type="button" class="btn ghost icon-only mobile-notif-toggle" id="mobileNotifToggle" onclick="toggleNotifDropdown(event)" aria-label="Open notifications" aria-controls="notifDropdown" aria-expanded="false" title="Notifications">
+        <button type="button" class="btn ghost icon-only mobile-notif-toggle" id="mobileNotifToggle" onclick="mgOpenMobileNotifications(event)" aria-label="Open notifications" aria-controls="notifDropdown" aria-expanded="false" title="Notifications">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           <span class="mobile-notif-badge" id="mobileNotifBadge" style="display:none" aria-live="polite">0</span>
         </button>
@@ -25025,11 +25025,11 @@ setInterval(()=>checkPendingToast(true), 180000);
   .topbar-left h2{font-size:20px!important;line-height:1.2}
   .topbar-left p{font-size:11px!important;margin-top:2px!important}
   body.mg-notif-open:before{content:"";position:fixed;inset:0;background:rgba(15,23,42,.32);z-index:10040}
-  .notif-dropdown.mg-n-panel{position:fixed!important;left:0!important;right:0!important;top:auto!important;bottom:0!important;width:100%!important;height:min(78dvh,680px)!important;max-height:78dvh!important;border:0!important;border-top:1px solid var(--mg-n-border)!important;border-radius:18px 18px 0 0!important;z-index:10050!important;box-shadow:0 -18px 50px rgba(15,23,42,.24)!important;transform:translateY(105%)!important;opacity:0;visibility:hidden;transition:transform .22s ease,opacity .18s ease,visibility 0s linear .22s!important}
-  .notif-dropdown.mg-n-panel.open{transform:translateY(0)!important;opacity:1;visibility:visible;transition:transform .22s ease,opacity .18s ease!important}
-  .notif-dropdown.mg-n-panel:before{content:"";display:block;width:38px;height:4px;border-radius:999px;background:#cbd5e1;margin:7px auto 1px}
-  .notif-dropdown.mg-n-panel .mg-n-list{height:calc(min(78dvh,680px) - 143px)!important;max-height:none!important}
-  .notif-dropdown.mg-n-panel .mg-n-panel-head{padding-top:5px!important;min-height:43px!important}
+  .notif-dropdown.mg-n-panel{position:fixed!important;left:auto!important;right:0!important;top:0!important;bottom:0!important;width:min(92vw,420px)!important;height:100dvh!important;max-height:100dvh!important;border:0!important;border-left:1px solid var(--mg-n-border)!important;border-radius:16px 0 0 16px!important;z-index:10050!important;box-shadow:-18px 0 50px rgba(15,23,42,.24)!important;transform:translateX(105%)!important;opacity:0;visibility:hidden;transition:transform .22s ease,opacity .18s ease,visibility 0s linear .22s!important}
+  .notif-dropdown.mg-n-panel.open{transform:translateX(0)!important;opacity:1;visibility:visible;transition:transform .22s ease,opacity .18s ease!important}
+  .notif-dropdown.mg-n-panel:before{display:none!important}
+  .notif-dropdown.mg-n-panel .mg-n-list{height:calc(100dvh - 132px)!important;max-height:none!important}
+  .notif-dropdown.mg-n-panel .mg-n-panel-head{padding-top:max(8px,env(safe-area-inset-top))!important;min-height:52px!important}
   .notif-dropdown.mg-n-panel .mg-n-panel-foot{padding-bottom:max(8px,env(safe-area-inset-bottom))!important}
 }
 @media(max-width:380px){.mobile-brand-lockup h3{font-size:13px}.mobile-header{padding-left:9px!important;padding-right:9px!important}.mobile-header-actions{gap:4px}}
@@ -25049,11 +25049,35 @@ setInterval(()=>checkPendingToast(true), 180000);
     var btn=document.getElementById('mobileNotifToggle');
     if(btn)btn.setAttribute('aria-expanded',dd&&dd.classList.contains('open')?'true':'false');
   }
+  window.mgOpenMobileNotifications=function(ev){
+    if(ev){ev.preventDefault();ev.stopPropagation();}
+    var dd=document.getElementById('notifDropdown');
+    if(!dd)return;
+    if(dd.parentNode!==document.body)document.body.appendChild(dd);
+    if(typeof renderNotifDropdown==='function')renderNotifDropdown();
+    var opening=!dd.classList.contains('open');
+    dd.classList.toggle('open',opening);
+    document.body.classList.toggle('mg-notif-open',opening);
+    var btn=document.getElementById('mobileNotifToggle');
+    if(btn)btn.setAttribute('aria-expanded',opening?'true':'false');
+  };
+  async function lockInstalledAppPortrait(){
+    var standalone=window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches;
+    if(!standalone||!screen.orientation||typeof screen.orientation.lock!=='function')return;
+    try{await screen.orientation.lock('portrait-primary');}catch(e){}
+  }
   function init(){
     syncMobileBrandLogo();
+    lockInstalledAppPortrait();
     if(typeof updateNotifBadge==='function')updateNotifBadge();
     var dd=document.getElementById('notifDropdown');
     if(dd)new MutationObserver(syncMobileNotificationState).observe(dd,{attributes:true,attributeFilter:['class']});
+    document.addEventListener('click',function(e){
+      var panel=document.getElementById('notifDropdown'),btn=document.getElementById('mobileNotifToggle');
+      if(innerWidth<=768&&panel&&panel.classList.contains('open')&&!panel.contains(e.target)&&!(btn&&btn.contains(e.target))){
+        if(typeof mgNUxClose==='function')mgNUxClose();else{panel.classList.remove('open');document.body.classList.remove('mg-notif-open');}
+      }
+    });
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
   window.addEventListener('load',syncMobileBrandLogo,{once:true});

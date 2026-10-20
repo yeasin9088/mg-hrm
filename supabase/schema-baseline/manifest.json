@@ -1,0 +1,1067 @@
+{
+  "capturedOn": "2026-10-20",
+  "projectRef": "enkggoozsvvkgbjeghbf",
+  "postgresVersion": "17.6",
+  "scope": "Current application schema public; platform objects are external contracts, not a Supabase infrastructure backup.",
+  "dataIncluded": false,
+  "restoreTested": false,
+  "securityRemediationIncluded": false,
+  "counts": {
+    "schemas": 1,
+    "tables": 45,
+    "columns": 729,
+    "constraints": 238,
+    "primaryKeys": 44,
+    "foreignKeys": 62,
+    "uniqueConstraints": 13,
+    "checks": 119,
+    "indexes": 173,
+    "constraintBackedIndexes": 57,
+    "standaloneIndexes": 116,
+    "sequences": 35,
+    "routines": 72,
+    "securityDefiners": 41,
+    "policies": 140,
+    "publicTriggers": 53,
+    "authBridgeTriggers": 1,
+    "extensions": 7,
+    "applicationPublicationTables": 15,
+    "dependencies": 1651
+  },
+  "tables": [
+    {
+      "schema": "public",
+      "name": "activity_log",
+      "file": "tables/activity_log.sql",
+      "columns": 8
+    },
+    {
+      "schema": "public",
+      "name": "app_settings",
+      "file": "tables/app_settings.sql",
+      "columns": 5
+    },
+    {
+      "schema": "public",
+      "name": "career",
+      "file": "tables/career.sql",
+      "columns": 18
+    },
+    {
+      "schema": "public",
+      "name": "demand",
+      "file": "tables/demand.sql",
+      "columns": 11
+    },
+    {
+      "schema": "public",
+      "name": "designations",
+      "file": "tables/designations.sql",
+      "columns": 3
+    },
+    {
+      "schema": "public",
+      "name": "disciplinary",
+      "file": "tables/disciplinary.sql",
+      "columns": 22
+    },
+    {
+      "schema": "public",
+      "name": "districts",
+      "file": "tables/districts.sql",
+      "columns": 3
+    },
+    {
+      "schema": "public",
+      "name": "divisions",
+      "file": "tables/divisions.sql",
+      "columns": 2
+    },
+    {
+      "schema": "public",
+      "name": "employee_join_date_history",
+      "file": "tables/employee_join_date_history.sql",
+      "columns": 6
+    },
+    {
+      "schema": "public",
+      "name": "employee_reactivations",
+      "file": "tables/employee_reactivations.sql",
+      "columns": 12
+    },
+    {
+      "schema": "public",
+      "name": "employees",
+      "file": "tables/employees.sql",
+      "columns": 62
+    },
+    {
+      "schema": "public",
+      "name": "exits",
+      "file": "tables/exits.sql",
+      "columns": 24
+    },
+    {
+      "schema": "public",
+      "name": "leaves",
+      "file": "tables/leaves.sql",
+      "columns": 19
+    },
+    {
+      "schema": "public",
+      "name": "meeting_attendance",
+      "file": "tables/meeting_attendance.sql",
+      "columns": 14
+    },
+    {
+      "schema": "public",
+      "name": "meetings",
+      "file": "tables/meetings.sql",
+      "columns": 15
+    },
+    {
+      "schema": "public",
+      "name": "notification_deliveries",
+      "file": "tables/notification_deliveries.sql",
+      "columns": 16
+    },
+    {
+      "schema": "public",
+      "name": "notification_escalation_rules",
+      "file": "tables/notification_escalation_rules.sql",
+      "columns": 18
+    },
+    {
+      "schema": "public",
+      "name": "notification_events",
+      "file": "tables/notification_events.sql",
+      "columns": 15
+    },
+    {
+      "schema": "public",
+      "name": "notification_jobs",
+      "file": "tables/notification_jobs.sql",
+      "columns": 17
+    },
+    {
+      "schema": "public",
+      "name": "notification_preferences",
+      "file": "tables/notification_preferences.sql",
+      "columns": 18
+    },
+    {
+      "schema": "public",
+      "name": "notifications",
+      "file": "tables/notifications.sql",
+      "columns": 33
+    },
+    {
+      "schema": "public",
+      "name": "profiles",
+      "file": "tables/profiles.sql",
+      "columns": 8
+    },
+    {
+      "schema": "public",
+      "name": "project_meeting_scope_history",
+      "file": "tables/project_meeting_scope_history.sql",
+      "columns": 6
+    },
+    {
+      "schema": "public",
+      "name": "projects",
+      "file": "tables/projects.sql",
+      "columns": 26
+    },
+    {
+      "schema": "public",
+      "name": "push_subscriptions",
+      "file": "tables/push_subscriptions.sql",
+      "columns": 19
+    },
+    {
+      "schema": "public",
+      "name": "recruitment_archive",
+      "file": "tables/recruitment_archive.sql",
+      "columns": 13
+    },
+    {
+      "schema": "public",
+      "name": "thanas",
+      "file": "tables/thanas.sql",
+      "columns": 3
+    },
+    {
+      "schema": "public",
+      "name": "todos",
+      "file": "tables/todos.sql",
+      "columns": 28
+    },
+    {
+      "schema": "public",
+      "name": "todos_backup_20260928",
+      "file": "tables/todos_backup_20260928.sql",
+      "columns": 21
+    },
+    {
+      "schema": "public",
+      "name": "transfers",
+      "file": "tables/transfers.sql",
+      "columns": 38
+    },
+    {
+      "schema": "public",
+      "name": "uniform",
+      "file": "tables/uniform.sql",
+      "columns": 25
+    },
+    {
+      "schema": "public",
+      "name": "uniform_deliveries",
+      "file": "tables/uniform_deliveries.sql",
+      "columns": 9
+    },
+    {
+      "schema": "public",
+      "name": "uniform_delivery_bills",
+      "file": "tables/uniform_delivery_bills.sql",
+      "columns": 14
+    },
+    {
+      "schema": "public",
+      "name": "uniform_delivery_issues",
+      "file": "tables/uniform_delivery_issues.sql",
+      "columns": 16
+    },
+    {
+      "schema": "public",
+      "name": "uniform_delivery_items",
+      "file": "tables/uniform_delivery_items.sql",
+      "columns": 11
+    },
+    {
+      "schema": "public",
+      "name": "uniform_items",
+      "file": "tables/uniform_items.sql",
+      "columns": 9
+    },
+    {
+      "schema": "public",
+      "name": "uniform_order_allocations",
+      "file": "tables/uniform_order_allocations.sql",
+      "columns": 17
+    },
+    {
+      "schema": "public",
+      "name": "uniform_order_employee_items",
+      "file": "tables/uniform_order_employee_items.sql",
+      "columns": 11
+    },
+    {
+      "schema": "public",
+      "name": "uniform_order_employees",
+      "file": "tables/uniform_order_employees.sql",
+      "columns": 19
+    },
+    {
+      "schema": "public",
+      "name": "uniform_order_items",
+      "file": "tables/uniform_order_items.sql",
+      "columns": 9
+    },
+    {
+      "schema": "public",
+      "name": "uniform_order_postponements",
+      "file": "tables/uniform_order_postponements.sql",
+      "columns": 9
+    },
+    {
+      "schema": "public",
+      "name": "uniform_orders",
+      "file": "tables/uniform_orders.sql",
+      "columns": 33
+    },
+    {
+      "schema": "public",
+      "name": "uniform_requirement_reports",
+      "file": "tables/uniform_requirement_reports.sql",
+      "columns": 12
+    },
+    {
+      "schema": "public",
+      "name": "uniform_suppliers",
+      "file": "tables/uniform_suppliers.sql",
+      "columns": 8
+    },
+    {
+      "schema": "public",
+      "name": "uniform_supply_orders",
+      "file": "tables/uniform_supply_orders.sql",
+      "columns": 24
+    }
+  ],
+  "functions": [
+    {
+      "identity": "assign_uniform_order_number()",
+      "file": "functions/triggers-and-helpers.sql",
+      "definitionMd5": "1c1d11318e8612fe791bebf03acbb72a",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "cancel_exit(bigint,text)",
+      "file": "functions/hr-workflows.sql",
+      "definitionMd5": "77072c5eff975ed8ee6190d5abdfdde2",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "cancel_transfer(bigint,text)",
+      "file": "functions/hr-workflows.sql",
+      "definitionMd5": "b79e0097f375a2caf4f66cce6081600f",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "commit_exit(jsonb)",
+      "file": "functions/hr-workflows.sql",
+      "definitionMd5": "2bde4d78eb0287f67c1b74ad98d32517",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "commit_transfer(jsonb,boolean)",
+      "file": "functions/hr-workflows.sql",
+      "definitionMd5": "b9c787a3a2951c01b4fe1c1c7cf6f5c9",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "complete_exit(bigint,date,text,text,text)",
+      "file": "functions/hr-workflows.sql",
+      "definitionMd5": "42b55666ab443036da1d3d6f08dc9608",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "confirm_transfer_joining(bigint,date,text)",
+      "file": "functions/hr-workflows.sql",
+      "definitionMd5": "4b2e78afc6352c79c1086ff581ab9bdc",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "create_exit_draft(jsonb)",
+      "file": "functions/hr-workflows.sql",
+      "definitionMd5": "3766172682ab1c4a600fcc85195f1665",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "create_transfer_order(jsonb)",
+      "file": "functions/hr-workflows.sql",
+      "definitionMd5": "f3c3e055238d2bff5a9eb5ab0693f42b",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "get_transfer_action_queue()",
+      "file": "functions/hr-workflows.sql",
+      "definitionMd5": "8e3b5a1cdfa0cbea9fd927964839559c",
+      "security": "invoker",
+      "language": "sql"
+    },
+    {
+      "identity": "guard_profile_fields()",
+      "file": "functions/triggers-and-helpers.sql",
+      "definitionMd5": "5c733dd305963372dea11c4322b32eb4",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "handle_new_user()",
+      "file": "functions/triggers-and-helpers.sql",
+      "definitionMd5": "440148fa4925b9c2722be7b6a8da44ca",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "log_employee_join_date_change()",
+      "file": "functions/triggers-and-helpers.sql",
+      "definitionMd5": "3ea06b005ce8a6965f16c818c00f76c6",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "log_project_meeting_scope_change()",
+      "file": "functions/triggers-and-helpers.sql",
+      "definitionMd5": "ff9530c79b6a4e35328b5f3549fb5ee3",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "mark_transfer_not_joined(bigint,text,text)",
+      "file": "functions/hr-workflows.sql",
+      "definitionMd5": "4c5caa03553468be3102f914f727f5e1",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "mghrm_is_employee_inactive(text)",
+      "file": "functions/triggers-and-helpers.sql",
+      "definitionMd5": "29b8bcfd406eb02b24c097b00bc000ed",
+      "security": "invoker",
+      "language": "sql"
+    },
+    {
+      "identity": "mghrm_normalize_employee_status()",
+      "file": "functions/triggers-and-helpers.sql",
+      "definitionMd5": "3a961b2c7f84434f987de7a8533285bb",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "mghrm_resolve_transfers_for_inactive_employee()",
+      "file": "functions/triggers-and-helpers.sql",
+      "definitionMd5": "0f2f965fa205d956f0e06bf9f2ea9c37",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "mghrm_touch_updated_at()",
+      "file": "functions/triggers-and-helpers.sql",
+      "definitionMd5": "976442400fa8ab3b666565becd2ead11",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "my_role()",
+      "file": "functions/triggers-and-helpers.sql",
+      "definitionMd5": "108662165b9dca19291ba751af03d623",
+      "security": "definer",
+      "language": "sql"
+    },
+    {
+      "identity": "next_uniform_order_number(date)",
+      "file": "functions/uniform.sql",
+      "definitionMd5": "b2496dc47c1d395db3d17abf1568b06e",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_apply_lifecycle()",
+      "file": "functions/triggers-and-helpers.sql",
+      "definitionMd5": "ed18cbc37246dbce5eabffd99fe65557",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_check_core_source(text,bigint)",
+      "file": "functions/notifications-service.sql",
+      "definitionMd5": "08ea681ee5f9421440bbb8893340f7c5",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_check_leave_source(bigint)",
+      "file": "functions/notifications-service.sql",
+      "definitionMd5": "d072dc89651b6ea1ceeebaee2fcd9605",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_check_uniform_source(text,bigint)",
+      "file": "functions/notifications-service.sql",
+      "definitionMd5": "9b94b73caf8a58d66d3941f96c48642d",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_claim_jobs(text,integer)",
+      "file": "functions/notifications-service.sql",
+      "definitionMd5": "e3bdb5df9cf2a7299c9e853b11dbce4e",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_claim_web_push_jobs(text,integer)",
+      "file": "functions/notifications-service.sql",
+      "definitionMd5": "18b3fdfa7aa2142862e88e1d873f4f9e",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_complete_if_resolved(uuid)",
+      "file": "functions/notifications-user.sql",
+      "definitionMd5": "321042bab16c1a4f539dfab70123215d",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_complete_job(bigint,text)",
+      "file": "functions/notifications-service.sql",
+      "definitionMd5": "2a80d6488c13a42c6e871260416ca30f",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_cron_tick()",
+      "file": "functions/notifications-service.sql",
+      "definitionMd5": "02c0ce21b47fd777f6537d6ded93e2f6",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_dismiss(uuid)",
+      "file": "functions/notifications-user.sql",
+      "definitionMd5": "d51828714c6b4deb5a3707ffdb51b46d",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_effective_preference(uuid,text)",
+      "file": "functions/notifications-service.sql",
+      "definitionMd5": "89d87fef81a05081748c4888d6e10ebb",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_enqueue_pending_events(integer)",
+      "file": "functions/notifications-service.sql",
+      "definitionMd5": "40c0cbde25a9337a5f2b1a6d1a42cd58",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_event_apply_lifecycle()",
+      "file": "functions/triggers-and-helpers.sql",
+      "definitionMd5": "b20473d65238358bca034a72c427eace",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_fail_job(bigint,text,text,interval)",
+      "file": "functions/notifications-service.sql",
+      "definitionMd5": "2173b1829def3cd230e53a4452a5d0e0",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_finalize_web_push_job(bigint,text,interval)",
+      "file": "functions/notifications-service.sql",
+      "definitionMd5": "8bf0c096103ce7490349d534bfeeb223",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_get_web_push_dispatch(bigint,text)",
+      "file": "functions/notifications-service.sql",
+      "definitionMd5": "b76c29a479ff87a78a72f0736486833f",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_job_apply_lifecycle()",
+      "file": "functions/triggers-and-helpers.sql",
+      "definitionMd5": "7390c5125564f807c81727a7b4123aa4",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_mark_all_read()",
+      "file": "functions/notifications-user.sql",
+      "definitionMd5": "ceebdc666ae06e045373ffc477173e38",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_mark_read(uuid)",
+      "file": "functions/notifications-user.sql",
+      "definitionMd5": "e31daec85de6338929214aaaaf341743",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_next_allowed_at(uuid,text,text,timestamp with time zone)",
+      "file": "functions/notifications-service.sql",
+      "definitionMd5": "ed84e818dea89e9b5fa847e3d783b760",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_open(uuid)",
+      "file": "functions/notifications-user.sql",
+      "definitionMd5": "ddb500410b8c323e2c14b15eb9f9e07a",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_operations_health()",
+      "file": "functions/notifications-service.sql",
+      "definitionMd5": "c4cb144abe12baaba1977c4675ff9bfd",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_operations_maintenance()",
+      "file": "functions/notifications-service.sql",
+      "definitionMd5": "9e211dc865379150047430e21af22c1f",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_prepare_deliveries(integer)",
+      "file": "functions/notifications-service.sql",
+      "definitionMd5": "8ad6d48e145b59d730138398223b6c52",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_priority_rank(text)",
+      "file": "functions/notifications-service.sql",
+      "definitionMd5": "8190c5c3087420437525873e916ce952",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_process_event_job(bigint,text)",
+      "file": "functions/notifications-service.sql",
+      "definitionMd5": "d1858c1662fef0d02b7179388b78690f",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_record_web_push_result(bigint,text,bigint,boolean,text,text,text,text,jsonb,boolean)",
+      "file": "functions/notifications-service.sql",
+      "definitionMd5": "c7959025f58973e64c20186086b8b63f",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_recover_stale_jobs(interval)",
+      "file": "functions/notifications-service.sql",
+      "definitionMd5": "8d01224808bd2463f970c62ea7ba521c",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_run_event_processor(text,integer,interval)",
+      "file": "functions/notifications-service.sql",
+      "definitionMd5": "75bdff17b368e5e0e19b803d039afc47",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_run_recurrence(integer)",
+      "file": "functions/notifications-service.sql",
+      "definitionMd5": "2ecc7fe8792e142349ccec9e809d93eb",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_run_server_processor(text,integer,interval)",
+      "file": "functions/notifications-service.sql",
+      "definitionMd5": "9e4ccab94eeafe3e43f63d09f249288e",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_snooze(uuid,timestamp with time zone)",
+      "file": "functions/notifications-user.sql",
+      "definitionMd5": "7ec806ed16cdfbdd57a51b3b4ade6b52",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_source_state(text,text)",
+      "file": "functions/notifications-service.sql",
+      "definitionMd5": "0efb8d1778ccff8ab1d0611a05222954",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_touch_updated_at()",
+      "file": "functions/triggers-and-helpers.sql",
+      "definitionMd5": "0ff71be425862ec2f9d58f66f0212d0b",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "prevent_duplicate_active_uniform_employee()",
+      "file": "functions/triggers-and-helpers.sql",
+      "definitionMd5": "2f12db6200fec3e8c5a455efb2e8f1ab",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "protect_terminal_uniform_delivery_items()",
+      "file": "functions/triggers-and-helpers.sql",
+      "definitionMd5": "d96ce2fdfba37d862a71857cefabd35b",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "protect_terminal_uniform_employee_items()",
+      "file": "functions/triggers-and-helpers.sql",
+      "definitionMd5": "8d38c58f5e30e1097473fcaf742da2f1",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "protect_terminal_uniform_order_children()",
+      "file": "functions/triggers-and-helpers.sql",
+      "definitionMd5": "e611b2a31baa0122ceed04a836c96009",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "protect_uniform_order_integrity()",
+      "file": "functions/triggers-and-helpers.sql",
+      "definitionMd5": "9b2e7f7de511f30a1bfb626b17f0f94d",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "push_subscription_apply_lifecycle()",
+      "file": "functions/triggers-and-helpers.sql",
+      "definitionMd5": "39047783e3e52fae5e995a6bda2e3c88",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "push_subscription_list_devices()",
+      "file": "functions/notifications-user.sql",
+      "definitionMd5": "34e20deb4f0741869de19e4e22ddb406",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "push_subscription_register(text,text,text,text,text,text,text)",
+      "file": "functions/notifications-user.sql",
+      "definitionMd5": "a7bea6875e355ec6eb1e61af567dc4ec",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "push_subscription_revoke(bigint)",
+      "file": "functions/notifications-user.sql",
+      "definitionMd5": "e724e07a4dde52b5489c6065d16f05f1",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "push_subscription_update_device(bigint,text,text,text,boolean)",
+      "file": "functions/notifications-user.sql",
+      "definitionMd5": "1434a6f36186b2e591b3d382391260ed",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "reactivate_employee(bigint,date,text,text)",
+      "file": "functions/hr-workflows.sql",
+      "definitionMd5": "daafee425c2fea3e254811281550c6a2",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "reschedule_transfer(bigint,date,text)",
+      "file": "functions/hr-workflows.sql",
+      "definitionMd5": "d2b82a3c766643609f57967b438ee45d",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "save_uniform_delivery(bigint,text,date,text,text,numeric,text,jsonb,jsonb)",
+      "file": "functions/uniform.sql",
+      "definitionMd5": "06a92edd4e393123e3bc361e6afc11a1",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "set_updated_at()",
+      "file": "functions/triggers-and-helpers.sql",
+      "definitionMd5": "2b7180be02b4bdc85901a081a36febf4",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "uniform_order_accounting(bigint)",
+      "file": "functions/uniform.sql",
+      "definitionMd5": "97c4c657980e5ef005998d562fa81111",
+      "security": "invoker",
+      "language": "sql"
+    },
+    {
+      "identity": "validate_uniform_delivery_bill()",
+      "file": "functions/triggers-and-helpers.sql",
+      "definitionMd5": "84e25f5e973718eca44b37cfe958b245",
+      "security": "invoker",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "validate_uniform_order_status_change()",
+      "file": "functions/triggers-and-helpers.sql",
+      "definitionMd5": "0c136acc3ad133f88964aa9f949b563d",
+      "security": "invoker",
+      "language": "plpgsql"
+    }
+  ],
+  "files": [
+    {
+      "file": "00-schemas.sql",
+      "sha256": "a352b5d9e49de4e78eaea89067dedb4dec3b8d2d3084ca61fb73354d84ab9d96"
+    },
+    {
+      "file": "01-types.sql",
+      "sha256": "b4a6efaa5f0781d317925b3ab72b93a1ea394bc3deeee944771b6fa8bbcfcccc"
+    },
+    {
+      "file": "02-sequences.sql",
+      "sha256": "6cf61388d008cb56ff5f51d71574ce79598d8ef6359bd0bc621b29c5b3b7475c"
+    },
+    {
+      "file": "tables/activity_log.sql",
+      "sha256": "24ea49dfcfa336dd5f4b435427a4f5e26d880575b236afaa634d8c378774c991"
+    },
+    {
+      "file": "tables/app_settings.sql",
+      "sha256": "01fe7f2ecf84b8f6b0dc350e5c46639c0db66dbb3d50dcd63371cb10e7be36db"
+    },
+    {
+      "file": "tables/career.sql",
+      "sha256": "d6f64a915d5e2a50a3e9bee1775e46fc4cd14dd72ce8c05ebb9100a9f3948d25"
+    },
+    {
+      "file": "tables/demand.sql",
+      "sha256": "5e8e2a46a508139bbf42d3f70960e617f104ae8e3a5355f7bbc9d539eac8fbb8"
+    },
+    {
+      "file": "tables/designations.sql",
+      "sha256": "66e7698c014048d0c0b5b3f3185c90aa07b9275c4c7e5ea5dba5ff66194e0762"
+    },
+    {
+      "file": "tables/disciplinary.sql",
+      "sha256": "65d0254bf1bfab18806e9da2eb117dbe989e0e742c78fd44c61b32c57f245ead"
+    },
+    {
+      "file": "tables/districts.sql",
+      "sha256": "9c45e66e03eb2410e63df0c8d07ff24f0886d8423dde750401cc95f01fc95c5d"
+    },
+    {
+      "file": "tables/divisions.sql",
+      "sha256": "e8bd6a3e36ef2f2d18ad30cc43177b49eb97c5f43b53529b00f2ca3acf2ec718"
+    },
+    {
+      "file": "tables/employee_join_date_history.sql",
+      "sha256": "6cf3f03f3138399435241f96a55e0f37f5e11b6cc79a7cb89d71c227622326fe"
+    },
+    {
+      "file": "tables/employee_reactivations.sql",
+      "sha256": "ff925337c7c24d76c4c43e091a66f4ce45f024f9a9ac292808d49eaecd5c27be"
+    },
+    {
+      "file": "tables/employees.sql",
+      "sha256": "5d0b43d11a24ee603f96d02b34b173b4a07085c4689d232c1105ef516f231705"
+    },
+    {
+      "file": "tables/exits.sql",
+      "sha256": "36b6d53a49fc79dd512362f2c17c9da0e45f1a11ffda208f084f2b148bba1d09"
+    },
+    {
+      "file": "tables/leaves.sql",
+      "sha256": "b3de8b382fe30e118a859eb29070905205f7b504ce35b2f8cf600910e5e1d004"
+    },
+    {
+      "file": "tables/meeting_attendance.sql",
+      "sha256": "0f259635c8d34ff150d8f265483d51ecd09c3ee64ff169f7b73b75a87d77cdf6"
+    },
+    {
+      "file": "tables/meetings.sql",
+      "sha256": "a97cb65fe08de21300f269ac514fdbc7f923f704bf5be432d3c74be0f07e715a"
+    },
+    {
+      "file": "tables/notification_deliveries.sql",
+      "sha256": "b9b4f6d8cd6a9febc3bd02de8c20a2102c7c990e6491c66da8c56da7aedd7491"
+    },
+    {
+      "file": "tables/notification_escalation_rules.sql",
+      "sha256": "e210be56547c79990fa19814f58d996d4893a0ec8ca52c2da7d54e3fa6d8b1cb"
+    },
+    {
+      "file": "tables/notification_events.sql",
+      "sha256": "6c8ff6c244bae8d984da36e7e2bf6898369ddfcbb97138008923b73194edf0c6"
+    },
+    {
+      "file": "tables/notification_jobs.sql",
+      "sha256": "de4dcffad6be6ef249cf2fa6f2a7449114e1adfeaa1fe4a42863370d4f779b81"
+    },
+    {
+      "file": "tables/notification_preferences.sql",
+      "sha256": "8b12e219d93abe7bb32c4ed52eede528205648c8674ef9814eb4ab7fd7d93331"
+    },
+    {
+      "file": "tables/notifications.sql",
+      "sha256": "f94c17c585e6b6e710e90a2ed749f83c9d29ed1375a25a6869a5ef831252e20c"
+    },
+    {
+      "file": "tables/profiles.sql",
+      "sha256": "81285a2ce4549a98b94ff6908df86752a82f5886c16dbcc0728daef5715c2bde"
+    },
+    {
+      "file": "tables/project_meeting_scope_history.sql",
+      "sha256": "5e4c3629b32899b65dbe7760d431bbc78181af2033451edf18862827a4790519"
+    },
+    {
+      "file": "tables/projects.sql",
+      "sha256": "e8e2311ccda187d436e784436e87af66a1f2490b3ce9361a2452b193b0915256"
+    },
+    {
+      "file": "tables/push_subscriptions.sql",
+      "sha256": "97f2ee79a8d471d98c209f6c07cf0431232cd1d09c1143e2c24ef193add721fe"
+    },
+    {
+      "file": "tables/recruitment_archive.sql",
+      "sha256": "9325e5fd52265baf79491efbdcd840c7a4c317991f52629b45d312a71f279a2c"
+    },
+    {
+      "file": "tables/thanas.sql",
+      "sha256": "d176bba65c02a32deda57ec314b77e01e876dee42c2726341d4ead88b76e4b39"
+    },
+    {
+      "file": "tables/todos.sql",
+      "sha256": "3ba3c5fb87602c5dbbbaf46d5b942aadaec6375457d1493dabdb1e6cd2ac88fd"
+    },
+    {
+      "file": "tables/todos_backup_20260928.sql",
+      "sha256": "0c641470b9d92d7245120017e9b282f00464b10b969537a6480d2627fc7bb400"
+    },
+    {
+      "file": "tables/transfers.sql",
+      "sha256": "186ecd2c6c3f5f3a757129027a97505fd91f30525649b02b3149d4e47f613fca"
+    },
+    {
+      "file": "tables/uniform.sql",
+      "sha256": "2833f2bcfabaddc3decaed395f9a8c96c7b9fa4497ade9d9b25d713b4ac64ca4"
+    },
+    {
+      "file": "tables/uniform_deliveries.sql",
+      "sha256": "8a145d309f276a90ae55026f43b11d54ae2f20307768ed240031367ea266d924"
+    },
+    {
+      "file": "tables/uniform_delivery_bills.sql",
+      "sha256": "39f38384be14fa6fdfd122d223f8a8d5262745c49ca13dae49b0b614247ea01c"
+    },
+    {
+      "file": "tables/uniform_delivery_issues.sql",
+      "sha256": "c7ee47c3100ea446145ef6e135de689b6cdb98bae36546f107ec543260a904a8"
+    },
+    {
+      "file": "tables/uniform_delivery_items.sql",
+      "sha256": "bfa45716123e528502a69d6f0b6ba8abcab17099ad52357cad327caa19c00053"
+    },
+    {
+      "file": "tables/uniform_items.sql",
+      "sha256": "dea30045e83d10d39d7686c630427c6c814f5be539bd20c27ce0bb75b9c075c5"
+    },
+    {
+      "file": "tables/uniform_order_allocations.sql",
+      "sha256": "fe7fb8665d186207b5cfe64f11428f385ef70dfb6aaf07c244abcc0db36a7712"
+    },
+    {
+      "file": "tables/uniform_order_employee_items.sql",
+      "sha256": "b896463180d5cacf8d85da51241754aac49d8964be0a040593fd63f31ac0c8fa"
+    },
+    {
+      "file": "tables/uniform_order_employees.sql",
+      "sha256": "0d78c3c71bc9b764c192322de154162fdf04deb466bba21987bd43b74352e8fe"
+    },
+    {
+      "file": "tables/uniform_order_items.sql",
+      "sha256": "ff71181996c65d71031180ad9e58b9f9fb353cd446b75ecf7ea9a94108b066c0"
+    },
+    {
+      "file": "tables/uniform_order_postponements.sql",
+      "sha256": "910c9e146f306b64c517855838de75959b739d4fc5a10f276cfddb4aa9b9e33b"
+    },
+    {
+      "file": "tables/uniform_orders.sql",
+      "sha256": "3bec599b0251837345f81a66c4fe6ca269386b38a9ddf927efcee747942e5dcb"
+    },
+    {
+      "file": "tables/uniform_requirement_reports.sql",
+      "sha256": "38513ef92ee1c7aab530e9e6d1cbd6f1f33d830ff1451c7e276e6e0f66398bf2"
+    },
+    {
+      "file": "tables/uniform_suppliers.sql",
+      "sha256": "be1a12e181e4aff209031580b237003cdfaa0f1f4a5cc13c85332811560e6f74"
+    },
+    {
+      "file": "tables/uniform_supply_orders.sql",
+      "sha256": "bc74000ee8be8603d4390def3cb45d8901b53f4a2164f7f94d3a605eab532fcb"
+    },
+    {
+      "file": "03-sequence-ownership.sql",
+      "sha256": "d61d44fae8966c8650699d0ad58e5514de41da5600437ad29bda20d884d7f32c"
+    },
+    {
+      "file": "04-constraints.sql",
+      "sha256": "958b1482e2f6efc6ef3cc475ec12f3f97eeaa004d6cba2df2191f31154e2525b"
+    },
+    {
+      "file": "05-foreign-keys.sql",
+      "sha256": "7fcf637ad0eff9811a278362a1a71ad6e35cafadfc7a53d684512b0211cced81"
+    },
+    {
+      "file": "06-indexes.sql",
+      "sha256": "b6f555d87c7f2719bf443a64cdb2dd7f6ed92b55125298e2a0305f7ff6217717"
+    },
+    {
+      "file": "functions/hr-workflows.sql",
+      "sha256": "0d7e7ea10d39d06ccf68cf57e60e1250640c415190af262f5fe8e69679f365a0"
+    },
+    {
+      "file": "functions/uniform.sql",
+      "sha256": "c582597664967054eb82484a05374bae2b36f4e42f27c6c200109224d26b2d0e"
+    },
+    {
+      "file": "functions/notifications-user.sql",
+      "sha256": "ad53e28635c6b6a3807357b0b3857cbb4ad26eaae0d5766ecca0a4a25269647e"
+    },
+    {
+      "file": "functions/notifications-service.sql",
+      "sha256": "e62a6def12f7daba2583d84a1ccdbd552881d8604196965a2b61cfa4db2adc5b"
+    },
+    {
+      "file": "functions/triggers-and-helpers.sql",
+      "sha256": "af484a619817f5cc656a878283c12c55564f0859edacddfc594ee2887deeedd9"
+    },
+    {
+      "file": "07-triggers.sql",
+      "sha256": "9a8e715963024c57ac9561d9c2d478f4f02bd8968f08418dd140475b4b3257af"
+    },
+    {
+      "file": "08-rls-policies.sql",
+      "sha256": "ee98912fb238b748bbb10e907230ac1f66d67aa6eea65d01e2f24a58bf171cfb"
+    },
+    {
+      "file": "09-privileges.sql",
+      "sha256": "9c64bbe442f89469a69963fa3811046a082e1ab660fac9aeffcf03fc602f4609"
+    },
+    {
+      "file": "10-default-privileges.sql",
+      "sha256": "c96298f546d0c3218f322c3e6474ab914953512e9fcc4c905d6007d9005c87fb"
+    },
+    {
+      "file": "11-publications.sql",
+      "sha256": "e48039b949ba7ad2de99639fd2b3a17ab46b0062fa6de4d52873d2658c1613b6"
+    },
+    {
+      "file": "platform/extensions.sql",
+      "sha256": "3064509524ac0c5b7d57bc5ab2ac122624a886b6be4b2940f18473ee69b4e8a8"
+    },
+    {
+      "file": "platform/auth-functions.sql",
+      "sha256": "d2df4c60056beffef459c8b8be7179b82c609f4e0974373be4f72eaccf437bd0"
+    }
+  ]
+}

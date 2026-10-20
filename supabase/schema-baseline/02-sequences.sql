@@ -1,0 +1,40 @@
+-- CURRENT DEPLOYED SCHEMA REFERENCE — not a migration or tested restore script.
+-- Source: read-only PostgreSQL 17.6 catalogs, 2026-10-20 (Asia/Dhaka).
+SET standard_conforming_strings = on;
+SET search_path = pg_catalog, public;
+
+-- "public"."career_id_seq" (bigint): created inline by identity "public"."career"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."demand_id_seq" (bigint): created inline by identity "public"."demand"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."disciplinary_id_seq" (bigint): created inline by identity "public"."disciplinary"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."employee_join_date_history_id_seq" (bigint): created inline by identity "public"."employee_join_date_history"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."employee_reactivations_id_seq" (bigint): created inline by identity "public"."employee_reactivations"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."employees_id_seq" (bigint): created inline by identity "public"."employees"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."exits_id_seq" (bigint): created inline by identity "public"."exits"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."leaves_id_seq" (bigint): created inline by identity "public"."leaves"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."meeting_attendance_id_seq" (bigint): created inline by identity "public"."meeting_attendance"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."meetings_id_seq" (bigint): created inline by identity "public"."meetings"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."notification_deliveries_id_seq" (bigint): created inline by identity "public"."notification_deliveries"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."notification_escalation_rules_id_seq" (bigint): created inline by identity "public"."notification_escalation_rules"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."notification_events_id_seq" (bigint): created inline by identity "public"."notification_events"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."notification_jobs_id_seq" (bigint): created inline by identity "public"."notification_jobs"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."notification_preferences_id_seq" (bigint): created inline by identity "public"."notification_preferences"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."project_meeting_scope_history_id_seq" (bigint): created inline by identity "public"."project_meeting_scope_history"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."projects_id_seq" (bigint): created inline by identity "public"."projects"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."push_subscriptions_id_seq" (bigint): created inline by identity "public"."push_subscriptions"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."todos_id_seq" (bigint): created inline by identity "public"."todos"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."transfers_id_seq" (bigint): created inline by identity "public"."transfers"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."uniform_deliveries_id_seq" (bigint): created inline by identity "public"."uniform_deliveries"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."uniform_delivery_bills_id_seq" (bigint): created inline by identity "public"."uniform_delivery_bills"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."uniform_delivery_issues_id_seq" (bigint): created inline by identity "public"."uniform_delivery_issues"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."uniform_delivery_items_id_seq" (bigint): created inline by identity "public"."uniform_delivery_items"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."uniform_id_seq" (bigint): created inline by identity "public"."uniform"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."uniform_items_id_seq" (bigint): created inline by identity "public"."uniform_items"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."uniform_order_allocations_id_seq" (bigint): created inline by identity "public"."uniform_order_allocations"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."uniform_order_employee_items_id_seq" (bigint): created inline by identity "public"."uniform_order_employee_items"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."uniform_order_employees_id_seq" (bigint): created inline by identity "public"."uniform_order_employees"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."uniform_order_items_id_seq" (bigint): created inline by identity "public"."uniform_order_items"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."uniform_order_postponements_id_seq" (bigint): created inline by identity "public"."uniform_order_postponements"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."uniform_orders_id_seq" (bigint): created inline by identity "public"."uniform_orders"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."uniform_requirement_reports_id_seq" (bigint): created inline by identity "public"."uniform_requirement_reports"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."uniform_suppliers_id_seq" (bigint): created inline by identity "public"."uniform_suppliers"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.
+-- "public"."uniform_supply_orders_id_seq" (bigint): created inline by identity "public"."uniform_supply_orders"."id"; START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE.

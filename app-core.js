@@ -699,6 +699,7 @@
         }
       }
     }
+    if (key === 'employees') out = registrationWritePayload(out);
     return out;
   }
 
@@ -796,6 +797,7 @@
       out.meeting_attendance_enabled = isMt !== false;
     }
 
+    if (key === 'employees') out.Status = registrationDisplayStatus(row.status, row.remarks, row.exit_date);
     return out;
   }
 
@@ -1580,18 +1582,144 @@
     });
   }
 
+  /* Registration uses employment status plus existing remarks, not new DB statuses. */
+  function recruitRemarks(value) {
+    try {
+      var parsed = typeof value === 'string' ? JSON.parse(value) : value;
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? Object.assign({}, parsed) : {};
+    } catch (_) { return {}; }
+  }
+  function registrationDisplayStatus(status, remarks, exitDate) {
+    var extra = recruitRemarks(remarks);
+    if (status === 'Inactive' && !exitDate) {
+      if (extra.registrationPending === true) return 'Candidate';
+      if (extra.stage === 'Rejected') return 'Application Rejected';
+    }
+    return status || 'Active';
+  }
+  function registrationWritePayload(payload) {
+    var out = Object.assign({}, payload);
+    if (out.status === 'Candidate' || out.status === 'Rejected' || out.status === 'Application Rejected') {
+      var pending = out.status === 'Candidate', extra = recruitRemarks(out.remarks);
+      extra.registrationPending = pending;
+      extra.stage = pending ? (extra.stage || 'DataEntry') : 'Rejected';
+      out.status = 'Inactive';
+      out.remarks = JSON.stringify(extra);
+    }
+    return out;
+  }
+  function registrationDigits(value) {
+    return String(value == null ? '' : value).trim().replace(/[০-৯]/g, function (d) { return String('০১২৩৪৫৬৭৮৯'.indexOf(d)); });
+  }
+  function registrationNid(value) { return registrationDigits(value).replace(/[\s-]/g, ''); }
+  function registrationMobile(value) {
+    var s = registrationDigits(value).replace(/[\s()-]/g, '');
+    return s.replace(/^(?:\+880|00880|880)(?=1)/, '0');
+  }
+  function registrationDate(value) {
+    var s = String(value || '').trim();
+    if (!s) return '';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+    var d = new Date(s + 'T12:00:00Z');
+    return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s ? s : null;
+  }
+  function registrationPersonal(input, isNew, original) {
+    var out = Object.assign({}, input), old = original || {};
+    function bad(field, message) { var e = new Error(message); e.field = field; throw e; }
+    out.nameEn = String(out.nameEn || '').trim();
+    out.name = String(out.name || '').trim();
+    if (!out.nameEn && !out.name) bad('nameEn', 'কর্মীর নাম লিখুন।');
+    if (isNew && !out.nameEn) bad('nameEn', 'ইংরেজিতে কর্মীর নাম লিখুন।');
+    if (isNew && !out.name) bad('name', 'বাংলায় কর্মীর নাম লিখুন।');
+    out.nid = registrationNid(out.nid);
+    out.phone = registrationMobile(out.phone);
+    if (isNew && !out.nid) bad('nid', 'NID নম্বর লিখুন।');
+    if (out.nid && !/^(?:\d{10}|\d{13}|\d{17})$/.test(out.nid) &&
+        (isNew || out.nid !== registrationNid(old.NID || old.nid))) bad('nid', 'NID নম্বর ১০, ১৩ অথবা ১৭ সংখ্যার হতে হবে।');
+    if (!out.phone) bad('phone', 'মোবাইল নম্বর লিখুন।');
+    if (!/^01[3-9]\d{8}$/.test(out.phone) &&
+        (isNew || out.phone !== registrationMobile(old.PhoneNumber || old.phone))) bad('phone', 'সঠিক ১১ সংখ্যার বাংলাদেশি মোবাইল নম্বর লিখুন (01XXXXXXXXX)।');
+    if (out.nidBn && registrationNid(out.nidBn) !== out.nid) bad('nidBn', 'বাংলা ও ইংরেজি NID নম্বর মিলছে না।');
+    if (out.phoneBn && registrationMobile(out.phoneBn) !== out.phone) bad('phoneBn', 'বাংলা ও ইংরেজি মোবাইল নম্বর মিলছে না।');
+    if (out.dob && (registrationDate(out.dob) == null || out.dob > new Date().toLocaleDateString('en-CA', {timeZone:'Asia/Dhaka'}))) bad('dob', 'সঠিক জন্মতারিখ লিখুন; ভবিষ্যৎ তারিখ দেওয়া যাবে না।');
+    if (out.weight && (!Number.isFinite(Number(out.weight)) || Number(out.weight) <= 0)) bad('weight', 'সঠিক ওজন লিখুন।');
+    return out;
+  }
+  function registrationOptionalMobile(value, field) {
+    var normalized = registrationMobile(value);
+    if (normalized && !/^01[3-9]\d{8}$/.test(normalized)) {
+      var e = new Error('ঐচ্ছিক মোবাইল নম্বর দেওয়া হলে সঠিক ১১ সংখ্যার নম্বর লিখুন।'); e.field = field; throw e;
+    }
+    return normalized;
+  }
+  function registrationSavedRows(rows, expected) {
+    if (!Array.isArray(rows) || rows.length !== 1 || rows[0].id == null) {
+      throw new Error('সংরক্ষণ নিশ্চিত করা যায়নি। পুনরায় নতুন রেকর্ড তৈরির আগে প্রোফাইল তালিকা পরীক্ষা করুন।');
+    }
+    var row = rows[0];
+    Object.keys(expected || {}).forEach(function (key) {
+      if (key === 'id') return;
+      var a = expected[key], b = row[key];
+      if (key === 'salary' && a != null && b != null ? Number(a) !== Number(b) : (a == null ? b != null : String(a) !== String(b == null ? '' : b))) {
+        throw new Error('সংরক্ষিত তথ্য জমা দেওয়া তথ্যের সঙ্গে মিলছে না। প্রোফাইল পুনরায় যাচাই করুন।');
+      }
+    });
+    return row;
+  }
+  async function registrationCheckDuplicate(payload, existingId) {
+    var nid = registrationNid(payload.nid), code = String(payload.employee_id || '').trim();
+    function matches(row) {
+      if (existingId != null && String(row.id) === String(existingId)) return false;
+      return (nid && registrationNid(row.nid || row.NID || row['NID/BirthCertificate']) === nid) ||
+        (code && String(row.employee_id || row.EmployeeID || '').trim() === code);
+    }
+    if (((global.DATA || {}).employees || []).some(matches)) throw new Error('এই NID বা Employee ID দিয়ে একটি প্রোফাইল আছে। নতুন রেকর্ড না করে বিদ্যমান প্রোফাইল ব্যবহার করুন।');
+    // Narrow lookup only; a shared mobile or a matching name alone is not a duplicate.
+    var filters = [];
+    if (/^\d{10}$|^\d{13}$|^\d{17}$/.test(nid)) {
+      filters.push('nid.eq.' + nid);
+      filters.push('nid.eq.' + nid.replace(/\d/g, function(d) { return '০১২৩৪৫৬৭৮৯'[Number(d)]; }));
+    }
+    if (code && /^[A-Za-z0-9/_-]+$/.test(code)) filters.push('employee_id.eq.' + code);
+    if (!filters.length) return;
+    if (!ready || !sb) throw new Error('Supabase client is not connected.');
+    var res = await sb.from('employees').select('id,nid,employee_id').or(filters.join(','));
+    if (res.error) throw res.error;
+    if (!Array.isArray(res.data)) throw new Error('ডুপ্লিকেট পরীক্ষা সম্পন্ন হয়নি। আবার চেষ্টা করুন।');
+    if (res.data.some(matches)) throw new Error('এই NID বা Employee ID দিয়ে একটি প্রোফাইল আছে। বিদ্যমান প্রোফাইল খুলুন বা পুনরুদ্ধার করুন।');
+  }
+  var Registration = {
+    remarks: recruitRemarks, displayStatus: registrationDisplayStatus, writePayload: registrationWritePayload,
+    digits: registrationDigits, nid: registrationNid, mobile: registrationMobile,
+    date: registrationDate, personal: registrationPersonal, optionalMobile: registrationOptionalMobile,
+    savedRow: registrationSavedRows, checkDuplicate: registrationCheckDuplicate
+  };
+
   /* ---------- Progressive Recruitment (Phase 2) ---------- */
-  function saveRecruitBasicInfo(basicData, currentRecruitId) {
+  async function saveRecruitBasicInfo(basicData, currentRecruitId) {
     if (!ready || !sb) {
       return Promise.reject(new Error('Supabase client is not connected.'));
     }
     var clean = toDb('employees', basicData);
+    var old = ((global.DATA || {}).employees || []).find(function(e) { return String(e.id) === String(currentRecruitId); });
+    var normalized = registrationPersonal({nameEn:clean.full_name,name:clean.full_name_bn,nid:clean.nid,nidBn:clean.nid_bn,phone:clean.phone,phoneBn:clean.phone_bn,dob:clean.dob,weight:clean.weight}, !currentRecruitId, old);
+    clean.full_name = normalized.nameEn || normalized.name;
+    clean.full_name_bn = normalized.name || normalized.nameEn;
+    clean.nid = normalized.nid;
+    clean.phone = normalized.phone;
+    await registrationCheckDuplicate(clean, currentRecruitId);
     if (!currentRecruitId) {
-      // New recruitment registration begins as Candidate
-      clean.status = 'Candidate';
+      // Pending recruitment is not an Active employee lifecycle state.
+      var extra = recruitRemarks(clean.remarks);
+      extra.registrationPending = true;
+      extra.stage = extra.stage || 'DataEntry';
+      clean.remarks = JSON.stringify(extra);
+      clean.status = 'Inactive';
+      delete clean.id; // The database owns employee numbering.
     } else {
       // Editing an existing employee profile: preserve existing database status, omit status completely
       delete clean.status;
+      delete clean.id;
     }
 
     if (!currentRecruitId) {
@@ -1605,6 +1733,7 @@
             if (global.toast) global.toast('Server Error: ' + (r.error.message || r.error), 'error');
             throw r.error;
           }
+          registrationSavedRows(r.data, clean);
           return r.data;
         });
     } else {
@@ -1617,11 +1746,8 @@
       return query
         .select()
         .then(function (r) {
-          if (r.error) {
-            console.error('[Recruitment Update Error]:', r.error.message || r.error);
-            if (global.toast) global.toast('Server Error: ' + (r.error.message || r.error), 'error');
-            throw r.error;
-          }
+          if (r.error) throw r.error;
+          registrationSavedRows(r.data, clean);
           return r.data;
         });
     }
@@ -1629,98 +1755,40 @@
 
   /* ---------- Progressive Recruitment (Phase 3) ---------- */
   function updateRecruitSection(sectionData, currentRecruitId) {
-    if (!currentRecruitId) {
-      return Promise.reject(new Error('Profile ID missing. Please complete basic info first.'));
-    }
-    if (!ready || !sb) {
-      return Promise.reject(new Error('Supabase client is not connected.'));
-    }
+    if (!currentRecruitId) return Promise.reject(new Error('Profile ID missing. Please complete basic info first.'));
+    if (!ready || !sb) return Promise.reject(new Error('Supabase client is not connected.'));
     var clean = toDb('employees', sectionData);
-    delete clean.id; // Do not alter primary key
-    delete clean.status; // Section updates must NEVER modify employee status
-
+    delete clean.id;
+    delete clean.status;
     var query = sb.from('employees').update(clean);
-    if (/^\d+$/.test(String(currentRecruitId))) {
-      query = query.eq('id', Number(currentRecruitId));
-    } else {
-      query = query.eq('employee_id', currentRecruitId);
-    }
-    return query
-      .select()
-      .then(function (r) {
-        if (r.error) {
-          // If a PostgreSQL trigger failed due to old_join_date type mismatch (42804):
-          if ((r.error.code === '42804' || (r.error.message && r.error.message.indexOf('old_join_date') !== -1)) && clean.join_date !== undefined) {
-            console.warn('[Recruitment Section Update]: Database trigger reported old_join_date type mismatch (42804). Retrying without join_date column in update payload.');
-            var fallbackClean = Object.assign({}, clean);
-            delete fallbackClean.join_date;
-            var retryQuery = sb.from('employees').update(fallbackClean);
-            if (/^\d+$/.test(String(currentRecruitId))) {
-              retryQuery = retryQuery.eq('id', Number(currentRecruitId));
-            } else {
-              retryQuery = retryQuery.eq('employee_id', currentRecruitId);
-            }
-            return retryQuery.select().then(function (retryRes) {
-              if (retryRes.error) {
-                console.error('[Recruitment Section Update Error]:', retryRes.error.message || retryRes.error);
-                if (global.toast) global.toast('Server Error: ' + (retryRes.error.message || retryRes.error), 'error');
-                throw retryRes.error;
-              }
-              return retryRes.data;
-            });
-          }
-          console.error('[Recruitment Section Update Error]:', r.error.message || r.error);
-          if (global.toast) global.toast('Server Error: ' + (r.error.message || r.error), 'error');
-          throw r.error;
-        }
-        return r.data;
-      });
+    query = /^\d+$/.test(String(currentRecruitId)) ? query.eq('id', Number(currentRecruitId)) : query.eq('employee_id', currentRecruitId);
+    return query.select().then(function(r) {
+      if (r.error) throw r.error;
+      registrationSavedRows(r.data, clean);
+      return r.data;
+    });
   }
 
-  /* ---------- Candidate Finalization (Phase 4) ---------- */
-  function approveCandidate(id) {
-    if (!id) return Promise.reject(new Error('Candidate ID is required.'));
-    if (!ready || !sb) return Promise.reject(new Error('Supabase client is not connected.'));
-
-    var query = sb.from('employees').update({ status: 'Active' });
-    if (/^\d+$/.test(String(id))) {
-      query = query.eq('id', Number(id));
-    } else {
-      query = query.eq('employee_id', id);
-    }
-    return query
-      .select()
-      .then(function (r) {
-        if (r.error) {
-          console.error('[Candidate Approval Error]:', r.error.message || r.error);
-          if (global.toast) global.toast('Server Error: ' + (r.error.message || r.error), 'error');
-          throw r.error;
-        }
-        return r.data;
-      });
+  /* Candidate decisions retain the employment constraint and existing remarks. */
+  async function registrationDecision(id, hired) {
+    if (!id || !ready || !sb) throw new Error('Candidate or Supabase connection is missing.');
+    var query = sb.from('employees').select('id,status,remarks');
+    query = /^\d+$/.test(String(id)) ? query.eq('id', Number(id)) : query.eq('employee_id', id);
+    var current = await query.single();
+    if (current.error) throw current.error;
+    if (!current.data || current.data.id == null) throw new Error('Candidate record not found.');
+    var extra = recruitRemarks(current.data.remarks);
+    if (current.data.status !== 'Inactive' || extra.registrationPending !== true) throw new Error('শুধু pending candidate-এর approval/rejection করা যাবে।');
+    extra.registrationPending = false;
+    extra.stage = hired ? 'Confirmed' : 'Rejected';
+    var payload = { status: hired ? 'Active' : 'Inactive', remarks: JSON.stringify(extra) };
+    var result = await sb.from('employees').update(payload).eq('id', current.data.id).eq('status','Inactive').eq('remarks',current.data.remarks).select();
+    if (result.error) throw result.error;
+    registrationSavedRows(result.data, payload);
+    return result.data;
   }
-
-  function rejectCandidate(id) {
-    if (!id) return Promise.reject(new Error('Candidate ID is required.'));
-    if (!ready || !sb) return Promise.reject(new Error('Supabase client is not connected.'));
-
-    var query = sb.from('employees').update({ status: 'Rejected' });
-    if (/^\d+$/.test(String(id))) {
-      query = query.eq('id', Number(id));
-    } else {
-      query = query.eq('employee_id', id);
-    }
-    return query
-      .select()
-      .then(function (r) {
-        if (r.error) {
-          console.error('[Candidate Rejection Error]:', r.error.message || r.error);
-          if (global.toast) global.toast('Server Error: ' + (r.error.message || r.error), 'error');
-          throw r.error;
-        }
-        return r.data;
-      });
-  }
+  function approveCandidate(id) { return registrationDecision(id, true); }
+  function rejectCandidate(id) { return registrationDecision(id, false); }
 
   /* ---------- Candidate Profile & Print Data Resolution ---------- */
   function getCandidateRecord(id) {
@@ -1836,6 +1904,7 @@
       id: (emp && emp.id != null) ? emp.id : (r ? r.id : id),
       empId: (emp && (emp.EmployeeID || emp.employee_id)) ? (emp.EmployeeID || emp.employee_id) : (r ? r.empId : ''),
       stage: (r && r.stage) ? r.stage : (extra.stage || 'DataEntry'),
+      joinDate: (emp && (emp.JoinDate || emp.join_date)) || extra.joinDate || (r && r.joinDate) || '',
       date: (emp && (emp.JoinDate || emp.join_date)) ? (emp.JoinDate || emp.join_date) : (r ? r.date : (typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0, 10))),
       name: (emp && (emp.FullNameBn || emp.full_name_bn || emp.FullNameBangla)) || (emp && (emp.FullName || emp.full_name)) || (r ? r.name : 'Candidate'),
       nameEn: (emp && (emp.FullName || emp.full_name)) || (r ? r.nameEn : ''),
@@ -2414,6 +2483,7 @@
     onChange: onChange,
     currentUser: currentUser,
     myProfile: myProfile,
+    registration: Registration,
     notifications: NotificationRepository,
     loadAll: loadAll,
     captureBaseline: captureBaseline,

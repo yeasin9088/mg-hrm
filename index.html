@@ -4041,6 +4041,7 @@ function formatTransferDocTitle(empName, newProject, transferDate, empId) {
 window.formatTransferDocTitle = formatTransferDocTitle;
 
 function closeModal(id='modal'){
+  if(id === 'modal' && window.__naSaving && document.getElementById('naTabs')) return;
   const el = document.getElementById(id);
   if(el) el.classList.remove('open');
   if(id === 'modal'){
@@ -4939,7 +4940,7 @@ function normEmployee(row) {
     join_date: normJoinDate,
     DutyHour: row.duty_hour || (extra.dutyHours ? String(extra.dutyHours) : '8'),
     Salary: row.salary ? +row.salary : (extra.salary && extra.salary.total ? +extra.salary.total : 0),
-    Status: row.status || 'Active',
+    Status: window.MGHRM ? MGHRM.registration.displayStatus(row.status, row.remarks, row.exit_date) : row.status || 'Active',
     status: row.status || 'Active',
     ExitDate: row.exit_date || '',
     ExitReason: row.exit_reason || '',
@@ -4999,7 +5000,7 @@ function cleanEmployeePayload(payload) {
       out.join_date = null;
     }
   }
-  return out;
+  return window.MGHRM ? MGHRM.registration.writePayload(out) : out;
 }
 window.cleanEmployeePayload = cleanEmployeePayload;
 
@@ -6384,75 +6385,32 @@ window.mtCustomConfirm = function(title, message, btnClass, onConfirm) {
   modal.style.display = 'flex';
 };
 
+async function applyRegistrationDecision(id, hired){
+  if(!guardEdit() || window.__naDecisionSaving) return;
+  window.__naDecisionSaving = true;
+  try {
+    const rows = await (hired ? MGHRM.approveCandidate(id) : MGHRM.rejectCandidate(id));
+    const row = MGHRM.registration.savedRow(rows);
+    const emp = findEmp(row.id);
+    if(emp) Object.assign(emp, normEmployee(row));
+    MGHRM.captureBaseline({employees:DATA.employees});
+    toast(hired ? 'Candidate approved & hired!' : 'Candidate rejected.', hired ? 'success' : 'info');
+    if(typeof syncRecruitmentFromEmployees === 'function') syncRecruitmentFromEmployees();
+    if(typeof renderPendingRecruitment === 'function') renderPendingRecruitment();
+    if(typeof renderRecruitment === 'function') renderRecruitment();
+    if(typeof renderEmpTable === 'function') renderEmpTable();
+    if(typeof renderDashboard === 'function') renderDashboard();
+  } catch(err) { naRegistrationError(err); }
+  finally { window.__naDecisionSaving = false; }
+}
 window.approveCandidate = function(id) {
-  window.mtCustomConfirm("Approve & Hire", "Are you sure you want to approve and hire this candidate?", "success", async function() {
-    const emp = (window.DATA.employees || []).find(e => String(e.id) === String(id) || String(e.EmployeeID) === String(id) || String(e.employee_id) === String(id));
-    if(emp) {
-      emp.Status = 'Active';
-      emp.status = 'Active';
-      // Preserves candidate's selected join_date without defaulting to today
-      const sbClient = window.sb || (window.MGHRM && window.MGHRM.sb);
-      if (sbClient) {
-        const targetId = emp.id != null ? emp.id : id;
-        let query = sbClient.from('employees').update({ status: 'Active' });
-        if (/^\d+$/.test(String(targetId))) {
-          query = query.eq('id', Number(targetId));
-        } else {
-          query = query.eq('employee_id', targetId);
-        }
-        const { error } = await query;
-        if (error) {
-          console.error('[Supabase Approve Error]:', error);
-          toast('Error approving candidate: ' + (error.message || error), 'error');
-          return;
-        }
-      }
-      toast('Candidate approved & hired!', 'success');
-      if (typeof fetchEmployeesDirectly === 'function') {
-        await fetchEmployeesDirectly();
-      }
-      if(typeof syncRecruitmentFromEmployees === 'function') syncRecruitmentFromEmployees();
-      if(typeof renderPendingRecruitment === 'function') renderPendingRecruitment();
-      if(typeof renderRecruitment === 'function') renderRecruitment();
-      if(typeof renderEmpTable === 'function') renderEmpTable();
-      if(typeof renderEmployees === 'function') renderEmployees();
-      if(typeof renderDashboard === 'function') renderDashboard();
-    }
+  window.mtCustomConfirm('Approve & Hire', 'Are you sure you want to approve and hire this candidate?', 'success', function(){
+    return applyRegistrationDecision(id,true);
   });
 };
-
 window.rejectCandidate = function(id) {
-  window.mtCustomConfirm("Reject Candidate", "Are you sure you want to reject this candidate?", "danger", function() {
-    const emp = (window.DATA.employees || []).find(e => String(e.id) === String(id) || String(e.EmployeeID) === String(id) || String(e.employee_id) === String(id));
-    if(emp) {
-      emp.Status = 'Rejected';
-      emp.status = 'Rejected';
-      // Direct sync with Supabase database
-      const sbClient = window.sb || (window.MGHRM && window.MGHRM.sb);
-      if (sbClient) {
-        const targetId = emp.id != null ? emp.id : id;
-        let query = sbClient.from('employees').update({ status: 'Rejected' });
-        if (/^\d+$/.test(String(targetId))) {
-          query = query.eq('id', Number(targetId));
-        } else {
-          query = query.eq('employee_id', targetId);
-        }
-        query.then(r => {
-          if (r.error) console.error('[Supabase Reject Error]:', r.error);
-          else console.log('⚡ Candidate rejected in Supabase:', targetId);
-        }).catch(err => console.error('[Supabase Reject Catch]:', err));
-      }
-      if (window.MGHRM && typeof window.MGHRM.update === 'function') {
-        window.MGHRM.update('employees', emp.id || id, { status: 'Rejected' }).catch(console.error);
-      }
-      toast('Candidate rejected.', 'info');
-      persist(); // Instantly pushes the update to the database
-      if(typeof syncRecruitmentFromEmployees === 'function') syncRecruitmentFromEmployees();
-      if(typeof renderPendingRecruitment === 'function') renderPendingRecruitment();
-      if(typeof renderRecruitment === 'function') renderRecruitment();
-      if(typeof renderEmpTable === 'function') renderEmpTable();
-      if(typeof renderDashboard === 'function') renderDashboard();
-    }
+  window.mtCustomConfirm('Reject Candidate', 'Are you sure you want to reject this candidate?', 'danger', function(){
+    return applyRegistrationDecision(id,false);
   });
 };
 
@@ -6977,7 +6935,11 @@ function buildRelationOptions(selectedVal){
 }
 
 function openApplicantForm(empKey){
+  if(window.__naSaving) return;
   const isEdit = !!empKey;
+  window.__naIsNewRegistration = !isEdit;
+  window.__naSectionSnapshots = {};
+  window.__naSavedSections = {naBasic:isEdit,naAddr:isEdit,naEc:isEdit,naRef:isEdit,naJob:isEdit};
   window.currentEditEmployeeId = empKey || null;
   window.currentRecruitId = empKey || null;
   currentRecruitId = empKey || null;
@@ -7000,7 +6962,7 @@ function openApplicantForm(empKey){
     } catch(e) {}
   }
 
-  const tab = (id,label,active=false)=>`<div class="tab ${active?'active':''}" id="natab-${id}" onclick="switchTab('naTabs','${id}');naRefreshPrimary()">${label}</div>`;
+  const tab = (id,label,active=false)=>`<div class="tab ${active?'active':''}" id="natab-${id}" onclick="if(window.__naSaving)return;switchTab('naTabs','${id}');naRefreshPrimary()">${label}</div>`;
   const fld = (id,label,type='text',placeholder='',val='',opts='')=>`<div class="field"><label>${label}</label>${opts?`<select id="na_${id}">${opts}</select>`:type==='textarea'?`<textarea id="na_${id}" rows="2" placeholder="${placeholder}">${escapeHtml(val)}</textarea>`:`<input id="na_${id}" type="${type}" placeholder="${placeholder}" value="${escapeHtml(String(val))}">`}</div>`;
 
   let hOpts='';
@@ -7011,8 +6973,12 @@ function openApplicantForm(empKey){
   const getDesig = existing ? (existing.Designation || existing.designation || '') : (cand ? (cand.desig || '') : '');
   const getRel = existing ? (existing.Religion || existing.religion || 'Islam') : (cand ? (cand.religion || 'Islam') : 'Islam');
 
-  const projOpts = ['<option value="">Select Project</option>'].concat(usageSortedOptions(activeProjects().map(p=>p.ProjectName), projCounts).map(p=>`<option value="${escapeHtml(p)}" ${getProj === p ? 'selected' : ''}>${escapeHtml(p)}</option>`)).join('');
-  const desigOpts = ['<option value="">Select Designation</option>'].concat(usageSortedOptions(DESIGNATIONS, desigCounts).map(d=>`<option value="${escapeHtml(d)}" ${getDesig === d ? 'selected' : ''}>${escapeHtml(d)}</option>`)).join('');
+  const projectChoices = activeProjects().map(p=>p.ProjectName);
+  if(existing && getProj && !projectChoices.includes(getProj)) projectChoices.push(getProj);
+  const designationChoices = DESIGNATIONS.slice();
+  if(existing && getDesig && !designationChoices.includes(getDesig)) designationChoices.push(getDesig);
+  const projOpts = ['<option value="">Select Project</option>'].concat(usageSortedOptions(projectChoices, projCounts).map(p=>`<option value="${escapeHtml(p)}" ${getProj === p ? 'selected' : ''}>${escapeHtml(p)}</option>`)).join('');
+  const desigOpts = ['<option value="">Select Designation</option>'].concat(usageSortedOptions(designationChoices, desigCounts).map(d=>`<option value="${escapeHtml(d)}" ${getDesig === d ? 'selected' : ''}>${escapeHtml(d)}</option>`)).join('');
   const relOpts = usageSortedOptions(['Islam','Hindu','Buddhist','Christian'], relCounts).map(r=>`<option ${getRel === r ? 'selected' : ''}>${r}</option>`).join('');
   const selectedEdu = existing ? (existing.Education || existing.education || 'SSC') : (cand ? (cand.education || 'SSC') : 'SSC');
   const eduOpts = ['No Formal Education','PSC / Primary','JSC / JDC','SSC / Dakhil','SSC','HSC / Alim','HSC','Diploma','Technical / Vocational','Degree / Pass Course','Honours','Masters','Postgraduate','Other'].map(ed=>`<option ${selectedEdu === ed ? 'selected' : ''}>${ed}</option>`).join('');
@@ -7177,6 +7143,7 @@ function openApplicantForm(empKey){
   `);
   naDesigSalary();
   naMaritalToggle();
+  if(isEdit) ['naBasic','naEc','naRef'].forEach(t=>{window.__naSectionSnapshots[t]=naSectionValues(t);});
   setTimeout(() => {
     const firstInp = document.getElementById('na_nameEn');
     if (firstInp) {
@@ -7280,21 +7247,75 @@ function naSalaryBreak(){
   set('na_bBasic', g*.60); set('na_bHouse', g*.20); set('na_bMed', g*.10); set('na_bOth', g*.10);
 }
 
+function naRegistrationError(err){
+  if(window.__naSaving) naEndRegistrationSave();
+  console.error('[Registration]', err && err.code || 'SAVE_FAILED');
+  toast(err && !err.code && err.message ? err.message : 'তথ্য সংরক্ষণ হয়নি বা নিশ্চিত করা যায়নি। ফর্মের তথ্য রেখে আবার যাচাই করুন।', 'error');
+  const el = err && err.field && document.getElementById('na_' + err.field);
+  if(el){
+    const panel = el.closest('.tab-panel');
+    if(panel) switchTab('naTabs', panel.id.replace('tab-', ''));
+    el.focus();
+  }
+}
+function naReadPersonal(){
+  const g = id => String((document.getElementById('na_' + id) || {}).value || '').trim();
+  const id = getActiveRecruitId();
+  const old = id && findEmp(id);
+  return MGHRM.registration.personal({
+    nameEn:g('nameEn'), name:g('name'), phone:g('phone'), phoneBn:g('phoneBn'),
+    nid:g('nid'), nidBn:g('nidBn'), dob:g('dob'), weight:g('weight')
+  }, !!window.__naIsNewRegistration || !id, old);
+}
+function naBeginRegistrationSave(){
+  if(window.__naSaving) return false;
+  window.__naSaving = true;
+  window.__naDisabledFields = Array.from(document.querySelectorAll('#modal input, #modal select, #modal textarea, #modal button')).map(el => {
+    const disabled = el.disabled; el.disabled = true; return {el,disabled};
+  });
+  return true;
+}
+function naEndRegistrationSave(){
+  (window.__naDisabledFields || []).forEach(x => { if(x.el.isConnected) x.el.disabled = x.disabled; });
+  window.__naDisabledFields = [];
+  window.__naSaving = false;
+}
+function naSectionSaved(section){
+  if(window.__naSavedSections) window.__naSavedSections[section] = true;
+  window.__naSectionSnapshots = window.__naSectionSnapshots || {};
+  window.__naSectionSnapshots[section] = naSectionValues(section);
+  if(window.MGHRM && MGHRM.captureBaseline) MGHRM.captureBaseline({employees:DATA.employees});
+  naEndRegistrationSave();
+}
+function naSectionValues(section){
+  const panel = document.getElementById('tab-' + section);
+  return panel ? JSON.stringify(Array.from(panel.querySelectorAll('input,select,textarea')).map(el=>[el.id,el.value,!!el.checked])) : '';
+}
+document.addEventListener('input', function(e){
+  const panel = e.target.closest && e.target.closest('.tab-panel');
+  if(panel && window.__naSavedSections && panel.id.startsWith('tab-na')) {
+    window.__naSavedSections[panel.id.replace('tab-', '')] = false;
+  }
+});
+
 var currentRecruitId = null;
 window.currentRecruitId = null;
 
 async function saveBasicInfoAndContinue(){
+  if(window.__naSaving) return;
   if(typeof guardEdit === 'function' && !guardEdit()) return;
+  let personal;
+  try { personal = naReadPersonal(); } catch(err) { naRegistrationError(err); return; }
 
   const g = id => {
     const el = document.getElementById('na_' + id);
     return el ? el.value.trim() : '';
   };
 
-  const nameEn = g('nameEn');
-  const name = g('name') || nameEn;
-  const phone = g('phone'), phoneBn = g('phoneBn');
-  const nid = g('nid'), nidBn = g('nidBn');
+  const nameEn = personal.nameEn;
+  const name = personal.name || nameEn;
+  const phone = personal.phone, phoneBn = personal.phoneBn;
+  const nid = personal.nid, nidBn = personal.nidBn;
   const dob = g('dob');
   const father = g('father'), fatherBn = g('fatherBn');
   const mother = g('mother'), motherBn = g('motherBn');
@@ -7306,9 +7327,11 @@ async function saveBasicInfoAndContinue(){
   const weight = g('weight') || '60';
   const maritalStatus = g('maritalStatus') || 'Unmarried';
   const spouse = maritalStatus === 'Married' ? g('spouse') : '';
-  const spouseMobile = maritalStatus === 'Married' ? g('spouseMobile') : '';
-  const desig = g('desig') || 'Security Guard';
-  const project = g('project') || (typeof activeProjects === 'function' && activeProjects()[0] ? activeProjects()[0].ProjectName : 'Unassigned');
+  let spouseMobile;
+  try { spouseMobile = maritalStatus === 'Married' ? MGHRM.registration.optionalMobile(g('spouseMobile'),'spouseMobile') : ''; }
+  catch(err) { naRegistrationError(err); return; }
+  const desig = g('desig');
+  const project = g('project');
 
   // Basic Validation
   if(!nameEn && !name){
@@ -7329,6 +7352,7 @@ async function saveBasicInfoAndContinue(){
   const primaryBtn = document.getElementById('naPrimaryBtn');
   const origSaveText = saveBtn ? saveBtn.innerHTML : '';
   const origPrimaryText = primaryBtn ? primaryBtn.innerHTML : '';
+  if(!naBeginRegistrationSave()) return;
   if(saveBtn){ saveBtn.disabled = true; saveBtn.innerHTML = 'Saving...'; }
   if(primaryBtn){ primaryBtn.disabled = true; primaryBtn.innerHTML = 'Saving...'; }
 
@@ -7339,6 +7363,7 @@ async function saveBasicInfoAndContinue(){
     const grossSalary = +(g('gross')) || (typeof salaryFor === 'function' && salaryFor(desig) ? +salaryFor(desig) : 0);
     const existingEmp = targetRecruitId ? (typeof findEmp === 'function' ? findEmp(targetRecruitId) : null) : null;
     const isExistingEmployee = !!(existingEmp && (existingEmp.id || existingEmp.EmployeeID));
+    if(targetRecruitId && !isExistingEmployee) throw new Error('বিদ্যমান প্রোফাইল পাওয়া যায়নি। নতুন রেকর্ড না বানিয়ে তালিকা পুনরায় লোড করুন।');
     const empCode = (existingEmp && (existingEmp.EmployeeID || existingEmp.employee_id)) || '';
 
     let existingExtra = {};
@@ -7347,7 +7372,7 @@ async function saveBasicInfoAndContinue(){
     }
 
     const mergedRemarks = Object.assign({}, existingExtra, {
-      stage: existingExtra.stage || 'DataEntry',
+      stage: existingExtra.stage || (isExistingEmployee ? undefined : 'DataEntry'),
       empId: empCode,
       bloodGroup: bloodGroup,
       nameEn: nameEn,
@@ -7408,9 +7433,11 @@ async function saveBasicInfoAndContinue(){
     };
 
     if(!isExistingEmployee){
-      // New recruitment registration begins as Candidate
-      dbPayload.status = 'Candidate';
-      dbPayload.join_date = finalJoinDate || todayISO();
+      // Recruitment pending lives in remarks; employment remains Inactive until hiring.
+      mergedRemarks.registrationPending = true;
+      dbPayload.remarks = JSON.stringify(mergedRemarks);
+      dbPayload.status = 'Inactive';
+      dbPayload.join_date = finalJoinDate || null;
     } else {
       // Editing existing employee: NEVER overwrite status! Preserve database status (Active or Inactive)
       delete dbPayload.status;
@@ -7421,6 +7448,10 @@ async function saveBasicInfoAndContinue(){
 
     // Clean payload strictly
     const cleanPayload = cleanEmployeePayload(dbPayload);
+    // Employment fields are committed by Employment & Pay, not a Personal save.
+    ['designation','project_name','salary','duty_hour'].forEach(k => delete cleanPayload[k]);
+    if(joinDate && MGHRM.registration.date(joinDate) == null) throw new Error('সঠিক যোগদানের তারিখ লিখুন।');
+    await MGHRM.registration.checkDuplicate(cleanPayload, existingEmp && existingEmp.id);
 
     let resultRecord = null;
     const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
@@ -7433,7 +7464,7 @@ async function saveBasicInfoAndContinue(){
     if(!isExistingEmployee){
       const { data, error } = await sbClient.from('employees').insert([cleanPayload]).select();
       if(error) throw error;
-      if(data && data.length > 0) resultRecord = data[0];
+      resultRecord = MGHRM.registration.savedRow(data, cleanPayload);
     } else {
       const targetPk = existingEmp.id || targetRecruitId;
       let query = sbClient.from('employees').update(cleanPayload);
@@ -7444,26 +7475,11 @@ async function saveBasicInfoAndContinue(){
       }
       const { data, error } = await query.select();
       if(error) throw error;
-      if(data && data.length > 0) resultRecord = data[0];
+      resultRecord = MGHRM.registration.savedRow(data, cleanPayload);
 
-      // Reload from Supabase using employees.id to verify stored state and preserve status
-      const { data: reloaded, error: rErr } = await sbClient.from('employees').select('*').eq('id', Number(targetPk)).single();
-      if(!rErr && reloaded){
-        resultRecord = reloaded;
-        // Verify join date if changed
-        if(cleanPayload.join_date){
-          const reloadedJoin = normalizeDateOnly(reloaded.join_date);
-          const submittedJoin = normalizeDateOnly(cleanPayload.join_date);
-          if(reloadedJoin !== submittedJoin){
-            throw new Error(`Verification mismatch: Database stored join date '${reloadedJoin}' but expected '${submittedJoin}'.`);
-          }
-        }
-      }
     }
 
-    if(!resultRecord){
-      resultRecord = Object.assign({}, cleanPayload, { id: targetRecruitId || Date.now() });
-    }
+    MGHRM.registration.savedRow(resultRecord ? [resultRecord] : [], cleanPayload);
 
     const targetId = resultRecord.id || targetRecruitId;
     currentRecruitId = targetId;
@@ -7476,11 +7492,11 @@ async function saveBasicInfoAndContinue(){
       const normRec = typeof normEmployee === 'function' ? normEmployee(resultRecord) : resultRecord;
       if(isExistingEmployee && existingEmp){
         // Preserve original status: Active -> Active, Inactive -> Inactive
-        normRec.Status = resultRecord.status || existingEmp.Status || existingEmp.status || 'Active';
-        normRec.status = normRec.Status;
+        normRec.Status = MGHRM.registration.displayStatus(resultRecord.status, resultRecord.remarks, resultRecord.exit_date);
+        normRec.status = resultRecord.status;
       } else {
-        normRec.Status = 'Candidate';
-        normRec.status = 'Candidate';
+        normRec.Status = MGHRM.registration.displayStatus(resultRecord.status, resultRecord.remarks, resultRecord.exit_date);
+        normRec.status = resultRecord.status;
       }
       const existingIdx = window.DATA.employees.findIndex(e =>
         String(e.id) === String(targetId) ||
@@ -7494,6 +7510,7 @@ async function saveBasicInfoAndContinue(){
       }
     }
 
+    naSectionSaved('naBasic');
     // Refresh views
     if(typeof renderEmpTable === 'function') renderEmpTable();
     if(typeof syncRecruitmentFromEmployees === 'function') syncRecruitmentFromEmployees();
@@ -7513,9 +7530,9 @@ async function saveBasicInfoAndContinue(){
 
     toast('Basic info saved.', 'success');
   } catch(err){
-    console.error('[Progressive Save] Error in saveBasicInfoAndContinue:', err);
-    toast('Error saving basic info: ' + (err.message || err), 'error');
+    naRegistrationError(err);
   } finally {
+    naEndRegistrationSave();
     if(saveBtn){ saveBtn.disabled = false; saveBtn.innerHTML = origSaveText || 'Save & Continue →'; }
     if(primaryBtn){ primaryBtn.disabled = false; primaryBtn.innerHTML = origPrimaryText || 'Save & Continue'; }
   }
@@ -7613,134 +7630,30 @@ function confirmSensitiveJoinDateChange(currentDate, newDate, emp){
 }
 
 async function executeRecruitUpdate(dbPayload, recruitId){
+  if(!recruitId) throw new Error('আগে Personal তথ্য সংরক্ষণ করুন।');
   const currentEmp = typeof findEmp === 'function' ? findEmp(recruitId) : null;
-  const oldJoin = currentEmp && (currentEmp.JoinDate || currentEmp.join_date);
-  
-  // Clean payload strictly using cleanEmployeePayload
   const clean = cleanEmployeePayload(dbPayload);
-
-  const isExistingSavedEmp = currentEmp && currentEmp.Status !== 'Candidate' && oldJoin;
-  if(clean.join_date && isExistingSavedEmp){
-    const normOld = normalizeDateOnly(oldJoin);
-    const normNew = normalizeDateOnly(clean.join_date);
-    if(normOld && normNew && normOld !== normNew){
-      const confirmed = await confirmSensitiveJoinDateChange(normOld, normNew, currentEmp);
-      if(!confirmed) throw new Error('Sensitive Join Date change was cancelled.');
-    }
-  }
-
-  const sbClient = (window.MGHRM && typeof window.MGHRM._client === 'function' ? window.MGHRM._client() : null)
-                || (window.MGHRM && window.MGHRM.sb)
-                || window.sb
-                || (typeof sb !== 'undefined' ? sb : null);
-
-  if(!sbClient){
-    throw new Error('Supabase client is not connected.');
-  }
-
-  async function performUpdate(payload){
-    let query = sbClient.from('employees').update(payload);
-    if(/^\d+$/.test(String(recruitId))){
-      query = query.eq('id', Number(recruitId));
-    } else {
-      query = query.eq('employee_id', recruitId);
-    }
-    return await query.select();
-  }
-
-  let workingPayload = Object.assign({}, clean);
-  let res = await performUpdate(workingPayload);
-  let data = res.data;
-  let error = res.error;
-
-  const ALL_OPTIONAL_ADDRESS_COLS = [
-    'permanent_address_details', 'present_address_details',
-    'permanent_post_office', 'present_post_office',
-    'permanent_address_bn', 'present_address_bn',
-    'perm_division', 'perm_district', 'perm_upazila', 'perm_union', 'perm_village', 'perm_street'
-  ];
-
-  let retries = 0;
-  while (error && retries < 8) {
-    retries++;
-    let payloadModified = false;
-
-    // Auto-recovery 1: Missing column error from PostgREST (PGRST204)
-    if (error.code === 'PGRST204' || (error.message && error.message.indexOf('in the schema cache') !== -1)) {
-      const match = error.message && error.message.match(/Could not find the '([^']+)' column/);
-      if (match && match[1] && workingPayload[match[1]] !== undefined) {
-        console.warn(`[executeRecruitUpdate] Schema cache missing column '${match[1]}', stripping and retrying...`);
-        delete workingPayload[match[1]];
-        payloadModified = true;
-      } else {
-        console.warn('[executeRecruitUpdate] Schema cache missing address column(s), stripping all new address columns and retrying...');
-        ALL_OPTIONAL_ADDRESS_COLS.forEach(col => {
-          if (workingPayload[col] !== undefined) {
-            delete workingPayload[col];
-            payloadModified = true;
-          }
-        });
-      }
-    }
-
-    // Auto-recovery 2: Database trigger error (42804: old_join_date type mismatch)
-    if (error.code === '42804' || (error.message && (error.message.indexOf('old_join_date') !== -1 || error.message.indexOf('join_date') !== -1))) {
-      if (workingPayload.join_date !== undefined) {
-        console.warn('[executeRecruitUpdate] Remote trigger reported 42804 on join_date, retrying without join_date column.');
-        delete workingPayload.join_date;
-        payloadModified = true;
-      }
-    }
-
-    if (!payloadModified) {
-      // If neither specific handler modified payload but we still have optional address cols or join_date, strip them all as last resort
-      let anyStripped = false;
-      ALL_OPTIONAL_ADDRESS_COLS.forEach(col => {
-        if (workingPayload[col] !== undefined) {
-          delete workingPayload[col];
-          anyStripped = true;
-        }
-      });
-      if (workingPayload.join_date !== undefined) {
-        delete workingPayload.join_date;
-        anyStripped = true;
-      }
-      if (!anyStripped) break;
-    }
-
-    res = await performUpdate(workingPayload);
-    data = res.data;
-    error = res.error;
-    if (!error) {
-      clean = workingPayload;
-      break;
-    }
-  }
-
-  if(error) throw error;
-  const updatedRecord = (data && data[0]) ? data[0] : null;
-
-  // Verification step: reload and verify join_date if submitted
+  delete clean.id;
+  delete clean.status; // Section saves never perform lifecycle transitions.
+  const oldJoin = normalizeDateOnly(currentEmp && (currentEmp.JoinDate || currentEmp.join_date));
   if(clean.join_date){
-    const targetPk = (updatedRecord && updatedRecord.id) || (currentEmp && currentEmp.id) || recruitId;
-    if(targetPk && /^\d+$/.test(String(targetPk))){
-      const { data: verified, error: vErr } = await sbClient.from('employees').select('id, employee_id, join_date, status').eq('id', Number(targetPk)).single();
-      if(!vErr && verified){
-        const reloadedDate = normalizeDateOnly(verified.join_date);
-        const expectedDate = normalizeDateOnly(clean.join_date);
-        if(currentEmp){
-          currentEmp.JoinDate = reloadedDate || expectedDate;
-          currentEmp.join_date = reloadedDate || expectedDate;
-          if(verified.status){
-            currentEmp.Status = verified.status;
-            currentEmp.status = verified.status;
-          }
-        }
-      }
+    if(MGHRM.registration.date(clean.join_date) == null) throw new Error('সঠিক যোগদানের তারিখ লিখুন।');
+    if(currentEmp && currentEmp.Status !== 'Candidate' && oldJoin && oldJoin !== clean.join_date){
+      if(!await confirmSensitiveJoinDateChange(oldJoin, clean.join_date, currentEmp)) throw new Error('যোগদানের তারিখ পরিবর্তন বাতিল হয়েছে।');
     }
   }
-
-  return updatedRecord;
+  if(currentEmp && currentEmp.Status === 'Active' && clean.project_name !== undefined &&
+      clean.project_name !== (currentEmp.ProjectName || currentEmp.project_name || '')){
+    throw new Error('কর্মরত কর্মীর প্রকল্প পরিবর্তনের জন্য Transfer ব্যবহার করুন।');
+  }
+  const sbClient = window.MGHRM && MGHRM._client();
+  if(!sbClient) throw new Error('Supabase client is not connected.');
+  let query = sbClient.from('employees').update(clean);
+  query = /^\d+$/.test(String(recruitId)) ? query.eq('id', Number(recruitId)) : query.eq('employee_id', recruitId);
+  const {data,error} = await query.select();
+  if(error) throw error;
+  // Do not strip fields/retry on trigger errors or manufacture a successful row.
+  return MGHRM.registration.savedRow(data, clean);
 }
 
 function resetApplicantForm(){
@@ -7778,6 +7691,7 @@ window.resetApplicantForm = resetApplicantForm;
 /* ---------- Phase 3: Tab-by-Tab Progressive Saving ---------- */
 
 async function saveAddressAndContinue(){
+  if(window.__naSaving) return;
   if(typeof guardEdit === 'function' && !guardEdit()) return;
 
   const targetRecruitId = getActiveRecruitId();
@@ -7794,6 +7708,7 @@ async function saveAddressAndContinue(){
 
   const originalAddressHtml = addressButton ? addressButton.innerHTML : '';
   const originalPrimaryHtml = primaryButton ? primaryButton.innerHTML : '';
+  if(!naBeginRegistrationSave()) return;
 
   if (addressButton) {
     addressButton.disabled = true;
@@ -8027,6 +7942,7 @@ async function saveAddressAndContinue(){
       renderPendingRecruitment();
     }
 
+    naSectionSaved('naAddr');
     // UI progression: Advance to Emergency tab
     const ecTab = document.getElementById('natab-naEc');
     if(ecTab){
@@ -8040,9 +7956,9 @@ async function saveAddressAndContinue(){
 
     toast('Address saved.', 'success');
   } catch(err){
-    console.error('[Progressive Save] Error in saveAddressAndContinue:', err);
-    toast('Error saving address: ' + (err.message || err), 'error');
+    naRegistrationError(err);
   } finally {
+    naEndRegistrationSave();
     if(addressButton){ addressButton.disabled = false; addressButton.innerHTML = originalAddressHtml || 'Save & Continue →'; }
     if(primaryButton){ primaryButton.disabled = false; primaryButton.innerHTML = originalPrimaryHtml || 'Save & Continue'; }
   }
@@ -8050,6 +7966,7 @@ async function saveAddressAndContinue(){
 window.saveAddressAndContinue = saveAddressAndContinue;
 
 async function saveEmergencyAndContinue(){
+  if(window.__naSaving) return;
   if(typeof guardEdit === 'function' && !guardEdit()) return;
 
   const targetRecruitId = getActiveRecruitId();
@@ -8071,6 +7988,10 @@ async function saveEmergencyAndContinue(){
     relation: g('ec2r'),
     mobile: g('ec2m')
   };
+  try {
+    ec1.mobile = MGHRM.registration.optionalMobile(ec1.mobile,'ec1m');
+    ec2.mobile = MGHRM.registration.optionalMobile(ec2.mobile,'ec2m');
+  } catch(err) { naRegistrationError(err); return; }
 
   const existingRemarks = getExistingRemarks(targetRecruitId);
   const updatedRemarks = Object.assign({}, existingRemarks, {
@@ -8093,6 +8014,7 @@ async function saveEmergencyAndContinue(){
   const primaryBtn = document.getElementById('naPrimaryBtn');
   const origBtnText = btn ? btn.innerHTML : '';
   const origPriText = primaryBtn ? primaryBtn.innerHTML : '';
+  if(!naBeginRegistrationSave()) return;
   if(btn){ btn.disabled = true; btn.innerHTML = 'Saving...'; }
   if(primaryBtn){ primaryBtn.disabled = true; primaryBtn.innerHTML = 'Saving...'; }
 
@@ -8133,6 +8055,7 @@ async function saveEmergencyAndContinue(){
       renderPendingRecruitment();
     }
 
+    naSectionSaved('naEc');
     // UI progression: Advance to References tab
     const refTab = document.getElementById('natab-naRef');
     if(refTab){
@@ -8146,9 +8069,9 @@ async function saveEmergencyAndContinue(){
 
     toast('Emergency contact details saved.', 'success');
   } catch(err){
-    console.error('[Progressive Save] Error in saveEmergencyAndContinue:', err);
-    toast('Error saving emergency contact: ' + (err.message || err), 'error');
+    naRegistrationError(err);
   } finally {
+    naEndRegistrationSave();
     if(btn){ btn.disabled = false; btn.innerHTML = origBtnText || 'Save & Continue →'; }
     if(primaryBtn){ primaryBtn.disabled = false; primaryBtn.innerHTML = origPriText || 'Save & Continue'; }
   }
@@ -8156,6 +8079,7 @@ async function saveEmergencyAndContinue(){
 window.saveEmergencyAndContinue = saveEmergencyAndContinue;
 
 async function saveReferencesAndContinue(){
+  if(window.__naSaving) return;
   if(typeof guardEdit === 'function' && !guardEdit()) return;
 
   const targetRecruitId = getActiveRecruitId();
@@ -8168,11 +8092,13 @@ async function saveReferencesAndContinue(){
 
   const g = id => (document.getElementById('na_' + id) || {}).value || '';
   const reference = {
-    name: g('rfn'),
-    desig: g('rfd'),
-    org: g('rfo'),
-    mobile: g('rfm')
+    name: g('rfn').trim(),
+    desig: g('rfd').trim(),
+    org: g('rfo').trim(),
+    mobile: g('rfm').trim()
   };
+  try { reference.mobile = MGHRM.registration.optionalMobile(reference.mobile,'rfm'); }
+  catch(err) { naRegistrationError(err); return; }
 
   const existingRemarks = getExistingRemarks(targetRecruitId);
   const updatedRemarks = Object.assign({}, existingRemarks, {
@@ -8188,6 +8114,7 @@ async function saveReferencesAndContinue(){
   const primaryBtn = document.getElementById('naPrimaryBtn');
   const origBtnText = btn ? btn.innerHTML : '';
   const origPriText = primaryBtn ? primaryBtn.innerHTML : '';
+  if(!naBeginRegistrationSave()) return;
   if(btn){ btn.disabled = true; btn.innerHTML = 'Saving...'; }
   if(primaryBtn){ primaryBtn.disabled = true; primaryBtn.innerHTML = 'Saving...'; }
 
@@ -8214,6 +8141,7 @@ async function saveReferencesAndContinue(){
       renderPendingRecruitment();
     }
 
+    naSectionSaved('naRef');
     // UI progression: Advance to Job Details tab
     const jobTab = document.getElementById('natab-naJob');
     if(jobTab){
@@ -8227,9 +8155,9 @@ async function saveReferencesAndContinue(){
 
     toast('References saved.', 'success');
   } catch(err){
-    console.error('[Progressive Save] Error in saveReferencesAndContinue:', err);
-    toast('Error saving references: ' + (err.message || err), 'error');
+    naRegistrationError(err);
   } finally {
+    naEndRegistrationSave();
     if(btn){ btn.disabled = false; btn.innerHTML = origBtnText || 'Save & Continue →'; }
     if(primaryBtn){ primaryBtn.disabled = false; primaryBtn.innerHTML = origPriText || 'Save & Continue'; }
   }
@@ -8237,6 +8165,7 @@ async function saveReferencesAndContinue(){
 window.saveReferencesAndContinue = saveReferencesAndContinue;
 
 async function saveJobAndComplete(){
+  if(window.__naSaving) return;
   if(typeof guardEdit === 'function' && !guardEdit()) return;
 
   const targetRecruitId = getActiveRecruitId();
@@ -8251,10 +8180,19 @@ async function saveJobAndComplete(){
   const selectedJoinDate = normalizeDateOnly(g('joinDate'));
   const desig = g('desig') || g('desig_summary');
   const project = g('project') || g('project_summary');
-  const dutyHours = +(g('dutyHours')) || 12;
-  const gross = +(g('gross')) || 0;
+  const dutyHours = g('dutyHours').trim() === '' ? 12 : Number(MGHRM.registration.digits(g('dutyHours')));
+  const gross = Number(MGHRM.registration.digits(g('gross')));
+  try { naReadPersonal(); } catch(err) { naRegistrationError(err); return; }
+  const unsaved = ['naBasic','naAddr','naEc','naRef'].find(t =>
+    (window.__naSavedSections && !window.__naSavedSections[t]) ||
+    (window.__naSectionSnapshots && Object.hasOwn(window.__naSectionSnapshots,t) && window.__naSectionSnapshots[t] !== naSectionValues(t)));
+  if(unsaved){
+    switchTab('naTabs',unsaved);
+    toast('এই ট্যাবের তথ্য আগে Save & Continue দিয়ে সংরক্ষণ করুন।','warning');
+    return;
+  }
 
-  if(!selectedJoinDate){
+  if(!selectedJoinDate || MGHRM.registration.date(selectedJoinDate) == null){
     toast('Please select Join Date.', 'warning');
     const el = document.getElementById('na_joinDate');
     if(el) el.focus();
@@ -8272,11 +8210,14 @@ async function saveJobAndComplete(){
     if(el) el.focus();
     return;
   }
-  if(!gross){
+  if(!Number.isFinite(gross) || gross <= 0){
     toast('Please enter Gross Salary.', 'warning');
     const el = document.getElementById('na_gross');
     if(el) el.focus();
     return;
+  }
+  if(!Number.isFinite(dutyHours) || dutyHours <= 0 || dutyHours > 24){
+    const err = new Error('ডিউটির সময় ০-এর বেশি এবং সর্বোচ্চ ২৪ ঘণ্টা হতে হবে।');err.field='dutyHours';naRegistrationError(err);return;
   }
 
   const salary = {
@@ -8315,6 +8256,7 @@ async function saveJobAndComplete(){
   const primaryBtn = document.getElementById('naPrimaryBtn');
   const origBtnText = btn ? btn.innerHTML : '';
   const origPriText = primaryBtn ? primaryBtn.innerHTML : '';
+  if(!naBeginRegistrationSave()) return;
   if(btn){ btn.disabled = true; btn.innerHTML = 'Completing...'; }
   if(primaryBtn){ primaryBtn.disabled = true; primaryBtn.innerHTML = 'Completing...'; }
 
@@ -8347,9 +8289,10 @@ async function saveJobAndComplete(){
     }
 
     // 4. Final Submission / Completion:
-    const isEditMode = !!((document.getElementById('na_editKey')||{}).value || window.currentEditEmployeeId);
+    const isEditMode = !window.__naIsNewRegistration;
     toast(isEditMode ? 'Employee profile updated successfully!' : 'Candidate profile completely saved!', 'success');
 
+    naEndRegistrationSave();
     // b) Close the modal
     closeModal();
 
@@ -8384,9 +8327,9 @@ async function saveJobAndComplete(){
     }
 
   } catch(err){
-    console.error('[Progressive Save] Error in saveJobAndComplete:', err);
-    toast('Error completing profile: ' + (err.message || err), 'error');
+    naRegistrationError(err);
   } finally {
+    naEndRegistrationSave();
     if(btn){ btn.disabled = false; btn.innerHTML = origBtnText || 'Complete Profile ✓'; }
     if(primaryBtn){ primaryBtn.disabled = false; primaryBtn.innerHTML = origPriText || 'Complete Profile'; }
   }
@@ -8405,6 +8348,7 @@ function naRefreshPrimary(){
   b.textContent = last ? (isEdit ? 'Update & Complete Profile' : 'Complete Profile') : (isEdit ? 'Update & Continue' : 'Save & Continue');
 }
 function naPrimaryAction(){
+  if(window.__naSaving) return;
   const cur = naActiveTab();
   if(cur === 'naBasic'){
     saveBasicInfoAndContinue();
@@ -8531,26 +8475,8 @@ document.addEventListener('focusin', function(e) {
   }
 }, true);
 function saveNewApplicant(force){
-  if(!guardEdit()) return;
-  const g = id => (document.getElementById('na_'+id)||{}).value||'';
-  const name = g('name'); const nameEn = g('nameEn'); const nid = g('nid'); const phone = g('phone');
-  if(!name||!nameEn||!nid||!phone){ toast('Name, NID and Mobile required','error'); return; }
-
-  const editKey = (document.getElementById('na_editKey')||{}).value || window.currentEditEmployeeId || window.currentRecruitId;
-  const applicant = collectApplicantData(g);
-
-  if (editKey) {
-    commitApplicantUpdate(editKey, applicant);
-  } else {
-    if(!force){
-      const dups = findDuplicates({ nid, phone, nameEn });
-      if(dups.length){
-        showDuplicateModal(dups, applicant, ()=>commitApplicant(applicant));
-        return;
-      }
-    }
-    commitApplicant(applicant);
-  }
+  // Compatibility entry point: use the same verified progressive save path.
+  return getActiveRecruitId() ? saveJobAndComplete() : saveBasicInfoAndContinue();
 }
 
 async function commitApplicantUpdate(editKey, a){
@@ -8931,7 +8857,10 @@ async function onboardCandidate(id){
   try {
     const emp = DATA.employees.find(e => String(e.id) === String(id) || String(e.EmployeeID) === String(id));
     const existingJoin = emp && (emp.join_date || emp.JoinDate);
-    const updatePayload = { status: 'Active' };
+    const hiredRemarks = MGHRM.registration.remarks(emp && (emp.Remarks || emp.remarks));
+    hiredRemarks.registrationPending = false;
+    hiredRemarks.stage = 'Confirmed';
+    const updatePayload = { status: 'Active', remarks: JSON.stringify(hiredRemarks) };
     if (!existingJoin && r && r.joinDate) {
       updatePayload.join_date = normalizeDateOnly(r.joinDate);
     }
@@ -8993,7 +8922,8 @@ async function cancelCandidate(id){
 
   try {
     const emp = DATA.employees.find(e => String(e.id) === String(id) || String(e.EmployeeID) === String(id));
-    let query = sbClient.from('employees').update({ status: 'Application Rejected' });
+    const rejectedPayload = MGHRM.registration.writePayload({status:'Application Rejected',remarks:emp && (emp.Remarks || emp.remarks)});
+    let query = sbClient.from('employees').update(rejectedPayload);
     if (emp && emp.id) {
       query = query.eq('id', emp.id);
     } else {
@@ -22130,14 +22060,14 @@ function importBackupFile(ev){
 
 /* ============ DUPLICATE DETECTION + RE-HIRE ============ */
 function normPhone(p){ return (p||'').replace(/\D/g,'').replace(/^880/,'0'); }
-function findDuplicates({nid, phone, nameEn}){
+function findDuplicates({nid, phone, nameEn, excludeId}){
   const out = [];
-  const nPhone = normPhone(phone), nNid = (nid||'').replace(/\D/g,''), nName = (nameEn||'').trim().toLowerCase();
+  const nPhone = MGHRM.registration.mobile(phone), nNid = MGHRM.registration.nid(nid);
   DATA.employees.forEach(e=>{
+    if(excludeId != null && String(e.id) === String(excludeId)) return;
     let why = [];
-    if(nNid && (e['NID/BirthCertificate']||e.NID||'').replace(/\D/g,'') === nNid) why.push('NID');
-    if(nPhone && normPhone(e.PhoneNumber) === nPhone) why.push('mobile');
-    if(nName && (e.FullName||'').trim().toLowerCase() === nName) why.push('name');
+    if(nNid && MGHRM.registration.nid(e['NID/BirthCertificate']||e.NID||e.nid||'') === nNid) why.push('NID');
+    if(nPhone && MGHRM.registration.mobile(e.PhoneNumber || e.phone) === nPhone) why.push('mobile (may be shared)');
     if(why.length) out.push({ emp:e, why });
   });
   return out;
@@ -22218,9 +22148,9 @@ function rehireEmployee(recordId, applicant){
 function dupHintLive(){
   const g = id => (document.getElementById(id)||{}).value||'';
   const box = document.getElementById('dupHint'); if(!box) return;
-  const d = findDuplicates({ nid:g('na_nid'), phone:g('na_phone'), nameEn:'' });
+  const d = findDuplicates({ nid:g('na_nid'), phone:g('na_phone'), nameEn:'', excludeId:getActiveRecruitId() });
   box.innerHTML = d.length
-    ? `<span style="color:var(--warning);font-weight:600">⚠ ${'This NID/mobile matches'} ${num(d.length)} ${'existing record(s) — saving will raise a duplicate alert'}</span>`
+    ? `<span style="color:var(--warning);font-weight:600">⚠ ${'This NID/mobile matches'} ${num(d.length)} ${'existing record(s). Duplicate NID is blocked; a shared mobile alone is allowed.'}</span>`
     : '';
 }
 

@@ -3,3 +3,14 @@ node_modules/
 .DS_Store
 *_backup.html
 *backup*.html
+
+# Local environment variants; keep the placeholder template versioned.
+.env.*
+!.env.example
+
+# Generated public site and unfinished/on-hold security work stay local.
+/_site/
+/supabase/security-staging/
+/docs/database/security-audit.md
+/docs/database/security-remediation-plan.md
+/docs/database/reconciliation-plan.md

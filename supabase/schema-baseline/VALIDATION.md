@@ -1,3 +1,5 @@
+Attendance refresh, 2026-10-21: approved migration committed on production PostgreSQL 17.6. Deployed catalogs confirm 730 columns, 237 constraints, 174 indexes and 73 routines; existing function hashes and RLS remain unchanged. Historical table counts/content digests match the verified restored backup. The original capture notes below describe the pre-migration snapshot.
+
 # Local validation — 2026-10-20, Asia/Dhaka
 
 - Read-only MCP catalog access confirmed transaction_read_only=on on PostgreSQL 17.6.

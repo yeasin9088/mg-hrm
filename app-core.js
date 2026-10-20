@@ -459,7 +459,7 @@
     meetingAttendance: {
       table: 'meeting_attendance',
       pk: 'id',
-      allowed: ['employee_sys_id',  
+      allowed: [
         'id', 'meeting_id', 'meeting_date', 'employee_id', 'full_name',
         'designation', 'project_name', 'status', 'remarks', 'sort_order', 'created_at'
        ],
@@ -787,11 +787,7 @@
     if (row.employee_id && !out.EmployeeID) out.EmployeeID = row.employee_id;
     if (row.full_name && !out.FullName) out.FullName = row.full_name;
 
-    if (key === 'meetings') {
-      parseMeetingRow(row);
-    } else if (key === 'meetingAttendance') {
-      parseMeetingAttendanceRow(row);
-    } else if (key === 'projects') {
+    if (key === 'projects') {
       var isMt = row.meeting_attendance_enabled !== undefined ? row.meeting_attendance_enabled : out.MeetingAttendanceEnabled;
       out.MeetingAttendanceEnabled = isMt !== false;
       out.meeting_attendance_enabled = isMt !== false;
@@ -833,7 +829,8 @@
   }
 
   function parseMeetingRow(row) {
-    if (!row) return;
+    if (!row || row.deleted_at) return;
+    if (global.mtAttendanceEdits && global.mtAttendanceEdits[row.meeting_date]) return;
     var mDate = row.meeting_date ? String(row.meeting_date).slice(0, 10) : '';
     var mId = row.meeting_id != null ? String(row.meeting_id) : '';
     if (mId && mDate) {
@@ -878,7 +875,7 @@
   }
 
   function parseMeetingAttendanceRow(row, isoDateOverride) {
-    if (!row) return;
+    if (!row || row.deleted_at) return;
     var mId = row.meeting_id != null ? String(row.meeting_id) : '';
     var isoDate = isoDateOverride ||
       _meetingDateMap[mId] ||
@@ -892,6 +889,8 @@
     }
 
     if (!isoDate) return;
+    if (row.meeting_date && String(row.meeting_date).slice(0, 10) !== isoDate) return;
+    if (global.mtAttendanceEdits && global.mtAttendanceEdits[isoDate]) return;
 
     var d = ensureMeetingDay(isoDate);
     if (!d) return;
@@ -913,10 +912,12 @@
     } else if (st === 'absent') {
       d.absent[proj] = true;
       delete d.present[proj];
-    } else if (row.status) {
-      d.present[proj] = true;
+    } else {
+      delete d.present[proj];
       delete d.absent[proj];
     }
+    if (!Array.isArray(d.presentOrder)) d.presentOrder = [];
+    if (st === 'present' && d.presentOrder.indexOf(proj) < 0) d.presentOrder.push(proj);
 
     // Representatives reconstruction
     var empId = row.employee_id != null ? String(row.employee_id) : (row.employee_sys_id != null ? String(row.employee_sys_id) : '');
@@ -946,17 +947,22 @@
     }
   }
 
-  function reconstructMeetingsData(meetingsRows, attendanceRows) {
-    if (Array.isArray(meetingsRows)) {
-      meetingsRows.forEach(function (m) {
-        parseMeetingRow(m);
+  function reconstructMeetingsData(meetingsRows, attendanceRows, full) {
+    if (!Array.isArray(meetingsRows) || !Array.isArray(attendanceRows)) return;
+    var days = new Set(meetingsRows.concat(attendanceRows).map(function(r) { return r.meeting_date; }).filter(Boolean));
+    if (full) {
+      _meetingDateMap = {}; _meetingAgendaMap = {}; _pendingAttendance = {};
+      Object.keys((global.DATA && global.DATA.meetings) || {}).forEach(function(iso) {
+        if (global.DATA.meetings[iso].submitted) days.add(iso);
       });
     }
-    if (Array.isArray(attendanceRows)) {
-      attendanceRows.forEach(function (att) {
-        parseMeetingAttendanceRow(att);
-      });
-    }
+    days.forEach(function(iso) {
+      if (global.mtAttendanceEdits && global.mtAttendanceEdits[iso]) return;
+      if (global.DATA && global.DATA.meetings) delete global.DATA.meetings[iso];
+    });
+    meetingsRows.forEach(parseMeetingRow);
+    attendanceRows.slice().sort(function(a,b) { return (a.sort_order ?? 999) - (b.sort_order ?? 999) || Number(a.id) - Number(b.id); })
+      .forEach(function(row) { parseMeetingAttendanceRow(row); });
   }
 
   /* ---------- 3. Supabase Client & Lifecycle ----------------------------- */
@@ -1135,14 +1141,19 @@
       return ai - bi;
     });
 
+    var meetingLoadFailed = false;
     function loadBucket(k) {
       var query = client.from(TABLE_MAP[k].table).select('*');
       if (deletedAtBuckets.indexOf(k) !== -1) {
         query = query.is('deleted_at', null);
       }
+      if (k === 'meetings' || k === 'meetingAttendance') {
+        query = global.MeetingAttendanceStore.readAll(client, TABLE_MAP[k].table).then(function(data) { return {data: data}; });
+      }
       return query
         .then(function (r) {
           if (r.error) {
+            if (k === 'meetings' || k === 'meetingAttendance') meetingLoadFailed = true;
             console.warn('[Supabase] load ' + k, r.error.message);
             var fallback = (global.DATA && Array.isArray(global.DATA[k])) ? global.DATA[k] : [];
             return [k, fallback];
@@ -1161,6 +1172,7 @@
           ];
         })
         .catch(function (err) {
+          if (k === 'meetings' || k === 'meetingAttendance') meetingLoadFailed = true;
           console.warn('[Supabase] fetch error for ' + k + ', falling back to cache:', err);
           var fallback = (global.DATA && Array.isArray(global.DATA[k])) ? global.DATA[k] : [];
           return [k, fallback];
@@ -1190,7 +1202,12 @@
       captureBaseline(out);
 
       // Reconstruct meetings attendance for all dates into DATA.meetings[isoDate]
-      reconstructMeetingsData(out.meetings, out.meetingAttendance);
+      if (!meetingLoadFailed) reconstructMeetingsData(out.meetings, out.meetingAttendance, true);
+      else {
+        out.meetings = (global.DATA && global.DATA.rawMeetings) || [];
+        out.meetingAttendance = (global.DATA && global.DATA.meetingAttendance) || [];
+        if (global.toast) global.toast('Meeting history refresh failed. Cached data may be incomplete.', 'error');
+      }
       out.rawMeetings = out.meetings;
       if (global.DATA && global.DATA.meetings && !Array.isArray(global.DATA.meetings)) {
         out.meetings = global.DATA.meetings;
@@ -2048,35 +2065,17 @@
       });
   }
 
-  function fetchMeetingAttendance() {
-    var client = (typeof _client === 'function' ? _client() : null) || sb || global.sb;
-    if (!client) {
-      return Promise.resolve((global.DATA && global.DATA.meetingAttendance) || []);
+  async function fetchMeetingAttendance() {
+    var client = _client();
+    if (!client) throw new Error('Database not connected');
+    var rows = await global.MeetingAttendanceStore.readAll(client, 'meeting_attendance');
+    var attend = rows.map(function(row) { return fromDb('meetingAttendance', row); });
+    if (global.DATA) {
+      global.DATA.meetingAttendance = attend;
+      global.DATA.meeting_attendance = attend;
+      reconstructMeetingsData(global.DATA.rawMeetings || [], attend);
     }
-    return client
-      .from('meeting_attendance')
-      .select('*')
-      .then(function (r) {
-        if (r.error) {
-          console.warn('[Supabase Meeting Attendance Fetch Error]', r.error.message);
-          return (global.DATA && global.DATA.meetingAttendance) || [];
-        }
-        var attend = (r.data || []).map(function (row) {
-          return fromDb('meetingAttendance', row);
-        });
-        if (global.DATA) {
-          global.DATA.meetingAttendance = attend;
-          global.DATA.meeting_attendance = attend;
-        }
-        return attend;
-      })
-      .catch(function (err) {
-        console.warn('Network offline, falling back to local cache for meeting attendance.', err);
-        if (typeof global.toast === 'function') {
-          global.toast('You are offline. Showing cached data.', 'warning');
-        }
-        return (global.DATA && global.DATA.meetingAttendance) || [];
-      });
+    return attend;
   }
 
   function deduplicate(arr, pk) {
@@ -2273,6 +2272,8 @@
 
     Object.keys(TABLE_MAP).forEach(function (k) {
       var m = TABLE_MAP[k];
+      // Meeting writes require an explicit version-checked transaction, never cache replay.
+      if (k === 'meetings' || k === 'meetingAttendance') return;
       var changed = collectChangedRows(k);
       if (!changed.rows.length) return;
 

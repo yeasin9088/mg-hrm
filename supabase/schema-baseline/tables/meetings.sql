@@ -18,6 +18,7 @@ CREATE TABLE "public"."meetings" (
   "started_at" timestamp with time zone,
   "ended_at" timestamp with time zone,
   "submitted_at" timestamp with time zone,
-  "not_held_reason" text
+  "not_held_reason" text,
+  "attendance_request_id" uuid
 ) USING "heap";
 ALTER TABLE "public"."meetings" OWNER TO "postgres";

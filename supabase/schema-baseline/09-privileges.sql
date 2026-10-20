@@ -1662,6 +1662,20 @@ SET ROLE "postgres";
 GRANT EXECUTE ON FUNCTION public.mghrm_resolve_transfers_for_inactive_employee() TO "service_role";
 RESET ROLE;
 
+-- Original ACL: {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+SET ROLE "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.mghrm_save_meeting_attendance(date,jsonb,jsonb,jsonb,uuid) FROM PUBLIC, "authenticated", "postgres", "service_role";
+RESET ROLE;
+SET ROLE "postgres";
+GRANT EXECUTE ON FUNCTION public.mghrm_save_meeting_attendance(date,jsonb,jsonb,jsonb,uuid) TO "postgres";
+RESET ROLE;
+SET ROLE "postgres";
+GRANT EXECUTE ON FUNCTION public.mghrm_save_meeting_attendance(date,jsonb,jsonb,jsonb,uuid) TO "authenticated";
+RESET ROLE;
+SET ROLE "postgres";
+GRANT EXECUTE ON FUNCTION public.mghrm_save_meeting_attendance(date,jsonb,jsonb,jsonb,uuid) TO "service_role";
+RESET ROLE;
+
 -- Original ACL: {=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
 SET ROLE "postgres";
 REVOKE ALL PRIVILEGES ON FUNCTION public.mghrm_touch_updated_at() FROM PUBLIC, "anon", "authenticated", "postgres", "service_role";

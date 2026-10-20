@@ -9,24 +9,24 @@
   "counts": {
     "schemas": 1,
     "tables": 45,
-    "columns": 729,
-    "constraints": 238,
+    "columns": 730,
+    "constraints": 237,
     "primaryKeys": 44,
     "foreignKeys": 62,
-    "uniqueConstraints": 13,
+    "uniqueConstraints": 12,
     "checks": 119,
-    "indexes": 173,
-    "constraintBackedIndexes": 57,
-    "standaloneIndexes": 116,
+    "indexes": 174,
+    "constraintBackedIndexes": 56,
+    "standaloneIndexes": 118,
     "sequences": 35,
-    "routines": 72,
+    "routines": 73,
     "securityDefiners": 41,
     "policies": 140,
     "publicTriggers": 53,
     "authBridgeTriggers": 1,
     "extensions": 7,
     "applicationPublicationTables": 15,
-    "dependencies": 1651
+    "dependencies": 1655
   },
   "tables": [
     {
@@ -117,7 +117,7 @@
       "schema": "public",
       "name": "meetings",
       "file": "tables/meetings.sql",
-      "columns": 15
+      "columns": 16
     },
     {
       "schema": "public",
@@ -425,6 +425,13 @@
       "file": "functions/triggers-and-helpers.sql",
       "definitionMd5": "0f2f965fa205d956f0e06bf9f2ea9c37",
       "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "mghrm_save_meeting_attendance(date,jsonb,jsonb,jsonb,uuid)",
+      "file": "functions/hr-workflows.sql",
+      "definitionMd5": "38919bc7629b64e651e314a204c33821",
+      "security": "invoker",
       "language": "plpgsql"
     },
     {
@@ -877,7 +884,7 @@
     },
     {
       "file": "tables/meetings.sql",
-      "sha256": "a97cb65fe08de21300f269ac514fdbc7f923f704bf5be432d3c74be0f07e715a"
+      "sha256": "e6b7571089f220b51909cfa5098771f040e132c8ead0ee29e4d2a4c42805c2fb"
     },
     {
       "file": "tables/notification_deliveries.sql",
@@ -1005,7 +1012,7 @@
     },
     {
       "file": "04-constraints.sql",
-      "sha256": "958b1482e2f6efc6ef3cc475ec12f3f97eeaa004d6cba2df2191f31154e2525b"
+      "sha256": "db886dd21716c7e3aaa48455bda22d61a4b09b816bc5059fe6855d8cb28b82eb"
     },
     {
       "file": "05-foreign-keys.sql",
@@ -1013,11 +1020,11 @@
     },
     {
       "file": "06-indexes.sql",
-      "sha256": "b6f555d87c7f2719bf443a64cdb2dd7f6ed92b55125298e2a0305f7ff6217717"
+      "sha256": "8cc7f19160b628cbf269b7d88acf625b747aaad55740187bfabdc39ebfce16cd"
     },
     {
       "file": "functions/hr-workflows.sql",
-      "sha256": "0d7e7ea10d39d06ccf68cf57e60e1250640c415190af262f5fe8e69679f365a0"
+      "sha256": "bf67a9b075dd7e618d77d5c675f79cbf582957648ec89dcc57497f0f81cfe0b4"
     },
     {
       "file": "functions/uniform.sql",
@@ -1045,7 +1052,7 @@
     },
     {
       "file": "09-privileges.sql",
-      "sha256": "9c64bbe442f89469a69963fa3811046a082e1ab660fac9aeffcf03fc602f4609"
+      "sha256": "cdabdf9b8344633236c419475717eb72d3242ec38972e78b04bbd1dc456c5f65"
     },
     {
       "file": "10-default-privileges.sql",

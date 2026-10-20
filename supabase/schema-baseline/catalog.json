@@ -5364,6 +5364,26 @@
     },
     {
       "acl": null,
+      "name": "attendance_request_id",
+      "type": "uuid",
+      "comment": null,
+      "options": null,
+      "ordinal": 16,
+      "storage": "p",
+      "identity": "",
+      "not_null": false,
+      "collation": null,
+      "generated": "",
+      "type_name": "uuid",
+      "table_name": "meetings",
+      "compression": "",
+      "type_schema": "pg_catalog",
+      "type_storage": "p",
+      "statistics_target": null,
+      "default_expression": null
+    },
+    {
+      "acl": null,
       "name": "id",
       "type": "bigint",
       "comment": null,
@@ -16065,6 +16085,21 @@
       "constraint_name": null
     },
     {
+      "name": "attendance_active_project_unique",
+      "comment": null,
+      "definition": "CREATE UNIQUE INDEX attendance_active_project_unique ON public.meeting_attendance USING btree (meeting_id, project_name) WHERE (deleted_at IS NULL)",
+      "indisready": true,
+      "indisvalid": true,
+      "reloptions": null,
+      "table_name": "meeting_attendance",
+      "tablespace": null,
+      "indisunique": true,
+      "indisprimary": false,
+      "indisclustered": false,
+      "indisreplident": false,
+      "constraint_name": null
+    },
+    {
       "name": "meeting_attendance_deleted_idx",
       "comment": null,
       "definition": "CREATE INDEX meeting_attendance_deleted_idx ON public.meeting_attendance USING btree (deleted_at)",
@@ -16095,19 +16130,19 @@
       "constraint_name": "meeting_attendance_pkey"
     },
     {
-      "name": "unique_attendance",
+      "name": "meetings_active_date_unique",
       "comment": null,
-      "definition": "CREATE UNIQUE INDEX unique_attendance ON public.meeting_attendance USING btree (meeting_id, employee_id)",
+      "definition": "CREATE UNIQUE INDEX meetings_active_date_unique ON public.meetings USING btree (meeting_date) WHERE (deleted_at IS NULL)",
       "indisready": true,
       "indisvalid": true,
       "reloptions": null,
-      "table_name": "meeting_attendance",
+      "table_name": "meetings",
       "tablespace": null,
       "indisunique": true,
       "indisprimary": false,
       "indisclustered": false,
       "indisreplident": false,
-      "constraint_name": "unique_attendance"
+      "constraint_name": null
     },
     {
       "name": "meetings_deleted_idx",
@@ -19208,26 +19243,6 @@
       "connoinherit": true,
       "convalidated": true,
       "backing_index": "meeting_attendance_pkey",
-      "condeferrable": false,
-      "referenced_table": null
-    },
-    {
-      "name": "unique_attendance",
-      "conkey": [
-        2,
-        12
-      ],
-      "comment": null,
-      "confkey": null,
-      "contype": "u",
-      "conislocal": true,
-      "definition": "UNIQUE (meeting_id, employee_id)",
-      "table_name": "meeting_attendance",
-      "condeferred": false,
-      "coninhcount": 0,
-      "connoinherit": true,
-      "convalidated": true,
-      "backing_index": "unique_attendance",
       "condeferrable": false,
       "referenced_table": null
     },
@@ -24293,6 +24308,27 @@
       "definition_md5": "0f2f965fa205d956f0e06bf9f2ea9c37",
       "identity_arguments": "",
       "definition": "CREATE OR REPLACE FUNCTION public.mghrm_resolve_transfers_for_inactive_employee()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\r\nbegin\r\n  if lower(btrim(coalesce(new.status, ''))) = 'inactive'\r\n     and lower(btrim(coalesce(old.status, ''))) <> 'inactive' then\r\n    update public.transfers\r\n       set status = 'Cancelled',\r\n           cancelled_at = coalesce(cancelled_at, now()),\r\n           cancelled_by = coalesce(cancelled_by, auth.uid()),\r\n           cancellation_reason = coalesce(\r\n             nullif(btrim(cancellation_reason), ''),\r\n             case\r\n               when new.exit_date is not null or nullif(btrim(coalesce(new.exit_reason, '')), '') is not null\r\n                 then 'Employee became Inactive through Exit workflow: ' || coalesce(nullif(btrim(new.exit_reason), ''), 'Exit completed')\r\n               else 'Employee became Inactive'\r\n             end\r\n           ),\r\n           updated_at = now()\r\n     where employee_sys_id = new.id\r\n       and deleted_at is null\r\n       and status in ('Draft', 'Scheduled', 'Joining Pending', 'Not Joined');\r\n  end if;\r\n  return new;\r\nend;\r\n$function$\n"
+    },
+    {
+      "owner": "postgres",
+      "proacl": "{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+      "result": "jsonb",
+      "comment": null,
+      "prokind": "f",
+      "identity": "mghrm_save_meeting_attendance(date,jsonb,jsonb,jsonb,uuid)",
+      "language": "plpgsql",
+      "arguments": "p_date date, p_expected jsonb, p_rows jsonb, p_metadata jsonb, p_request_id uuid",
+      "proconfig": [
+        "search_path=pg_catalog, public, pg_temp"
+      ],
+      "prosecdef": false,
+      "proisstrict": false,
+      "proparallel": "u",
+      "provolatile": "v",
+      "proleakproof": false,
+      "definition_md5": "38919bc7629b64e651e314a204c33821",
+      "identity_arguments": "p_date date, p_expected jsonb, p_rows jsonb, p_metadata jsonb, p_request_id uuid",
+      "definition": "CREATE OR REPLACE FUNCTION public.mghrm_save_meeting_attendance(p_date date, p_expected jsonb, p_rows jsonb, p_metadata jsonb, p_request_id uuid)\n RETURNS jsonb\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog', 'public', 'pg_temp'\nAS $function$\nDECLARE\n  m public.meetings%ROWTYPE;\n  old_row public.meeting_attendance%ROWTYPE;\n  item jsonb;\n  actual_versions jsonb;\n  expected_versions jsonb;\n  result_rows jsonb;\n  is_retry boolean := false;\nBEGIN\n  IF auth.uid() IS NULL OR coalesce(public.my_role(), 'none') NOT IN ('admin', 'editor') THEN\n    RAISE EXCEPTION 'Meeting write permission required' USING ERRCODE = '42501';\n  END IF;\n  IF p_date IS NULL OR p_request_id IS NULL OR\n     jsonb_typeof(p_expected) IS DISTINCT FROM 'object' OR\n     NOT (p_expected ?& ARRAY['meeting','rows']) OR\n     jsonb_typeof(p_rows) IS DISTINCT FROM 'array' OR\n     jsonb_typeof(p_expected->'rows') IS DISTINCT FROM 'array' OR\n     jsonb_typeof(p_metadata) IS DISTINCT FROM 'object' OR\n     NOT (p_metadata ?& ARRAY['agenda','started_at','ended_at']) OR\n     (p_metadata - ARRAY['agenda','started_at','ended_at']) <> '{}'::jsonb OR\n     jsonb_typeof(p_metadata->'agenda') NOT IN ('string','null') OR\n     jsonb_typeof(p_metadata->'started_at') NOT IN ('string','null') OR\n     jsonb_typeof(p_metadata->'ended_at') NOT IN ('string','null') THEN\n    RAISE EXCEPTION 'Invalid attendance request';\n  END IF;\n  -- Missing fields are NOT intentional blanks. Validate before any mutation.\n  FOR item IN SELECT value FROM jsonb_array_elements(p_rows) LOOP\n    IF jsonb_typeof(item) IS DISTINCT FROM 'object' OR\n       NOT (item ?& ARRAY['project_name','status','remarks','employee_id','full_name','designation','sort_order']) OR\n       (item - ARRAY['project_name','status','remarks','employee_id','full_name','designation','sort_order']) <> '{}'::jsonb OR\n       jsonb_typeof(item->'project_name') IS DISTINCT FROM 'string' OR\n       jsonb_typeof(item->'status') NOT IN ('string','null') OR\n       jsonb_typeof(item->'remarks') NOT IN ('string','null') OR\n       jsonb_typeof(item->'employee_id') NOT IN ('string','null') OR\n       jsonb_typeof(item->'full_name') NOT IN ('string','null') OR\n       jsonb_typeof(item->'designation') NOT IN ('string','null') OR\n       jsonb_typeof(item->'sort_order') NOT IN ('number','null') THEN\n      RAISE EXCEPTION 'Incomplete or invalid attendance row';\n    END IF;\n  END LOOP;\n  -- Also serializes ordinary REST writes during snapshot validation and commit.\n  LOCK TABLE public.meetings, public.meeting_attendance IN SHARE ROW EXCLUSIVE MODE;\n  IF (SELECT count(*) FROM public.meetings WHERE meeting_date = p_date::text AND deleted_at IS NULL) > 1 THEN\n    RAISE EXCEPTION 'Ambiguous meeting date';\n  END IF;\n  SELECT * INTO m FROM public.meetings WHERE meeting_date = p_date::text AND deleted_at IS NULL;\n  IF m.id IS NOT NULL AND nullif(btrim(m.meeting_id), '') IS NULL THEN\n    RAISE EXCEPTION 'Existing meeting identifier requires review';\n  END IF;\n  -- A legacy NULL date is valid through its exact parent meeting_id. Existing\n  -- NULL dates are preserved by UPDATE below; contradictory non-NULL dates fail.\n  -- Check identity for retries as well, including writes by legacy clients.\n  IF EXISTS (SELECT 1 FROM public.meeting_attendance\n             WHERE deleted_at IS NULL AND\n               ((meeting_date = p_date AND meeting_id IS DISTINCT FROM m.meeting_id) OR\n                (meeting_id = m.meeting_id AND meeting_date IS NOT NULL AND meeting_date IS DISTINCT FROM p_date))) THEN\n    RAISE EXCEPTION 'Attendance meeting/date identity mismatch';\n  END IF;\n  is_retry := m.id IS NOT NULL AND m.attendance_request_id = p_request_id;\n  IF coalesce(is_retry, false) AND\n    (m.agenda IS DISTINCT FROM p_metadata->>'agenda' OR\n     m.started_at IS DISTINCT FROM (p_metadata->>'started_at')::timestamptz OR\n     m.ended_at IS DISTINCT FROM (p_metadata->>'ended_at')::timestamptz) THEN\n    RAISE EXCEPTION 'Meeting metadata changed after save; reload' USING ERRCODE = '40001';\n  END IF;\n  IF NOT coalesce(is_retry, false) THEN\n    IF m.id IS NULL THEN\n      IF p_expected->'meeting' IS DISTINCT FROM 'null'::jsonb OR\n         EXISTS (SELECT 1 FROM public.meetings WHERE meeting_date = p_date::text) OR\n         EXISTS (SELECT 1 FROM public.meeting_attendance WHERE meeting_date = p_date) THEN\n        RAISE EXCEPTION 'Existing or historical records require review; reload';\n      END IF;\n    ELSIF (p_expected->'meeting'->>'id') IS DISTINCT FROM m.id::text OR\n          (p_expected->'meeting'->>'updated_at')::timestamptz IS DISTINCT FROM m.updated_at THEN\n      RAISE EXCEPTION 'Meeting changed on another device; reload before editing' USING ERRCODE = '40001';\n    END IF;\n\n    SELECT coalesce(jsonb_agg(jsonb_build_object('id', id, 'version', updated_at) ORDER BY id), '[]'::jsonb)\n      INTO actual_versions FROM public.meeting_attendance\n      WHERE meeting_id = m.meeting_id AND deleted_at IS NULL;\n    SELECT coalesce(jsonb_agg(jsonb_build_object('id', (r->>'id')::bigint,\n        'version', (r->>'updated_at')::timestamptz) ORDER BY (r->>'id')::bigint), '[]'::jsonb)\n      INTO expected_versions FROM jsonb_array_elements(p_expected->'rows') r;\n    IF actual_versions IS DISTINCT FROM expected_versions THEN\n      RAISE EXCEPTION 'Attendance changed on another device; reload before editing' USING ERRCODE = '40001';\n    END IF;\n  END IF;\n\n  IF EXISTS (SELECT 1 FROM jsonb_array_elements(p_rows) r\n      WHERE nullif(btrim(r->>'project_name'), '') IS NULL OR\n        (r->>'status' IS NOT NULL AND r->>'status' NOT IN ('Present','Absent',''))) OR\n     (SELECT count(*) FROM jsonb_array_elements(p_rows)) <>\n     (SELECT count(DISTINCT r->>'project_name') FROM jsonb_array_elements(p_rows) r) THEN\n    RAISE EXCEPTION 'Invalid or duplicate attendance project/status';\n  END IF;\n  IF EXISTS (SELECT 1 FROM public.meeting_attendance a\n      WHERE a.meeting_id = m.meeting_id AND a.deleted_at IS NULL AND\n        NOT EXISTS (SELECT 1 FROM jsonb_array_elements(p_rows) r WHERE r->>'project_name' = a.project_name)) THEN\n    RAISE EXCEPTION 'Incomplete attendance set; existing rows must be preserved';\n  END IF;\n  IF NOT coalesce(is_retry, false) THEN\n    IF m.id IS NULL THEN\n      INSERT INTO public.meetings(meeting_id, meeting_date, title, venue, created_by)\n        VALUES ('MTG-' || p_date::text, p_date::text, 'Morning Coordination Meeting', 'HQ', auth.uid()::text)\n        RETURNING * INTO m;\n    END IF;\n    FOR item IN SELECT value FROM jsonb_array_elements(p_rows) LOOP\n      SELECT * INTO old_row FROM public.meeting_attendance\n        WHERE meeting_id = m.meeting_id AND project_name = item->>'project_name' AND deleted_at IS NULL;\n      IF old_row.id IS NULL AND EXISTS (SELECT 1 FROM public.meeting_attendance\n          WHERE meeting_id = m.meeting_id AND project_name = item->>'project_name' AND deleted_at IS NOT NULL) THEN\n        RAISE EXCEPTION 'Soft-deleted attendance requires review; cannot restore implicitly';\n      END IF;\n      IF old_row.id IS NULL THEN\n        INSERT INTO public.meeting_attendance(meeting_id, meeting_date, project_name, status,\n            remarks, employee_id, full_name, designation, sort_order)\n          VALUES (m.meeting_id, p_date, item->>'project_name', item->>'status', item->>'remarks',\n            item->>'employee_id', item->>'full_name', item->>'designation', (item->>'sort_order')::integer);\n      ELSE\n        UPDATE public.meeting_attendance SET status = item->>'status', remarks = item->>'remarks',\n          employee_id = item->>'employee_id', full_name = item->>'full_name',\n          designation = item->>'designation', sort_order = (item->>'sort_order')::integer\n          WHERE id = old_row.id;\n      END IF;\n    END LOOP;\n    UPDATE public.meetings SET agenda = p_metadata->>'agenda',\n      started_at = (p_metadata->>'started_at')::timestamptz,\n      ended_at = (p_metadata->>'ended_at')::timestamptz,\n      submitted_at = coalesce(submitted_at, now()), not_held_reason = NULL,\n      attendance_request_id = p_request_id\n      WHERE id = m.id RETURNING * INTO m;\n  END IF;\n  SELECT coalesce(jsonb_agg(to_jsonb(a) ORDER BY a.id), '[]'::jsonb) INTO result_rows\n    FROM public.meeting_attendance a WHERE meeting_id = m.meeting_id AND deleted_at IS NULL;\n  -- Verify the persisted values even for an idempotent retry.\n  IF jsonb_array_length(result_rows) <> jsonb_array_length(p_rows) OR EXISTS (\n    SELECT 1 FROM jsonb_array_elements(p_rows) wanted\n    WHERE NOT EXISTS (SELECT 1 FROM jsonb_array_elements(result_rows) saved\n      WHERE saved @> wanted)\n  ) THEN\n    RAISE EXCEPTION 'Persisted attendance differs from request';\n  END IF;\n  RETURN jsonb_build_object('meeting', to_jsonb(m), 'rows', result_rows);\nEND;\n$function$\n"
     },
     {
       "owner": "postgres",
@@ -30560,16 +30596,6 @@
       "deptype": "n"
     },
     {
-      "object": "constraint unique_attendance on table meeting_attendance",
-      "dependency": "column employee_id of table meeting_attendance",
-      "deptype": "a"
-    },
-    {
-      "object": "constraint unique_attendance on table meeting_attendance",
-      "dependency": "column meeting_id of table meeting_attendance",
-      "deptype": "a"
-    },
-    {
       "object": "default value for column action_params of table notifications",
       "dependency": "column action_params of table notifications",
       "deptype": "a"
@@ -31650,6 +31676,16 @@
       "deptype": "n"
     },
     {
+      "object": "function mghrm_save_meeting_attendance(date,jsonb,jsonb,jsonb,uuid)",
+      "dependency": "language plpgsql",
+      "deptype": "n"
+    },
+    {
+      "object": "function mghrm_save_meeting_attendance(date,jsonb,jsonb,jsonb,uuid)",
+      "dependency": "schema public",
+      "deptype": "n"
+    },
+    {
       "object": "function mghrm_touch_updated_at()",
       "dependency": "language plpgsql",
       "deptype": "n"
@@ -32225,6 +32261,21 @@
       "deptype": "a"
     },
     {
+      "object": "index attendance_active_project_unique",
+      "dependency": "column deleted_at of table meeting_attendance",
+      "deptype": "a"
+    },
+    {
+      "object": "index attendance_active_project_unique",
+      "dependency": "column meeting_id of table meeting_attendance",
+      "deptype": "a"
+    },
+    {
+      "object": "index attendance_active_project_unique",
+      "dependency": "column project_name of table meeting_attendance",
+      "deptype": "a"
+    },
+    {
       "object": "index career_change_id_key",
       "dependency": "constraint career_change_id_key on table career",
       "deptype": "i"
@@ -32458,6 +32509,16 @@
       "object": "index meeting_attendance_pkey",
       "dependency": "constraint meeting_attendance_pkey on table meeting_attendance",
       "deptype": "i"
+    },
+    {
+      "object": "index meetings_active_date_unique",
+      "dependency": "column deleted_at of table meetings",
+      "deptype": "a"
+    },
+    {
+      "object": "index meetings_active_date_unique",
+      "dependency": "column meeting_date of table meetings",
+      "deptype": "a"
     },
     {
       "object": "index meetings_deleted_idx",
@@ -33463,11 +33524,6 @@
       "object": "index uniform_supply_orders_supplier_status_idx",
       "dependency": "column supplier_id of table uniform_supply_orders",
       "deptype": "a"
-    },
-    {
-      "object": "index unique_attendance",
-      "dependency": "constraint unique_attendance on table meeting_attendance",
-      "deptype": "i"
     },
     {
       "object": "policy activity_insert on table activity_log",
@@ -35985,5 +36041,6 @@
       "deptype": "a"
     }
   ],
-  "additional_standalone_types": []
+  "additional_standalone_types": [],
+  "attendanceRefreshedOn": "2026-10-21"
 }

@@ -41,8 +41,6 @@ ALTER TABLE ONLY "public"."leaves" ADD CONSTRAINT "leaves_pkey" PRIMARY KEY (id)
 
 ALTER TABLE ONLY "public"."meeting_attendance" ADD CONSTRAINT "meeting_attendance_pkey" PRIMARY KEY (id);
 
-ALTER TABLE ONLY "public"."meeting_attendance" ADD CONSTRAINT "unique_attendance" UNIQUE (meeting_id, employee_id);
-
 ALTER TABLE ONLY "public"."meetings" ADD CONSTRAINT "meetings_meeting_id_key" UNIQUE (meeting_id);
 
 ALTER TABLE ONLY "public"."meetings" ADD CONSTRAINT "meetings_pkey" PRIMARY KEY (id);

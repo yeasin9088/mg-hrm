@@ -2,8 +2,8 @@
    MG Security HRM — Service Worker
    Role: Offline application cache + safe notification display/click flow
    ===================================================================== */
-const CACHE = 'mghrm-v29';
-const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './bd-geo.json', './config.js', './app-core.js'];
+const CACHE = 'mghrm-v30';
+const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './bd-geo.json', './config.js', './app-core.js', './meeting-attendance.js'];
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
@@ -29,6 +29,7 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   const isCoreAsset = url.pathname.endsWith('/index.html') ||
     url.pathname.endsWith('/app-core.js') ||
+    url.pathname.endsWith('/meeting-attendance.js') ||
     url.pathname.endsWith('/config.js') ||
     e.request.mode === 'navigate';
   const networkRequest = isCoreAsset

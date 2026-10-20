@@ -43,9 +43,10 @@ CREATE INDEX leaves_deleted_idx ON public.leaves USING btree (deleted_at);
 -- "public"."leaves_pkey" is created by constraint "leaves_pkey" on "public"."leaves".
 CREATE INDEX leaves_status_idx ON public.leaves USING btree (status);
 CREATE INDEX att_meeting_idx ON public.meeting_attendance USING btree (meeting_id);
+CREATE UNIQUE INDEX attendance_active_project_unique ON public.meeting_attendance USING btree (meeting_id, project_name) WHERE (deleted_at IS NULL);
 CREATE INDEX meeting_attendance_deleted_idx ON public.meeting_attendance USING btree (deleted_at);
 -- "public"."meeting_attendance_pkey" is created by constraint "meeting_attendance_pkey" on "public"."meeting_attendance".
--- "public"."unique_attendance" is created by constraint "unique_attendance" on "public"."meeting_attendance".
+CREATE UNIQUE INDEX meetings_active_date_unique ON public.meetings USING btree (meeting_date) WHERE (deleted_at IS NULL);
 CREATE INDEX meetings_deleted_idx ON public.meetings USING btree (deleted_at);
 -- "public"."meetings_meeting_id_key" is created by constraint "meetings_meeting_id_key" on "public"."meetings".
 -- "public"."meetings_pkey" is created by constraint "meetings_pkey" on "public"."meetings".

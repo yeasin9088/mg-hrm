@@ -12,7 +12,7 @@ const qi=s=>'"'+s.replaceAll('"','""')+'"';
 assert.equal(c.readOnly,true);
 assert.equal(m.restoreTested,false);
 assert.equal(m.securityRemediationIncluded,false);
-assert.deepEqual([m.counts.tables,m.counts.columns,m.counts.constraints,m.counts.indexes,m.counts.sequences,m.counts.routines,m.counts.policies,m.counts.publicTriggers,m.counts.authBridgeTriggers],[45,729,238,173,35,72,140,53,1]);
+assert.deepEqual([m.counts.tables,m.counts.columns,m.counts.constraints,m.counts.indexes,m.counts.sequences,m.counts.routines,m.counts.policies,m.counts.publicTriggers,m.counts.authBridgeTriggers],[45,730,237,174,35,73,140,53,1]);
 const tables=new Map(c.tables.map(t=>[t.name,t]));
 const columns=new Map(c.tables.map(t=>[t.name,new Map(c.columns.filter(x=>x.table_name===t.name).map(a=>[a.ordinal,a]))]));
 const functions=new Set(c.routines.map(r=>r.identity.split('(')[0]));
@@ -135,7 +135,7 @@ function scan(dir){
  }
 }
 scan(root);
-console.log('PASS: 45 tables/729 columns, 238 constraints/62 FK targets, 173 indexes (57 constraint-owned + 116 standalone), 35 exact identity sequences.');
-console.log('PASS: 72 original function digests, 54 trigger functions/definitions, 140 policy expressions, 15 publication member column lists, public source references.');
+console.log('PASS: 45 tables/730 columns, 237 constraints/62 FK targets, 174 indexes (56 constraint-owned + 118 standalone), 35 exact identity sequences.');
+console.log('PASS: 73 deployed function digests, 54 trigger functions/definitions, 140 policy expressions, 15 publication member column lists, public source references.');
 console.log('PASS: '+m.files.length+' generated SQL hashes, '+statementCount+' lexically balanced statements, SELECT-only extraction and sensitive-literal scan of '+scanFiles+' files.');
 console.log('LIMIT: no PostgreSQL parser/server execution, no PL/pgSQL name/type resolution, no restore or runtime behavior certification. Nil UUID is an index sentinel, not an Auth identity.');

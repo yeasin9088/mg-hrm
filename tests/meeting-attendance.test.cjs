@@ -12,6 +12,7 @@ function setup() {
     localStorage: {getItem() { return null; }}, document: {getElementById() { return null; }}});
   ctx.window = ctx;
   vm.runInContext(source, ctx);
+  vm.runInContext(fs.readFileSync('meeting-ui.js', 'utf8'), ctx);
   vm.runInContext(core, ctx);
   return ctx;
 }

@@ -3288,6 +3288,8 @@ input:focus, select:focus, textarea:focus {
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="./config.js"></script>
 <script src="./meeting-attendance.js"></script>
+<script src="./meeting-ui.js"></script>
+<link rel="stylesheet" href="./meeting-ui.css">
 <script src="./app-core.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script><script>
 /* MGHRM Data Layer now loaded from app-core.js */
@@ -15821,13 +15823,7 @@ function mtToggleProject(iso, proj){
     const chk = tile.querySelector('.mt-check');
     if(chk) chk.textContent = '';
   }
-  const counterEl = document.getElementById('mtAttendanceCounterBadge');
-  if(counterEl){
-    const eligible = mtEligible();
-    const totalProjects = Object.keys(eligible).length;
-    const presentCount = Object.keys(d.present||{}).length;
-    counterEl.textContent = `Attendance given: ${presentCount} / ${totalProjects}`;
-  }
+  MeetingAttendanceUI.refresh();
   if(typeof window.mtCheckDirty === 'function') window.mtCheckDirty(iso);
 }
 function mtSaveNote(iso, proj, val){
@@ -16100,71 +16096,19 @@ function mtSetStatus(iso, proj, status){
   }
   persist();
   
-  const expandedProjs = Array.from(document.querySelectorAll('.mt-tile.expanded'))
-    .map(el => el.getAttribute('data-proj')).filter(Boolean);
-  if(!expandedProjs.includes(proj)) expandedProjs.push(proj);
-
-  renderMeeting();
-
-  expandedProjs.forEach(pj => {
-    const tile = document.querySelector('.mt-tile[data-proj="'+CSS.escape(pj)+'"]');
-    if(tile) tile.classList.add('expanded');
-  });
+  // Preserve note editors, scroll position and keyboard focus while marking.
+  MeetingAttendanceUI.refresh();
 
   if(typeof window.mtCheckDirty === 'function') window.mtCheckDirty(iso);
 }
 window.mtSetStatus = mtSetStatus;
 
-/* ===== Meeting board — search & filter ===== */
-window.MT_SEARCH = window.MT_SEARCH || '';
-window.MT_FILTER = window.MT_FILTER || 'all';
-
-function mtSetFilter(f){
-  window.MT_FILTER = f || 'all';
-  document.querySelectorAll('#mtFilterChips .mt-chip').forEach(function(b){
-    b.classList.toggle('active', b.getAttribute('data-f') === window.MT_FILTER);
-  });
-  mtFilterTiles();
-}
-
-function mtFilterTiles(){
-  const tiles = Array.prototype.slice.call(document.querySelectorAll('#mtTiles .mt-tile'));
-  if(!tiles.length) return;
-  const box = document.getElementById('mtSearch');
-  const q = ((box && box.value) || window.MT_SEARCH || '').trim().toLowerCase();
-  let shown = 0;
-  tiles.forEach(function(t){
-    const head = t.querySelector('h5');
-    const name = (head ? head.textContent : '').toLowerCase();
-    const isP = t.classList.contains('present');
-    const isA = t.classList.contains('absent');
-    let ok = !q || name.indexOf(q) !== -1;
-    if(ok && window.MT_FILTER === 'present')  ok = isP;
-    if(ok && window.MT_FILTER === 'absent')   ok = isA;
-    if(ok && window.MT_FILTER === 'unmarked') ok = !isP && !isA;
-    t.style.display = ok ? '' : 'none';
-    if(ok) shown++;
-  });
-  const c = document.getElementById('mtBarCount');
-  if(c) c.textContent = shown + ' of ' + tiles.length + ' projects';
-}
-
+/* Meeting board presentation is isolated from attendance persistence. */
+function mtSetFilter(value) { MeetingAttendanceUI.setFilter(value === 'unmarked' ? 'pending' : value); }
+function mtFilterTiles() { MeetingAttendanceUI.refresh(); }
 window.mtSetFilter = mtSetFilter;
 window.mtFilterTiles = mtFilterTiles;
 
-/* Keep the search text and the active filter after the board re-renders */
-(function(){
-  const _origRenderMeeting = window.renderMeeting;
-  if(typeof _origRenderMeeting !== 'function') return;
-  window.renderMeeting = function(){
-    _origRenderMeeting.apply(this, arguments);
-    try{
-      const box = document.getElementById('mtSearch');
-      if(box) box.value = window.MT_SEARCH || '';
-      mtSetFilter(window.MT_FILTER || 'all');
-    }catch(e){}
-  };
-})();
 window.mtUpdateLoader = function(title, details, percent) {
   const t = document.getElementById('mtSyncTitle');
   const d = document.getElementById('mtSyncDetails');
@@ -16254,6 +16198,11 @@ window.mtAttendanceSaving = false;
 
 async function mtSaveAttendanceDay(iso, editing) {
   if (!guardEdit() || window.mtAttendanceSaving) return;
+  if (!editing && !MeetingAttendanceUI.validation(Object.keys(mtEligible()), mtEnsure(iso), false).allowed) {
+    MeetingAttendanceUI.reviewPending();
+    toast('Mark every required project Present or Absent before final submission', 'error');
+    return;
+  }
   if (Object.entries(window.MT_NOTE_BUSY || {}).some(([key, active]) => active && key.startsWith(iso + '|'))) {
     toast('Wait for note translation to finish before saving attendance', 'error');
     return;
@@ -16265,6 +16214,9 @@ async function mtSaveAttendanceDay(iso, editing) {
   let committed = false;
   try {
     if (loader) loader.style.display = 'flex';
+    document.querySelector?.('.mt-attendance-card')?.setAttribute('aria-busy', 'true');
+    const saveButton = document.getElementById(editing ? 'mtUpdateChangesBtn' : 'mtSubmitDayBtn');
+    if (saveButton) saveButton.textContent = 'Saving and verifying...';
     if (!window.sb) throw Error('Database connection not established');
     const store = window.MeetingAttendanceStore;
     const d = mtEnsure(iso);
@@ -16277,6 +16229,9 @@ async function mtSaveAttendanceDay(iso, editing) {
       window.mtAttendanceEdits[iso] = edit;
     }
     const draft = JSON.parse(JSON.stringify(d));
+    if (!editing && !MeetingAttendanceUI.validation(Object.keys(mtEligible()), draft, false).allowed) {
+      throw Error('Required projects changed. Review pending attendance before submitting');
+    }
     if (typeof draft.meetingNote !== 'string' && edit.original) throw Error('Incomplete meeting note; reload before editing');
     const rows = store.plan(draft, edit.original, edit.snapshot, Object.keys(mtEligible()), DATA.employees);
     const metadata = {
@@ -16330,7 +16285,12 @@ async function mtSubmitDay(iso, event) {
   if (!guardEdit() || window.mtAttendanceSaving) return;
   const d = mtEnsure(iso);
   if (d.submitted && !d.unlocked) return toast('Already submitted', 'info');
-  window.mtCustomConfirm('Submit Meeting', 'Submit attendance for ' + iso + '? Unmarked projects will remain blank.', 'primary',
+  const historicalEdit = !!window.mtAttendanceEdits[iso]?.original;
+  if (!MeetingAttendanceUI.validation(Object.keys(mtEligible()), d, historicalEdit).allowed) {
+    MeetingAttendanceUI.reviewPending();
+    return toast('Pending projects must be marked before final submission', 'error');
+  }
+  window.mtCustomConfirm('Submit Meeting', 'Submit completed attendance for ' + iso + '?', 'primary',
     () => mtSaveAttendanceDay(iso, !!window.mtAttendanceEdits[iso]?.original));
 }
 async function mtUpdateDay(iso) {
@@ -17152,8 +17112,8 @@ function renderMeeting(){
       ${kpi('Most Absent', absentRank.length&&absentRank[0].absent>0?num(absentRank[0].absent)+(' days'):'—','y', ico('warn'), absentRank.length&&absentRank[0].absent>0?projName(absentRank[0].p):('All regular'),'','')}
     </div>
 
-    <div class="grid-2">
-      <div class="card">
+    <div class="grid-2 mt-workspace">
+      <div class="card mt-attendance-card">
         <div class="card-header mt-hd">
           <div class="mt-hd-l">
             <div style="display:flex;align-items:center;gap:10px;">
@@ -17164,7 +17124,7 @@ function renderMeeting(){
             </div>
             <h3 class="mt-hd-title">${fmtDateLong(today)}</h3>
             <div class="mt-hd-meta">
-              <span class="mt-hd-pill dark" id="mtAttendanceCounterBadge">Attendance given: ${presentCount} / ${totalProjects}</span>
+              <span class="mt-hd-pill dark" id="mtAttendanceCounterBadge">Present: ${presentCount} / ${totalProjects}</span>
               ${(rec && rec.startedAt) ? `<span class="mt-hd-pill">started ${new Date(rec.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>` : ''}
               ${(rec && rec.endedAt) ? `<span class="mt-hd-pill">ended ${new Date(rec.endedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>` : ''}
             </div>
@@ -17191,17 +17151,32 @@ function renderMeeting(){
           ` : isStartPromptState ? `
             ${mtRenderStartPromptView(today)}
           ` : `
+            <div class="mt-summary" aria-label="Attendance summary">
+              <div class="mt-counts" aria-live="polite" aria-atomic="true">
+                <div><span>Total</span><strong id="mtCount-total">0</strong></div>
+                <div class="mt-count-present"><span>Present</span><strong id="mtCount-present">0</strong></div>
+                <div class="mt-count-absent"><span>Absent</span><strong id="mtCount-absent">0</strong></div>
+                <div class="mt-count-pending"><span>Pending</span><strong id="mtCount-pending">0</strong></div>
+              </div>
+              <div class="mt-progress-row"><progress id="mtProgress" max="100" value="0" aria-label="Attendance completion"></progress><span id="mtProgressLabel"></span></div>
+            </div>
+            <div class="mt-draft-heading"><strong id="mtDraftLabel"></strong><button type="button" class="btn ghost sm" id="mtReviewPending" onclick="MeetingAttendanceUI.reviewPending()">Review pending</button></div>
+            <p id="mtDraftHelp"></p>
+            <div id="mtPendingPanel" hidden tabindex="-1" aria-label="Pending projects">
+              <strong>Projects still pending</strong><p>Select a project to mark its attendance.</p><div id="mtPendingList"></div>
+            </div>
             <div id="mtBoardBar">
               <input id="mtSearch" type="search" placeholder="Search project name…" autocomplete="off"
-                     oninput="MT_SEARCH=this.value; mtFilterTiles();">
+                     aria-label="Search attendance projects" oninput="MeetingAttendanceUI.search(this.value);">
               <div id="mtFilterChips">
                 <button type="button" class="mt-chip active" data-f="all"      onclick="mtSetFilter('all')">All</button>
-                <button type="button" class="mt-chip"        data-f="unmarked" onclick="mtSetFilter('unmarked')">Unmarked</button>
+                <button type="button" class="mt-chip"        data-f="pending" onclick="mtSetFilter('pending')">Pending</button>
                 <button type="button" class="mt-chip"        data-f="present"  onclick="mtSetFilter('present')">Present</button>
                 <button type="button" class="mt-chip"        data-f="absent"   onclick="mtSetFilter('absent')">Absent</button>
               </div>
-              <span id="mtBarCount"></span>
+              <span id="mtBarCount" role="status"></span>
             </div>
+            <div id="mtEmptyFilter" hidden>No projects match this view. <button type="button" class="btn ghost sm" onclick="MeetingAttendanceUI.reset()">Show all projects</button></div>
             <div id="mtTiles">
               ${(typeof mtGroupedProjects === 'function' ? mtGroupedProjects(projNames) : [{group:'', items:projNames}]).map(function(grp){
                 return `<div class="mt-group" data-group="${escapeHtml(grp.group || '')}">
@@ -17211,11 +17186,10 @@ function renderMeeting(){
                     const isPres = !!(rec && rec.present && rec.present[p]);
                     const isAbs = !!(rec && rec.absent && rec.absent[p]);
                     const tileCls = isPres ? 'present' : (isAbs ? 'absent' : '');
-                    const pSafe = p.replace(/'/g,"\\'").replace(/"/g,'&quot;');
-                    const statusLabel = isPres ? 'Present' : (isAbs ? 'Absent' : 'Not marked');
+                    const statusLabel = isPres ? 'Present' : (isAbs ? 'Absent' : 'Pending');
                     const reps = mtGetProjectReps(p);
                     const savedRep = (rec && rec.representatives && rec.representatives[p]) || null;
-                    const repSelectHtml = `<select class="mt-rep-select" onclick="event.stopPropagation()" onchange="mtSaveRep('${today}', '${pSafe}', this)">
+                    const repSelectHtml = `<select class="mt-rep-select" aria-label="Representative for ${escapeHtml(p)}" onclick="event.stopPropagation()" onchange="mtSaveRep('${today}', this.closest('.mt-tile').dataset.proj, this)">
                       <option value="">-- Select Representative --</option>
                       ${reps.length === 0 ? `<option value="" disabled>No active staff in project</option>` : reps.map(emp => {
                         const empId = emp.id != null ? emp.id : (emp.EmployeeID || emp.employee_id || '');
@@ -17236,22 +17210,24 @@ function renderMeeting(){
                     const noteHtml = mtBuildNotesSection(today, p, false);
                     const presBtnCls = isPres ? 'btn success sm mt-btn-present' : 'btn success ghost sm mt-btn-present';
                     const absBtnCls = isAbs ? 'btn danger sm mt-btn-absent' : 'btn danger ghost sm mt-btn-absent';
-                    return `<div class="mt-tile ${tileCls}" data-proj="${pSafe}" onclick="this.classList.toggle('expanded')" title="${statusLabel}">
+                    return `<div class="mt-tile ${tileCls}" data-proj="${escapeHtml(p)}">
                       <div class="mt-tile-head">
                         <div class="mt-tile-l">
-                          <h5>${projName(p)}</h5>
+                          <h5>${escapeHtml(projName(p))}</h5>
                           <div class="mt-kicker">${num(projStaffCount(p))} active staff</div>
                         </div>
                         <span class="mt-check" aria-hidden="true"></span>
                       </div>
                       <span class="mt-state">${statusLabel}</span>
-                      <div class="mt-tile-body" onclick="event.stopPropagation()">
+                      <div class="mt-actions" role="group" aria-label="Attendance for ${escapeHtml(p)}">
+                        <button type="button" data-status="present" aria-pressed="${isPres}" class="${presBtnCls}" onclick="mtSetStatus('${today}', this.closest('.mt-tile').dataset.proj, 'present')">Present</button>
+                        <button type="button" data-status="absent" aria-pressed="${isAbs}" class="${absBtnCls}" onclick="mtSetStatus('${today}', this.closest('.mt-tile').dataset.proj, 'absent')">Absent</button>
+                      </div>
+                      <button type="button" class="btn ghost sm mt-details-toggle" aria-expanded="false" onclick="MeetingAttendanceUI.toggleDetails(this)">Representative &amp; notes <span aria-hidden="true">&#8964;</span></button>
+                      <div class="mt-tile-body" hidden>
                         ${repSelectHtml}
                         ${noteHtml}
-                        <div class="mt-actions">
-                          <button type="button" class="${presBtnCls}" onclick="event.stopPropagation(); mtSetStatus('${today}', '${pSafe}', 'present')">Present</button>
-                          <button type="button" class="${absBtnCls}" onclick="event.stopPropagation(); mtSetStatus('${today}', '${pSafe}', 'absent')">Absent</button>
-                        </div>
+                        <button type="button" class="btn ghost sm" onclick="mtSetStatus('${today}', this.closest('.mt-tile').dataset.proj, 'blank')">Clear attendance</button>
                       </div>
                     </div>`;
                   }).join('')}
@@ -17264,13 +17240,13 @@ function renderMeeting(){
               <label style="font-weight:600;color:var(--text);font-size:13px;">${"Today's general meeting note (across all projects)"}</label>
               <textarea rows="2" placeholder="${'e.g. new policy communicated to all…'}" oninput="mtSaveMeetingNote('${today}',this.value)">${((rec&&rec.meetingNote)||'').replace(/</g,'&lt;')}</textarea>
             </div>
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <div class="mt-submit-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
               ${(rec && (rec.isEditing || rec.wasSubmitted || (rec.submittedAt && !rec.submitted))) ? `
-                <button id="mtSubmitDayBtn" class="btn primary disabled" style="font-weight:700;opacity:0.5;cursor:not-allowed;" disabled title="Already submitted. Use 'Update Changes' to update records.">${ico('check')} ${"Submit Today's Meeting"}</button>
+                <button id="mtSubmitDayBtn" class="btn primary disabled" style="font-weight:700;opacity:0.5;cursor:not-allowed;" disabled title="Already submitted. Use 'Update Changes' to update records.">${ico('check')} ${"Submit attendance"}</button>
                 <button id="mtUpdateChangesBtn" class="btn success disabled" style="font-weight:700;opacity:0.6;cursor:not-allowed;" disabled onclick="mtUpdateDay('${today}')">${ico('check')} ${"Update Changes"}</button>
                 <button type="button" class="btn ghost sm" onclick="mtCancelEditDay('${today}')">${ico('x')} ${"Cancel Edit"}</button>
               ` : `
-                <button id="mtSubmitDayBtn" class="btn primary" style="font-weight:700" onclick="mtSubmitDay('${today}', event)">${ico('check')} ${"Submit Today's Meeting"}</button>
+                <button id="mtSubmitDayBtn" class="btn primary" style="font-weight:700" onclick="mtSubmitDay('${today}', event)">${ico('check')} ${"Submit attendance"}</button>
               `}
               <div style="flex:1"></div>
               <input type="text" id="mtOffNote" placeholder="${'Reason for no meeting…'}" style="flex:1;min-width:200px;padding:8px 12px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit;font-size:13px">
@@ -17326,6 +17302,7 @@ function renderMeeting(){
       ${notesLogHtml}
     </div>
   `;
+  MeetingAttendanceUI.mount(today, rec || d, projNames, !!window.mtAttendanceEdits[today]?.original);
   updateMeetingBadge();
   if (isCountdownState) {
     mtInitCountdownTimer(today);

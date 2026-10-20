@@ -5,7 +5,7 @@ import {fileURLToPath} from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
 // Explicit browser assets only. Never copy the repository recursively.
 export const publicAssets = Object.freeze([
-  'index.html', 'app-core.js', 'meeting-attendance.js', 'config.js', 'sw.js',
+  'index.html', 'app-core.js', 'meeting-attendance.js', 'meeting-ui.js', 'meeting-ui.css', 'config.js', 'sw.js',
   'manifest.json', 'icon-192.png', 'icon-512.png', 'bd-geo.json'
 ]);
 

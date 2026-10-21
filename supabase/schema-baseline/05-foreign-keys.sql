@@ -39,6 +39,8 @@ ALTER TABLE ONLY "public"."notification_jobs" ADD CONSTRAINT "notification_jobs_
 
 ALTER TABLE ONLY "public"."notification_jobs" ADD CONSTRAINT "notification_jobs_notification_fkey" FOREIGN KEY (notification_id) REFERENCES notifications(id) ON DELETE CASCADE;
 
+ALTER TABLE ONLY "public"."notification_legacy_states" ADD CONSTRAINT "notification_legacy_states_user_id_fkey" FOREIGN KEY (user_id) REFERENCES profiles(id);
+
 ALTER TABLE ONLY "public"."notification_preferences" ADD CONSTRAINT "notification_preferences_user_fkey" FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY "public"."notifications" ADD CONSTRAINT "notifications_employee_fkey" FOREIGN KEY (employee_sys_id) REFERENCES employees(id) ON DELETE SET NULL;

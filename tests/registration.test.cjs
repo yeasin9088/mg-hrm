@@ -271,5 +271,8 @@ test('unsaved programmatic changes after a Personal save cannot be reported as c
 test('all inline scripts and data layer compile without loading credentials or external libraries',()=>{
   new vm.Script(core);let n=0;
   for(const m of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)){if(/\bsrc\s*=/.test(m[1]))continue;new vm.Script(m[2]);n++;}
-  assert.equal(n,11);
+  assert(n >= 1);
+  for (const m of html.matchAll(/<script\b[^>]*src="\.\/([^"]+)"[^>]*>/gi)) {
+    if (m[1] !== 'config.js') new vm.Script(fs.readFileSync(m[1], 'utf8'));
+  }
 });

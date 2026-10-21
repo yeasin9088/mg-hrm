@@ -74,6 +74,7 @@ CREATE INDEX notification_jobs_notification_idx ON public.notification_jobs USIN
 CREATE UNIQUE INDEX notification_jobs_open_dedupe_uidx ON public.notification_jobs USING btree (job_type, COALESCE(notification_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(event_id, (0)::bigint)) WHERE (job_status = ANY (ARRAY['Pending'::text, 'Processing'::text, 'Failed'::text]));
 -- "public"."notification_jobs_pkey" is created by constraint "notification_jobs_pkey" on "public"."notification_jobs".
 CREATE INDEX notification_jobs_processing_lock_idx ON public.notification_jobs USING btree (locked_at, id) WHERE (job_status = 'Processing'::text);
+-- "public"."notification_legacy_states_pkey" is created by constraint "notification_legacy_states_pkey" on "public"."notification_legacy_states".
 -- "public"."notification_preferences_pkey" is created by constraint "notification_preferences_pkey" on "public"."notification_preferences".
 CREATE UNIQUE INDEX notification_preferences_user_category_uidx ON public.notification_preferences USING btree (user_id, category);
 CREATE INDEX notification_preferences_user_idx ON public.notification_preferences USING btree (user_id);

@@ -4,7 +4,9 @@ Captured **2026-10-20 (Asia/Dhaka)** from Supabase project
 `enkggoozsvvkgbjeghbf`, PostgreSQL **17.6**, using read-only catalogs.
 This is the deployed database reference for feature development and debugging.
 Meeting Attendance objects were refreshed from deployed catalogs on **2026-10-21**
-after the approved atomic migration; other objects retain the original capture date.
+after the approved atomic migration. Notification Center objects were refreshed
+from deployed catalogs on **2026-10-21** after its additive migration; other
+objects retain the original capture date.
 It contains current definitions, including existing grants/policies; no proposed
 security changes are mixed in. It is **not a migration or a tested restore script**.
 
@@ -13,13 +15,13 @@ security changes are mixed in. It is **not a migration or a tested restore scrip
 | Area | Verified coverage | Files |
 |---|---:|---|
 | Application schema | public; no additional custom application schema found | 00-schemas.sql |
-| Tables and columns | 45 tables, 730 columns, defaults/nullability/generated expressions | tables/*.sql |
+| Tables and columns | 46 tables, 736 columns, defaults/nullability/generated expressions | tables/*.sql |
 | Identity sequences | 35; exact start/increment/bounds/cache/cycle/ownership | table identity clauses; 02-sequences.sql; 03-sequence-ownership.sql |
-| Constraints | 44 PK, 62 FK, 12 unique, 119 check | 04-constraints.sql; 05-foreign-keys.sql |
-| Indexes | 174: 56 created by constraints, 118 standalone | 06-indexes.sql |
-| Routines | 73 deployed bodies/signatures/options, including 41 definers | functions/*.sql |
+| Constraints | 45 PK, 63 FK, 12 unique, 122 check | 04-constraints.sql; 05-foreign-keys.sql |
+| Indexes | 175: 57 created by constraints, 118 standalone | 06-indexes.sql |
+| Routines | 74 deployed bodies/signatures/options, including 42 definers | functions/*.sql |
 | Triggers | 53 public plus Auth-to-profile provisioning trigger | 07-triggers.sql |
-| RLS | all 45 tables; 140 complete deployed policies | 08-rls-policies.sql |
+| RLS | all 46 tables; 141 complete deployed policies | 08-rls-policies.sql |
 | Privileges | public schema/table/sequence/routine ACLs and six public default ACLs | 09-privileges.sql; 10-default-privileges.sql |
 | Realtime | 15 application members and publication settings | 11-publications.sql |
 | Platform dependencies | seven extensions; Auth helpers/keys, cron interfaces, managed roles/publication inventory | platform/; catalog.json |
@@ -32,7 +34,7 @@ The all-zero UUID in a notification dedupe index is a verified fixed sentinel.
 
 Use [manifest.json](manifest.json) to locate tables/functions and verify SQL
 checksums. [catalog.json](catalog.json) retains reviewed metadata, relationships,
-grantors/grant options, platform contracts and 1,655 declarative dependency edges.
+grantors/grant options, platform contracts and 1,677 declarative dependency edges.
 [NOTIFICATIONS.md](NOTIFICATIONS.md) maps the database notification pipeline.
 
 ## Dependency order

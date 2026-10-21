@@ -2210,6 +2210,7 @@
       var m = {};
       arr.forEach(function (r) {
         var db = toDb(k, r);
+        if (k === 'todos') delete db.next_reminder_at;
         var key = rowKey(k, db);
         if (key === null) return;
         m[key] = hashOf(db);
@@ -2227,6 +2228,7 @@
     var rows = [], hashes = {}, seen = {};
     arr.forEach(function (r) {
       var db = toDb(k, r);
+      if (k === 'todos') delete db.next_reminder_at; // Owned by explicit schedule writes / atomic reminder claims.
       var key = rowKey(k, db);
       if (key === null) {
         /* Cannot identify this row. Push it as before - never silently drop it. */
@@ -2340,16 +2342,44 @@
       return session;
     });
   }
-  function notificationList(options) {
-    options = options || {};
-    var limit = Math.max(1, Math.min(200, Number(options.limit) || 100));
-    return notificationSession().then(function (session) {
-      return notificationClient().from('notifications')
-        .select('id,event_id,recipient_user_id,category,severity,priority,title,message,entity_type,entity_id,employee_sys_id,project_id,action_label,action_route,action_params,status,scheduled_for,expires_at,read_at,opened_at,actioned_at,completed_at,dismissed_at,snoozed_until,dedupe_key,repeat_count,escalation_level,parent_notification_id,created_at,updated_at')
-        .eq('recipient_user_id', session.user.id)
-        .order('created_at', { ascending: false })
-        .limit(limit);
-    }).then(function (r) { if (r.error) throw r.error; return r.data || []; });
+  async function notificationList(options) {
+    var session = await notificationSession(), rows = [], cursor = null;
+    for (;;) {
+      var query = notificationClient().from('notifications').select('*')
+        .eq('recipient_user_id', session.user.id).order('id', {ascending: false});
+      if (cursor) query = query.lt('id', cursor);
+      var result = await query.limit(200);
+      if (result.error) throw result.error;
+      if (!Array.isArray(result.data)) throw new Error('Incomplete notification page');
+      if (!result.data.length) return rows;
+      var next = result.data[result.data.length - 1].id;
+      if (cursor && next >= cursor) throw new Error('Notification pagination did not advance');
+      rows = rows.concat(result.data); cursor = next;
+    }
+  }
+  async function notificationLegacyStates() {
+    var session = await notificationSession(), rows = [], cursor = null;
+    for (;;) {
+      var query = notificationClient().from('notification_legacy_states').select('event_key,status,read_at,snoozed_until,updated_at')
+        .eq('user_id', session.user.id).order('event_key');
+      if (cursor) query = query.gt('event_key', cursor);
+      var result = await query.limit(200);
+      if (result.error) throw result.error;
+      if (!Array.isArray(result.data)) throw new Error('Incomplete reminder state page');
+      if (!result.data.length) return rows;
+      var next = result.data[result.data.length - 1].event_key;
+      if (cursor && next <= cursor) throw new Error('Reminder pagination did not advance');
+      rows = rows.concat(result.data); cursor = next;
+    }
+  }
+  async function notificationSetLegacyState(key, patch) {
+    var session = await notificationSession();
+    var result = await notificationClient().from('notification_legacy_states')
+      .upsert(Object.assign({}, patch, {user_id: session.user.id, event_key: key, updated_at: new Date().toISOString()}),
+        {onConflict: 'user_id,event_key'}).select().single();
+    if (result.error) throw result.error;
+    if (!result.data || result.data.event_key !== key || result.data.status !== patch.status) throw new Error('Reminder state was not verified');
+    return result.data;
   }
   function notificationGetPreferences() {
     return notificationSession().then(function (session) {
@@ -2446,7 +2476,7 @@
             if (typeof callback === 'function') callback(payload);
           })
           .subscribe(function (status, err) {
-            if (status === 'SUBSCRIBED') console.log('[Notification Realtime] Connected');
+            if (status === 'SUBSCRIBED') { if (typeof callback === 'function') callback({eventType: 'RECONNECT'}); }
             else if (status === 'CHANNEL_ERROR') console.warn('[Notification Realtime] Channel error; REST refresh remains available.', err || '');
             else if (status === 'CLOSED') console.info('[Notification Realtime] Channel closed.');
             else if (status === 'TIMED_OUT') console.warn('[Notification Realtime] Channel timed out; REST refresh remains available.');
@@ -2457,6 +2487,9 @@
   }
   var NotificationRepository = {
     list: notificationList,
+    claimTodoReminder: function (id, expected, next) { return rpcCall('notification_claim_todo_reminder', {p_todo_id:id,p_expected_next:expected,p_next:next}); },
+    legacyStates: notificationLegacyStates,
+    setLegacyState: notificationSetLegacyState,
     getPreferences: notificationGetPreferences,
     updatePreferences: notificationUpdatePreferences,
     listDevices: notificationListDevices,

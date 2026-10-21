@@ -439,6 +439,23 @@
       "relforcerowsecurity": false
     },
     {
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,authenticated=arw/postgres}",
+      "name": "notification_legacy_states",
+      "owner": "postgres",
+      "schema": "public",
+      "comment": "Owned read/dismiss/snooze state for stable legacy business-event identities; no employee/message contents.",
+      "relkind": "r",
+      "reloptions": null,
+      "tablespace": null,
+      "relreplident": "d",
+      "access_method": "heap",
+      "partition_key": null,
+      "relispartition": false,
+      "relpersistence": "p",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
       "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,authenticated=arwd/postgres}",
       "name": "notification_preferences",
       "owner": "postgres",
@@ -6696,6 +6713,126 @@
       "generated": "",
       "type_name": "timestamptz",
       "table_name": "notification_jobs",
+      "compression": "",
+      "type_schema": "pg_catalog",
+      "type_storage": "p",
+      "statistics_target": null,
+      "default_expression": "now()"
+    },
+    {
+      "acl": null,
+      "name": "user_id",
+      "type": "uuid",
+      "comment": null,
+      "options": null,
+      "ordinal": 1,
+      "storage": "p",
+      "identity": "",
+      "not_null": true,
+      "collation": null,
+      "generated": "",
+      "type_name": "uuid",
+      "table_name": "notification_legacy_states",
+      "compression": "",
+      "type_schema": "pg_catalog",
+      "type_storage": "p",
+      "statistics_target": null,
+      "default_expression": null
+    },
+    {
+      "acl": null,
+      "name": "event_key",
+      "type": "text",
+      "comment": null,
+      "options": null,
+      "ordinal": 2,
+      "storage": "x",
+      "identity": "",
+      "not_null": true,
+      "collation": null,
+      "generated": "",
+      "type_name": "text",
+      "table_name": "notification_legacy_states",
+      "compression": "",
+      "type_schema": "pg_catalog",
+      "type_storage": "x",
+      "statistics_target": null,
+      "default_expression": null
+    },
+    {
+      "acl": null,
+      "name": "status",
+      "type": "text",
+      "comment": null,
+      "options": null,
+      "ordinal": 3,
+      "storage": "x",
+      "identity": "",
+      "not_null": true,
+      "collation": null,
+      "generated": "",
+      "type_name": "text",
+      "table_name": "notification_legacy_states",
+      "compression": "",
+      "type_schema": "pg_catalog",
+      "type_storage": "x",
+      "statistics_target": null,
+      "default_expression": null
+    },
+    {
+      "acl": null,
+      "name": "read_at",
+      "type": "timestamp with time zone",
+      "comment": null,
+      "options": null,
+      "ordinal": 4,
+      "storage": "p",
+      "identity": "",
+      "not_null": false,
+      "collation": null,
+      "generated": "",
+      "type_name": "timestamptz",
+      "table_name": "notification_legacy_states",
+      "compression": "",
+      "type_schema": "pg_catalog",
+      "type_storage": "p",
+      "statistics_target": null,
+      "default_expression": null
+    },
+    {
+      "acl": null,
+      "name": "snoozed_until",
+      "type": "timestamp with time zone",
+      "comment": null,
+      "options": null,
+      "ordinal": 5,
+      "storage": "p",
+      "identity": "",
+      "not_null": false,
+      "collation": null,
+      "generated": "",
+      "type_name": "timestamptz",
+      "table_name": "notification_legacy_states",
+      "compression": "",
+      "type_schema": "pg_catalog",
+      "type_storage": "p",
+      "statistics_target": null,
+      "default_expression": null
+    },
+    {
+      "acl": null,
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "comment": null,
+      "options": null,
+      "ordinal": 6,
+      "storage": "p",
+      "identity": "",
+      "not_null": true,
+      "collation": null,
+      "generated": "",
+      "type_name": "timestamptz",
+      "table_name": "notification_legacy_states",
       "compression": "",
       "type_schema": "pg_catalog",
       "type_storage": "p",
@@ -16550,6 +16687,21 @@
       "constraint_name": null
     },
     {
+      "name": "notification_legacy_states_pkey",
+      "comment": null,
+      "definition": "CREATE UNIQUE INDEX notification_legacy_states_pkey ON public.notification_legacy_states USING btree (user_id, event_key)",
+      "indisready": true,
+      "indisvalid": true,
+      "reloptions": null,
+      "table_name": "notification_legacy_states",
+      "tablespace": null,
+      "indisunique": true,
+      "indisprimary": true,
+      "indisclustered": false,
+      "indisreplident": false,
+      "constraint_name": "notification_legacy_states_pkey"
+    },
+    {
       "name": "notification_preferences_pkey",
       "comment": null,
       "definition": "CREATE UNIQUE INDEX notification_preferences_pkey ON public.notification_preferences USING btree (id)",
@@ -20287,6 +20439,105 @@
       "backing_index": null,
       "condeferrable": false,
       "referenced_table": null
+    },
+    {
+      "name": "notification_legacy_states_check",
+      "conkey": [
+        3,
+        5
+      ],
+      "comment": null,
+      "confkey": null,
+      "contype": "c",
+      "conislocal": true,
+      "definition": "CHECK (status = 'Snoozed'::text AND snoozed_until IS NOT NULL OR status <> 'Snoozed'::text AND snoozed_until IS NULL)",
+      "table_name": "notification_legacy_states",
+      "condeferred": false,
+      "coninhcount": 0,
+      "connoinherit": false,
+      "convalidated": true,
+      "backing_index": null,
+      "condeferrable": false,
+      "referenced_table": null
+    },
+    {
+      "name": "notification_legacy_states_event_key_check",
+      "conkey": [
+        2
+      ],
+      "comment": null,
+      "confkey": null,
+      "contype": "c",
+      "conislocal": true,
+      "definition": "CHECK (length(event_key) >= 1 AND length(event_key) <= 1024)",
+      "table_name": "notification_legacy_states",
+      "condeferred": false,
+      "coninhcount": 0,
+      "connoinherit": false,
+      "convalidated": true,
+      "backing_index": null,
+      "condeferrable": false,
+      "referenced_table": null
+    },
+    {
+      "name": "notification_legacy_states_pkey",
+      "conkey": [
+        1,
+        2
+      ],
+      "comment": null,
+      "confkey": null,
+      "contype": "p",
+      "conislocal": true,
+      "definition": "PRIMARY KEY (user_id, event_key)",
+      "table_name": "notification_legacy_states",
+      "condeferred": false,
+      "coninhcount": 0,
+      "connoinherit": true,
+      "convalidated": true,
+      "backing_index": "notification_legacy_states_pkey",
+      "condeferrable": false,
+      "referenced_table": null
+    },
+    {
+      "name": "notification_legacy_states_status_check",
+      "conkey": [
+        3
+      ],
+      "comment": null,
+      "confkey": null,
+      "contype": "c",
+      "conislocal": true,
+      "definition": "CHECK (status = ANY (ARRAY['Read'::text, 'Dismissed'::text, 'Snoozed'::text]))",
+      "table_name": "notification_legacy_states",
+      "condeferred": false,
+      "coninhcount": 0,
+      "connoinherit": false,
+      "convalidated": true,
+      "backing_index": null,
+      "condeferrable": false,
+      "referenced_table": null
+    },
+    {
+      "name": "notification_legacy_states_user_id_fkey",
+      "conkey": [
+        1
+      ],
+      "comment": null,
+      "confkey": [
+        1
+      ],
+      "contype": "f",
+      "conislocal": true,
+      "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id)",
+      "table_name": "notification_legacy_states",
+      "condeferred": false,
+      "coninhcount": 0,
+      "connoinherit": true,
+      "convalidated": true,
+      "backing_index": "profiles_pkey",
+      "condeferrable": false,
+      "referenced_table": "profiles"
     },
     {
       "name": "notification_preferences_category_not_blank",
@@ -24498,6 +24749,27 @@
     },
     {
       "owner": "postgres",
+      "proacl": "{postgres=X/postgres,service_role=X/postgres,authenticated=X/postgres}",
+      "result": "jsonb",
+      "comment": null,
+      "prokind": "f",
+      "identity": "notification_claim_todo_reminder(bigint,timestamp with time zone,timestamp with time zone)",
+      "language": "plpgsql",
+      "arguments": "p_todo_id bigint, p_expected_next timestamp with time zone, p_next timestamp with time zone",
+      "proconfig": [
+        "search_path=pg_catalog, public, pg_temp"
+      ],
+      "prosecdef": true,
+      "proisstrict": false,
+      "proparallel": "u",
+      "provolatile": "v",
+      "proleakproof": false,
+      "definition_md5": "18bfe4b6e7748156a86a985053471867",
+      "identity_arguments": "p_todo_id bigint, p_expected_next timestamp with time zone, p_next timestamp with time zone",
+      "definition": "CREATE OR REPLACE FUNCTION public.notification_claim_todo_reminder(p_todo_id bigint, p_expected_next timestamp with time zone, p_next timestamp with time zone)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public', 'pg_temp'\nAS $function$\r\nDECLARE t public.todos%ROWTYPE; recipient uuid := auth.uid(); due timestamptz; event_identity text;\r\nBEGIN\r\n  IF recipient IS NULL OR public.my_role() NOT IN ('admin','editor') THEN\r\n    RAISE EXCEPTION 'Active operator permission required' USING ERRCODE='42501';\r\n  END IF;\r\n  IF p_next IS NOT NULL AND (p_next <= clock_timestamp() OR p_next > clock_timestamp() + interval '10 years') THEN\r\n    RAISE EXCEPTION 'Invalid next reminder time' USING ERRCODE='22023';\r\n  END IF;\r\n  SELECT * INTO t FROM public.todos WHERE id=p_todo_id FOR UPDATE;\r\n  IF NOT FOUND OR t.deleted_at IS NOT NULL OR t.reminder_enabled IS DISTINCT FROM true OR t.solved_at IS NOT NULL OR\r\n     lower(coalesce(t.status,'')) IN ('done','closed','resolved','completed','solved','solved_approved','solved_rejected') OR\r\n     lower(coalesce(t.manager_status,'')) IN ('done','closed','resolved','completed','solved','solved_approved','solved_rejected') OR\r\n     t.next_reminder_at IS DISTINCT FROM p_expected_next OR\r\n     (t.next_reminder_at IS NOT NULL AND t.next_reminder_at > clock_timestamp()) THEN\r\n    RETURN jsonb_build_object('claimed',false);\r\n  END IF;\r\n  IF NOT coalesce((public.notification_effective_preference(recipient,'ToDo')->>'notification_enabled')::boolean,true) THEN\r\n    RETURN jsonb_build_object('claimed',false);\r\n  END IF;\r\n  due := coalesce(t.next_reminder_at,date_trunc('minute',clock_timestamp()));\r\n  event_identity := 'todo-reminder:' || t.id::text || ':' || extract(epoch FROM due)::text;\r\n  INSERT INTO public.notification_events(event_type,entity_type,entity_id,actor_user_id,event_key,event_payload,occurred_at)\r\n  VALUES ('TodoReminderDue','todo',t.id::text,recipient,event_identity,\r\n    jsonb_build_object('recipient_user_id',recipient,'category','ToDo','severity','Info','priority','Normal',\r\n      'title','To-Do reminder','message','A scheduled note needs your attention. Open MG-HRM to review it.',\r\n      'action_label','Review note','action_route','todo','dedupe_key',event_identity,\r\n      'action_params',jsonb_build_object('notification_type','todo_rem'),'scheduled_for',due),due)\r\n  ON CONFLICT (event_key) DO NOTHING;\r\n  UPDATE public.todos SET next_reminder_at=p_next,\r\n    reminder_enabled=CASE WHEN p_next IS NULL THEN false ELSE reminder_enabled END WHERE id=t.id;\r\n  RETURN jsonb_build_object('claimed',true,'event_key',event_identity,'occurred_at',due);\r\nEND;\r\n$function$\n"
+    },
+    {
+      "owner": "postgres",
       "proacl": "{postgres=X/postgres,service_role=X/postgres}",
       "result": "SETOF notification_jobs",
       "comment": null,
@@ -26063,6 +26335,16 @@
       "policyname": "notification_escalation_rules_admin_update",
       "schemaname": "public",
       "with_check": "((( SELECT my_role() AS my_role) = ANY (ARRAY['admin'::text, 'owner'::text])) AND ((updated_by_user_id IS NULL) OR (updated_by_user_id = ( SELECT auth.uid() AS uid))))"
+    },
+    {
+      "cmd": "ALL",
+      "qual": "((user_id = auth.uid()) AND (my_role() <> 'none'::text))",
+      "roles": "{authenticated}",
+      "tablename": "notification_legacy_states",
+      "permissive": "PERMISSIVE",
+      "policyname": "notification_legacy_states_owner",
+      "schemaname": "public",
+      "with_check": "((user_id = auth.uid()) AND (my_role() <> 'none'::text))"
     },
     {
       "cmd": "DELETE",
@@ -28688,6 +28970,71 @@
     {
       "object": "constraint notification_jobs_type_not_blank on table notification_jobs",
       "dependency": "column job_type of table notification_jobs",
+      "deptype": "n"
+    },
+    {
+      "object": "constraint notification_legacy_states_check on table notification_legacy_states",
+      "dependency": "column snoozed_until of table notification_legacy_states",
+      "deptype": "a"
+    },
+    {
+      "object": "constraint notification_legacy_states_check on table notification_legacy_states",
+      "dependency": "column snoozed_until of table notification_legacy_states",
+      "deptype": "n"
+    },
+    {
+      "object": "constraint notification_legacy_states_check on table notification_legacy_states",
+      "dependency": "column status of table notification_legacy_states",
+      "deptype": "a"
+    },
+    {
+      "object": "constraint notification_legacy_states_check on table notification_legacy_states",
+      "dependency": "column status of table notification_legacy_states",
+      "deptype": "n"
+    },
+    {
+      "object": "constraint notification_legacy_states_event_key_check on table notification_legacy_states",
+      "dependency": "column event_key of table notification_legacy_states",
+      "deptype": "a"
+    },
+    {
+      "object": "constraint notification_legacy_states_event_key_check on table notification_legacy_states",
+      "dependency": "column event_key of table notification_legacy_states",
+      "deptype": "n"
+    },
+    {
+      "object": "constraint notification_legacy_states_pkey on table notification_legacy_states",
+      "dependency": "column event_key of table notification_legacy_states",
+      "deptype": "a"
+    },
+    {
+      "object": "constraint notification_legacy_states_pkey on table notification_legacy_states",
+      "dependency": "column user_id of table notification_legacy_states",
+      "deptype": "a"
+    },
+    {
+      "object": "constraint notification_legacy_states_status_check on table notification_legacy_states",
+      "dependency": "column status of table notification_legacy_states",
+      "deptype": "a"
+    },
+    {
+      "object": "constraint notification_legacy_states_status_check on table notification_legacy_states",
+      "dependency": "column status of table notification_legacy_states",
+      "deptype": "n"
+    },
+    {
+      "object": "constraint notification_legacy_states_user_id_fkey on table notification_legacy_states",
+      "dependency": "column id of table profiles",
+      "deptype": "n"
+    },
+    {
+      "object": "constraint notification_legacy_states_user_id_fkey on table notification_legacy_states",
+      "dependency": "column user_id of table notification_legacy_states",
+      "deptype": "a"
+    },
+    {
+      "object": "constraint notification_legacy_states_user_id_fkey on table notification_legacy_states",
+      "dependency": "index profiles_pkey",
       "deptype": "n"
     },
     {
@@ -31406,6 +31753,11 @@
       "deptype": "a"
     },
     {
+      "object": "default value for column updated_at of table notification_legacy_states",
+      "dependency": "column updated_at of table notification_legacy_states",
+      "deptype": "a"
+    },
+    {
       "object": "default value for column updated_at of table notification_preferences",
       "dependency": "column updated_at of table notification_preferences",
       "deptype": "a"
@@ -31763,6 +32115,16 @@
     {
       "object": "function notification_claim_jobs(text,integer)",
       "dependency": "type notification_jobs",
+      "deptype": "n"
+    },
+    {
+      "object": "function notification_claim_todo_reminder(bigint,timestamp with time zone,timestamp with time zone)",
+      "dependency": "language plpgsql",
+      "deptype": "n"
+    },
+    {
+      "object": "function notification_claim_todo_reminder(bigint,timestamp with time zone,timestamp with time zone)",
+      "dependency": "schema public",
       "deptype": "n"
     },
     {
@@ -32779,6 +33141,11 @@
       "object": "index notification_jobs_processing_lock_idx",
       "dependency": "column locked_at of table notification_jobs",
       "deptype": "a"
+    },
+    {
+      "object": "index notification_legacy_states_pkey",
+      "dependency": "constraint notification_legacy_states_pkey on table notification_legacy_states",
+      "deptype": "i"
     },
     {
       "object": "index notification_preferences_pkey",
@@ -34156,6 +34523,26 @@
       "deptype": "a"
     },
     {
+      "object": "policy notification_legacy_states_owner on table notification_legacy_states",
+      "dependency": "column user_id of table notification_legacy_states",
+      "deptype": "n"
+    },
+    {
+      "object": "policy notification_legacy_states_owner on table notification_legacy_states",
+      "dependency": "function auth.uid()",
+      "deptype": "n"
+    },
+    {
+      "object": "policy notification_legacy_states_owner on table notification_legacy_states",
+      "dependency": "function my_role()",
+      "deptype": "n"
+    },
+    {
+      "object": "policy notification_legacy_states_owner on table notification_legacy_states",
+      "dependency": "table notification_legacy_states",
+      "deptype": "a"
+    },
+    {
       "object": "policy notification_preferences_delete_own_override on table notification_preferences",
       "dependency": "column category of table notification_preferences",
       "deptype": "n"
@@ -35346,6 +35733,11 @@
       "deptype": "n"
     },
     {
+      "object": "table notification_legacy_states",
+      "dependency": "schema public",
+      "deptype": "n"
+    },
+    {
       "object": "table notification_preferences",
       "dependency": "schema public",
       "deptype": "n"
@@ -36042,5 +36434,6 @@
     }
   ],
   "additional_standalone_types": [],
-  "attendanceRefreshedOn": "2026-10-21"
+  "attendanceRefreshedOn": "2026-10-21",
+  "notificationRefreshedOn": "2026-10-21"
 }

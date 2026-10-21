@@ -41,6 +41,8 @@ ALTER TABLE "public"."notification_events" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."notification_events" NO FORCE ROW LEVEL SECURITY;
 ALTER TABLE "public"."notification_jobs" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."notification_jobs" NO FORCE ROW LEVEL SECURITY;
+ALTER TABLE "public"."notification_legacy_states" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "public"."notification_legacy_states" NO FORCE ROW LEVEL SECURITY;
 ALTER TABLE "public"."notification_preferences" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."notification_preferences" NO FORCE ROW LEVEL SECURITY;
 ALTER TABLE "public"."notifications" ENABLE ROW LEVEL SECURITY;
@@ -215,6 +217,8 @@ CREATE POLICY "notification_escalation_rules_admin_insert" ON "public"."notifica
 CREATE POLICY "notification_escalation_rules_admin_select" ON "public"."notification_escalation_rules" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((( SELECT my_role() AS my_role) = ANY (ARRAY['admin'::text, 'owner'::text])));
 
 CREATE POLICY "notification_escalation_rules_admin_update" ON "public"."notification_escalation_rules" AS PERMISSIVE FOR UPDATE TO "authenticated" USING ((( SELECT my_role() AS my_role) = ANY (ARRAY['admin'::text, 'owner'::text]))) WITH CHECK (((( SELECT my_role() AS my_role) = ANY (ARRAY['admin'::text, 'owner'::text])) AND ((updated_by_user_id IS NULL) OR (updated_by_user_id = ( SELECT auth.uid() AS uid)))));
+
+CREATE POLICY "notification_legacy_states_owner" ON "public"."notification_legacy_states" AS PERMISSIVE FOR ALL TO "authenticated" USING (((user_id = auth.uid()) AND (my_role() <> 'none'::text))) WITH CHECK (((user_id = auth.uid()) AND (my_role() <> 'none'::text)));
 
 CREATE POLICY "notification_preferences_delete_own_override" ON "public"."notification_preferences" AS PERMISSIVE FOR DELETE TO "authenticated" USING (((user_id = ( SELECT auth.uid() AS uid)) AND (category <> '*'::text) AND (EXISTS ( SELECT 1
    FROM profiles p

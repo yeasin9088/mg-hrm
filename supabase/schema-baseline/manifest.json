@@ -8,25 +8,25 @@
   "securityRemediationIncluded": false,
   "counts": {
     "schemas": 1,
-    "tables": 45,
-    "columns": 730,
-    "constraints": 237,
-    "primaryKeys": 44,
-    "foreignKeys": 62,
+    "tables": 46,
+    "columns": 736,
+    "constraints": 242,
+    "primaryKeys": 45,
+    "foreignKeys": 63,
     "uniqueConstraints": 12,
-    "checks": 119,
-    "indexes": 174,
-    "constraintBackedIndexes": 56,
+    "checks": 122,
+    "indexes": 175,
+    "constraintBackedIndexes": 57,
     "standaloneIndexes": 118,
     "sequences": 35,
-    "routines": 73,
-    "securityDefiners": 41,
-    "policies": 140,
+    "routines": 74,
+    "securityDefiners": 42,
+    "policies": 141,
     "publicTriggers": 53,
     "authBridgeTriggers": 1,
     "extensions": 7,
     "applicationPublicationTables": 15,
-    "dependencies": 1655
+    "dependencies": 1677
   },
   "tables": [
     {
@@ -142,6 +142,12 @@
       "name": "notification_jobs",
       "file": "tables/notification_jobs.sql",
       "columns": 17
+    },
+    {
+      "schema": "public",
+      "name": "notification_legacy_states",
+      "file": "tables/notification_legacy_states.sql",
+      "columns": 6
     },
     {
       "schema": "public",
@@ -487,6 +493,13 @@
       "identity": "notification_claim_jobs(text,integer)",
       "file": "functions/notifications-service.sql",
       "definitionMd5": "e3bdb5df9cf2a7299c9e853b11dbce4e",
+      "security": "definer",
+      "language": "plpgsql"
+    },
+    {
+      "identity": "notification_claim_todo_reminder(bigint,timestamp with time zone,timestamp with time zone)",
+      "file": "functions/notifications-service.sql",
+      "definitionMd5": "18bfe4b6e7748156a86a985053471867",
       "security": "definer",
       "language": "plpgsql"
     },
@@ -903,6 +916,10 @@
       "sha256": "de4dcffad6be6ef249cf2fa6f2a7449114e1adfeaa1fe4a42863370d4f779b81"
     },
     {
+      "file": "tables/notification_legacy_states.sql",
+      "sha256": "382e49152fe0962c2cf7bc5158b3a63efe912e1174f916df69c4f80f135b5498"
+    },
+    {
       "file": "tables/notification_preferences.sql",
       "sha256": "8b12e219d93abe7bb32c4ed52eede528205648c8674ef9814eb4ab7fd7d93331"
     },
@@ -1012,15 +1029,15 @@
     },
     {
       "file": "04-constraints.sql",
-      "sha256": "db886dd21716c7e3aaa48455bda22d61a4b09b816bc5059fe6855d8cb28b82eb"
+      "sha256": "e683765872d3e0215761e2c75422e422239045ddf2de9dbe2d85aa3a366ba749"
     },
     {
       "file": "05-foreign-keys.sql",
-      "sha256": "7fcf637ad0eff9811a278362a1a71ad6e35cafadfc7a53d684512b0211cced81"
+      "sha256": "7f74236e81663ed78999dbb663bd39996c8787035316e7e919bd8773a59964e0"
     },
     {
       "file": "06-indexes.sql",
-      "sha256": "8cc7f19160b628cbf269b7d88acf625b747aaad55740187bfabdc39ebfce16cd"
+      "sha256": "94240a4fcc25779e2d311781c0b91fb526d00b2469b5ce8d1542c551326e2849"
     },
     {
       "file": "functions/hr-workflows.sql",
@@ -1036,7 +1053,7 @@
     },
     {
       "file": "functions/notifications-service.sql",
-      "sha256": "e62a6def12f7daba2583d84a1ccdbd552881d8604196965a2b61cfa4db2adc5b"
+      "sha256": "2899404a8eebb824abbbe2e21ddf7a87fa2f417e84009ed1acb095be987534fd"
     },
     {
       "file": "functions/triggers-and-helpers.sql",
@@ -1048,11 +1065,11 @@
     },
     {
       "file": "08-rls-policies.sql",
-      "sha256": "ee98912fb238b748bbb10e907230ac1f66d67aa6eea65d01e2f24a58bf171cfb"
+      "sha256": "29871c75ebd1aee116c3fc4c9c96c824c1e91c6ef688a61b8f9c49454acd2594"
     },
     {
       "file": "09-privileges.sql",
-      "sha256": "cdabdf9b8344633236c419475717eb72d3242ec38972e78b04bbd1dc456c5f65"
+      "sha256": "c2b41d853a615fce68e63f5a9385a9184e05111e15033a3082f64851a959eb7b"
     },
     {
       "file": "10-default-privileges.sql",

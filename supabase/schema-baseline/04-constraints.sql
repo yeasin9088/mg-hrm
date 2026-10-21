@@ -127,6 +127,14 @@ ALTER TABLE ONLY "public"."notification_jobs" ADD CONSTRAINT "notification_jobs_
 
 ALTER TABLE ONLY "public"."notification_jobs" ADD CONSTRAINT "notification_jobs_type_not_blank" CHECK (btrim(job_type) <> ''::text);
 
+ALTER TABLE ONLY "public"."notification_legacy_states" ADD CONSTRAINT "notification_legacy_states_check" CHECK (status = 'Snoozed'::text AND snoozed_until IS NOT NULL OR status <> 'Snoozed'::text AND snoozed_until IS NULL);
+
+ALTER TABLE ONLY "public"."notification_legacy_states" ADD CONSTRAINT "notification_legacy_states_event_key_check" CHECK (length(event_key) >= 1 AND length(event_key) <= 1024);
+
+ALTER TABLE ONLY "public"."notification_legacy_states" ADD CONSTRAINT "notification_legacy_states_pkey" PRIMARY KEY (user_id, event_key);
+
+ALTER TABLE ONLY "public"."notification_legacy_states" ADD CONSTRAINT "notification_legacy_states_status_check" CHECK (status = ANY (ARRAY['Read'::text, 'Dismissed'::text, 'Snoozed'::text]));
+
 ALTER TABLE ONLY "public"."notification_preferences" ADD CONSTRAINT "notification_preferences_category_not_blank" CHECK (btrim(category) <> ''::text);
 
 ALTER TABLE ONLY "public"."notification_preferences" ADD CONSTRAINT "notification_preferences_pkey" PRIMARY KEY (id);

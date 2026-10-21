@@ -2,8 +2,8 @@
    MG Security HRM — Service Worker
    Role: Offline application cache + safe notification display/click flow
    ===================================================================== */
-const CACHE = 'mghrm-v31';
-const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './bd-geo.json', './config.js', './app-core.js', './meeting-attendance.js', './meeting-ui.js', './meeting-ui.css'];
+const CACHE = 'mghrm-v32';
+const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './bd-geo.json', './config.js', './app-core.js', './meeting-attendance.js', './meeting-ui.js', './meeting-ui.css', './notification-model.js', './notification-center.js', './notification-ui.js', './notification-ui.css', './notification-settings.js'];
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
@@ -57,23 +57,24 @@ function safePushPayload(event) {
 }
 
 function safeRoute(value) {
-  const route = String(value || '').replace(/^#?\/?/, '').split('?')[0];
-  const allowed = ['dashboard', 'notifications', 'todo', 'transfer', 'employees', 'recruitment', 'disciplinary', 'leave', 'uniform', 'meetings', 'reports'];
+  let route = String(value || '').replace(/^#?\/?/, '').split('?')[0];
+  if (route === 'meetings') route = 'meeting';
+  const allowed = ['dashboard', 'notifications', 'todo', 'transfer', 'employees', 'recruitment', 'disciplinary', 'leave', 'uniform', 'meeting', 'reports'];
   return allowed.includes(route) ? route : 'notifications';
 }
 
 self.addEventListener('push', (event) => {
   const payload = safePushPayload(event);
   const notificationId = String(payload.notification_id || payload.id || '');
-  const title = String(payload.title || 'MG Security HRM');
-  const body = String(payload.body || payload.message || 'You have a new notification.');
+  const title = 'MG-HRM';
+  const body = 'You have a new notification. Open MG-HRM to review it.';
   const route = safeRoute(payload.action_route || payload.route);
   const priority = String(payload.priority || 'Normal');
   const options = {
     body,
     icon: './icon-192.png',
     badge: './icon-192.png',
-    tag: String(payload.tag || notificationId || 'mghrm-notification'),
+    tag: 'mghrm-' + (notificationId || 'notification'),
     renotify: false,
     requireInteraction: priority === 'Urgent' || payload.require_interaction === true,
     data: {
@@ -91,7 +92,7 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const data = event.notification.data || {};
   const route = safeRoute(data.route);
-  const targetUrl = new URL('./index.html?notification_route=' + encodeURIComponent(route), self.registration.scope).href;
+  const targetUrl = new URL('./index.html?notification_route=' + encodeURIComponent(route) + '&notification_id=' + encodeURIComponent(data.notificationId || '') + '&notification_entity=' + encodeURIComponent(data.entityId || ''), self.registration.scope).href;
   const message = {
     type: 'MG_NOTIFICATION_CLICK',
     notificationId: data.notificationId || '',
@@ -113,4 +114,10 @@ self.addEventListener('notificationclick', (event) => {
       return undefined;
     })
   );
+});
+
+self.addEventListener('pushsubscriptionchange', event => {
+  event.waitUntil(self.clients.matchAll({type:'window',includeUncontrolled:true}).then(clients => {
+    clients.forEach(client => client.postMessage({type:'MG_PUSH_SUBSCRIPTION_CHANGED'}));
+  }));
 });

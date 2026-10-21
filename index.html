@@ -14380,15 +14380,15 @@ function buildNotifications(){
   DATA.disciplinary.forEach(d=>{
     if(d.ActionType && (String(d.ActionType).includes('শোকজ') || String(d.ActionType).toLowerCase().includes('show-cause')) && !d._replied && daysAgo(d.IssueDate)>=1 && !NOTIFICATIONS.find(x=>x.type==='sc'&&String(x.ref)===String(d.ActionID))){
       NOTIFICATIONS.push({ id:'sc'+d.ActionID, type:'sc', ref:d.ActionID, severity:'warning',
-        createdAt: Date.now(), isRead: false,
+        createdAt: (Date.parse(d.IssueDate)||0) + 86400000, milestone: String(d.IssueDate||'initial'), isRead: false,
         title:`Show-cause follow-up — ${d.FullName}`,
         detail:`Response window (01 working day) for show-cause notice issued on ${fmtDate(d.IssueDate)} has ended. Did you receive a response? If yes, issue a warning letter.` });
     }
   });
   RECRUITMENT.forEach(r=>{
-    if(r.stage!=='Confirmed' && daysAgo(r.date)>=3 && !NOTIFICATIONS.find(x=>x.type==='rec'&&String(x.ref)===String(r.id))){
+    if(!['confirmed','rejected','cancelled','joined','completed'].includes(String(r.stage||'').toLowerCase()) && daysAgo(r.date)>=3 && !NOTIFICATIONS.find(x=>x.type==='rec'&&String(x.ref)===String(r.id))){
       NOTIFICATIONS.push({ id:'rec'+r.id, type:'rec', ref:r.id, severity:'info',
-        createdAt: Date.now(), isRead: false,
+        createdAt: (Date.parse(r.date)||0) + 3*86400000, milestone: String(r.date||'initial') + ':' + String(r.stage||''), isRead: false,
         title:`Stuck in recruitment pipeline — ${r.name}`,
         detail:`Pending at "${r.stage}" stage for ${daysAgo(r.date)} days. Take next action.` });
     }
@@ -19848,59 +19848,41 @@ window.mgRmFire = function(t){
 };
 
 /* THE ENGINE — the only scheduler in the app */
-window.mgReminderTick = function(){
+let mgReminderClaimRunning = false;
+window.mgReminderTick = async function(){
+  if (mgReminderClaimRunning) return;
+  mgReminderClaimRunning = true;
   try {
-    var cfg    = window.MG_TD_CFG || window.MG_TD_CFG_DEFAULTS || {};
-    var notifs = window.NOTIFICATIONS || NOTIFICATIONS || [];
-    var now    = Date.now();
-    var list   = window.mgRmActiveTodos();
-    var map    = {};
-    list.forEach(function(x){ map[String(x.id)] = x; });
-    var changed = false;
-
-    /* 1. drop reminder cards whose note is gone, solved or bell-off */
-    for (var i = notifs.length - 1; i >= 0; i--){
-      var n = notifs[i];
-      if (n.type !== 'todo_rem') continue;
-      var note = map[String(n.ref)];
-      var live = !!note && note.reminder_enabled === true && !window.mgRmIsClosed(note);
-      if (!live){ notifs.splice(i, 1); changed = true; }
-    }
-
-    /* 2. due scan — one check per note, nothing global */
-    if (cfg.master !== false){
-      list.forEach(function(t){
-        if (t.reminder_enabled !== true) return;
-        var cur = t.next_reminder_at ? Date.parse(t.next_reminder_at) : NaN;
-        if (isNaN(cur)) cur = null;
-
-        if (window.mgRmIsClosed(t)){
-          if (cur !== null) window.mgRmWriteNext(t, null);
-          return;
+    const cfg = window.MG_TD_CFG || {};
+    if (cfg.master === false || !window.MGHRM?.notifications) return;
+    for (const todo of window.mgRmActiveTodos()) {
+      if (todo.reminder_enabled !== true || window.mgRmIsClosed(todo)) continue;
+      const due = todo.next_reminder_at ? Date.parse(todo.next_reminder_at) : null;
+      if (due !== null && (!Number.isFinite(due) || due > Date.now())) continue;
+      const next = window.mgRmNextAt(todo, Date.now());
+      if (due === null && (next === null || next > Date.now())) {
+        // Initial scheduling uses compare-and-set, never a stale cache upsert.
+        if (next !== null && window.sb) {
+          const result = await window.sb.from('todos').update({next_reminder_at:new Date(next).toISOString()})
+            .eq('id',todo.id).is('next_reminder_at',null).select('id,next_reminder_at');
+          if (result.error) throw result.error;
+          if (result.data?.length === 1) todo.next_reminder_at=result.data[0].next_reminder_at;
         }
-        if (cur === null){
-          var first = window.mgRmNextAt(t, now);
-          window.mgRmWriteNext(t, first);
-          if (first === null || first > now) return;
-          cur = first;
-        }
-        if (cur > now) return;
-
-        window.mgRmFire(t);                                 /* due now */
-        window.mgRmWriteNext(t, window.mgRmNextAt(t, now));  /* schedule the next one */
-        changed = true;
-      });
+        continue;
+      }
+      const result = await window.MGHRM.notifications.claimTodoReminder(todo.id,todo.next_reminder_at||null,next?new Date(next).toISOString():null);
+      if (result?.claimed) {
+        todo.next_reminder_at = next ? new Date(next).toISOString() : null;
+        if (next === null) todo.reminder_enabled = false;
+        // The server event/job/inbox pipeline is authoritative. A browser never
+        // emits a second local alert or marks an old card unread on reload.
+        if (window.mgHandleNotificationRealtime) window.mgHandleNotificationRealtime();
+      }
     }
-
-    if (changed){
-      if (typeof updateNotifBadge === 'function') updateNotifBadge();
-      var np = document.getElementById('page-notifications');
-      if (np && np.style.display !== 'none' && typeof renderNotifications === 'function') renderNotifications();
-      var nd = document.getElementById('notifDropdown');
-      if (nd && nd.classList.contains('open') && typeof renderNotifDropdown === 'function') renderNotifDropdown();
-    }
-    window.mgRmDrainToastQ();
-  } catch(err){ console.error('mgReminderTick error:', err); }
+  } catch(error) {
+    if (!window.MG_RM_WRITE_WARNED && typeof toast === 'function') toast('Reminder scheduling was not confirmed: '+error.message,'error');
+    window.MG_RM_WRITE_WARNED = true;
+  } finally { mgReminderClaimRunning = false; }
 };
 
 window.mgTodoNotifyTick = window.mgReminderTick;   /* alias — old callers keep working */
@@ -20199,21 +20181,8 @@ window.mtResetNotifSettings = function(){
 
 /* RETENTION PRUNE (TASK 7) */
 window.mgNotifPrune = function(){
-  try {
-    var notifs = window.NOTIFICATIONS || NOTIFICATIONS || [];
-    var now = Date.now();
-    for (var i = notifs.length - 1; i >= 0; i--){
-      var n = notifs[i];
-      if (n.type === 'todo_rem'){
-        var t = window.mgTdFindTodo(n.ref);
-        if (!t || t.reminder_enabled !== true || window.mgRmIsClosed(t)){ notifs.splice(i, 1); }
-        continue;
-      }
-      if (n.isRead && n.createdAt && (now - n.createdAt) > 7 * 86400000){ notifs.splice(i, 1); }
-    }
-    if (notifs.length > 200) notifs.length = 200;
-    if (typeof updateNotifBadge === 'function') updateNotifBadge();
-  } catch(e){ console.error('mgNotifPrune error:', e); }
+  // Preserve notification history; presentation filters control visibility.
+  if (typeof window.mgRebuildNotificationView === 'function') window.mgRebuildNotificationView();
 };
 
 if (!window.__mgNotifPruneTimer) {
@@ -24199,570 +24168,11 @@ setInterval(()=>checkPendingToast(true), 180000);
   document.addEventListener('change',function(e){var t=e.target;if(t&&t.closest&&t.closest('#modal')&&t.closest('#modal').querySelector('#naTabs')&&t.type!=='checkbox'&&t.type!=='radio')t.classList.toggle('na-user-filled',String(t.value||'').trim()!=='');},true);
 })();
 </script>
-<script>
-/* ===== Notification Inbox server integration: Phase 2C ===== */
-(function () {
-  'use strict';
-  if (window.__mgNotificationPhase2C) return;
-  window.__mgNotificationPhase2C = true;
+<script src="./notification-model.js"></script>
+<script src="./notification-center.js"></script>
 
-  window.MG_NOTIFICATION_ENGINE_MODE = window.MG_NOTIFICATION_ENGINE_MODE || 'hybrid';
-  window.MG_BACKEND_NOTIFICATIONS = window.MG_BACKEND_NOTIFICATIONS || [];
-  window.MG_LEGACY_NOTIFICATIONS = window.MG_LEGACY_NOTIFICATIONS || [];
-  window.MG_NOTIFICATION_STATE = window.MG_NOTIFICATION_STATE || { loading:false, loaded:false, error:null, lastLoadedAt:null };
-
-  function repo() { return window.MGHRM && window.MGHRM.notifications; }
-  function epoch(v) { var n = v ? Date.parse(v) : NaN; return isNaN(n) ? Date.now() : n; }
-  function safeStatusRead(r) {
-    return !!r.read_at || ['Read','Actioned','Completed','Dismissed','Expired','Cancelled'].indexOf(r.status) !== -1;
-  }
-  function typeOf(r) {
-    var t = String((r.action_params && r.action_params.notification_type) || r.event_type || r.category || r.entity_type || 'general').toLowerCase();
-    var aliases = { transfer:'transfer_join', recruitment:'rec', disciplinary:'sc', todo:'todo_rem', employee:'rehire' };
-    return aliases[t] || t.replace(/[^a-z0-9_]+/g, '_');
-  }
-  window.mgNormalizeBackendNotification = function (r) {
-    return {
-      id:r.id, backendId:r.id, source:'backend', isBackend:true,
-      type:typeOf(r), category:r.category || 'System', severity:String(r.severity || 'Info').toLowerCase(),
-      priority:r.priority || 'Normal', title:r.title || 'Notification', detail:r.message || '',
-      ref:r.entity_id != null ? String(r.entity_id) : '', entityType:r.entity_type || '', entityId:r.entity_id,
-      employeeSysId:r.employee_sys_id, projectId:r.project_id, actionLabel:r.action_label || '',
-      actionRoute:r.action_route || '', actionParams:r.action_params || {}, status:r.status || 'Ready',
-      isRead:safeStatusRead(r), createdAt:epoch(r.created_at), scheduledFor:r.scheduled_for,
-      snoozedUntil:r.snoozed_until, dedupeKey:r.dedupe_key || '', raw:r
-    };
-  };
-  function legacyKey(n) {
-    if (!n) return '';
-    if (n.dedupeKey) return 'd:' + n.dedupeKey;
-    return 'e:' + String(n.entityType || n.type || '') + ':' + String(n.entityId != null ? n.entityId : n.ref || '');
-  }
-  window.mgRebuildNotificationView = function () {
-    var mode = window.MG_NOTIFICATION_ENGINE_MODE;
-    var current = Array.isArray(window.NOTIFICATIONS) ? window.NOTIFICATIONS : (typeof NOTIFICATIONS !== 'undefined' ? NOTIFICATIONS : []);
-    current.filter(function(n){ return n && !n.isBackend; }).forEach(function(n){
-      n.source='legacy'; n.isBackend=false;
-      var key=legacyKey(n), pos=window.MG_LEGACY_NOTIFICATIONS.findIndex(function(x){return legacyKey(x)===key;});
-      if(pos===-1) window.MG_LEGACY_NOTIFICATIONS.push(n); else window.MG_LEGACY_NOTIFICATIONS[pos]=n;
-    });
-    var legacy = window.MG_LEGACY_NOTIFICATIONS.slice();
-    var backend = (window.MG_BACKEND_NOTIFICATIONS || []).map(window.mgNormalizeBackendNotification);
-    var merged = [];
-    if (mode === 'legacy' || mode === 'shadow') merged = legacy;
-    else if (mode === 'server') merged = backend;
-    else {
-      var owned = {};
-      backend.forEach(function(n){ owned[legacyKey(n)] = true; merged.push(n); });
-      legacy.forEach(function(n){ if (!owned[legacyKey(n)]) merged.push(n); });
-    }
-    merged.sort(function(a,b){ return (b.createdAt || 0) - (a.createdAt || 0); });
-    current.splice.apply(current, [0, current.length].concat(merged));
-    window.NOTIFICATIONS = current;
-    if (typeof updateNotifBadge === 'function') updateNotifBadge();
-    var dd=document.getElementById('notifDropdown');
-    if (dd && dd.classList.contains('open') && typeof renderNotifDropdown === 'function') renderNotifDropdown();
-    var page=document.getElementById('page-notifications');
-    if (page && page.style.display !== 'none' && typeof renderNotifications === 'function') renderNotifications();
-    return current;
-  };
-  window.mgLoadBackendNotifications = async function () {
-    if (!repo() || window.MG_NOTIFICATION_STATE.loading) return [];
-    window.MG_NOTIFICATION_STATE.loading=true; window.MG_NOTIFICATION_STATE.error=null;
-    try {
-      var rows=await repo().list({limit:100});
-      window.MG_BACKEND_NOTIFICATIONS=rows || [];
-      window.MG_NOTIFICATION_STATE.loaded=true;
-      window.MG_NOTIFICATION_STATE.lastLoadedAt=Date.now();
-      window.mgRebuildNotificationView();
-      return rows;
-    } catch(e) {
-      window.MG_NOTIFICATION_STATE.error=(e && e.message) || String(e);
-      console.warn('[Notification Inbox]', e);
-      return [];
-    } finally { window.MG_NOTIFICATION_STATE.loading=false; }
-  };
-
-  var legacyMarkRead=window.markNotifAsRead;
-  window.markNotifAsRead=async function(id){
-    var n=(window.NOTIFICATIONS || []).find(function(x){return String(x.id)===String(id);});
-    if (!n || !n.isBackend) return legacyMarkRead ? legacyMarkRead(id) : undefined;
-    if (n.isRead) return true;
-    try { await repo().markRead(n.backendId); n.isRead=true; if(n.raw)n.raw.read_at=new Date().toISOString(); window.mgRebuildNotificationView(); return true; }
-    catch(e){ if(typeof toast==='function')toast('Could not mark notification as read: '+((e&&e.message)||e),'error'); return false; }
-  };
-  var legacyMarkAll=window.markAllNotifsAsRead;
-  window.markAllNotifsAsRead=async function(){
-    try {
-      if (repo()) await repo().markAllRead();
-      (window.MG_BACKEND_NOTIFICATIONS || []).forEach(function(r){ if(!r.read_at)r.read_at=new Date().toISOString(); });
-      if (legacyMarkAll) legacyMarkAll();
-      window.mgRebuildNotificationView(); return true;
-    } catch(e){ if(typeof toast==='function')toast('Could not mark all notifications as read: '+((e&&e.message)||e),'error'); return false; }
-  };
-  function knownRoute(route) {
-    route=String(route||'').replace(/^#?\/?/,'').split('?')[0];
-    var allowed=['dashboard','notifications','todo','transfer','employees','recruitment','disciplinary','leave','uniform','meetings','reports'];
-    return allowed.indexOf(route)!==-1 ? route : '';
-  }
-  var legacyClick=window.handleNotifClick;
-  window.handleNotifClick=async function(id,type){
-    var n=(window.NOTIFICATIONS || []).find(function(x){return String(x.id)===String(id);});
-    if (!n || !n.isBackend) return legacyClick ? legacyClick(id,type) : undefined;
-    try { await repo().open(n.backendId); n.isRead=true; n.status='Actioned'; }
-    catch(e){ if(typeof toast==='function')toast('Could not open notification: '+((e&&e.message)||e),'error'); return; }
-    var dd=document.getElementById('notifDropdown'); if(dd)dd.classList.remove('open');
-    var route=knownRoute(n.actionRoute);
-    if(!route){ var map={todo:'todo',transfer:'transfer',exit:'employees',leave:'leave',uniform_supply_order:'uniform',uniform_delivery_issue:'uniform',uniform_delivery_bill:'uniform',employee:'employees',disciplinary:'disciplinary',recruitment:'recruitment'}; route=map[n.entityType] || 'notifications'; }
-    if(route==='todo' && n.ref && typeof window.mgTodoNotifOpen==='function') window.mgTodoNotifOpen(n.ref);
-    else if(typeof navigate==='function') navigate(route);
-    window.mgRebuildNotificationView();
-  };
-  window.mgBackendNotifSnooze=async function(id,minutes){
-    var n=(window.NOTIFICATIONS||[]).find(function(x){return String(x.id)===String(id);}); if(!n||!n.isBackend)return;
-    minutes=Math.max(1,Number(minutes)||Number((window.MG_TD_CFG||{}).snoozeMin)||15);
-    try{await repo().snooze(n.backendId,new Date(Date.now()+minutes*60000).toISOString()); await window.mgLoadBackendNotifications(); if(typeof toast==='function')toast('Snoozed for '+minutes+' minutes','info');}
-    catch(e){if(typeof toast==='function')toast(((e&&e.message)||String(e)),'error');}
-  };
-  window.mgBackendNotifDismiss=async function(id){
-    var n=(window.NOTIFICATIONS||[]).find(function(x){return String(x.id)===String(id);}); if(!n||!n.isBackend)return;
-    try{await repo().dismiss(n.backendId); await window.mgLoadBackendNotifications();}
-    catch(e){if(typeof toast==='function')toast(((e&&e.message)||String(e)),'error');}
-  };
-  window.mgBackendNotifComplete=async function(id){
-    var n=(window.NOTIFICATIONS||[]).find(function(x){return String(x.id)===String(id);}); if(!n||!n.isBackend)return;
-    try{await repo().completeIfResolved(n.backendId); await window.mgLoadBackendNotifications(); if(typeof toast==='function')toast('Notification completed','success');}
-    catch(e){if(typeof toast==='function')toast(((e&&e.message)||String(e)),'error');}
-  };
-
-  var oldCard=window.mgNotifCardHtml;
-  if(oldCard) window.mgNotifCardHtml=function(n,opts){
-    var html=oldCard(n,opts);
-    if(!n || !n.isBackend || (opts&&opts.compact)) return html;
-    var actions='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+
-      '<button type="button" class="btn ghost sm" onclick="event.stopPropagation();mgBackendNotifSnooze(\''+n.id+'\')">Snooze</button>'+
-      '<button type="button" class="btn ghost sm" onclick="event.stopPropagation();mgBackendNotifDismiss(\''+n.id+'\')">Dismiss</button>'+
-      '<button type="button" class="btn primary sm" onclick="event.stopPropagation();mgBackendNotifComplete(\''+n.id+'\')">Complete if resolved</button></div>';
-    return html.replace(/(<\/div>\s*)$/,actions+'$1');
-  };
-
-  function dbToCfg(r){ return {master:r.notification_enabled!==false,toast:r.toast_enabled!==false,toastMax:r.toast_max_visible||2,toastGapSec:r.toast_gap_seconds||60,snoozeMin:r.default_snooze_minutes||15,quietOn:r.quiet_hours_enabled!==false,quietStart:String(r.quiet_hours_start||'22:00').slice(0,5),quietEnd:String(r.quiet_hours_end||'07:00').slice(0,5),systemPush:r.system_push_enabled!==false,minimumPriority:r.minimum_priority||'Low',timezone:r.timezone||'Asia/Dhaka'}; }
-  window.mgNotifCfgLoad=async function(){
-    var cached={}; try{cached=JSON.parse(localStorage.getItem('mghrm_notif_cfg')||'{}')||{};}catch(e){}
-    window.MG_TD_CFG=Object.assign({},window.MG_TD_CFG_DEFAULTS||{},cached);
-    try{var rows=await repo().getPreferences();var row=(rows||[]).find(function(x){return x.category==='*';})||rows[0];if(row){window.MG_TD_CFG=Object.assign({},window.MG_TD_CFG,dbToCfg(row));localStorage.setItem('mghrm_notif_cfg',JSON.stringify(window.MG_TD_CFG));}return window.MG_TD_CFG;}
-    catch(e){console.warn('[Notification Preferences]',e);return window.MG_TD_CFG;}
-  };
-  window.mgNotifCfgSave=async function(patch){
-    var previous=Object.assign({},window.MG_TD_CFG||{}); var next=Object.assign({},previous,patch||{}); window.MG_TD_CFG=next;
-    var db={notification_enabled:next.master!==false,in_app_enabled:true,toast_enabled:next.toast!==false,system_push_enabled:next.systemPush!==false,minimum_priority:next.minimumPriority||'Low',quiet_hours_enabled:next.quietOn!==false,quiet_hours_start:next.quietStart||'22:00',quiet_hours_end:next.quietEnd||'07:00',urgent_bypass_enabled:true,timezone:next.timezone||'Asia/Dhaka',default_snooze_minutes:Math.max(1,Number(next.snoozeMin)||15),toast_max_visible:Math.max(1,Math.min(3,Number(next.toastMax)||2)),toast_gap_seconds:Math.max(10,Math.min(600,Number(next.toastGapSec)||60))};
-    try{await repo().updatePreferences(db,'*');localStorage.setItem('mghrm_notif_cfg',JSON.stringify(next));return true;}
-    catch(e){window.MG_TD_CFG=previous;if(typeof toast==='function')toast('Settings were not saved: '+((e&&e.message)||e),'error');return false;}
-  };
-
-  window.mgLoadNotificationDevices=async function(){ try{return await repo().listDevices();}catch(e){console.warn('[Notification Devices]',e);return [];} };
-  function mgUrlBase64ToUint8Array(value){
-    var padding='='.repeat((4-value.length%4)%4);
-    var base64=(value+padding).replace(/-/g,'+').replace(/_/g,'/');
-    var raw=atob(base64), out=new Uint8Array(raw.length);
-    for(var i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);
-    return out;
-  }
-  function mgPushKey(subscription,name){
-    var key=subscription.getKey(name);
-    if(!key)throw new Error('Browser did not provide the '+name+' subscription key.');
-    var bytes=new Uint8Array(key), binary='';
-    for(var i=0;i<bytes.length;i++)binary+=String.fromCharCode(bytes[i]);
-    return btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-  }
-  function mgBrowserName(){
-    var ua=navigator.userAgent;
-    if(/Edg\//.test(ua))return 'Microsoft Edge';
-    if(/Firefox\//.test(ua))return 'Firefox';
-    if(/Chrome\//.test(ua))return 'Chrome';
-    if(/Safari\//.test(ua))return 'Safari';
-    return 'Browser';
-  }
-  window.mgEnableDeviceNotifications=async function(){
-    if(!repo())throw new Error('Notification repository is unavailable.');
-    if(!window.isSecureContext||!('Notification' in window)||!('serviceWorker' in navigator)||!('PushManager' in window)){
-      if(typeof toast==='function')toast('Device notifications are unsupported in this browser or connection.','warning');
-      return 'unsupported';
-    }
-    try{
-      var permission=Notification.permission;
-      if(permission==='default')permission=await Notification.requestPermission();
-      if(permission!=='granted'){
-        if(typeof toast==='function')toast('Device notification permission is blocked. Enable it in browser site settings.','warning');
-        return 'blocked';
-      }
-      var registration=await navigator.serviceWorker.ready;
-      var config=await repo().getWebPushConfig();
-      var subscription=await registration.pushManager.getSubscription();
-      if(subscription){
-        var options=subscription.options||{};
-        var existingKey=options.applicationServerKey?new Uint8Array(options.applicationServerKey):null;
-        var expectedKey=mgUrlBase64ToUint8Array(config.publicKey);
-        var same=existingKey&&existingKey.length===expectedKey.length&&existingKey.every(function(v,i){return v===expectedKey[i];});
-        if(!same){await subscription.unsubscribe();subscription=null;}
-      }
-      if(!subscription){
-        subscription=await registration.pushManager.subscribe({
-          userVisibleOnly:true,
-          applicationServerKey:mgUrlBase64ToUint8Array(config.publicKey)
-        });
-      }
-      var result=await repo().registerDevice({
-        endpoint:subscription.endpoint,
-        p256dh_key:mgPushKey(subscription,'p256dh'),
-        auth_key:mgPushKey(subscription,'auth'),
-        device_label:mgBrowserName()+' on '+(navigator.platform||'device'),
-        browser_name:mgBrowserName(),
-        platform_name:navigator.platform||null,
-        user_agent:navigator.userAgent
-      });
-      if(typeof toast==='function')toast('Device notifications enabled successfully.','success');
-      await window.mgLoadNotificationDevices();
-      return result||'enabled';
-    }catch(e){
-      console.error('[Device Notifications]',e);
-      if(typeof toast==='function')toast('Could not enable device notifications: '+((e&&e.message)||String(e)),'error');
-      return 'error';
-    }
-  };
-  window.mgOpenDeviceNotifications=async function(){
-    var supported=('Notification' in window)&&('serviceWorker' in navigator);
-    var permission=supported?Notification.permission:'unsupported';
-    var devices=await window.mgLoadNotificationDevices();
-    var state=!supported?'Unsupported':permission==='denied'?'Blocked':devices.some(function(d){return d.is_active;})?'Enabled':devices.some(function(d){return d.revoked_at||d.permission_state==='revoked';})?'Revoked':'Not configured';
-    var rows=devices.length?devices.map(function(d){return '<div style="padding:8px 0;border-top:1px solid var(--border)"><strong>'+escapeHtml(d.device_label||d.browser_name||'Device')+'</strong><div style="font-size:12px;color:var(--text-mute)">'+escapeHtml((d.platform_name||'')+' · '+(d.permission_state||state))+'</div></div>';}).join(''):'<div style="font-size:12px;color:var(--text-mute)">No registered devices.</div>';
-    var html='<div style="display:flex;flex-direction:column;gap:12px"><div><strong>Device notifications:</strong> '+escapeHtml(state)+'</div>'+rows+'<div style="font-size:12px;color:var(--text-mute)">Subscription delivery activates after VAPID and the push sender are configured.</div></div>';
-    var actions='<button type="button" class="btn ghost sm" onclick="closeModal()">Close</button><button type="button" class="btn primary sm" onclick="mgEnableDeviceNotifications().then(function(){mgOpenDeviceNotifications();})">Enable Device Notifications</button>';
-    if(typeof openModal==='function')openModal('Device notifications',html,actions);
-  };
-
-
-  window.mgHandleSystemNotificationClick=function(data){
-    data=data||{};
-    var route=String(data.route||'notifications').replace(/^#?\/?/,'').split('?')[0];
-    var allowed=['dashboard','notifications','todo','transfer','employees','recruitment','disciplinary','leave','uniform','meetings','reports'];
-    if(allowed.indexOf(route)===-1)route='notifications';
-    if(data.notificationId){
-      var n=(window.NOTIFICATIONS||[]).find(function(x){return String(x.id)===String(data.notificationId);});
-      if(n&&n.isBackend){window.handleNotifClick(n.id,n.type);return;}
-    }
-    if(route==='todo'&&data.entityId&&typeof window.mgTodoNotifOpen==='function')window.mgTodoNotifOpen(data.entityId);
-    else if(typeof navigate==='function')navigate(route);
-  };
-  if('serviceWorker' in navigator){
-    navigator.serviceWorker.addEventListener('message',function(event){
-      var data=event.data||{};
-      if(data.type==='MG_NOTIFICATION_CLICK')window.mgHandleSystemNotificationClick(data);
-    });
-    var initialRoute=new URLSearchParams(location.search).get('notification_route');
-    if(initialRoute)setTimeout(function(){window.mgHandleSystemNotificationClick({route:initialRoute});},900);
-  }
-
-  window.mgHandleNotificationRealtime=function(payload){
-    if(!payload)return;
-    var rows=window.MG_BACKEND_NOTIFICATIONS || [];
-    var eventType=payload.eventType;
-    var record=payload.new || payload.old;
-    if(!record || !record.id)return;
-    var pos=rows.findIndex(function(r){return String(r.id)===String(record.id);});
-    if(eventType==='DELETE'){
-      if(pos!==-1)rows.splice(pos,1);
-    }else if(pos===-1){
-      rows.unshift(record);
-    }else{
-      rows[pos]=record;
-    }
-    window.MG_BACKEND_NOTIFICATIONS=rows;
-    window.mgRebuildNotificationView();
-  };
-  async function start(){
-    await window.mgLoadBackendNotifications();
-    window.mgNotifCfgLoad();
-    if(repo() && typeof repo().subscribe==='function'){
-      try{await repo().subscribe(window.mgHandleNotificationRealtime);}catch(e){console.warn('[Notification Realtime]',e);}
-    }
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){setTimeout(start,500);}); else setTimeout(start,500);
-  if(window.MGHRM && typeof window.MGHRM.onChange==='function') window.MGHRM.onChange(function(ev,session){
-    if(session&&session.user)start();
-    else{
-      if(repo()&&typeof repo().unsubscribe==='function')repo().unsubscribe();
-      window.MG_BACKEND_NOTIFICATIONS=[];
-      window.mgRebuildNotificationView();
-    }
-  });
-})();
-</script>
-
-<!-- MG NOTIFICATION UX PHASE 1-3 START -->
-<style id="mgNotificationUxPhase123">
-:root{--mg-n-blue:#4f46e5;--mg-n-blue-soft:#eef2ff;--mg-n-border:var(--border,#e2e8f0);--mg-n-text:var(--text-main,var(--text,#0f172a));--mg-n-muted:var(--text-mute,var(--text-muted,#64748b));--mg-n-card:var(--card,#fff)}
-#notifBell{border:0;background:transparent}
-#notifBell[role="button"]:focus-visible,.mg-n-btn:focus-visible,.mg-n-tab:focus-visible,.mg-n-card:focus-visible,.mg-n-select:focus-visible,.mg-n-search:focus-visible{outline:3px solid rgba(79,70,229,.28)!important;outline-offset:2px}
-.notif-dropdown.mg-n-panel{width:min(430px,calc(100vw - 24px));max-height:min(680px,calc(100vh - 84px));overflow:hidden;padding:0;border-radius:16px;background:var(--mg-n-card);box-shadow:0 20px 60px rgba(15,23,42,.22);border:1px solid var(--mg-n-border)}
-.mg-n-panel-head{display:flex;align-items:center;gap:10px;padding:14px 16px 10px;border-bottom:1px solid var(--mg-n-border);background:var(--mg-n-card)}
-.mg-n-panel-title{min-width:0;flex:1}.mg-n-panel-title h3{font-size:16px;margin:0;color:var(--mg-n-text)}.mg-n-panel-title p{font-size:12px;margin:3px 0 0;color:var(--mg-n-muted)}
-.mg-n-icon-btn,.mg-n-btn{min-height:36px;border:1px solid var(--mg-n-border);border-radius:9px;background:var(--mg-n-card);color:var(--mg-n-text);font:inherit;font-size:12px;font-weight:700;cursor:pointer;padding:0 11px;display:inline-flex;align-items:center;justify-content:center;gap:6px}
-.mg-n-icon-btn{width:36px;padding:0}.mg-n-btn.primary{background:var(--primary,#4f46e5);border-color:var(--primary,#4f46e5);color:#fff}.mg-n-btn.ghost{border-color:transparent;background:transparent;color:var(--mg-n-muted)}
-.mg-n-tabs{display:flex;gap:4px;padding:9px 12px;border-bottom:1px solid var(--mg-n-border);overflow-x:auto;scrollbar-width:none}.mg-n-tabs::-webkit-scrollbar{display:none}
-.mg-n-tab{border:0;border-radius:8px;background:transparent;color:var(--mg-n-muted);font:inherit;font-size:12px;font-weight:700;padding:8px 10px;white-space:nowrap;cursor:pointer}.mg-n-tab.active{background:var(--mg-n-blue-soft);color:var(--primary,#4f46e5)}.mg-n-tab b{font-size:10px;margin-left:3px}
-.mg-n-list{max-height:min(500px,calc(100vh - 230px));overflow:auto;overscroll-behavior:contain;background:var(--mg-n-card)}
-.mg-n-section-label{padding:13px 16px 7px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--mg-n-muted)}
-.mg-n-card{position:relative;display:flex;gap:12px;padding:14px 16px;border:0;border-bottom:1px solid var(--mg-n-border);background:var(--mg-n-card);color:var(--mg-n-text);width:100%;text-align:left;font:inherit;cursor:pointer}.mg-n-card:hover{background:var(--bg-dim,#f8fafc)}.mg-n-card.unread{background:linear-gradient(90deg,rgba(79,70,229,.08),rgba(79,70,229,.02))}.mg-n-card.unread:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--primary,#4f46e5)}
-.mg-n-avatar{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;flex:0 0 auto;background:var(--mg-n-blue-soft);color:var(--primary,#4f46e5);font-weight:800;font-size:13px}.mg-n-content{min-width:0;flex:1}.mg-n-top{display:flex;gap:8px;align-items:flex-start}.mg-n-title{font-weight:700;font-size:13.5px;line-height:1.35;flex:1}.mg-n-time{font-size:10.5px;color:var(--mg-n-muted);white-space:nowrap}.mg-n-message{margin:4px 0 0;color:var(--mg-n-muted);font-size:12.5px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}.mg-n-meta{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-top:8px}.mg-n-chip{display:inline-flex;align-items:center;min-height:22px;padding:2px 7px;border-radius:999px;border:1px solid var(--mg-n-border);font-size:10.5px;font-weight:700;background:var(--bg-dim,#f8fafc);color:var(--mg-n-muted)}.mg-n-priority-high{color:#92400e;background:#fffbeb;border-color:#fde68a}.mg-n-priority-urgent{color:#991b1b;background:#fef2f2;border-color:#fecaca}.mg-n-severity-critical{color:#991b1b;background:#fff1f2;border-color:#fecdd3}.mg-n-severity-warning{color:#92400e;background:#fffbeb;border-color:#fde68a}.mg-n-unread-dot{width:8px;height:8px;border-radius:50%;background:var(--primary,#4f46e5);flex:0 0 auto;margin-top:5px}
-.mg-n-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}.mg-n-actions .mg-n-btn{min-height:32px}.mg-n-panel-foot{display:flex;gap:8px;padding:11px 12px;border-top:1px solid var(--mg-n-border);background:var(--mg-n-card)}.mg-n-panel-foot .mg-n-btn:first-child{flex:1}
-.mg-n-state{padding:42px 24px;text-align:center;color:var(--mg-n-muted)}.mg-n-state strong{display:block;color:var(--mg-n-text);margin-bottom:5px}.mg-n-skeleton{padding:14px 16px;display:flex;gap:12px}.mg-n-skeleton i{display:block;background:linear-gradient(90deg,#eef2f7,#f8fafc,#eef2f7);background-size:200% 100%;animation:mgNSkeleton 1.3s infinite;border-radius:7px}.mg-n-skeleton .a{width:38px;height:38px}.mg-n-skeleton .b{height:12px;width:70%;margin:3px 0 9px}.mg-n-skeleton .c{height:9px;width:95%}@keyframes mgNSkeleton{to{background-position:-200% 0}}
-.mg-n-page{max-width:1040px;margin:0 auto}.mg-n-page-head{display:flex;align-items:flex-start;gap:14px;margin-bottom:18px}.mg-n-page-head>div:first-child{flex:1}.mg-n-page-head h2{margin:0;color:var(--mg-n-text);font-size:24px}.mg-n-page-head p{margin:5px 0 0;color:var(--mg-n-muted);font-size:13px}.mg-n-toolbar{position:sticky;top:0;z-index:5;background:var(--bg,var(--card,#fff));padding:10px 0 12px;margin-bottom:6px}.mg-n-tools{display:grid;grid-template-columns:minmax(220px,1fr) 180px 150px auto;gap:8px;margin-top:9px}.mg-n-search,.mg-n-select{width:100%;height:38px;border:1px solid var(--mg-n-border);border-radius:9px;background:var(--mg-n-card);color:var(--mg-n-text);font:inherit;font-size:12.5px;padding:0 11px}.mg-n-page-list{border:1px solid var(--mg-n-border);border-radius:14px;overflow:hidden;background:var(--mg-n-card)}.mg-n-page-list .mg-n-card:last-child{border-bottom:0}.mg-n-page .mg-n-card{padding:16px 18px}.mg-n-page .mg-n-message{-webkit-line-clamp:3}.mg-n-page .mg-n-avatar{width:42px;height:42px}.mg-n-error{margin-bottom:12px;padding:11px 13px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;border-radius:10px;font-size:12px;display:flex;align-items:center;gap:10px}.mg-n-error span{flex:1}
-@media(max-width:768px){body.mg-notif-open{overflow:hidden}.notif-dropdown.mg-n-panel{position:fixed!important;inset:0!important;width:100%!important;height:100dvh!important;max-height:none!important;border:0!important;border-radius:0!important;z-index:10050!important;transform:none!important}.mg-n-panel-head{padding-top:max(12px,env(safe-area-inset-top));min-height:56px}.mg-n-list{max-height:none;height:calc(100dvh - 172px);padding-bottom:env(safe-area-inset-bottom)}.mg-n-panel-foot{padding-bottom:max(11px,env(safe-area-inset-bottom))}.mg-n-icon-btn,.mg-n-btn{min-height:44px}.mg-n-icon-btn{width:44px}.mg-n-tab{min-height:40px}.mg-n-page{max-width:none}.mg-n-page-head{align-items:center}.mg-n-page-head h2{font-size:20px}.mg-n-toolbar{top:0}.mg-n-tools{grid-template-columns:1fr 1fr}.mg-n-tools .mg-n-search{grid-column:1/-1}.mg-n-tools .mg-n-clear{grid-column:1/-1}.mg-n-page-list{margin:0 -4px;border-radius:12px}.mg-n-page .mg-n-card{padding:15px 13px}.mg-n-actions .mg-n-btn{min-height:40px}.mg-n-message{-webkit-line-clamp:3}.mg-n-panel-head .mg-n-mark{display:none}}
-@media(max-width:420px){.mg-n-tools{grid-template-columns:1fr}.mg-n-tools .mg-n-search,.mg-n-tools .mg-n-clear{grid-column:auto}.mg-n-page-head{flex-wrap:wrap}.mg-n-page-head .mg-n-btn{width:100%}}
-@media(prefers-reduced-motion:reduce){.mg-n-card,.mg-n-btn,.mg-n-tab{transition:none!important}.mg-n-skeleton i{animation:none}}
-</style>
-<script>
-(function(){
-  'use strict';
-  if(window.__mgNotificationUxPhase123)return; window.__mgNotificationUxPhase123=true;
-  var U={panelTab:'all',pageTab:'all',category:'all',priority:'all',query:''};
-  function esc(v){return typeof escapeHtml==='function'?escapeHtml(v):String(v==null?'':v);}
-  function list(){return Array.isArray(window.NOTIFICATIONS)?window.NOTIFICATIONS:[];}
-  function unread(n){return !n.isRead;}
-  function snoozed(n){return String(n.status||'').toLowerCase()==='snoozed'||(n.snoozedUntil&&Date.parse(n.snoozedUntil)>Date.now());}
-  function terminal(n){return ['completed','dismissed','expired','cancelled'].indexOf(String(n.status||'').toLowerCase())!==-1;}
-  function actionable(n){return !terminal(n)&&!snoozed(n)&&!!(n.actionLabel||n.actionRoute||n.isBackend||['transfer_join','sc','rec','rehire','todo_rem','todo_salary'].indexOf(n.type)!==-1);}
-  function category(n){return String(n.category||n.entityType||n.type||'General').replace(/_/g,' ').trim()||'General';}
-  function priority(n){return String(n.priority||'Normal');}
-  function severity(n){var s=String(n.severity||'Info');return s.charAt(0).toUpperCase()+s.slice(1).toLowerCase();}
-  function matchTab(n,t){return t==='all'||(t==='unread'&&unread(n))||(t==='action'&&actionable(n))||(t==='snoozed'&&snoozed(n));}
-  function filtered(tab){var q=U.query.toLowerCase().trim();return list().filter(function(n){if(!matchTab(n,tab))return false;if(U.category!=='all'&&category(n)!==U.category)return false;if(U.priority!=='all'&&priority(n).toLowerCase()!==U.priority)return false;if(q&&([n.title,n.detail,n.message,category(n),n.entityType].join(' ').toLowerCase().indexOf(q)===-1))return false;return true;}).sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0);});}
-  function counts(){var a=list();return{all:a.length,unread:a.filter(unread).length,action:a.filter(actionable).length,snoozed:a.filter(snoozed).length};}
-  function tabBar(active,where){var c=counts();return '<div class="mg-n-tabs" role="tablist" aria-label="Notification filters">'+[['all','All'],['unread','Unread'],['action','Action required'],['snoozed','Snoozed']].map(function(x){return '<button type="button" class="mg-n-tab '+(active===x[0]?'active':'')+'" role="tab" aria-selected="'+(active===x[0])+'" onclick="mgNUxSetTab(\''+where+'\',\''+x[0]+'\')">'+x[1]+' <b>'+c[x[0]]+'</b></button>';}).join('')+'</div>';}
-  function iconText(n){var c=category(n).replace(/[^A-Za-z0-9 ]/g,' ').trim();return esc((c.split(/\s+/).map(function(x){return x.charAt(0);}).join('').slice(0,2)||'N').toUpperCase());}
-  function time(n){return typeof window.timeAgo==='function'?window.timeAgo(n.createdAt):'';}
-  function card(n,compact){var p=priority(n),s=severity(n),id=esc(n.id),type=esc(n.type||'');var actions='';if(!compact){var primary=esc(n.actionLabel||'Open');actions='<div class="mg-n-row-actions"><button type="button" class="mg-n-link-action" onclick="event.stopPropagation();handleNotifClick(\''+id+'\',\''+type+'\')">'+primary+'</button>';if(n.isBackend&&!terminal(n)){actions+='<details class="mg-n-more" onclick="event.stopPropagation()"><summary aria-label="More notification actions">•••</summary><div class="mg-n-menu"><button type="button" onclick="mgBackendNotifSnooze(\''+id+'\')">Snooze</button><button type="button" onclick="mgBackendNotifDismiss(\''+id+'\')">Dismiss</button><button type="button" title="Closes only when the related HRM item is resolved" onclick="mgBackendNotifComplete(\''+id+'\')">Check and complete</button></div></details>';}actions+='</div>'; }
-    var repeat=(n.raw&&n.raw.repeat_count)||n.repeatCount||0, escalation=(n.raw&&n.raw.escalation_level)||n.escalationLevel||0;
-    return '<div class="mg-n-card '+(unread(n)?'unread':'')+'" role="button" tabindex="0" aria-label="'+(unread(n)?'Unread notification: ':'Notification: ')+esc(n.title||'Notification')+'" onclick="handleNotifClick(\''+id+'\',\''+type+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();this.click()}"><div class="mg-n-avatar" aria-hidden="true">'+iconText(n)+'</div><div class="mg-n-content"><div class="mg-n-top"><div class="mg-n-title">'+esc(n.title||'Notification')+'</div><time class="mg-n-time">'+esc(time(n))+'</time>'+(unread(n)?'<span class="mg-n-unread-dot" aria-hidden="true"></span>':'')+'</div><p class="mg-n-message">'+esc(n.detail||n.message||'')+'</p><div class="mg-n-meta"><span class="mg-n-chip">'+esc(category(n))+'</span><span class="mg-n-chip mg-n-priority-'+p.toLowerCase()+'">'+esc(p)+' priority</span><span class="mg-n-chip mg-n-severity-'+s.toLowerCase()+'">'+esc(s)+'</span>'+(snoozed(n)?'<span class="mg-n-chip">Snoozed</span>':'')+(repeat>1?'<span class="mg-n-chip">Repeated '+repeat+'×</span>':'')+(escalation>0?'<span class="mg-n-chip">Escalation '+escalation+'</span>':'')+'</div>'+actions+'</div></div>';
-  }
-  function grouped(items,compact){if(!items.length)return '<div class="mg-n-state"><strong>Nothing here</strong>No notifications match this view.</div>';var now=new Date(), today=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime(), groups={Today:[],Yesterday:[],Earlier:[]};items.forEach(function(n){var d=new Date(n.createdAt||0),mid=new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime(),diff=Math.round((today-mid)/86400000);groups[diff<=0?'Today':diff===1?'Yesterday':'Earlier'].push(n);});return ['Today','Yesterday','Earlier'].map(function(g){return groups[g].length?'<div class="mg-n-section-label">'+g+'</div>'+groups[g].map(function(n){return card(n,compact);}).join(''):'';}).join('');}
-  window.mgNUxSetTab=function(where,tab){if(where==='panel')U.panelTab=tab;else U.pageTab=tab;if(where==='panel')renderNotifDropdown();else renderNotifications();};
-  window.mgNUxSetFilter=function(k,v){U[k]=v;if(typeof renderNotifications==='function')renderNotifications();};
-  window.mgNUxClear=function(){U.category='all';U.priority='all';U.query='';renderNotifications();};
-  window.renderNotifDropdown=function(){var dd=document.getElementById('notifDropdown');if(!dd)return;dd.setAttribute('role','dialog');dd.setAttribute('aria-label','Notifications');var state=window.MG_NOTIFICATION_STATE||{};var body=state.loading&&!state.loaded?Array(4).fill('<div class="mg-n-skeleton"><i class="a"></i><div style="flex:1"><i class="b"></i><i class="c"></i></div></div>').join(''):grouped(filtered(U.panelTab).slice(0,10),true);dd.innerHTML='<div class="mg-n-panel-head"><div class="mg-n-panel-title"><h3>Notifications</h3><p>'+counts().unread+' unread · '+counts().action+' require action</p></div><button type="button" class="mg-n-btn ghost mg-n-mark" onclick="event.stopPropagation();markAllNotifsAsRead()">Mark all read</button><button type="button" class="mg-n-icon-btn" aria-label="Close notifications" onclick="event.stopPropagation();mgNUxClose()">×</button></div>'+tabBar(U.panelTab,'panel')+'<div class="mg-n-list" aria-live="polite">'+body+'</div><div class="mg-n-panel-foot"><button type="button" class="mg-n-btn primary" onclick="mgNUxClose();navigate(\'notifications\')">View all notifications</button><button type="button" class="mg-n-btn" onclick="event.stopPropagation();mtOpenNotifSettings()">Settings</button></div>';};
-  window.renderNotifications=function(){var page=document.getElementById('page-notifications');if(!page)return;var cats=Array.from(new Set(list().map(category))).sort();var state=window.MG_NOTIFICATION_STATE||{};var err=state.error?'<div class="mg-n-error" role="alert"><span>'+esc(state.error)+'</span><button class="mg-n-btn" onclick="mgLoadBackendNotifications()">Retry</button></div>':'';var content=state.loading&&!state.loaded?'<div class="mg-n-page-list">'+Array(5).fill('<div class="mg-n-skeleton"><i class="a"></i><div style="flex:1"><i class="b"></i><i class="c"></i></div></div>').join('')+'</div>':'<div class="mg-n-page-list">'+grouped(filtered(U.pageTab),false)+'</div>';page.innerHTML='<div class="mg-n-page mg-n-page-compact"><div class="mg-n-compact-head"><div class="mg-n-compact-title">Notifications <span>'+counts().unread+'</span></div><div class="mg-n-compact-head-actions"><button type="button" class="mg-n-icon-btn" aria-label="Search and filter notifications" title="Search and filters" onclick="mgNUxToggleFilters()">⌕</button><button type="button" class="mg-n-icon-btn" aria-label="Notification settings" title="Notification settings" onclick="mtOpenNotifSettings()">⚙</button></div></div>'+err+'<div class="mg-n-compact-tabs">'+tabBar(U.pageTab,'page')+'</div><div id="mgNotifFilterPanel" class="mg-n-filter-drawer" hidden><div class="mg-n-tools"><input class="mg-n-search" type="search" value="'+esc(U.query)+'" placeholder="Search notifications" aria-label="Search notifications" oninput="mgNUxSetFilter(\'query\',this.value)"><select class="mg-n-select" aria-label="Filter by category" onchange="mgNUxSetFilter(\'category\',this.value)"><option value="all">All categories</option>'+cats.map(function(c){return '<option '+(U.category===c?'selected':'')+' value="'+esc(c)+'">'+esc(c)+'</option>';}).join('')+'</select><select class="mg-n-select" aria-label="Filter by priority" onchange="mgNUxSetFilter(\'priority\',this.value)"><option value="all">All priorities</option>'+['low','normal','high','urgent'].map(function(p){return '<option '+(U.priority===p?'selected':'')+' value="'+p+'">'+p.charAt(0).toUpperCase()+p.slice(1)+'</option>';}).join('')+'</select><button class="mg-n-btn mg-n-clear" onclick="mgNUxClear()">Clear</button></div></div>'+content+'</div>';};
-
-  window.mgNUxToggleFilters=function(){var p=document.getElementById('mgNotifFilterPanel');if(!p)return;var willOpen=p.hasAttribute('hidden');if(willOpen)p.removeAttribute('hidden');else p.setAttribute('hidden','');if(willOpen){var q=p.querySelector('input');if(q)q.focus();}};
-  window.mgNUxClose=function(){var dd=document.getElementById('notifDropdown');if(dd)dd.classList.remove('open');document.body.classList.remove('mg-notif-open');var b=document.getElementById('notifBell');if(b){b.setAttribute('aria-expanded','false');b.focus();}};
-  function enhance(){var b=document.getElementById('notifBell'),dd=document.getElementById('notifDropdown'),wasOpen=false;if(b){b.setAttribute('role','button');b.setAttribute('tabindex','0');b.setAttribute('aria-label','Open notifications');b.setAttribute('aria-controls','notifDropdown');b.setAttribute('aria-expanded',dd&&dd.classList.contains('open')?'true':'false');b.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleNotifDropdown(e);}});}if(dd){dd.classList.add('mg-n-panel');wasOpen=dd.classList.contains('open');new MutationObserver(function(){var o=dd.classList.contains('open');if(o===wasOpen)return;wasOpen=o;document.body.classList.toggle('mg-notif-open',o&&innerWidth<=768);if(b)b.setAttribute('aria-expanded',o?'true':'false');if(o)setTimeout(function(){var x=dd.querySelector('.mg-n-tab.active');if(x)x.focus();},0);}).observe(dd,{attributes:true,attributeFilter:['class']});}document.addEventListener('keydown',function(e){if(e.key==='Escape'&&dd&&dd.classList.contains('open'))mgNUxClose();});}
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',enhance);else enhance();
-})();
-</script>
-<!-- MG NOTIFICATION UX PHASE 1-3 END -->
-
-<style id="mgNotificationCompactOverride">
-.mg-n-page-compact{max-width:920px}
-.mg-n-compact-head{display:flex;align-items:center;min-height:42px;margin:0 0 4px;padding:0 2px;border-bottom:1px solid var(--mg-n-border)}
-.mg-n-compact-title{flex:1;font-size:15px;font-weight:800;color:var(--mg-n-text)}
-.mg-n-compact-title span{display:inline-grid;place-items:center;min-width:20px;height:20px;margin-left:5px;padding:0 6px;border-radius:999px;background:var(--mg-n-blue-soft);color:var(--primary,#4f46e5);font-size:10px}
-.mg-n-compact-head-actions{display:flex;gap:4px}.mg-n-compact-head .mg-n-icon-btn{width:34px;min-height:34px;border:0;font-size:17px;background:transparent}
-.mg-n-compact-tabs .mg-n-tabs{padding:4px 0 6px;border-bottom:0;gap:3px}.mg-n-compact-tabs .mg-n-tab{min-height:30px;padding:5px 9px;border-radius:999px;font-size:11.5px}
-.mg-n-filter-drawer{padding:8px;margin:0 0 6px;background:var(--bg-dim,#f8fafc);border:1px solid var(--mg-n-border);border-radius:9px}.mg-n-filter-drawer[hidden]{display:none!important}.mg-n-filter-drawer .mg-n-tools{margin:0;grid-template-columns:minmax(170px,1fr) 160px 130px auto}.mg-n-filter-drawer .mg-n-search,.mg-n-filter-drawer .mg-n-select{height:34px}
-.mg-n-page-list{border-radius:10px}.mg-n-page .mg-n-card{min-height:72px;padding:10px 12px;gap:10px}.mg-n-page .mg-n-avatar{width:34px;height:34px;border-radius:50%;font-size:11px}.mg-n-page .mg-n-title{font-size:13px;line-height:1.3}.mg-n-page .mg-n-message{margin-top:2px;font-size:12px;line-height:1.35;-webkit-line-clamp:2}.mg-n-page .mg-n-time{font-size:10px}.mg-n-page .mg-n-meta{margin-top:5px;gap:4px}.mg-n-page .mg-n-chip{min-height:18px;padding:1px 6px;font-size:9.5px;border-color:transparent}.mg-n-page .mg-n-section-label{padding:9px 12px 5px;font-size:9.5px;background:var(--bg-dim,#f8fafc);border-bottom:1px solid var(--mg-n-border)}
-.mg-n-row-actions{display:flex;align-items:center;gap:4px;margin-top:5px}.mg-n-link-action{border:0;background:transparent;color:var(--primary,#4f46e5);font:inherit;font-size:11px;font-weight:800;padding:2px 0;cursor:pointer}.mg-n-more{position:relative;margin-left:auto}.mg-n-more summary{list-style:none;width:28px;height:26px;display:grid;place-items:center;border-radius:6px;color:var(--mg-n-muted);cursor:pointer;font-weight:800}.mg-n-more summary::-webkit-details-marker{display:none}.mg-n-more summary:hover{background:var(--bg-dim,#f8fafc)}.mg-n-menu{position:absolute;right:0;top:30px;z-index:25;min-width:170px;padding:5px;background:var(--mg-n-card);border:1px solid var(--mg-n-border);border-radius:9px;box-shadow:0 12px 32px rgba(15,23,42,.18)}.mg-n-menu button{display:block;width:100%;border:0;background:transparent;text-align:left;padding:8px 9px;border-radius:6px;color:var(--mg-n-text);font:inherit;font-size:11.5px;cursor:pointer}.mg-n-menu button:hover{background:var(--bg-dim,#f8fafc)}
-.notif-dropdown.mg-n-panel .mg-n-panel-head{padding:9px 11px 7px}.notif-dropdown.mg-n-panel .mg-n-panel-title h3{font-size:14px}.notif-dropdown.mg-n-panel .mg-n-panel-title p{font-size:10.5px;margin-top:1px}.notif-dropdown.mg-n-panel .mg-n-tabs{padding:5px 8px}.notif-dropdown.mg-n-panel .mg-n-tab{padding:6px 8px;font-size:11px}.notif-dropdown.mg-n-panel .mg-n-card{padding:9px 11px;gap:9px}.notif-dropdown.mg-n-panel .mg-n-avatar{width:32px;height:32px;border-radius:50%;font-size:10px}.notif-dropdown.mg-n-panel .mg-n-message{margin-top:2px;font-size:11.5px}.notif-dropdown.mg-n-panel .mg-n-meta{margin-top:4px}.notif-dropdown.mg-n-panel .mg-n-panel-foot{padding:7px 8px}.notif-dropdown.mg-n-panel .mg-n-btn{min-height:32px}
-@media(max-width:768px){.mg-n-page-compact{margin-top:-4px}.mg-n-compact-head{position:sticky;top:0;z-index:7;background:var(--bg,var(--card,#fff));min-height:40px}.mg-n-compact-tabs{position:sticky;top:40px;z-index:6;background:var(--bg,var(--card,#fff))}.mg-n-filter-drawer .mg-n-tools{grid-template-columns:1fr 1fr}.mg-n-filter-drawer .mg-n-search{grid-column:1/-1}.mg-n-filter-drawer .mg-n-clear{grid-column:auto}.mg-n-page-list{margin:0;border-radius:8px}.mg-n-page .mg-n-card{min-height:76px;padding:10px 9px}.mg-n-page .mg-n-avatar{width:32px;height:32px}.mg-n-page .mg-n-title{font-size:12.5px}.mg-n-page .mg-n-message{font-size:11.5px}.mg-n-page .mg-n-chip{font-size:9px}.mg-n-link-action{min-height:32px;display:inline-flex;align-items:center}.mg-n-more summary{width:36px;height:32px}.mg-n-menu{position:fixed;left:12px;right:12px;top:auto;bottom:max(12px,env(safe-area-inset-bottom));min-width:0}.mg-n-menu button{min-height:44px;font-size:13px}.notif-dropdown.mg-n-panel .mg-n-list{height:calc(100dvh - 142px)}.notif-dropdown.mg-n-panel .mg-n-panel-head{min-height:48px}.notif-dropdown.mg-n-panel .mg-n-tabs{padding:4px 7px}.notif-dropdown.mg-n-panel .mg-n-panel-foot{padding-bottom:max(7px,env(safe-area-inset-bottom))}}
-@media(max-width:420px){.mg-n-filter-drawer .mg-n-tools{grid-template-columns:1fr 1fr}.mg-n-filter-drawer .mg-n-search{grid-column:1/-1}.mg-n-compact-title{font-size:14px}}
-</style>
-<!-- MG MOBILE HEADER + NOTIFICATION SHEET FIX START -->
-<style id="mgMobileHeaderNotificationFix">
-.mobile-brand-lockup{display:flex;align-items:center;gap:8px;min-width:0}
-.mobile-brand-lockup h3{margin:0;font-size:15px;font-weight:750;color:var(--text);white-space:nowrap}
-.mobile-brand-logo{width:30px;height:30px;border-radius:7px;display:grid;place-items:center;overflow:hidden;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:#fff;font-size:10px;font-weight:800;flex:0 0 auto}
-.mobile-brand-logo img{width:100%;height:100%;display:block;object-fit:contain;background:#fff}
-.mobile-header-actions{display:flex;align-items:center;gap:6px}
-.mobile-header-actions .icon-only{position:relative;width:36px;height:36px;padding:0!important;border:1px solid var(--border)!important;border-radius:7px!important;display:inline-flex;align-items:center;justify-content:center;background:var(--card,#fff)!important;color:var(--text-2);cursor:pointer}
-.mobile-notif-badge{position:absolute;right:-4px;top:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:var(--danger,#e11d48);color:#fff;font-size:9px;font-weight:800;place-items:center;border:2px solid var(--card,#fff)}
-@media(max-width:768px){
-  .mobile-header{padding:8px 12px!important;min-height:52px}
-  .topbar{padding-top:10px!important;padding-bottom:8px!important;gap:0!important}
-  .topbar-right{display:none!important}
-  .topbar-left h2{font-size:20px!important;line-height:1.2}
-  .topbar-left p{font-size:11px!important;margin-top:2px!important}
-  body.mg-notif-open:before{content:"";position:fixed;inset:0;background:rgba(15,23,42,.32);z-index:10040}
-  .notif-dropdown.mg-n-panel{position:fixed!important;left:auto!important;right:0!important;top:0!important;bottom:0!important;width:min(92vw,420px)!important;height:100dvh!important;max-height:100dvh!important;border:0!important;border-left:1px solid var(--mg-n-border)!important;border-radius:16px 0 0 16px!important;z-index:10050!important;box-shadow:-18px 0 50px rgba(15,23,42,.24)!important;transform:translateX(105%)!important;opacity:0;visibility:hidden;transition:transform .22s ease,opacity .18s ease,visibility 0s linear .22s!important}
-  .notif-dropdown.mg-n-panel.open{transform:translateX(0)!important;opacity:1;visibility:visible;transition:transform .22s ease,opacity .18s ease!important}
-  .notif-dropdown.mg-n-panel:before{display:none!important}
-  .notif-dropdown.mg-n-panel .mg-n-list{height:calc(100dvh - 132px)!important;max-height:none!important}
-  .notif-dropdown.mg-n-panel .mg-n-panel-head{padding-top:max(8px,env(safe-area-inset-top))!important;min-height:52px!important}
-  .notif-dropdown.mg-n-panel .mg-n-panel-foot{padding-bottom:max(8px,env(safe-area-inset-bottom))!important}
-}
-@media(max-width:380px){.mobile-brand-lockup h3{font-size:13px}.mobile-header{padding-left:9px!important;padding-right:9px!important}.mobile-header-actions{gap:4px}}
-@media(prefers-reduced-motion:reduce){.notif-dropdown.mg-n-panel{transition:none!important}}
-</style>
-<script>
-(function(){
-  function syncMobileBrandLogo(){
-    var el=document.getElementById('mobileBrandLogo');
-    if(!el)return;
-    if(typeof COMPANY!=='undefined'&&COMPANY&&COMPANY.logoDataUrl){
-      el.innerHTML='<img src="'+COMPANY.logoDataUrl+'" alt="">';
-    }
-  }
-  function syncMobileNotificationState(){
-    var dd=document.getElementById('notifDropdown');
-    var btn=document.getElementById('mobileNotifToggle');
-    if(btn)btn.setAttribute('aria-expanded',dd&&dd.classList.contains('open')?'true':'false');
-  }
-  window.mgOpenMobileNotifications=function(ev){
-    if(ev){ev.preventDefault();ev.stopPropagation();}
-    var dd=document.getElementById('notifDropdown');
-    if(!dd)return;
-    if(dd.parentNode!==document.body)document.body.appendChild(dd);
-    if(typeof renderNotifDropdown==='function')renderNotifDropdown();
-    var opening=!dd.classList.contains('open');
-    dd.classList.toggle('open',opening);
-    document.body.classList.toggle('mg-notif-open',opening);
-    var btn=document.getElementById('mobileNotifToggle');
-    if(btn)btn.setAttribute('aria-expanded',opening?'true':'false');
-  };
-  async function lockInstalledAppPortrait(){
-    var standalone=window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches;
-    if(!standalone||!screen.orientation||typeof screen.orientation.lock!=='function')return;
-    try{await screen.orientation.lock('portrait-primary');}catch(e){}
-  }
-  function init(){
-    syncMobileBrandLogo();
-    lockInstalledAppPortrait();
-    if(typeof updateNotifBadge==='function')updateNotifBadge();
-    var dd=document.getElementById('notifDropdown');
-    if(dd)new MutationObserver(syncMobileNotificationState).observe(dd,{attributes:true,attributeFilter:['class']});
-    document.addEventListener('click',function(e){
-      var panel=document.getElementById('notifDropdown'),btn=document.getElementById('mobileNotifToggle');
-      if(innerWidth<=768&&panel&&panel.classList.contains('open')&&!panel.contains(e.target)&&!(btn&&btn.contains(e.target))){
-        if(typeof mgNUxClose==='function')mgNUxClose();else{panel.classList.remove('open');document.body.classList.remove('mg-notif-open');}
-      }
-    });
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
-  window.addEventListener('load',syncMobileBrandLogo,{once:true});
-})();
-</script>
-<!-- MG MOBILE HEADER + NOTIFICATION SHEET FIX END -->
-<!-- MG NOTIFICATION UX PHASE 4 START -->
-<style id="mgNotificationUxPhase4">
-.mg-ns-backdrop{position:fixed;inset:0;z-index:10100;background:rgba(15,23,42,.42);display:none;align-items:center;justify-content:center;padding:18px}.mg-ns-backdrop.open{display:flex}.mg-ns-panel{width:min(680px,100%);max-height:min(820px,calc(100dvh - 36px));display:flex;flex-direction:column;background:var(--card,#fff);color:var(--text-main,#0f172a);border:1px solid var(--border,#e2e8f0);border-radius:16px;box-shadow:0 24px 80px rgba(15,23,42,.28);overflow:hidden}.mg-ns-head,.mg-ns-foot{flex:none;display:flex;align-items:center;gap:10px;background:var(--card,#fff)}.mg-ns-head{padding:14px 16px;border-bottom:1px solid var(--border,#e2e8f0)}.mg-ns-title{flex:1;min-width:0}.mg-ns-title h2{font-size:17px;margin:0}.mg-ns-title p{font-size:12px;color:var(--text-mute,#64748b);margin:3px 0 0}.mg-ns-close{width:40px;height:40px;border:1px solid var(--border,#e2e8f0);border-radius:10px;background:transparent;color:inherit;font-size:22px;cursor:pointer}.mg-ns-body{overflow:auto;padding:14px 16px;display:grid;gap:12px}.mg-ns-section{border:1px solid var(--border,#e2e8f0);border-radius:12px;padding:13px;background:var(--bg-elev,var(--card,#fff))}.mg-ns-section h3{font-size:13px;margin:0 0 3px}.mg-ns-help{font-size:11.5px;line-height:1.45;color:var(--text-mute,#64748b);margin:0 0 10px}.mg-ns-row{display:flex;align-items:center;gap:12px;min-height:45px;padding:7px 0;border-top:1px solid var(--border,#e2e8f0)}.mg-ns-row:first-of-type{border-top:0}.mg-ns-copy{flex:1;min-width:0}.mg-ns-copy strong{display:block;font-size:12.5px}.mg-ns-copy small{display:block;margin-top:2px;color:var(--text-mute,#64748b);font-size:11px;line-height:1.35}.mg-ns-toggle{width:20px;height:20px;accent-color:var(--primary,#4f46e5);flex:none}.mg-ns-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.mg-ns-field label{display:block;font-size:11px;font-weight:700;margin:0 0 5px}.mg-ns-input,.mg-ns-select{width:100%;height:40px;box-sizing:border-box;border:1px solid var(--border,#e2e8f0);border-radius:9px;background:var(--bg,#fff);color:inherit;padding:0 10px;font:inherit;font-size:12.5px}.mg-ns-input:disabled,.mg-ns-select:disabled{opacity:.55;cursor:not-allowed}.mg-ns-status{display:inline-flex;align-items:center;min-height:24px;padding:2px 8px;border-radius:999px;background:var(--bg-dim,#f1f5f9);font-size:10.5px;font-weight:800}.mg-ns-device-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.mg-ns-btn{min-height:40px;border:1px solid var(--border,#e2e8f0);border-radius:9px;background:var(--card,#fff);color:inherit;padding:0 13px;font:inherit;font-size:12px;font-weight:750;cursor:pointer}.mg-ns-btn.primary{background:var(--primary,#4f46e5);border-color:var(--primary,#4f46e5);color:#fff}.mg-ns-btn.danger{color:#b91c1c}.mg-ns-btn:disabled{opacity:.5;cursor:not-allowed}.mg-ns-foot{justify-content:space-between;padding:12px 16px max(12px,env(safe-area-inset-bottom));border-top:1px solid var(--border,#e2e8f0)}.mg-ns-foot-main{display:flex;gap:8px}.mg-ns-live{min-height:18px;font-size:11.5px;color:var(--text-mute,#64748b)}.mg-ns-live.error{color:#b91c1c}.mg-ns-live.success{color:#047857}.mg-ns-loading{padding:28px;text-align:center;color:var(--text-mute,#64748b);font-size:13px}.mg-ns-backdrop :focus-visible{outline:3px solid rgba(79,70,229,.3);outline-offset:2px}
-@media(max-width:768px){.mg-ns-backdrop{padding:0;align-items:stretch}.mg-ns-panel{width:100%;height:100dvh;max-height:none;border:0;border-radius:0}.mg-ns-head{padding-top:max(12px,env(safe-area-inset-top));position:sticky;top:0;z-index:2}.mg-ns-body{padding:12px;flex:1}.mg-ns-foot{position:sticky;bottom:0;z-index:2}.mg-ns-grid{grid-template-columns:1fr 1fr}.mg-ns-btn{min-height:44px}}
-@media(max-width:430px){.mg-ns-grid{grid-template-columns:1fr}.mg-ns-foot{align-items:stretch;flex-direction:column}.mg-ns-foot-main{display:grid;grid-template-columns:1fr 1fr}.mg-ns-foot>.mg-ns-btn{width:100%}}
-@media(prefers-reduced-motion:reduce){.mg-ns-backdrop,.mg-ns-panel{scroll-behavior:auto}}
-</style>
-<script>
-(function(){
-'use strict';
-if(window.__mgNotificationUxPhase4)return;window.__mgNotificationUxPhase4=true;
-var S={base:null,draft:null,trigger:null,saving:false,devices:[],permission:'unsupported',currentSubscribed:false};
-var DEFAULTS={master:true,inApp:true,toast:true,systemPush:true,minimumPriority:'Low',quietOn:false,quietStart:'22:00',quietEnd:'07:00',timezone:'Asia/Dhaka',snoozeMin:15,toastMax:2,toastGapSec:60};
-function repo(){return window.MGHRM&&window.MGHRM.notifications;}
-function esc(v){return typeof escapeHtml==='function'?escapeHtml(v):String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-function clone(v){return JSON.parse(JSON.stringify(v));}
-function fromRow(r){r=r||{};return {master:r.notification_enabled!==undefined?r.notification_enabled!==false:DEFAULTS.master,inApp:r.in_app_enabled!==undefined?r.in_app_enabled!==false:DEFAULTS.inApp,toast:r.toast_enabled!==undefined?r.toast_enabled!==false:DEFAULTS.toast,systemPush:r.system_push_enabled!==undefined?r.system_push_enabled!==false:DEFAULTS.systemPush,minimumPriority:['Low','Normal','High','Urgent'].indexOf(r.minimum_priority)>=0?r.minimum_priority:DEFAULTS.minimumPriority,quietOn:r.quiet_hours_enabled===true,quietStart:String(r.quiet_hours_start||DEFAULTS.quietStart).slice(0,5),quietEnd:String(r.quiet_hours_end||DEFAULTS.quietEnd).slice(0,5),timezone:String(r.timezone||DEFAULTS.timezone),snoozeMin:Math.max(1,Math.min(240,Number(r.default_snooze_minutes)||DEFAULTS.snoozeMin)),toastMax:Math.max(1,Math.min(3,Number(r.toast_max_visible)||DEFAULTS.toastMax)),toastGapSec:Math.max(10,Math.min(600,Number(r.toast_gap_seconds)||DEFAULTS.toastGapSec))};}
-function toRow(d){return {notification_enabled:d.master!==false,in_app_enabled:d.inApp!==false,toast_enabled:d.toast!==false,system_push_enabled:d.systemPush!==false,minimum_priority:d.minimumPriority,quiet_hours_enabled:d.quietOn===true,quiet_hours_start:d.quietStart,quiet_hours_end:d.quietEnd,urgent_bypass_enabled:true,timezone:d.timezone,default_snooze_minutes:d.snoozeMin,toast_max_visible:d.toastMax,toast_gap_seconds:d.toastGapSec};}
-function root(){var x=document.getElementById('mgNotifSettingsRoot');if(!x){x=document.createElement('div');x.id='mgNotifSettingsRoot';x.className='mg-ns-backdrop';x.setAttribute('aria-hidden','true');x.innerHTML='<section class="mg-ns-panel" role="dialog" aria-modal="true" aria-labelledby="mgNsTitle"><header class="mg-ns-head"><div class="mg-ns-title"><h2 id="mgNsTitle">Notification Settings</h2><p>Delivery, quiet hours, reminders and devices</p></div><button class="mg-ns-close" type="button" aria-label="Close notification settings" onclick="mgCloseNotifSettings()">×</button></header><div class="mg-ns-body" id="mgNsBody"></div><footer class="mg-ns-foot"><button type="button" class="mg-ns-btn danger" id="mgNsReset" onclick="mgResetNotifSettings()">Reset to defaults</button><div class="mg-ns-live" id="mgNsLive" role="status" aria-live="polite"></div><div class="mg-ns-foot-main"><button type="button" class="mg-ns-btn" onclick="mgCloseNotifSettings()">Cancel</button><button type="button" class="mg-ns-btn primary" id="mgNsSave" onclick="mgSaveNotifSettings()" disabled>Save changes</button></div></footer></section>';document.body.appendChild(x);x.addEventListener('mousedown',function(e){if(e.target===x)window.mgCloseNotifSettings();});}return x;}
-function live(msg,type){var e=document.getElementById('mgNsLive');if(e){e.className='mg-ns-live '+(type||'');e.textContent=msg||'';}}
-function dirty(){return !!(S.base&&S.draft&&JSON.stringify(S.base)!==JSON.stringify(S.draft));}
-function syncSave(){var b=document.getElementById('mgNsSave');if(b)b.disabled=S.saving||!dirty();var r=document.getElementById('mgNsReset');if(r)r.disabled=S.saving;}
-function permissionLabel(){if(S.permission==='denied')return 'Blocked by browser';if(S.permission==='default')return 'Permission required';if(S.permission==='granted')return S.currentSubscribed?'Enabled on this device':'Device not registered';return 'Unsupported';}
-function render(){var b=document.getElementById('mgNsBody');if(!b||!S.draft)return;var d=S.draft,active=S.devices.filter(function(x){return x.is_active===true&&!x.revoked_at;}).length;b.innerHTML='<section class="mg-ns-section"><h3>Delivery preferences</h3><p class="mg-ns-help">Backend preferences are separate from this browser’s permission and subscription state.</p>'+toggle('mgNsMaster','Notifications','Receive notifications for your account.',d.master)+toggle('mgNsInApp','In-app notifications','Show notifications in the authenticated Inbox.',d.inApp)+toggle('mgNsPush','Browser / device push','Allow push delivery to your registered devices.',d.systemPush)+toggle('mgNsToast','Foreground toast notifications','Show compact alerts while the app is open.',d.toast)+'</section><section class="mg-ns-section"><h3>Priority and quiet hours</h3><p class="mg-ns-help">Urgent notifications always bypass quiet hours.</p><div class="mg-ns-grid"><div class="mg-ns-field"><label for="mgNsPriority">Minimum priority</label><select class="mg-ns-select" id="mgNsPriority">'+['Low','Normal','High','Urgent'].map(function(x){return '<option'+(x===d.minimumPriority?' selected':'')+'>'+x+'</option>';}).join('')+'</select></div><div class="mg-ns-field"><label for="mgNsTimezone">Timezone</label><input class="mg-ns-input" id="mgNsTimezone" value="'+esc(d.timezone)+'" readonly></div></div>'+toggle('mgNsQuiet','Quiet hours','Supports overnight ranges such as 22:00–07:00.',d.quietOn)+'<div class="mg-ns-grid"><div class="mg-ns-field"><label for="mgNsQuietStart">Start</label><input class="mg-ns-input" type="time" id="mgNsQuietStart" value="'+esc(d.quietStart)+'"'+(d.quietOn?'':' disabled')+'></div><div class="mg-ns-field"><label for="mgNsQuietEnd">End</label><input class="mg-ns-input" type="time" id="mgNsQuietEnd" value="'+esc(d.quietEnd)+'"'+(d.quietOn?'':' disabled')+'></div></div></section><section class="mg-ns-section"><h3>Reminder and foreground behavior</h3><div class="mg-ns-grid"><div class="mg-ns-field"><label for="mgNsSnooze">Default snooze minutes (1–240)</label><input class="mg-ns-input" type="number" min="1" max="240" id="mgNsSnooze" value="'+d.snoozeMin+'"></div><div class="mg-ns-field"><label for="mgNsToastMax">Maximum visible toasts (1–3)</label><input class="mg-ns-input" type="number" min="1" max="3" id="mgNsToastMax" value="'+d.toastMax+'"></div><div class="mg-ns-field"><label for="mgNsToastGap">Minimum toast gap, seconds (10–600)</label><input class="mg-ns-input" type="number" min="10" max="600" id="mgNsToastGap" value="'+d.toastGapSec+'"></div></div></section><section class="mg-ns-section"><h3>Devices</h3><p class="mg-ns-help">Only safe device metadata is displayed. Subscription keys and endpoints are never shown.</p><div class="mg-ns-row"><div class="mg-ns-copy"><strong>Current browser</strong><small>Permission: '+esc(S.permission)+' · Registered devices: '+S.devices.length+' · Active: '+active+'</small></div><span class="mg-ns-status">'+esc(permissionLabel())+'</span></div>'+(S.permission==='denied'?'<p class="mg-ns-help">Notifications are blocked. Enable permission for this site in your browser settings, then reopen this panel.</p>':'')+'<div class="mg-ns-device-actions"><button type="button" class="mg-ns-btn primary" id="mgNsEnableDevice"'+(S.permission==='denied'||S.permission==='unsupported'?' disabled':'')+'>Enable Device Notifications</button><button type="button" class="mg-ns-btn" id="mgNsManageDevices">Manage Devices</button></div></section>';bind();syncSave();}
-function toggle(id,title,help,checked){return '<label class="mg-ns-row" for="'+id+'"><span class="mg-ns-copy"><strong>'+esc(title)+'</strong><small>'+esc(help)+'</small></span><input class="mg-ns-toggle" type="checkbox" role="switch" aria-checked="'+(checked?'true':'false')+'" id="'+id+'" '+(checked?'checked':'')+'></label>';}
-function bind(){var map={mgNsMaster:'master',mgNsInApp:'inApp',mgNsPush:'systemPush',mgNsToast:'toast',mgNsQuiet:'quietOn',mgNsPriority:'minimumPriority',mgNsQuietStart:'quietStart',mgNsQuietEnd:'quietEnd',mgNsSnooze:'snoozeMin',mgNsToastMax:'toastMax',mgNsToastGap:'toastGapSec'};Object.keys(map).forEach(function(id){var e=document.getElementById(id);if(!e)return;e.addEventListener('change',function(){var k=map[id],v=e.type==='checkbox'?e.checked:e.value;if(['snoozeMin','toastMax','toastGapSec'].indexOf(k)>=0)v=Number(v);S.draft[k]=v;if(e.type==='checkbox')e.setAttribute('aria-checked',v?'true':'false');if(k==='quietOn'){var a=document.getElementById('mgNsQuietStart'),z=document.getElementById('mgNsQuietEnd');if(a)a.disabled=!v;if(z)z.disabled=!v;}syncSave();live('');});});var en=document.getElementById('mgNsEnableDevice');if(en)en.addEventListener('click',async function(){en.disabled=true;await window.mgEnableDeviceNotifications();await loadDevices();render();});var man=document.getElementById('mgNsManageDevices');if(man)man.addEventListener('click',function(){window.mgCloseNotifSettings(false);window.mgOpenDeviceNotifications();});}
-async function loadDevices(){S.permission=('Notification' in window)?Notification.permission:'unsupported';S.currentSubscribed=false;try{S.devices=repo()?await repo().listDevices():[];}catch(e){S.devices=[];}try{if('serviceWorker' in navigator&&'PushManager' in window){var reg=await navigator.serviceWorker.ready;S.currentSubscribed=!!(await reg.pushManager.getSubscription());}}catch(e){S.currentSubscribed=false;}}
-async function load(){if(!repo())throw new Error('Notification repository is unavailable.');var rows=await repo().getPreferences(),row=(rows||[]).find(function(x){return x.category==='*';})||(rows||[])[0]||{};S.base=fromRow(row);S.draft=clone(S.base);window.MG_TD_CFG=Object.assign({},window.MG_TD_CFG||{},S.base);try{localStorage.setItem('mghrm_notif_cfg',JSON.stringify(window.MG_TD_CFG));}catch(e){}await loadDevices();}
-function validate(){var d=S.draft;if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(d.quietStart)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(d.quietEnd))return 'Enter valid quiet-hour start and end times.';if(!d.timezone)return 'A saved timezone is required.';if(['Low','Normal','High','Urgent'].indexOf(d.minimumPriority)<0)return 'Select a supported minimum priority.';if(!Number.isFinite(d.snoozeMin)||d.snoozeMin<1||d.snoozeMin>240)return 'Default snooze must be between 1 and 240 minutes.';if(!Number.isFinite(d.toastMax)||d.toastMax<1||d.toastMax>3)return 'Maximum visible toasts must be between 1 and 3.';if(!Number.isFinite(d.toastGapSec)||d.toastGapSec<10||d.toastGapSec>600)return 'Toast gap must be between 10 and 600 seconds.';return '';}
-window.mtOpenNotifSettings=window.mgOpenNotifSettings=async function(ev){if(ev&&ev.currentTarget)S.trigger=ev.currentTarget;else S.trigger=document.activeElement;var dd=document.getElementById('notifDropdown');if(dd&&dd.classList.contains('open')){if(typeof window.mgNUxClose==='function')window.mgNUxClose();else{dd.classList.remove('open');document.body.classList.remove('mg-notif-open');}}var x=root();x.classList.add('open');x.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';document.getElementById('mgNsBody').innerHTML='<div class="mg-ns-loading">Loading your notification preferences…</div>';live('');try{await load();render();setTimeout(function(){var f=document.getElementById('mgNsMaster');if(f)f.focus();},0);}catch(e){document.getElementById('mgNsBody').innerHTML='<div class="mg-ns-loading">Could not load notification settings. '+esc((e&&e.message)||e)+'</div>';live('Preference load failed.','error');}};
-window.mgCloseNotifSettings=function(restore){var x=document.getElementById('mgNotifSettingsRoot');if(x){x.classList.remove('open');x.setAttribute('aria-hidden','true');}document.body.style.overflow='';if(restore!==false&&S.trigger&&typeof S.trigger.focus==='function')setTimeout(function(){S.trigger.focus();},0);};
-window.mgSaveNotifSettings=window.mtSaveNotifSettings=async function(){if(S.saving)return;var error=validate();if(error){live(error,'error');return;}S.saving=true;syncSave();live('Saving…');try{await repo().updatePreferences(toRow(S.draft),'*');await load();render();if(typeof window.mgReminderTick==='function')window.mgReminderTick();if(typeof toast==='function')toast('Notification settings saved','success');live('Settings saved.','success');}catch(e){live('Settings were not saved: '+((e&&e.message)||e),'error');}finally{S.saving=false;syncSave();}};
-window.mgResetNotifSettings=window.mtResetNotifSettings=async function(){if(S.saving)return;if(!window.confirm('Reset notification settings to defaults? Device registrations and browser permission will not be changed.'))return;S.saving=true;syncSave();live('Resetting…');try{var next=clone(DEFAULTS);if(S.base&&S.base.timezone)next.timezone=S.base.timezone;await repo().updatePreferences(toRow(next),'*');await load();render();if(typeof window.mgReminderTick==='function')window.mgReminderTick();if(typeof toast==='function')toast('Notification settings reset','success');live('Defaults restored.','success');}catch(e){live('Settings were not reset: '+((e&&e.message)||e),'error');}finally{S.saving=false;syncSave();}};
-document.addEventListener('keydown',function(e){var x=document.getElementById('mgNotifSettingsRoot');if(e.key==='Escape'&&x&&x.classList.contains('open'))window.mgCloseNotifSettings();});
-})();
-</script>
-<!-- MG NOTIFICATION UX PHASE 4 END -->
-
-<!-- MG NOTIFICATION UX PHASE 5 START -->
-<style id="mgNotificationUxPhase5">
-.mg-dm-backdrop{position:fixed;inset:0;z-index:10200;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(15,23,42,.46)}.mg-dm-backdrop.open{display:flex}.mg-dm-panel{width:min(760px,100%);max-height:min(820px,calc(100dvh - 36px));display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--border,#e2e8f0);border-radius:16px;background:var(--card,#fff);color:var(--text-main,#0f172a);box-shadow:0 24px 80px rgba(15,23,42,.3)}.mg-dm-head,.mg-dm-foot{display:flex;align-items:center;gap:10px;flex:none;padding:14px 16px;background:var(--card,#fff)}.mg-dm-head{border-bottom:1px solid var(--border,#e2e8f0)}.mg-dm-head-copy{flex:1;min-width:0}.mg-dm-head h2{margin:0;font-size:17px}.mg-dm-head p{margin:3px 0 0;color:var(--text-mute,#64748b);font-size:12px}.mg-dm-close{width:40px;height:40px;border:1px solid var(--border,#e2e8f0);border-radius:10px;background:transparent;color:inherit;font-size:22px;cursor:pointer}.mg-dm-body{overflow:auto;padding:14px 16px}.mg-dm-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-bottom:12px}.mg-dm-stat{padding:11px;border:1px solid var(--border,#e2e8f0);border-radius:11px;background:var(--bg-dim,#f8fafc)}.mg-dm-stat strong{display:block;font-size:18px}.mg-dm-stat span{display:block;margin-top:2px;color:var(--text-mute,#64748b);font-size:10.5px}.mg-dm-current{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:11px 12px;border:1px solid var(--border,#e2e8f0);border-radius:11px}.mg-dm-current-copy{flex:1}.mg-dm-current-copy strong{display:block;font-size:12.5px}.mg-dm-current-copy small{display:block;margin-top:2px;color:var(--text-mute,#64748b);font-size:11px}.mg-dm-status{display:inline-flex;align-items:center;min-height:24px;padding:2px 8px;border-radius:999px;background:var(--bg-dim,#f1f5f9);font-size:10.5px;font-weight:800}.mg-dm-list{display:grid;gap:9px}.mg-dm-card{padding:12px;border:1px solid var(--border,#e2e8f0);border-radius:12px;background:var(--bg-elev,var(--card,#fff))}.mg-dm-card-top{display:flex;align-items:flex-start;gap:10px}.mg-dm-device-copy{flex:1;min-width:0}.mg-dm-device-copy strong{display:block;font-size:13px;overflow-wrap:anywhere}.mg-dm-device-copy small{display:block;margin-top:3px;color:var(--text-mute,#64748b);font-size:11px;line-height:1.4}.mg-dm-card-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.mg-dm-btn{min-height:38px;padding:0 12px;border:1px solid var(--border,#e2e8f0);border-radius:9px;background:var(--card,#fff);color:inherit;font:inherit;font-size:11.5px;font-weight:750;cursor:pointer}.mg-dm-btn.primary{background:var(--primary,#4f46e5);border-color:var(--primary,#4f46e5);color:#fff}.mg-dm-btn.danger{color:#b91c1c}.mg-dm-btn:disabled{opacity:.5;cursor:not-allowed}.mg-dm-foot{justify-content:space-between;border-top:1px solid var(--border,#e2e8f0);padding-bottom:max(14px,env(safe-area-inset-bottom))}.mg-dm-live{font-size:11.5px;color:var(--text-mute,#64748b)}.mg-dm-live.error{color:#b91c1c}.mg-dm-live.success{color:#047857}.mg-dm-empty,.mg-dm-loading{padding:28px;text-align:center;color:var(--text-mute,#64748b);font-size:12.5px}.mg-dm-rename{display:grid;grid-template-columns:1fr auto auto;gap:7px;margin-top:10px}.mg-dm-input{height:38px;min-width:0;border:1px solid var(--border,#e2e8f0);border-radius:8px;background:var(--bg,#fff);color:inherit;padding:0 10px;font:inherit;font-size:12px}.mg-dm-backdrop :focus-visible{outline:3px solid rgba(79,70,229,.3);outline-offset:2px}
-@media(max-width:768px){.mg-dm-backdrop{padding:0;align-items:stretch}.mg-dm-panel{width:100%;height:100dvh;max-height:none;border:0;border-radius:0}.mg-dm-head{padding-top:max(12px,env(safe-area-inset-top));position:sticky;top:0;z-index:2}.mg-dm-body{padding:12px;flex:1}.mg-dm-foot{position:sticky;bottom:0;z-index:2}.mg-dm-btn{min-height:44px}}
-@media(max-width:430px){.mg-dm-summary{grid-template-columns:1fr 1fr}.mg-dm-summary .mg-dm-stat:first-child{grid-column:1/-1}.mg-dm-current{align-items:flex-start;flex-direction:column}.mg-dm-rename{grid-template-columns:1fr 1fr}.mg-dm-rename .mg-dm-input{grid-column:1/-1}.mg-dm-card-actions{display:grid;grid-template-columns:1fr 1fr}.mg-dm-foot{align-items:stretch;flex-direction:column}.mg-dm-foot .mg-dm-btn{width:100%}}
-</style>
-<script>
-(function(){
-'use strict';
-if(window.__mgNotificationUxPhase5)return;window.__mgNotificationUxPhase5=true;
-var D={devices:[],trigger:null,busy:false,permission:'unsupported',subscribed:false,editing:null};
-function repo(){return window.MGHRM&&window.MGHRM.notifications;}
-function esc(v){return typeof escapeHtml==='function'?escapeHtml(v):String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-function root(){var x=document.getElementById('mgDeviceManagerRoot');if(!x){x=document.createElement('div');x.id='mgDeviceManagerRoot';x.className='mg-dm-backdrop';x.setAttribute('aria-hidden','true');x.innerHTML='<section class="mg-dm-panel" role="dialog" aria-modal="true" aria-labelledby="mgDmTitle"><header class="mg-dm-head"><div class="mg-dm-head-copy"><h2 id="mgDmTitle">Device Notifications</h2><p>Manage registered browsers and push delivery safely</p></div><button type="button" class="mg-dm-close" aria-label="Close device manager" onclick="mgCloseDeviceNotifications()">×</button></header><div class="mg-dm-body" id="mgDmBody"></div><footer class="mg-dm-foot"><div class="mg-dm-live" id="mgDmLive" role="status" aria-live="polite"></div><button type="button" class="mg-dm-btn" onclick="mgCloseDeviceNotifications()">Close</button></footer></section>';document.body.appendChild(x);x.addEventListener('mousedown',function(e){if(e.target===x)window.mgCloseDeviceNotifications();});}return x;}
-function live(msg,type){var e=document.getElementById('mgDmLive');if(e){e.className='mg-dm-live '+(type||'');e.textContent=msg||'';}}
-function fmt(v){if(!v)return 'Not available';var d=new Date(v);return isNaN(d.getTime())?String(v):d.toLocaleString();}
-function active(d){return d.is_active===true&&!d.revoked_at&&String(d.permission_state||'').toLowerCase()!=='revoked';}
-function state(d){if(d.revoked_at||String(d.permission_state||'').toLowerCase()==='revoked')return 'Revoked';return active(d)?'Active':'Inactive';}
-function currentState(){if(D.permission==='denied')return 'Blocked by browser';if(D.permission==='default')return 'Permission required';if(D.permission==='granted')return D.subscribed?'Subscribed':'Not subscribed';return 'Unsupported';}
-async function localState(){D.permission=('Notification' in window)?Notification.permission:'unsupported';D.subscribed=false;try{if('serviceWorker' in navigator&&'PushManager' in window){var reg=await navigator.serviceWorker.ready;D.subscribed=!!(await reg.pushManager.getSubscription());}}catch(e){D.subscribed=false;}}
-async function load(){if(!repo())throw new Error('Notification repository is unavailable.');var out=await Promise.all([repo().listDevices(),localState()]);D.devices=Array.isArray(out[0])?out[0]:[];}
-function deviceMeta(d){var parts=[];if(d.browser_name)parts.push(d.browser_name);if(d.platform_name)parts.push(d.platform_name);return parts.join(' · ')||'Browser device';}
-function card(d){var id=String(d.id),editing=String(D.editing)===id;return '<article class="mg-dm-card"><div class="mg-dm-card-top"><div class="mg-dm-device-copy"><strong>'+esc(d.device_label||d.browser_name||'Registered device')+'</strong><small>'+esc(deviceMeta(d))+'<br>Last seen: '+esc(fmt(d.last_seen_at||d.last_seen||d.updated_at))+(d.created_at?'<br>Registered: '+esc(fmt(d.created_at)):'')+'</small></div><span class="mg-dm-status">'+esc(state(d))+'</span></div>'+(editing?'<div class="mg-dm-rename"><input class="mg-dm-input" id="mgDmRenameInput" maxlength="80" aria-label="Device name" value="'+esc(d.device_label||d.browser_name||'Device')+'"><button class="mg-dm-btn primary" type="button" onclick="mgSaveDeviceRename(\''+esc(id)+'\')">Save</button><button class="mg-dm-btn" type="button" onclick="mgCancelDeviceRename()">Cancel</button></div>':'<div class="mg-dm-card-actions"><button class="mg-dm-btn" type="button" onclick="mgStartDeviceRename(\''+esc(id)+'\')"'+(!active(d)?' disabled':'')+'>Rename</button><button class="mg-dm-btn" type="button" onclick="mgTouchNotificationDevice(\''+esc(id)+'\')"'+(!active(d)?' disabled':'')+'>Refresh heartbeat</button><button class="mg-dm-btn danger" type="button" onclick="mgRevokeNotificationDevice(\''+esc(id)+'\')"'+(!active(d)?' disabled':'')+'>Revoke</button></div>')+'</article>';}
-function render(){var b=document.getElementById('mgDmBody');if(!b)return;var act=D.devices.filter(active).length;b.innerHTML='<div class="mg-dm-summary"><div class="mg-dm-stat"><strong>'+D.devices.length+'</strong><span>Registered devices</span></div><div class="mg-dm-stat"><strong>'+act+'</strong><span>Active devices</span></div><div class="mg-dm-stat"><strong>'+esc(D.permission)+'</strong><span>Browser permission</span></div></div><section class="mg-dm-current"><div class="mg-dm-current-copy"><strong>Current browser</strong><small>'+esc(navigator.userAgent||'Browser')+'</small></div><span class="mg-dm-status">'+esc(currentState())+'</span><button type="button" class="mg-dm-btn primary" id="mgDmEnable"'+(D.permission==='denied'||D.permission==='unsupported'?' disabled':'')+'>Enable notifications</button></section>'+(D.permission==='denied'?'<div class="mg-dm-card"><div class="mg-dm-device-copy"><strong>Browser permission is blocked</strong><small>Enable notifications for this site in browser settings. Repeated permission prompts are not available while permission remains denied.</small></div></div>':'')+'<div class="mg-dm-list">'+(D.devices.length?D.devices.map(card).join(''):'<div class="mg-dm-empty">No registered devices were returned for this account.</div>')+'</div>';var en=document.getElementById('mgDmEnable');if(en)en.addEventListener('click',async function(){if(D.busy)return;D.busy=true;en.disabled=true;live('Enabling this device…');try{var result=await window.mgEnableDeviceNotifications();if(result==='blocked')throw new Error('Browser permission is blocked.');await load();render();live('Current device status refreshed.','success');}catch(e){live((e&&e.message)||String(e),'error');}finally{D.busy=false;}});if(D.editing)setTimeout(function(){var i=document.getElementById('mgDmRenameInput');if(i){i.focus();i.select();}},0);}
-function find(id){return D.devices.find(function(x){return String(x.id)===String(id);});}
-async function refresh(message){await load();render();live(message||'Device list refreshed.','success');}
-window.mgOpenDeviceNotifications=async function(ev){if(ev&&ev.currentTarget)D.trigger=ev.currentTarget;else D.trigger=document.activeElement;if(typeof window.mgCloseNotifSettings==='function')window.mgCloseNotifSettings(false);if(typeof closeModal==='function')closeModal();var x=root();x.classList.add('open');x.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';document.getElementById('mgDmBody').innerHTML='<div class="mg-dm-loading">Loading registered devices…</div>';live('');try{await load();render();setTimeout(function(){var c=x.querySelector('.mg-dm-close');if(c)c.focus();},0);}catch(e){document.getElementById('mgDmBody').innerHTML='<div class="mg-dm-loading">Could not load devices. '+esc((e&&e.message)||e)+'</div>';live('Device load failed.','error');}};
-window.mgCloseDeviceNotifications=function(){var x=document.getElementById('mgDeviceManagerRoot');if(x){x.classList.remove('open');x.setAttribute('aria-hidden','true');}D.editing=null;document.body.style.overflow='';if(D.trigger&&typeof D.trigger.focus==='function')setTimeout(function(){D.trigger.focus();},0);};
-window.mgStartDeviceRename=function(id){D.editing=String(id);render();};window.mgCancelDeviceRename=function(){D.editing=null;render();};
-window.mgSaveDeviceRename=async function(id){if(D.busy)return;var d=find(id),input=document.getElementById('mgDmRenameInput'),name=input?input.value.trim():'';if(!d)return;if(!name){live('Enter a device name.','error');return;}if(name.length>80){live('Device name must be 80 characters or fewer.','error');return;}D.busy=true;live('Saving device name…');try{await repo().updateDevice(d.id,{device_label:name,browser_name:d.browser_name||null,platform_name:d.platform_name||null,touch_last_seen:true});D.editing=null;await refresh('Device renamed.');}catch(e){live('Rename failed: '+((e&&e.message)||e),'error');}finally{D.busy=false;}};
-window.mgTouchNotificationDevice=async function(id){if(D.busy)return;var d=find(id);if(!d)return;D.busy=true;live('Refreshing heartbeat…');try{await repo().updateDevice(d.id,{device_label:d.device_label||null,browser_name:d.browser_name||null,platform_name:d.platform_name||null,touch_last_seen:true});await refresh('Heartbeat refreshed.');}catch(e){live('Heartbeat refresh failed: '+((e&&e.message)||e),'error');}finally{D.busy=false;}};
-window.mgRevokeNotificationDevice=async function(id){if(D.busy)return;var d=find(id);if(!d)return;if(!window.confirm('Revoke '+(d.device_label||d.browser_name||'this device')+'? Push notifications will stop for that registration.'))return;D.busy=true;live('Revoking device…');try{await repo().revokeDevice(d.id);await refresh('Device revoked.');}catch(e){live('Revoke failed: '+((e&&e.message)||e),'error');}finally{D.busy=false;}};
-document.addEventListener('keydown',function(e){var x=document.getElementById('mgDeviceManagerRoot');if(e.key==='Escape'&&x&&x.classList.contains('open'))window.mgCloseDeviceNotifications();});
-})();
-</script>
-<!-- MG NOTIFICATION UX PHASE 5 END -->
-
-<!-- MG NOTIFICATION UX PHASE 6 START -->
-<style id="mgNotificationUxPhase6">
-.mg-n6-summary{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}.mg-n6-chip{display:inline-flex;align-items:center;min-height:20px;padding:1px 7px;border-radius:999px;background:var(--bg-dim,#f1f5f9);color:var(--text-mute,#64748b);font-size:9.5px;font-weight:800}.mg-n6-chip.action{background:#fff7ed;color:#9a3412}.mg-n6-chip.escalated{background:#fef2f2;color:#b91c1c}.mg-n6-chip.snoozed{background:#eff6ff;color:#1d4ed8}.mg-n6-explain{margin-top:7px;padding:8px 9px;border:1px dashed var(--mg-n-border,var(--border,#e2e8f0));border-radius:8px;background:var(--bg-dim,#f8fafc);color:var(--text-mute,#64748b);font-size:10.5px;line-height:1.45}.mg-n6-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}.mg-n6-btn{min-height:32px;padding:0 9px;border:1px solid var(--mg-n-border,var(--border,#e2e8f0));border-radius:8px;background:var(--card,#fff);color:var(--text-main,#0f172a);font:inherit;font-size:10.5px;font-weight:750;cursor:pointer}.mg-n6-dialog{display:grid;gap:10px}.mg-n6-dialog p{margin:0;color:var(--text-mute,#64748b);font-size:12px;line-height:1.5}.mg-n6-option-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.mg-n6-option{min-height:42px;border:1px solid var(--border,#e2e8f0);border-radius:9px;background:var(--card,#fff);color:inherit;font:inherit;font-size:12px;font-weight:750;cursor:pointer}.mg-n6-detail-grid{display:grid;grid-template-columns:145px 1fr;gap:7px 10px;font-size:12px}.mg-n6-detail-grid dt{color:var(--text-mute,#64748b)}.mg-n6-detail-grid dd{margin:0;color:var(--text-main,#0f172a);overflow-wrap:anywhere}.mg-n6-note{padding:9px;border-radius:8px;background:var(--bg-dim,#f8fafc);font-size:11px;line-height:1.45;color:var(--text-mute,#64748b)}
-@media(max-width:520px){.mg-n6-detail-grid{grid-template-columns:1fr;gap:2px}.mg-n6-detail-grid dd{margin-bottom:6px}.mg-n6-option-grid{grid-template-columns:1fr 1fr}.mg-n6-btn,.mg-n6-option{min-height:44px}}
-</style>
-<script>
-(function(){
-'use strict';
-if(window.__mgNotificationUxPhase6)return;window.__mgNotificationUxPhase6=true;
-function esc(v){return typeof escapeHtml==='function'?escapeHtml(v):String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-function find(id){return (window.NOTIFICATIONS||[]).find(function(x){return String(x.id)===String(id);});}
-function raw(n){return n&&n.raw&&typeof n.raw==='object'?n.raw:{};}
-function repeat(n){return Math.max(0,Number(raw(n).repeat_count!=null?raw(n).repeat_count:n.repeatCount)||0);}
-function escalation(n){return Math.max(0,Number(raw(n).escalation_level!=null?raw(n).escalation_level:n.escalationLevel)||0);}
-function snoozed(n){var until=n&&(n.snoozedUntil||raw(n).snoozed_until);return until&&Date.parse(until)>Date.now();}
-function actionRequired(n){if(!n)return false;var s=String(n.status||'').toLowerCase();return !!n.actionLabel||['ready','pending','action required','action_required','overdue'].indexOf(s)>=0||String(n.priority||'').toLowerCase()==='urgent';}
-function fmt(v){if(!v)return 'Not available';var d=new Date(v);return isNaN(d.getTime())?String(v):d.toLocaleString();}
-function summary(n){var a=[];if(actionRequired(n))a.push('<span class="mg-n6-chip action">Action required</span>');if(repeat(n)>0)a.push('<span class="mg-n6-chip">Repeated '+repeat(n)+' time'+(repeat(n)===1?'':'s')+'</span>');if(escalation(n)>0)a.push('<span class="mg-n6-chip escalated">Escalation level '+escalation(n)+'</span>');if(snoozed(n))a.push('<span class="mg-n6-chip snoozed">Snoozed until '+esc(fmt(n.snoozedUntil||raw(n).snoozed_until))+'</span>');return a.length?'<div class="mg-n6-summary">'+a.join('')+'</div>':'';}
-var previousCard=window.mgNotifCardHtml;
-if(previousCard)window.mgNotifCardHtml=function(n,opts){var html=previousCard(n,opts);if(!n||!n.isBackend||opts&&opts.compact)return html;var extra=summary(n)+'<div class="mg-n6-explain">'+(actionRequired(n)?'Open the related HRM item and finish the actual workflow. “Check and complete” only closes this notification when the source item is already resolved.':'This notification currently has no unresolved action requirement.')+'</div><div class="mg-n6-actions"><button type="button" class="mg-n6-btn" onclick="event.stopPropagation();mgOpenSnoozeOptions(\''+esc(n.id)+'\')">Snooze options</button><button type="button" class="mg-n6-btn" onclick="event.stopPropagation();mgOpenNotificationDetails(\''+esc(n.id)+'\')">Reminder details</button></div>';var p=html.lastIndexOf('</div>');return p<0?html+extra:html.slice(0,p)+extra+html.slice(p);};
-window.mgOpenSnoozeOptions=function(id){var n=find(id);if(!n||!n.isBackend)return;var def=Math.max(1,Math.min(240,Number((window.MG_TD_CFG||{}).snoozeMin)||15));var options=[def,15,30,60,240].filter(function(v,i,a){return a.indexOf(v)===i;});var body='<div class="mg-n6-dialog"><p>Choose when this reminder should return. Snoozing does not resolve or dismiss the related HRM item.</p><div class="mg-n6-option-grid">'+options.map(function(m){return '<button type="button" class="mg-n6-option" onclick="mgApplySnoozeOption(\''+esc(id)+'\','+m+')">'+(m<60?m+' minutes':m===60?'1 hour':m===240?'4 hours':m+' minutes')+(m===def?' · Default':'')+'</button>';}).join('')+'</div></div>';if(typeof openModal==='function')openModal('Snooze notification',body,'<button type="button" class="btn ghost sm" onclick="closeModal()">Cancel</button>');};
-window.mgApplySnoozeOption=async function(id,minutes){if(typeof closeModal==='function')closeModal();await window.mgBackendNotifSnooze(id,minutes);};
-window.mgOpenNotificationDetails=function(id){var n=find(id);if(!n)return;var r=raw(n),action=n.actionLabel||r.action_label||'Open related item';var body='<div class="mg-n6-dialog"><dl class="mg-n6-detail-grid"><dt>Status</dt><dd>'+esc(n.status||r.status||'Ready')+'</dd><dt>Priority</dt><dd>'+esc(n.priority||r.priority||'Normal')+'</dd><dt>Category</dt><dd>'+esc(n.category||r.category||'System')+'</dd><dt>Required action</dt><dd>'+esc(action)+'</dd><dt>Scheduled for</dt><dd>'+esc(fmt(n.scheduledFor||r.scheduled_for))+'</dd><dt>Repeated</dt><dd>'+repeat(n)+' time'+(repeat(n)===1?'':'s')+'</dd><dt>Escalation</dt><dd>'+(escalation(n)>0?'Level '+escalation(n):'Not escalated')+'</dd><dt>Snoozed until</dt><dd>'+esc(fmt(n.snoozedUntil||r.snoozed_until))+'</dd></dl><div class="mg-n6-note">Urgent notifications bypass quiet hours. Repeated and escalated reminders remain separate from resolving the underlying HRM workflow.</div></div>';if(typeof openModal==='function')openModal('Reminder details',body,'<button type="button" class="btn ghost sm" onclick="closeModal()">Close</button>');};
-var previousComplete=window.mgBackendNotifComplete;
-if(previousComplete)window.mgBackendNotifComplete=async function(id){try{return await previousComplete(id);}catch(e){if(typeof toast==='function')toast('The related HRM item is not resolved yet. Open it and complete the actual workflow first.','warning');throw e;}};
-})();
-</script>
-<!-- MG NOTIFICATION UX PHASE 6 END -->
-
-<!-- MG NOTIFICATION UX PHASE 7 RELEASE CHECK START -->
-<script>
-(function(){
-  'use strict';
-  if(window.__mgNotificationUxPhase7)return;
-  window.__mgNotificationUxPhase7=true;
-  window.MG_NOTIFICATION_UX_RELEASE={phases:[4,5,6,7],status:'release-candidate'};
-})();
-</script>
-<!-- MG NOTIFICATION UX PHASE 7 RELEASE CHECK END -->
+<link rel="stylesheet" href="./notification-ui.css">
+<script src="./notification-ui.js"></script>
+<script src="./notification-settings.js"></script>
 </body>
 </html>

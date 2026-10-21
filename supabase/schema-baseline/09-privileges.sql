@@ -334,6 +334,20 @@ SET ROLE "postgres";
 GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON TABLE "public"."notification_jobs" TO "service_role";
 RESET ROLE;
 
+-- Original ACL: {postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,authenticated=arw/postgres}
+SET ROLE "postgres";
+REVOKE ALL PRIVILEGES ON TABLE "public"."notification_legacy_states" FROM PUBLIC, "authenticated", "postgres", "service_role";
+RESET ROLE;
+SET ROLE "postgres";
+GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON TABLE "public"."notification_legacy_states" TO "postgres";
+RESET ROLE;
+SET ROLE "postgres";
+GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON TABLE "public"."notification_legacy_states" TO "service_role";
+RESET ROLE;
+SET ROLE "postgres";
+GRANT INSERT, SELECT, UPDATE ON TABLE "public"."notification_legacy_states" TO "authenticated";
+RESET ROLE;
+
 -- Original ACL: {postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,authenticated=arwd/postgres}
 SET ROLE "postgres";
 REVOKE ALL PRIVILEGES ON TABLE "public"."notification_preferences" FROM PUBLIC, "authenticated", "postgres", "service_role";
@@ -1789,6 +1803,20 @@ GRANT EXECUTE ON FUNCTION public.notification_claim_jobs(text,integer) TO "postg
 RESET ROLE;
 SET ROLE "postgres";
 GRANT EXECUTE ON FUNCTION public.notification_claim_jobs(text,integer) TO "service_role";
+RESET ROLE;
+
+-- Original ACL: {postgres=X/postgres,service_role=X/postgres,authenticated=X/postgres}
+SET ROLE "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.notification_claim_todo_reminder(bigint,timestamp with time zone,timestamp with time zone) FROM PUBLIC, "authenticated", "postgres", "service_role";
+RESET ROLE;
+SET ROLE "postgres";
+GRANT EXECUTE ON FUNCTION public.notification_claim_todo_reminder(bigint,timestamp with time zone,timestamp with time zone) TO "postgres";
+RESET ROLE;
+SET ROLE "postgres";
+GRANT EXECUTE ON FUNCTION public.notification_claim_todo_reminder(bigint,timestamp with time zone,timestamp with time zone) TO "service_role";
+RESET ROLE;
+SET ROLE "postgres";
+GRANT EXECUTE ON FUNCTION public.notification_claim_todo_reminder(bigint,timestamp with time zone,timestamp with time zone) TO "authenticated";
 RESET ROLE;
 
 -- Original ACL: {postgres=X/postgres,service_role=X/postgres}

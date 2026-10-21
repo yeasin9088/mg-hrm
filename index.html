@@ -85,6 +85,25 @@ function findEmp(rid) {
 /* Selected report card */
 #page-reports .qa.report-selected{border:2px solid var(--primary);background:var(--primary-soft);box-shadow:0 0 0 3px rgba(79,70,229,.10);transform:translateY(-1px)}
 #page-reports .qa.report-selected h5{color:var(--primary)}
+/* Compact workforce overview */
+#page-dashboard .dash-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 16px}
+#page-dashboard .dash-heading h2{font-size:23px;letter-spacing:-.6px;margin:4px 0}
+#page-dashboard .dash-heading p{font-size:12px;color:var(--text-muted);margin:0}
+#page-dashboard .dash-eyebrow{font-size:10px;font-weight:750;letter-spacing:.1em;color:var(--primary)}
+#page-dashboard .kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}
+#page-dashboard .kpi{padding:15px;min-width:0;border-radius:12px;box-shadow:0 2px 7px rgba(15,23,42,.03)}
+#page-dashboard .kpi-value{font-size:27px;font-variant-numeric:tabular-nums}
+#page-dashboard .kpi-label{font-size:11px;line-height:1.4;padding-right:25px}
+#page-dashboard .kpi-icon{width:30px;height:30px;top:12px;right:12px}
+#page-dashboard .kpi-delta{font-size:10.5px;line-height:1.4}
+#page-dashboard .card{border-radius:12px;margin-bottom:14px;overflow:hidden}
+#page-dashboard .card-header{padding:12px 14px;gap:10px;flex-wrap:wrap}
+#page-dashboard .card-header h3{font-size:13px}
+#page-dashboard .card-body{padding:14px}
+#page-dashboard .dash-state{padding:15px;border:1px solid var(--border);border-radius:10px;margin-bottom:14px;color:var(--text-muted);font-size:12px;background:var(--card,#fff)}
+#page-dashboard .trq-item{padding:10px 14px}#page-dashboard .trq-head{padding:12px 14px}
+@media(max-width:900px){#page-dashboard .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){#page-dashboard .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px}#page-dashboard .kpi{padding:12px 10px}#page-dashboard .kpi-value{font-size:24px}#page-dashboard .dash-heading h2{font-size:20px}#page-dashboard .dash-heading p{max-width:220px}#page-dashboard .grid-2{grid-template-columns:minmax(0,1fr)}#page-dashboard .trq-item{align-items:flex-start;flex-wrap:wrap}#page-dashboard .trq-actions{margin-left:auto}#page-dashboard .trq-name-row{flex-wrap:wrap}#page-dashboard .trq-head{flex-wrap:wrap}}
 </style>
 <style>
 :root {
@@ -4430,116 +4449,135 @@ function ico(name, size){
 }
 
 /* ============ DASHBOARD ============ */
-let _dashboardLastData = null;
+// Dashboard reads are complete, soft-delete aware and never write application state.
+let dashboardRenderVersion = 0;
+function dashboardUnique(rows){
+  const byId = new Map();
+  (rows || []).forEach(row => { if (row && row.id != null) byId.set(String(row.id), row); });
+  return [...byId.values()].filter(row => !row.deleted_at);
+}
+function dashboardMetrics(employees, projects, today){
+  const emps = dashboardUnique(employees), projs = dashboardUnique(projects);
+  const end = new Date(today + 'T00:00:00Z');
+  const start = new Date(end); start.setUTCDate(start.getUTCDate() - 29);
+  const first = start.toISOString().slice(0,10);
+  const status = e => String(e.status || e.Status || '').trim().toLowerCase();
+  const recentJoins = emps.filter(e => {
+    const value = String(e.join_date || e.JoinDate || '');
+    return /^\d{4}-\d{2}-\d{2}$/.test(value) && value >= first && value <= today &&
+      Number.isFinite(Date.parse(value+'T00:00:00Z')) && new Date(value+'T00:00:00Z').toISOString().slice(0,10) === value;
+  });
+  return {emps, projects:projs, activeEmps:emps.filter(e=>status(e)==='active'),
+    inactiveEmps:emps.filter(e=>status(e)==='inactive'), recentJoins};
+}
+async function dashboardReadAll(client, table, columns){
+  const rows = []; let after = null;
+  for (;;) {
+    let query = client.from(table).select(columns).is('deleted_at', null).order('id', {ascending:true}).limit(500);
+    if (after != null) query = query.gt('id', after);
+    const result = await query;
+    if (result.error) throw result.error;
+    if (!Array.isArray(result.data)) throw Error('Incomplete Dashboard response');
+    if (!result.data.length) return dashboardUnique(rows);
+    const next = result.data[result.data.length-1].id;
+    if (next == null || String(next) === String(after)) throw Error('Dashboard pagination did not advance');
+    rows.push(...result.data); after = next;
+  }
+}
 async function renderDashboard(){
   const container = document.getElementById('page-dashboard');
-  
-  if (window.MGHRM && window.MGHRM.isReady()) {
-    try {
-      const sb = window.MGHRM._client();
-      const [
-        { count: activeCount },
-        { count: inactiveCount },
-        { count: projCount }
-      ] = await Promise.all([
-        sb.from('employees').select('id', { count: 'exact', head: true }).eq('status', 'Active'),
-        sb.from('employees').select('id', { count: 'exact', head: true }).eq('status', 'Inactive'),
-        sb.from('projects').select('id', { count: 'exact', head: true })
-      ]);
-      
-      const totalEmps = activeCount + inactiveCount;
-      _dashboardLastData = { activeCount, inactiveCount, projCount, totalEmps };
-    } catch (err) {
-      console.error('Supabase aggregation error:', err);
-    }
+  if (!container) return;
+  const version = ++dashboardRenderVersion;
+  container.innerHTML = '<div class="dash-state" role="status">Loading workforce overview…</div>';
+  let metrics, snapshot;
+  try {
+    if (!window.MGHRM?.isReady()) throw Error('Application data connection is not ready');
+    const client = window.MGHRM._client();
+    const [employees, projects, transfers] = await Promise.all([
+      dashboardReadAll(client, 'employees', 'id,status,join_date,designation,project_name,deleted_at'),
+      dashboardReadAll(client, 'projects', 'id,status,is_active,project_name,project_name_bn,deleted_at'),
+      dashboardReadAll(client, 'transfers', 'id,status,employee_sys_id,employee_id,full_name,current_project,new_project,effective_date,actual_joining_date,completed_at,transfer_date,deleted_at')
+    ]);
+    // Follow the application's three-request concurrency convention.
+    const [exits, disciplinary, demand] = await Promise.all([
+      dashboardReadAll(client, 'exits', 'id,exit_date,deleted_at'),
+      dashboardReadAll(client, 'disciplinary', 'id,issue_date,deleted_at'),
+      dashboardReadAll(client, 'demand', '*')
+    ]);
+    snapshot = {employees, projects, transfers, exits, disciplinary, demand};
+    metrics = dashboardMetrics(employees, projects, transferTodayISO());
+  } catch (error) {
+    if (version !== dashboardRenderVersion) return;
+    container.innerHTML = '<div class="dash-state" role="alert">Dashboard data could not be loaded. No estimated totals are shown. <button type="button" class="btn sm" onclick="renderDashboard()">Retry</button></div>';
+    return;
   }
-
-  const emps = DATA.employees || [];
-  const activeEmps = emps.filter(e => String(e.Status || e.status || 'Active').trim().toLowerCase() === 'active');
-  const inactiveEmps = emps.filter(e => {
-    const st = String(e.Status || e.status || '').trim().toLowerCase();
-    return st === 'inactive' || st === 'exited';
-  });
-
-  const activeCount = emps.length ? activeEmps.length : (_dashboardLastData?.activeCount || 0);
-  const inactiveCount = emps.length ? inactiveEmps.length : (_dashboardLastData?.inactiveCount || 0);
-  const totalEmps = activeCount + inactiveCount;
-  const projectRows = Array.isArray(DATA.projects) ? DATA.projects : [];
-  const totalProjectCount = projectRows.length || (_dashboardLastData?.projCount || 0);
-  const activeProjectCount = projectRows.length
-    ? projectRows.filter(p => typeof isProjectActive === 'function' ? isProjectActive(p) : true).length
-    : totalProjectCount;
-  const inactiveProjectCount = Math.max(0, totalProjectCount - activeProjectCount);
-
-  const parade = computeParade();
+  if (version !== dashboardRenderVersion) return;
+  const {emps, activeEmps, inactiveEmps, recentJoins, projects:projectRows} = metrics;
+  const activeCount = activeEmps.length, inactiveCount = inactiveEmps.length;
+  const totalEmps = emps.length, totalProjectCount = projectRows.length;
+  const activeProjectCount = projectRows.filter(isProjectActive).length;
+  const inactiveProjectCount = totalProjectCount - activeProjectCount;
+  const parade = computeParade(snapshot);
   const totalDemand = parade.reduce((s,p)=>s+p.demandTotal,0);
   const totalActual = parade.reduce((s,p)=>s+p.actualTotal,0);
   const shortage = Math.max(0,totalDemand-totalActual);
   const shortagePct = totalDemand>0 ? (shortage*100/totalDemand).toFixed(1) : 0;
 
-  // Solid 30-day date math baseline
-  const now = new Date();
-  const last30End = new Date(now); last30End.setHours(23, 59, 59, 999);
-  const thirtyDaysAgo = new Date(last30End);
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
-  thirtyDaysAgo.setHours(0, 0, 0, 0);
-
-  const isWithinLast30Days = (v) => {
-    const d = parseDate(v);
-    if (!d) return false;
-    const t = d.getTime();
-    return t >= thirtyDaysAgo.getTime() && t <= last30End.getTime();
+  const today = transferTodayISO();
+  const start = new Date(today+'T00:00:00Z'); start.setUTCDate(start.getUTCDate()-29);
+  const first = start.toISOString().slice(0,10);
+  const isWithinLast30Days = value => {
+    const day = String(value || '').slice(0,10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(day) && day >= first && day <= today &&
+      Number.isFinite(Date.parse(day+'T00:00:00Z')) && new Date(day+'T00:00:00Z').toISOString().slice(0,10) === day;
   };
 
-  // 1. New Joiners (Last 30 Days)
-  const recentJoins = emps.filter(e => {
-    const jDate = e.join_date || e.JoinDate;
-    return jDate && isWithinLast30Days(jDate);
-  });
-
   // 2. Transfers (Last 30 Days) - status === 'Completed'
-  const recentTransfers = (DATA.transfers || []).filter(t => {
+  const recentTransfers = dashboardUnique(snapshot.transfers).filter(t => {
     const st = String(t.status || t.Status || '').trim().toLowerCase();
     const tDate = transferCompletedDate(t);
     return st === 'completed' && tDate && isWithinLast30Days(tDate);
   });
 
   // 3. Disciplinary (Last 30 Days)
-  const recentDisc = (DATA.disciplinary || []).filter(a => {
+  const recentDisc = dashboardUnique(snapshot.disciplinary).filter(a => {
     const iDate = a.issue_date || a.IssueDate;
     return iDate && isWithinLast30Days(iDate);
   });
 
   // 4. Exits (Last 30 Days)
-  const recentExits = (DATA.exits || []).filter(x => {
+  const recentExits = dashboardUnique(snapshot.exits).filter(x => {
     const xDate = x.exit_date || x.ExitDate;
     return xDate && isWithinLast30Days(xDate);
   });
 
   const desigCount = {};
   activeEmps.forEach(e => {
-    const d = e.Designation || e.designation || 'Security Guard';
+    const d = e.Designation || e.designation || 'Not specified';
     desigCount[d] = (desigCount[d] || 0) + 1;
   });
   const desigRows = Object.entries(desigCount).sort((a,b)=>b[1]-a[1]);
 
   const alerts = computeAlerts();
-  const trend = monthlyTrend();
-  const transferActionQueue = await loadTransferActionQueue();
+  const trend = monthlyTrend(snapshot);
+  const transferActionQueue = snapshot.transfers;
+  if (version !== dashboardRenderVersion) return;
 
   container.innerHTML = `
+    <header class="dash-heading"><div><span class="dash-eyebrow">WORKFORCE OVERVIEW</span><h2>Dashboard</h2><p>People, projects and actions that need your attention</p></div><button type="button" class="btn sm" onclick="renderDashboard()">Refresh overview</button></header>
+    ${!totalEmps && !totalProjectCount ? '<div class="dash-state">No employee or project records are available to your account.</div>' : ''}
     <div class="kpi-grid">
       ${kpi('Active Employees', num(activeCount), 'g', ico('users'), `${num(totalEmps)} total`,'','action:dashboardKpiOpen(\'employees\',\'active\')')}
       ${kpi('Inactive Employees', num(inactiveCount), 'r', ico('x'), `${num((inactiveCount*100/(totalEmps||1)).toFixed(1))}% of total`,'','action:dashboardKpiOpen(\'employees\',\'inactive\')')}
-      ${kpi('Active Projects', num(activeProjectCount), 'p', ico('home'), `${num(inactiveProjectCount)} inactive / closed`,'','projects')}
-      ${kpi('New Joins (30d)', num(recentJoins.length), 'b', ico('trend'), `+${num((recentJoins.length*100/(activeCount||1)).toFixed(1))}%`, 'up','action:dashboardKpiOpen(\'reports\',\'newJoins\')')}
-      ${kpi('Exits (30d)', num(recentExits.length), 'r', ico('x'), 'Turnover rate','','action:dashboardKpiOpen(\'reports\',\'exits\')')}
+      ${kpi('Total Projects', num(totalProjectCount), 'p', ico('home'), `${num(activeProjectCount)} active · ${num(inactiveProjectCount)} inactive / closed`,'','projects')}
+      ${kpi('New Joins (30d)', num(recentJoins.length), 'b', ico('trend'), 'Recorded joining dates', '','action:dashboardKpiOpen(\'reports\',\'newJoins\')')}
+      ${kpi('Exits (30d)', num(recentExits.length), 'r', ico('x'), 'Recorded exits','','action:dashboardKpiOpen(\'reports\',\'exits\')')}
       ${kpi('Manpower Shortage', num(shortage), 'y', ico('warn'), `${num(shortagePct)}% shortage`, 'down','parade')}
-      ${kpi('Transfers (30d)', num(recentTransfers.length), 'b', ico('refresh'), '','','action:dashboardKpiOpen(\'reports\',\'transfers\')')}
+      ${kpi('Completed Transfers (30d)', num(recentTransfers.length), 'b', ico('refresh'), '','','action:dashboardKpiOpen(\'reports\',\'transfers\')')}
       ${kpi('Disciplinary (30d)', num(recentDisc.length), 'r', ico('warn'), '','','action:dashboardKpiOpen(\'reports\',\'disciplinary\')')}
     </div>
 
-    ${transferActionQueueHtml(transferActionQueue)}
+    ${dashboardTransferQueueHtml(transferActionQueue, snapshot.employees)}
 
     <div class="grid-2">
       <div class="card">
@@ -4627,7 +4665,7 @@ async function renderDashboard(){
               return `
                 <div style="padding:6px 0;border-bottom:1px solid #f1f5f9">
                   <div style="display:flex;justify-content:space-between;font-size:12px">
-                    <span style="font-weight:500">${desig(d)}</span>
+                    <span style="font-weight:500">${escapeHtml(desig(d))}</span>
                     <span style="font-weight:700">${num(c)} · ${num(pct)}%</span>
                   </div>
                   <div style="height:5px;background:#f1f5f9;border-radius:3px;margin-top:4px;overflow:hidden">
@@ -4755,7 +4793,7 @@ function kpi(label,val,color,icon,delta,dc,nav){
     ${delta?`<div class="kpi-delta ${dc||''}">${delta}</div>`:''}
   </div>`;
 }
-function monthlyTrend(){
+function monthlyTrend(source = DATA){
   const monthsEn=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const now = new Date();
   const buckets = [];
@@ -4766,9 +4804,9 @@ function monthlyTrend(){
     const inRange = (v)=>{ const x = parseDate(v)?.getTime(); return x && x>=start && x<end; };
     buckets.push({
       label,
-      joins: DATA.employees.filter(e=>inRange(e.join_date || e.JoinDate)).length,
-      exits: (DATA.exits || []).filter(x=>inRange(x.exit_date || x.ExitDate)).length,
-      transfers: (DATA.transfers || []).filter(t=>inRange(transferCompletedDate(t)) && String(t.status || t.Status || '').trim().toLowerCase() === 'completed').length,
+      joins: source.employees.filter(e=>inRange(e.join_date || e.JoinDate)).length,
+      exits: (source.exits || []).filter(x=>inRange(x.exit_date || x.ExitDate)).length,
+      transfers: (source.transfers || []).filter(t=>inRange(transferCompletedDate(t)) && String(t.status || t.Status || '').trim().toLowerCase() === 'completed').length,
     });
   }
   return buckets;
@@ -9204,14 +9242,18 @@ function isProjectNameActive(name){
 }
 window.isProjectNameActive = isProjectNameActive;
 
-function computeParade(){
+function computeParade(source = DATA){
+  const projectActive = source === DATA ? isProjectNameActive : name => {
+    const match = source.projects.find(p => [p.project_name,p.project_name_bn,String(p.id)].includes(name));
+    return !!match && isProjectActive(match);
+  };
   const activeByProj = {};
-  (DATA.employees || []).filter(e => {
+  (source.employees || []).filter(e => {
     const st = String(e.Status || e.status || '').trim().toLowerCase();
     return st === 'active' || !st;
   }).forEach(e => {
     const p = e.ProjectName || e.project_name || '(Unassigned)';
-    if (!isProjectNameActive(p)) return; // Exclude employees of closed/inactive projects from parade state
+    if (!projectActive(p)) return; // Exclude employees of closed/inactive projects from parade state
     activeByProj[p] = activeByProj[p] || {Incharge:0,Supervisor:0,AsstSup:0,Guard:0,Lady:0};
     const des = e.Designation || e.designation || '';
     if(des==='Security Incharge') activeByProj[p].Incharge++;
@@ -9221,12 +9263,12 @@ function computeParade(){
     else if(des==='Lady Guard') activeByProj[p].Lady++;
   });
 
-  const validDemand = (DATA.demand || []).filter(d => {
+  const validDemand = (source.demand || []).filter(d => {
     if (d.is_active === false || d.is_active === 'false' || d.is_active === 0) return false;
     const st = String(d.Status || d.status || '').trim().toLowerCase();
     if (st === 'closed' || st === 'inactive') return false;
     const p = d.ProjectName || d.project_name;
-    return isProjectNameActive(p);
+    return projectActive(p);
   });
 
   return validDemand.map(d => {
@@ -10610,7 +10652,7 @@ let transferLastSyncDay = '';
 let transferEmployeeRefreshPending = false;
 async function syncTransfersFromServer(force){
   if (transferSyncInFlight) { if (force === true) transferSyncPending = true; return; }
-  if (document.hidden || typeof currentPage === 'undefined' || (!force && currentPage !== 'transfer') ||
+  if (document.hidden || typeof currentPage === 'undefined' || (!force && !['transfer','dashboard'].includes(currentPage)) ||
       !window.MGHRM || !window.MGHRM.reloadTransfers) return;
   transferSyncInFlight = true;
   try {
@@ -10630,7 +10672,7 @@ async function syncTransfersFromServer(force){
     }
     transferSyncWarningShown = false;
     if (currentPage === 'transfer' && (changed || dayChanged)) renderTransferTable();
-    else if (changed || refreshEmployees) {
+    else if (changed || refreshEmployees || dayChanged) {
       if (currentPage === 'dashboard' && typeof renderDashboard === 'function') renderDashboard();
       if (currentPage === 'reports' && typeof renderReportSelected === 'function') renderReportSelected();
       if (refreshEmployees && currentPage === 'employees' && typeof renderEmpTable === 'function') renderEmpTable();
@@ -21832,23 +21874,48 @@ function printEmpProfile(recordId){
 }
 
 /* ============ INTERACTIVE NOTIFICATIONS (pending confirmations surface as toasts) ============ */
-let _pendingToastAt = 0, _pendingToastCount = -1;
+function pendingConfirmationKey(row){
+  const value = JSON.stringify([String(row.transfer_id),row.effective_date,row.stored_status || row.queue_status,
+    row.employee_sys_id || '',row.current_project || '',row.new_project || '',row.rescheduled_at || '']);
+  // Opaque browser-local identity; excludes delivery IDs, overdue days and personal details.
+  let hash = 2166136261;
+  for (const c of value) hash = Math.imul(hash ^ c.charCodeAt(0), 16777619);
+  return 'transfer:' + row.transfer_id + ':' + (hash >>> 0).toString(16);
+}
+const pendingPopupMemory = new Map();
 async function checkPendingToast(force){
-  var notifs = window.NOTIFICATIONS || NOTIFICATIONS || [];
-  var actionable = ['transfer_join','sc','rec','rehire'];
-  var actList = notifs.filter(function(x){ return x && actionable.indexOf(x.type) !== -1; });
-  var n = actList.length;
-  if(n === 0) return;
-  if(force || n !== _pendingToastCount || Date.now() - _pendingToastAt > 120000){
-    _pendingToastAt = Date.now();
-    _pendingToastCount = n;
-    var latest = actList[0];
-    var titlePart = (latest && latest.title) ? (latest.title + ' — ') : '';
-    var cntStr = (typeof num === 'function' ? num(n) : String(n));
-    toast(titlePart + cntStr + ' item(s) awaiting confirmation — click to review', 'warning', function(){
-      if (typeof navigate === 'function') navigate('notifications');
-    });
+  const model = window.NotificationModel;
+  if (!model || window.MG_TD_CFG?.master === false || window.MG_TD_CFG?.toast === false) return;
+  let session;
+  try { session = await window.MGHRM?.getSession?.(); } catch (_) { return; }
+  const userId = session?.user?.id;
+  if (!userId) return;
+  const key = 'mghrm-confirmation-popup-v1:' + userId;
+  let seen = pendingPopupMemory.get(key) || {};
+  try { const saved = JSON.parse(localStorage.getItem(key) || '{}'); if (saved && typeof saved === 'object' && !Array.isArray(saved)) seen = saved; } catch (_) {}
+  await loadTransferActionQueue();
+  if (window.MG_TRANSFER_QUEUE_ERROR) return;
+  seen = pendingPopupMemory.get(key) || seen;
+  const pending = dashboardPendingTransfers(window.MG_TRANSFER_QUEUE || []);
+  const transfers = new Map(pending.map(row=>[String(row.transfer_id), row]));
+  const fresh = [], fingerprints = new Set();
+  for (const item of (window.NOTIFICATIONS || [])) {
+    if (!['transfer_join','sc','rec','rehire'].includes(item.type) || !model.unread(item) || !model.actionable(item)) continue;
+    const transfer = item.type === 'transfer_join' ? transfers.get(String(item.ref || item.entityId)) : null;
+    if (item.type === 'transfer_join' && !transfer) continue;
+    const fingerprint = transfer ? pendingConfirmationKey(transfer) : model.legacyKey(item);
+    if (!seen[fingerprint] && !fingerprints.has(fingerprint)) { fresh.push({item,fingerprint,transfer}); fingerprints.add(fingerprint); }
   }
+  if (!fresh.length) return;
+  // Serialize concurrent startup checks, and persist only notification identities, never HR records.
+  fresh.forEach(entry=>{ seen[entry.fingerprint] = true; });
+  pendingPopupMemory.set(key, seen);
+  try { localStorage.setItem(key, JSON.stringify(seen)); } catch (_) {}
+  const latest = fresh[0];
+  toast(fresh.length + ' new item(s) awaiting confirmation — review pending actions', 'warning', function(){
+    if (latest.transfer) openDashboardTransfer(latest.transfer.transfer_id);
+    else navigate('notifications');
+  });
 }
 
 /* ============ Orchestration ============ */
@@ -22773,13 +22840,50 @@ function filterTransferActionQueue(rows){
 }
 window.filterTransferActionQueue = filterTransferActionQueue;
 
+function dashboardPendingTransfers(rows, today = transferTodayISO(), employees = null){
+  const unique = new Map();
+  const employeeMap = employees && new Map(employees.map(e=>[String(e.id),e]));
+  (rows || []).filter(Boolean).forEach(row => {
+    const id = row.transfer_id ?? row.id;
+    const item = findTransferObject(id);
+    const record = row.status || row.stored_status ? row : (item?.dRow || row);
+    const status = String(row.stored_status || record.status || record.Status || row.queue_status || '');
+    const date = row.effective_date || transferScheduledDate(record);
+    const employee = employeeMap ? employeeMap.get(String(row.employee_sys_id)) : item?.emp;
+    const employeeStatus = String(employee?.status || employee?.Status || row.employee_status || '').toLowerCase();
+    if ((employees && (!employee || employeeStatus !== 'active')) || id == null || record.deleted_at || employee?.deleted_at || ['inactive','exited'].includes(employeeStatus) ||
+        !['Scheduled','Joining Pending'].includes(status) || !/^\d{4}-\d{2}-\d{2}$/.test(date || '') || date > today || !Number.isFinite(Date.parse(date+'T00:00:00Z')) || new Date(date+'T00:00:00Z').toISOString().slice(0,10) !== date) return;
+    unique.set(String(id), {...row, transfer_id:id, effective_date:date, queue_status:status,
+      overdue_days:Math.max(0,Math.round((Date.parse(today+'T00:00:00Z')-Date.parse(date+'T00:00:00Z'))/86400000))});
+  });
+  return [...unique.values()];
+}
+function dashboardTransferQueueHtml(rows, employees){
+  const pending = dashboardPendingTransfers(rows, transferTodayISO(), employees);
+  if (!pending.length) return '<section class="dash-state">No transfers currently require joining confirmation.</section>';
+  return transferActionQueueHtml(pending, true);
+}
+async function openDashboardTransfer(id){
+  navigate('transfer');
+  try {
+    // Fetch the selected order, even if the general transfer cache was capped.
+    const result = await window.MGHRM._client().from('transfers').select('*').eq('id',id).is('deleted_at',null).single();
+    if (result.error || !result.data) throw Error('Transfer is unavailable');
+    const row = window.MGHRM.fromDb('transfers',result.data);
+    DATA.transfers = (DATA.transfers || []).filter(t=>String(t.id)!==String(id)).concat(row);
+    openTransferPopup(id);
+  } catch (error) { toast('Could not open this transfer. Refresh Transfer Management and retry.', 'error'); }
+}
+
 async function loadTransferActionQueue(){
   if (!window.MGHRM || typeof window.MGHRM.loadTransferActionQueue !== 'function') return [];
   try {
     const rows = await window.MGHRM.loadTransferActionQueue();
+    window.MG_TRANSFER_QUEUE_ERROR = false;
     window.MG_TRANSFER_QUEUE = filterTransferActionQueue(rows);
     return window.MG_TRANSFER_QUEUE;
   } catch (err) {
+    window.MG_TRANSFER_QUEUE_ERROR = true;
     console.warn('[Phase 2] Transfer action queue load failed:', err);
     window.MG_TRANSFER_QUEUE = filterTransferActionQueue(window.MG_TRANSFER_QUEUE || []);
     return window.MG_TRANSFER_QUEUE;
@@ -22787,8 +22891,8 @@ async function loadTransferActionQueue(){
 }
 window.loadTransferActionQueue = loadTransferActionQueue;
 
-function transferActionQueueHtml(rows){
-  rows = filterTransferActionQueue(rows);
+function transferActionQueueHtml(rows, dashboard = false){
+  rows = dashboard ? rows : filterTransferActionQueue(rows);
   if (!rows.length) return '';
   const overdue = rows.filter(r => Number(r.overdue_days || 0) > 0 && r.queue_status !== 'Not Joined').length;
   const notJoined = rows.filter(r => r.queue_status === 'Not Joined').length;
@@ -22854,7 +22958,7 @@ function transferActionQueueHtml(rows){
             </div>
           </div>
           <div class="trq-actions">
-            ${isNotJoined
+            ${dashboard ? `<button type="button" class="trq-btn-confirm" onclick="openDashboardTransfer(${Number(r.transfer_id)})">Review joining</button>` : isNotJoined
               ? `<button type="button" class="btn sm" style="background:#fffbeb;color:#92400e;border:1px solid #fcd34d;font-weight:600;font-size:12px;padding:6px 12px;border-radius:6px" onclick="openNotJoinedFollowUp(${Number(r.transfer_id)})">Resolve Not Joined</button>`
               : `<button type="button" class="trq-btn-confirm" onclick="openConfirmTransferJoining(${Number(r.transfer_id)})">
                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
@@ -22865,7 +22969,7 @@ function transferActionQueueHtml(rows){
                    <span>Not Joined</span>
                  </button>`
             }
-            <button type="button" class="trq-btn-view" title="View Transfer Order" onclick="openTransferPopup(${Number(r.transfer_id)})">
+            <button type="button" class="trq-btn-view" title="View Transfer Order" onclick="${dashboard ? 'openDashboardTransfer' : 'openTransferPopup'}(${Number(r.transfer_id)})">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
           </div>

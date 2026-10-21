@@ -71,10 +71,28 @@
     return {all: items.length, unread: items.filter(item => unread(item, now)).length,
       action: items.filter(item => actionable(item, now)).length, snoozed: items.filter(item => snoozed(item, now)).length};
   }
+  // Presentation only: preserve server identity, state, dedupe keys and schedule.
+  function todoPresentation(item, todos = []) {
+    if (item.entityType !== 'todo' && !['todo_rem','todo_salary','todo_reminder'].includes(item.type)) return item;
+    const id = item.ref || item.entityId || item.actionParams?.todo_id;
+    const task = todos.find(task => !task.deleted_at && String(task.id) === String(id));
+    if (!task) return item;
+    const title = String(task.title || task.note_bn || task.note || task.note_in || '').trim();
+    const context = String(task.description || '').trim();
+    const due = String(task.due_at || task.due_date || '').trim();
+    const schedule = due || item.scheduledFor;
+    let when = '';
+    if (schedule && /^\d{4}-\d{2}-\d{2}$/.test(schedule)) when = schedule;
+    else if (timestamp(schedule)) when = new Intl.DateTimeFormat('en-GB', {timeZone:'Asia/Dhaka',dateStyle:'medium',timeStyle:'short'}).format(new Date(schedule));
+    return {...item, title: title ? title.slice(0,160) : item.title,
+      detail: [when ? (due ? 'Due: ' : 'Reminder: ') + when : '', context.slice(0,240), item.detail]
+        .filter((value,index,all)=>value && all.indexOf(value)===index).join(' · '),
+      ref:String(id), actionRoute:'todo'};
+  }
   function route(value) {
     const name = String(value || '').replace(/^#?\/?/, '').split('?')[0];
     if (name === 'meetings') return 'meeting';
     return ['dashboard', 'notifications', 'todo', 'transfer', 'employees', 'recruitment', 'disciplinary', 'leave', 'uniform', 'meeting', 'reports'].includes(name) ? name : 'notifications';
   }
-  global.NotificationModel = {timestamp, terminal, snoozed, eligible, unread, actionable, legacyKey, applyLegacyState, upsert, normalize, merge, counts, route};
+  global.NotificationModel = {timestamp, terminal, snoozed, eligible, unread, actionable, legacyKey, applyLegacyState, upsert, normalize, merge, counts, route, todoPresentation};
 })(typeof window !== 'undefined' ? window : globalThis);

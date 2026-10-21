@@ -107,3 +107,32 @@ test('ordinary note autosync cannot re-enable or overwrite a server-owned schedu
  c.DATA.todos[0].note='Edited';const result=c.collectChangedRows('todos').rows[0];
  assert.equal(result.note,'Edited');assert(!('reminder_enabled' in result));assert(!('next_reminder_at' in result));
 });
+
+function edgeHandler(overrides={}) {
+ const fs=require('node:fs'),vm=require('node:vm'),{stripTypeScriptTypes}=require('node:module');
+ const source=fs.readFileSync('supabase/functions/web-push-sender/index.ts','utf8').replace(/^import .*;\n/gm,'');
+ const env={WEB_PUSH_SENDER_TOKEN:'synthetic-token-32-bytes-not-a-secret',WEB_PUSH_VAPID_SUBJECT:'mailto:synthetic@example.invalid',WEB_PUSH_VAPID_PUBLIC_KEY:'SYNTHETIC_PUBLIC',WEB_PUSH_VAPID_PRIVATE_KEY:'SYNTHETIC_PRIVATE',SUPABASE_URL:'https://synthetic.invalid',SUPABASE_SERVICE_ROLE_KEY:'SYNTHETIC_SERVICE',...overrides};
+ const calls=[];let handler;
+ const c=vm.createContext({Request,Response,URL,TextEncoder,crypto:require('node:crypto').webcrypto,
+   console:{log(){},error(){}},Deno:{env:{get:k=>env[k]},serve:fn=>{handler=fn;}},
+   webpush:{setVapidDetails(){},sendNotification(){throw Error('must not send');}},
+   createClient:()=>({rpc:async name=>{calls.push(name);return {data:false,error:null};}}),
+   runSender:async()=>{calls.push('RUN_SENDER');return {jobErrors:0};}});
+ vm.runInContext(stripTypeScriptTypes(source,{mode:'strip'}),c);
+ return {handler,calls,token:env.WEB_PUSH_SENDER_TOKEN};
+}
+test('authenticated health returns capability without claiming jobs or sending notifications',async()=>{
+ const h=edgeHandler();const response=await h.handler(new Request('https://synthetic.invalid/?health=1',{method:'POST',headers:{'x-web-push-sender-token':h.token}}));
+ assert.equal(response.status,200);assert.equal((await response.json()).configured,true);
+ assert.deepEqual(h.calls,['notification_reminder_mode']);
+});
+test('missing or mismatched custom credentials reject before database or transport access',async()=>{
+ for(const headers of [{},{'x-web-push-sender-token':'wrong-token'}]){
+   const h=edgeHandler();assert.equal((await h.handler(new Request('https://synthetic.invalid/?health=1',{method:'POST',headers}))).status,401);
+   assert.equal(h.calls.length,0);
+ }
+});
+test('missing secret configuration fails closed without returning secrets',async()=>{
+ const h=edgeHandler({WEB_PUSH_VAPID_PRIVATE_KEY:''});const response=await h.handler(new Request('https://synthetic.invalid/?health=1',{method:'POST',headers:{'x-web-push-sender-token':h.token}}));
+ assert.equal(response.status,503);assert(!JSON.stringify(await response.json()).includes(h.token));assert.equal(h.calls.length,0);
+});

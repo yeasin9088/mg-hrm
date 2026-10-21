@@ -18,11 +18,19 @@ BEGIN
    body:='{}'::jsonb,timeout_milliseconds:=50000);
 END $$;
 REVOKE ALL ON FUNCTION notification_private.invoke_web_push_sender(boolean) FROM PUBLIC,anon,authenticated;
--- Replace the existing named sender job, never add a competing sender schedule.
-SELECT cron.schedule('notification-web-push-sender','* * * * *',
-  'select notification_private.invoke_web_push_sender();');
+-- Configure in a paused state: fixing the URL must not release the old backlog.
+-- Never create a second sender or choose an ambiguous job owned by another role.
+DO $$ BEGIN
+ IF (SELECT count(*) FROM cron.job WHERE jobname='notification-web-push-sender')<>1 THEN
+   RAISE EXCEPTION 'Exactly one existing sender Cron is required';
+ END IF;
+END $$;
+SELECT cron.alter_job(
+ job_id:=(SELECT jobid FROM cron.job WHERE jobname='notification-web-push-sender'),
+ schedule:='* * * * *',command:='select notification_private.invoke_web_push_sender();',active:=false);
 COMMIT;
--- After authenticated health=1 succeeds and isolated acceptance + backup gates pass:
--- SELECT public.notification_set_server_reminders(true);
--- Rollback producer mode only (preserves schedules/history):
--- SELECT public.notification_set_server_reminders(false);
+-- While paused, invoke notification_private.invoke_web_push_sender(true).
+-- Inspect that request ID's response for HTTP 200/configured=true; do not run the
+-- legacy sender v5 POST with a health parameter: v5 does not implement dry-run.
+-- After backup/integration gates, health and explicit backlog review, use
+-- reminder-activate.sql. No activation or backlog mutation happens in this file.

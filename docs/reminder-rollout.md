@@ -24,6 +24,56 @@ Status: source implementation; NOT deployed. Production producer mode has NOT be
 - Browser mgReminderTick is the existing TodoReminderDue event producer.
   Existing Cron processes events; it does not compute due To-Do schedules.
 
+## Targeted 401 investigation and remaining access gate (2026-10-21)
+
+Cause VERIFIED, not a token-mismatch assumption: the named sender Cron targets
+`/functions/v1/web-push-config` on the correct project, rather than
+`/functions/v1/web-push-sender`. Its JSON headers contain a nonempty custom sender
+token and no Authorization header. During 22:00–22:30 Asia/Dhaka, 30 matching
+function-edge log entries showed the config path, HTTP 401 and platform error
+`UNAUTHORIZED_NO_AUTH_HEADER`. The config function v6 has verify_jwt=true;
+the sender v5 has verify_jwt=false and expects x-web-push-sender-token.
+No credentials, endpoint capabilities or request header values were retrieved.
+
+An unauthenticated, non-sending GET to the actual sender returned HTTP 405,
+consistent with its POST-only deployed handler. This is route reachability, NOT
+authentication or VAPID validation. Sender v5 has no read-only health endpoint;
+POSTing to v5 with `?health=1` would still run delivery work. Do NOT do that.
+The reviewed new handler's authenticated health path is tested without claims.
+
+Actual Edge token presence/equality and VAPID validity remain UNVERIFIED.
+Required-token absence would produce 500 in the v5 handler, but these 401s occur
+at the different function's platform gateway, before any sender execution. No
+conclusion about sender-secret rotation can be drawn from these responses.
+
+Connected tools expose SQL, function deployment and empty development branching,
+but no physical-backup creation/export/clone or Edge secret list/set operation.
+CLI backup list and secret list were both actively attempted and returned
+`AccessTokenRequiredError`. Environment credentials were not configured.
+Supabase Dashboard fallback reached sign-in; secure browser authentication was
+declined, so no retry or credential entry followed. No existing isolated database
+branch was available (only production main). Plugin discovery found the existing
+Supabase connector, with no additional suitable backup/secret operation.
+
+The smallest next access step is authenticated Supabase Dashboard management
+through its secure sign-in, not a token/password pasted in chat. An authorized
+operator can then inspect Database → Backups and Edge Functions → Secrets.
+Any paid isolated restore must be cost-approved first. A production clone must
+be prevented from sending to copied subscriptions: secure network isolation and
+suppression of copied Cron/pg_net/Vault before any outbound execution are
+mandatory. Do not create a live clone and rely on disabling its jobs afterwards.
+No full encrypted backup, integrity/restore proof, hosted integration or real
+multi-session concurrency has been completed, and production rollout is blocked.
+
+The pending Cron script now updates exactly one existing job and leaves it
+INACTIVE in the same transaction. It never creates a second scheduler or flushes
+old work. After the new sender's protected health returns 200/configured=true,
+review old event/job/delivery work explicitly, preserving inbox/history and
+cancelling only separately approved stale/duplicate push attempts. The new
+`reminder-activate.sql` refuses unresolved backlog or a misconfigured/unpaused
+sender; it locks queue tables, enables the producer and resumes the same job in
+one bounded transaction. It does not sweep or delete any historical records.
+
 ## Architecture
 
 Reuse the existing one-minute processor Cron. Its transaction first calls
@@ -102,7 +152,9 @@ Run `npm ci`, `node --test tests/*.test.cjs`, `npm run test:reminder-db`, `npm r
 The DB test uses PostgreSQL WASM (PGlite 0.5.11), synthetic tables/fixtures and the
 actual notification SQL functions, lifecycle triggers, constraints and indexes.
 Auth helpers/sessions are isolated test fixtures, NOT a full Supabase Auth clone.
-The migration is applied twice to prove replay behavior. Tests cover event →
+The migration is replayed to prove idempotency and rollback behavior. The
+two-phase rollout SQL is exercised against synthetic Cron/net/Vault interface
+stubs; this is not a hosted extension integration test. Tests cover event →
 inbox → per-device queue, one-shot/recurrence, source resolution, reschedule,
 quiet hours, snooze, source edit cancellation, private grants and account isolation.
 Queued invocations are serialized by WASM: a real multi-connection race stress
@@ -112,8 +164,8 @@ Browser visual/OS notification verification is unavailable in this environment.
 Deno check is performed against pinned dependencies in an isolated npm directory;
 this does not prove hosted Edge execution.
 
-Verified local results: Node 121 passed / 0 failed / 1 browser test skipped;
-19 PostgreSQL acceptance groups passed; npm lint, JavaScript/inline-script syntax,
+Verified local results: Node 124 passed / 0 failed / 1 browser test skipped;
+20 PostgreSQL acceptance groups passed; npm lint, JavaScript/inline-script syntax,
 diff checks and isolated Deno sender type-check passed. Real multi-session
 concurrency, hosted extensions and physical-device receipt remain unverified.
 
@@ -145,14 +197,15 @@ Do not merge this PR or deploy until these gates are demonstrated:
    ownership and RLS against the reviewed signatures and original catalog ACLs.
 5. Validate the pending `supabase/rollout/reminder-cron.sql` on the isolated stack
    (real pg_cron/pg_net/Vault; WASM cannot validate those extensions). Apply it only
-   after those checks. It replaces the existing named sender Cron, not a second
-   sender. The invoker refuses absent/short Vault token configuration.
+   after those checks. It changes exactly one existing named sender Cron and
+   leaves it INACTIVE. The invoker refuses absent/short Vault token configuration.
 6. Invoke the protected sender `?health=1` through the authorized server path.
    It checks configuration and read-only capability; no jobs are claimed. Observe
    HTTP 200 and configured=true. A queued pg_net request ID is not success.
-7. Publish verified frontend assets. Activate via service-only
-   notification_set_server_reminders(true), serialized against both producer
-   paths. Cached/old clients are blocked by the legacy RPC even before refresh.
+7. Explicitly review and resolve the pre-cutover event/job/delivery backlog;
+   never blindly replay it or remove history. Publish verified frontend assets.
+   Use `supabase/rollout/reminder-activate.sql`, which refuses unresolved work
+   and atomically enables producer mode and resumes the paused sender. Cached/old clients are blocked by the legacy RPC even before refresh.
    Do not disable all reminders or rewrite saved dates during cutover.
 8. Run end-to-end synthetic 30-minute and one-shot acceptance while the app is
    closed, active, minimized and stale across dedicated subscribed devices.

@@ -185,6 +185,42 @@ try {
    assert.equal((await db.exec('select notification_reminder_mode() mode')).rows[0].mode,true);
    assert.equal(await count('notification_events','true'),before);
  });
+ await check('two-phase rollout configures one paused sender; health is non-sending and backlog blocks activation',async()=>{
+   // Interface stubs only: this is NOT hosted pg_cron/pg_net/Vault validation.
+   await db.exec(`CREATE SCHEMA cron;CREATE SCHEMA vault;CREATE SCHEMA net;
+     CREATE TABLE cron.job(jobid bigint PRIMARY KEY,jobname text,schedule text,command text,active boolean);
+     INSERT INTO cron.job VALUES(2,'notification-web-push-sender','* * * * *','synthetic previous command',true);
+     CREATE FUNCTION cron.alter_job(job_id bigint,schedule text DEFAULT NULL,command text DEFAULT NULL,database text DEFAULT NULL,username text DEFAULT NULL,active boolean DEFAULT NULL)
+     RETURNS void LANGUAGE sql AS $$ UPDATE cron.job j SET schedule=coalesce($2,j.schedule),command=coalesce($3,j.command),active=coalesce($6,j.active) WHERE j.jobid=$1 $$;
+     CREATE TABLE vault.secrets(name text,decrypted_secret text);
+     CREATE VIEW vault.decrypted_secrets AS SELECT * FROM vault.secrets;
+     CREATE TABLE net.recorded_http_calls(id bigint GENERATED ALWAYS AS IDENTITY,url text,headers jsonb,body jsonb);
+     CREATE FUNCTION net.http_post(url text,body jsonb DEFAULT '{}',params jsonb DEFAULT '{}',headers jsonb DEFAULT '{}',timeout_milliseconds int DEFAULT 2000)
+     RETURNS bigint LANGUAGE sql AS $$ INSERT INTO net.recorded_http_calls(url,headers,body) VALUES($1,$4,$2) RETURNING id $$;`);
+   await db.exec('select notification_set_server_reminders(false)');
+   await db.exec(await read('supabase/rollout/reminder-cron.sql'));
+   assert.equal(await count('cron.job',"jobname='notification-web-push-sender'"),1);
+   assert.equal((await db.exec('select active from cron.job where jobid=2')).rows[0].active,false);
+   await assert.rejects(db.exec('select notification_private.invoke_web_push_sender(true)'),{code:'P0001'});
+   assert.equal(await count('net.recorded_http_calls','true'),0);
+   await db.exec("insert into vault.secrets values('mg_notification_sender_token','synthetic-token-32-bytes-not-a-secret')");
+   await db.exec('select notification_private.invoke_web_push_sender(true)');
+   const request=(await db.exec('select * from net.recorded_http_calls')).rows[0];
+   assert.equal(request.url,'https://enkggoozsvvkgbjeghbf.supabase.co/functions/v1/web-push-sender?health=1');
+   assert.equal(request.headers['x-web-push-sender-token'],'synthetic-token-32-bytes-not-a-secret');
+   const activate=await read('supabase/rollout/reminder-activate.sql');
+   await assert.rejects(db.exec(activate),{code:'P0001'});await db.exec('rollback');
+   assert.equal((await db.exec('select notification_reminder_mode() enabled')).rows[0].enabled,false);
+   assert.equal((await db.exec('select active from cron.job where jobid=2')).rows[0].active,false);
+   // Resolve ONLY in-memory synthetic fixtures for the successful activation branch.
+   await db.exec("update notification_jobs set job_status='Cancelled',locked_by=null,locked_at=null where job_status in ('Pending','Failed','Processing');update notification_deliveries set delivery_status='Cancelled' where delivery_status in ('Pending','Failed','Processing');update notifications set status='Cancelled' where status in ('Ready','Scheduled','Snoozed','Failed');update notification_events set processing_status='Ignored' where processing_status in ('Pending','Failed')");
+   const notes=await count('todos','true'),events=await count('notification_events','true');
+   await db.exec(activate);
+   assert.equal((await db.exec('select notification_reminder_mode() enabled')).rows[0].enabled,true);
+   assert.equal((await db.exec('select active from cron.job where jobid=2')).rows[0].active,true);
+   assert.equal(await count('todos','true'),notes);assert.equal(await count('notification_events','true'),events);
+   assert.equal(await count('net.recorded_http_calls','true'),1);
+ });
  console.log(`PASS ${passed} isolated PostgreSQL acceptance groups (synthetic data only)`);
 } finally {
  await engine.close();

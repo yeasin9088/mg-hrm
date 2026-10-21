@@ -19,7 +19,12 @@ function fixture(heading, title='Dashboard', subtitle='Workforce overview') {
   vm.runInContext(source,c);
   return {page,c,titles,setHeading(next){heading=next}};
 }
-const heading = (tag,text,hidden=false)=>({tagName:tag,textContent:text,closest:()=>hidden?{}:null});
+const heading = (tag,text,hidden=false)=>{
+  const classes=new Set();
+  const host={classList:{add:name=>classes.add(name)},classes};
+  return {tagName:tag,textContent:text,parentElement:host,
+    closest:selector=>hidden?{}:selector==='header,.card-header'?host:null};
+};
 test('native Dashboard, Notification and Recruitment headings own the page; content subheadings remain intact',()=>{
   for(const [title,own] of [['Dashboard','Dashboard'],['Notifications','Notifications'],['Recruitment Pipeline','Recruitment']]) {
     const f=fixture(heading('H2',own),title);f.c.syncSectionHeading();
@@ -40,4 +45,20 @@ test('shared fallback is idempotent, updates context and disappears after an asy
   f.setHeading(null);f.c.syncSectionHeading();assert.equal(f.page.fallback.children[0].textContent,'Dashboard');
   assert.match(html,/<div class="topbar-left" hidden>/);
   assert.match(html,/observer\.observe\(page,\{childList:true,subtree:true\}\)/);
+});
+
+test('heading hosts reserve utility space without moving or hiding native actions',()=>{
+  const own=heading('H2','Notifications');
+  const f=fixture(own,'Notifications');const controls=f.page.controls;
+  f.c.syncSectionHeading();
+  assert(own.parentElement.classes.has('section-heading-host'));
+  assert.equal(f.page.controls,controls);assert.equal(f.page.fallback,null);
+  const empty=fixture(null);empty.c.syncSectionHeading();
+  assert.equal(empty.page.fallback.className,'section-page-heading section-heading-host');
+  // Utility and navigation markup must remain outside the hidden metadata source.
+  const metadata=html.slice(html.indexOf('<div class="topbar-left"'),html.indexOf('<div class="topbar-right"'));
+  assert(!/id="(?:notifBell|fullscreenToggleBtn|mobileNotifToggle)"/.test(metadata));
+  assert.match(html,/\.main > \.topbar\{position:absolute;/);
+  assert.match(html,/padding-inline-end:104px/);
+  assert.match(html,/\.main > \.topbar\{position:static;margin:0;padding:0!important;min-height:0/);
 });

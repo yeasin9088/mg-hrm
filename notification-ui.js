@@ -4,7 +4,7 @@
   const model = global.NotificationModel;
   const view = {pageTab: 'all', panelTab: 'all', category: 'all', priority: 'all', query: '', visible: 50};
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const items = () => global.NOTIFICATIONS || [];
+  const items = () => (global.NOTIFICATIONS || []).map(item => model.todoPresentation(item, global.DATA?.todos || []));
   const category = item => item.category || item.entityType || item.type || 'General';
   function filter(tab) {
     return items().filter(item => (tab === 'all' || (tab === 'unread' && model.unread(item)) ||
@@ -37,10 +37,10 @@
       (!model.terminal(item) ? button('snooze','Snooze',item.id)+button('dismiss','Dismiss',item.id) : '')+
       (item.isBackend && model.actionable(item) && ['todo','transfer','exit','leave','uniform_supply_order','uniform_delivery_issue','uniform_delivery_bill'].includes(item.entityType)
         ? button('complete','Check resolution',item.id) : '')+'</div>';
-    return '<article class="mg-n-card '+(model.unread(item)?'unread':'')+'" data-notification-id="'+escape(item.id)+'">'+
+    return '<article class="mg-n-card '+(model.unread(item)?'unread':'read')+'" data-notification-id="'+escape(item.id)+'">'+
       '<div class="mg-n-content"><div class="mg-n-top"><button class="mg-n-open" type="button" data-notification-action="open" data-id="'+escape(item.id)+'">'+escape(item.title||'Notification')+'</button>'+time(item)+
       (model.unread(item)?'<span class="mg-n-unread-dot" aria-label="Unread"></span>':'')+'</div>'+
-      '<p class="mg-n-message">'+escape(item.detail || item.message || '')+'</p><div class="mg-n-meta"><span class="mg-n-chip">'+escape(category(item))+'</span><span class="mg-n-chip mg-n-priority-'+safePriority+'">'+escape(priority)+'</span>'+
+      '<p class="mg-n-message">'+escape(item.detail || item.meta || item.message || '')+'</p><div class="mg-n-meta"><span class="mg-n-chip">'+escape(category(item))+'</span><span class="mg-n-chip mg-n-priority-'+safePriority+'">'+escape(priority)+'</span>'+
       (model.terminal(item)||model.snoozed(item)?'<span class="mg-n-chip">'+escape(item.status || 'Snoozed')+'</span>':'')+'</div>'+controls+'</div></article>';
   }
   function stateBanner() {

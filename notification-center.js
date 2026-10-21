@@ -102,9 +102,13 @@
     if (!success) return;
     document.getElementById('notifDropdown')?.classList.remove('open');
     const legacyRoutes = {sc:'disciplinary', rec:'recruitment', transfer_join:'transfer', rehire:'employees', todo_rem:'todo', todo_salary:'todo'};
-    const route = model.route(item.actionRoute || legacyRoutes[item.type] || item.entityType);
-    if (route === 'todo' && item.ref && typeof window.mgTodoNotifOpen === 'function') window.mgTodoNotifOpen(item.ref);
-    else if (typeof navigate === 'function') navigate(route);
+    const display = model.todoPresentation(item, window.DATA?.todos || []);
+    const route = model.route(display.actionRoute || legacyRoutes[item.type] || item.entityType);
+    if (route === 'todo' && display.ref && typeof window.mgTodoNotifOpen === 'function') window.mgTodoNotifOpen(display.ref);
+    else if (route === 'transfer' && item.ref && typeof navigate === 'function') {
+      if (typeof window.openDashboardTransfer === 'function') window.openDashboardTransfer(item.ref);
+      else { navigate('transfer'); if (typeof window.openTransferPopup === 'function') window.openTransferPopup(item.ref); }
+    } else if (typeof navigate === 'function') navigate(route);
   };
   window.mgBackendNotifSnooze = async function (id, minutes) {
     const item = find(id); if (!item) return false;

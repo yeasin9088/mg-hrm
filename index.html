@@ -3400,6 +3400,85 @@ input:focus, select:focus, textarea:focus {
 #tab-naAddr .na-check input{width:15px!important;height:15px!important;min-height:0!important;accent-color:var(--primary)}
 </style>
 <style id="sensitive-join-date-ui">.sensitive-confirm-back{position:fixed;inset:0;z-index:200000;background:rgba(15,23,42,.58);backdrop-filter:blur(6px);display:grid;place-items:center;padding:18px}.sensitive-confirm-card{width:min(520px,96vw);background:var(--surface,#fff);border:1px solid color-mix(in srgb,var(--primary) 25%,var(--border));border-radius:18px;padding:24px;box-shadow:0 28px 80px rgba(15,23,42,.3);color:var(--text)}.sensitive-confirm-icon{width:38px;height:38px;border-radius:12px;background:#fff7ed;color:#c2410c;display:grid;place-items:center;font-weight:900;font-size:20px;margin-bottom:12px}.sensitive-confirm-card h3{margin:0 0 8px;font-size:19px}.sensitive-confirm-card p{margin:0 0 16px;color:var(--text-muted);font-size:13px;line-height:1.55}.sensitive-date-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}.sensitive-date-grid div{padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-dim)}.sensitive-date-grid span{display:block;font-size:10px;color:var(--text-muted);font-weight:700;text-transform:uppercase}.sensitive-date-grid strong{display:block;margin-top:4px}.sensitive-confirm-card label{display:block;font-size:12px;font-weight:700;margin-bottom:6px}.sensitive-confirm-input{width:100%;height:42px;border:1px solid color-mix(in srgb,var(--primary) 35%,var(--border));border-radius:10px;padding:0 12px;text-transform:uppercase;letter-spacing:.08em}.sensitive-confirm-input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 14%,transparent)}.sensitive-confirm-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}.sensitive-proceed:disabled{opacity:.45;cursor:not-allowed}@media(max-width:540px){.sensitive-date-grid{grid-template-columns:1fr}}</style>
+<style id="todo-ui-refresh">
+/* To-Do workspace refresh. Existing note and reminder workflows own all mutations. */
+#page-todo{min-width:0}
+#page-todo .td-wrap{max-width:1240px;margin-inline:auto;gap:16px}
+#page-todo .td-card{padding:0;border:0;background:transparent;box-shadow:none;min-width:0}
+#page-todo .td-head{margin-bottom:14px;align-items:center;gap:10px}
+#page-todo .td-head h3{font-size:19px;font-weight:700}
+#page-todo .td-sub{font-size:12px;line-height:1.5}
+#page-todo .td-right{gap:6px}
+#page-todo .td-tabs{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}
+#page-todo .td-tab{min-width:0;min-height:88px;padding:14px;gap:10px;background:var(--card);border-radius:12px;box-shadow:0 2px 5px rgba(30,41,59,.02)}
+#page-todo .td-tab:hover{transform:none;border-color:var(--primary)}
+#page-todo .td-tab.is-on{background:var(--primary-soft);border-color:var(--primary);box-shadow:inset 0 0 0 1px var(--primary)}
+#page-todo .td-tab .ic{width:34px;height:34px;flex-basis:34px;border:0;border-radius:9px}
+#page-todo .td-tab .ic svg{width:18px;height:18px}
+#page-todo .td-tab .tt{font-size:12px;line-height:1.4;overflow-wrap:anywhere}
+#page-todo .td-tab .ts{font-size:10.5px;letter-spacing:0}
+#page-todo .td-tab .ts-done{font-size:10px;font-weight:500;margin-top:4px}
+#page-todo .td-tab .n{font-size:25px;letter-spacing:-.5px}
+#page-todo .td-compose{padding:14px 16px;background:var(--card);border-radius:12px;box-shadow:0 3px 12px rgba(30,41,59,.025);margin-bottom:18px}
+#page-todo .td-fb-row{gap:10px;min-width:0}
+#page-todo .td-fb-ava{width:32px;height:32px;border-radius:9px;flex-shrink:0;margin-top:3px}
+#page-todo .td-compose textarea.td-in{min-width:0;min-height:64px;max-height:180px;font-size:14px;line-height:1.65;font-weight:400;overflow-wrap:anywhere;padding:4px 0;box-shadow:none}
+#page-todo .td-fb-foot{flex-wrap:wrap;gap:8px;margin-top:8px;padding-top:10px}
+#page-todo .td-fb-foot label{min-width:0;font-size:11px;gap:7px}
+#page-todo .td-fb-foot select{max-width:100%;min-width:0;height:36px;font-size:12px;background:var(--card);padding:0 9px}
+#page-todo .td-fb-send{height:36px;padding-inline:18px;border-radius:8px;font-size:12px;box-shadow:0 2px 4px rgba(79,70,229,.12)}
+#page-todo .td-bar{gap:10px;margin-bottom:12px;padding-bottom:0;border:0}
+#page-todo .td-mini{gap:4px;min-width:0;flex-wrap:wrap}
+#page-todo .td-chipbtn{height:32px;padding-inline:10px;border-radius:7px;border-color:transparent;background:transparent;color:var(--text-2);font-size:11px;font-weight:500}
+#page-todo .td-chipbtn.on{color:var(--primary);background:var(--primary-soft);border-color:var(--border);font-weight:700}
+#page-todo .td-search{flex:0 1 250px;min-width:0}
+#page-todo .td-search input{width:100%;min-width:0;height:36px;border-radius:9px;font-size:12px}
+#page-todo .td-group-h{margin-bottom:8px;padding:0 2px}
+#page-todo .td-group-t{font-size:10px;letter-spacing:.07em;font-weight:600}
+#page-todo .td-list{gap:6px}
+#page-todo .td-row{padding:12px;gap:10px;border-radius:10px;background:var(--card);box-shadow:none;min-width:0;cursor:default}
+#page-todo .td-row:hover{box-shadow:none;border-color:var(--border-strong)}
+#page-todo .td-row.is-open{box-shadow:0 3px 12px rgba(30,41,59,.04);border-color:var(--primary)}
+#page-todo .td-row.is-important{border-color:var(--border)}
+#page-todo .td-row.is-solved{opacity:1;background:var(--bg,#f8fafc)}
+#page-todo .td-row.is-solved .td-note{opacity:1;text-decoration:none;color:var(--text-2)}
+#page-todo .td-row.is-solved .td-toggle{color:var(--success)}
+#page-todo .td-note{display:block;width:100%;border:0;background:transparent;padding:0;margin:0;text-align:start;cursor:pointer;font-family:inherit;font-size:13px;line-height:1.65;font-weight:500;overflow-wrap:anywhere}
+#page-todo .td-row:not(.is-open) .td-note{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#page-todo .td-row.is-important .td-note{font-weight:500}
+#page-todo .td-row.is-open .td-note{white-space:pre-wrap}
+#page-todo .td-meta{gap:5px;font-size:10.5px;line-height:1.5;margin-top:5px;overflow-wrap:anywhere}
+#page-todo .td-state{font-weight:600;color:var(--text-2)}
+#page-todo .td-state.solved{color:var(--success)}
+#page-todo .td-due{max-width:100%;white-space:normal;font-size:10px}
+#page-todo .td-side{gap:2px;padding:0;align-items:flex-start}
+#page-todo :is(.td-star,.td-chev,.td-toggle,.td-icb){width:34px;height:34px;min-width:34px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;flex-shrink:0}
+#page-todo .td-chev{border:0;background:transparent;padding:0}
+#page-todo .td-star.on{color:#b77910;background:#fff8e7}
+#page-todo .td-row.is-open .td-chev{transform:none}
+#page-todo .td-row.is-open .td-chev svg{transform:rotate(180deg)}
+#page-todo .td-btn{height:32px;max-width:100%;font-size:11px;border-radius:7px;white-space:normal}
+#page-todo .td-acts{gap:6px;margin-top:8px}
+#page-todo .td-details{animation:tdDetailsReveal .16s ease-out}
+#page-todo .td-details[hidden]{display:none}
+#page-todo .td-extra .x{overflow-wrap:anywhere}
+#page-todo .td-empty{padding:30px 16px;border:1px dashed var(--border);background:var(--card)}
+#page-todo :is(button,select,textarea,input):focus-visible{outline:2px solid var(--primary);outline-offset:3px}
+@keyframes tdDetailsReveal{from{opacity:.5;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:900px){#page-todo .td-tabs{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}#page-todo .td-bar{align-items:stretch}#page-todo .td-search{flex:1 1 100%;margin:0}}
+@media(max-width:600px){
+ #page-todo .td-head{align-items:center;gap:8px}#page-todo .td-head .td-right{margin:0;gap:4px}#page-todo .td-head h3{font-size:17px}
+ #page-todo .td-tab{padding:10px;gap:7px;min-height:82px}#page-todo .td-tab .ic{width:26px;height:26px;flex-basis:26px}#page-todo .td-tab .n{font-size:21px}#page-todo .td-tab .tt{font-size:11px}#page-todo .td-tab .ts{font-size:9.5px}
+ #page-todo .td-compose{padding:12px;margin-bottom:14px}#page-todo .td-fb-ava{display:none}#page-todo .td-compose textarea.td-in{font-size:16px}
+ #page-todo .td-fb-foot{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}#page-todo .td-fb-foot label{display:flex;flex-direction:column;align-items:stretch;gap:4px}#page-todo .td-fb-foot select{width:100%;font-size:16px;height:44px}
+ #page-todo .td-fb-send{grid-column:1/-1;width:100%;margin:0;height:44px}
+ #page-todo .td-row{padding:10px 8px;gap:6px}#page-todo .td-side{flex-direction:column;gap:0}
+ #page-todo :is(.td-star,.td-chev,.td-toggle,.td-icb){min-width:44px;width:44px;height:44px}#page-todo .td-toggle{margin-top:0}
+ #page-todo .td-chipbtn{min-height:44px;padding-inline:9px}#page-todo .td-btn,#page-todo .td-mvbtn{min-height:44px;height:auto;padding:8px}
+ #page-todo .td-search input{font-size:16px;height:44px}#page-todo .td-meta{font-size:10px}#page-todo .td-note{font-size:13px}
+}
+@media(prefers-reduced-motion:reduce){#page-todo *,#page-todo *::before{animation:none!important;transition:none!important}}
+</style>
 </head>
 <body>
 <!-- ===== PHASE 8: Branded boot screen ===== -->
@@ -18538,6 +18617,12 @@ function renderTodo(){
   const sec = document.getElementById('page-todo');
   if(!sec) return;
 
+  // Preserve unsaved composer values across filters, search and asynchronous list refreshes.
+  const oldInput = document.getElementById('tdQuickNote');
+  if (oldInput) window.MG_TD_COMPOSER_DRAFT = {
+    text:oldInput.value, reminder:document.getElementById('tdQuickRemindType')?.value || ''
+  };
+  const composerDraft = window.MG_TD_COMPOSER_DRAFT || {text:'',reminder:''};
   const esc = (typeof escapeHtml === 'function') ? escapeHtml : function(v){ return String(v == null ? '' : v); };
   const stOf = function(t){ return ((t && t.status) || 'pending').toLowerCase(); };
   const isSolvedT = function(t){ const s = stOf(t); return s === 'solved_approved' || s === 'solved_rejected' || s === 'solved' || s === 'done'; };
@@ -18627,7 +18712,7 @@ function renderTodo(){
   const approvedCount  = scopeList.filter(function(t){ return stOf(t) === 'approved'; }).length;
   const rejectedCount  = scopeList.filter(function(t){ return stOf(t) === 'rejected'; }).length;
   const solvedCount    = scopeList.filter(isSolvedT).length;
-  const importantCount = scopeList.filter(function(t){ return t.is_important && !isSolvedT(t); }).length;
+  const importantCount = scopeList.filter(function(t){ return t.is_important; }).length;
   const totalCount     = scopeList.length;
 
   const activeProjsList = (typeof activeProjects === 'function' ? activeProjects() : [])
@@ -18815,9 +18900,8 @@ function renderTodo(){
 
     const remChip = (t.reminder_enabled === true) ? ('<span class="td-chip td-due" title="' + esc(window.mgRmSummary(t)) + '">' + ICON.bell + ' ' + esc(window.mgRmSummary(t)) + '</span>') : '';
 
-    // COLLAPSED: status pill, relative time chip, Important chip if set, category chip when section is not General
-    let thinMeta = '<span>' + stWord + '</span><span>·</span><span title="' + esc(w.full) + '">' + esc(w.txt || 'just now') + '</span>';
-    if(t.is_important) thinMeta += '<span>·</span><span class="td-meta-imp">★ Important</span>';
+    // Compact metadata: status, time, reminder and category. Importance is shown only by the side star.
+    let thinMeta = '<span class="td-state' + (solved ? ' solved' : '') + '">' + stWord + '</span><span>·</span><span title="' + esc(w.full) + '">' + esc(w.txt || 'just now') + '</span>';
     if(remChip) thinMeta += '<span>·</span>' + remChip;
     if(mainF !== 'general'){
       thinMeta += '<span>·</span><span class="td-meta-cat">' + esc(CAT[ck] || ck) + '</span>';
@@ -18825,8 +18909,7 @@ function renderTodo(){
 
     const isRemOn  = (t.reminder_enabled === true);
     const remTitle = isRemOn ? ('Reminder: ' + window.mgRmSummary(t)) : 'Set a reminder';
-    const remBtn   = '<button type="button" class="td-remind' + (isRemOn ? ' on' : '') +
-      '" title="' + esc(remTitle) + '" onclick="event.stopPropagation();mtOpenRemPicker(\'' + id + '\')">' + ICON.bell + '</button>';
+
 
     let expandedHtml = '';
     if(isOpen){
@@ -18859,7 +18942,6 @@ function renderTodo(){
       if(t.solved_at){
         details.push('Solved: <b>' + esc(agoOf(new Date(t.solved_at)).txt || '') + '</b>');
       }
-      if(t.is_important) details.push('<span class="td-meta-imp">★ Important</span>');
       const fullMetaHtml = '<div class="td-meta" style="margin-top:9px;padding-top:8px;border-top:1px dashed var(--border);">' + details.join('<span>·</span>') + '</div>';
 
       // 4: status action row
@@ -18888,8 +18970,7 @@ function renderTodo(){
         '</div>';
       }
 
-      // 6: the action row: Edit, Extra note, Move, Star, Remind, Delete
-      const starBtn = '<button type="button" class="td-btn b-ghost' + (t.is_important ? ' is-imp-on' : '') + '" title="' + (t.is_important ? 'Remove important' : 'Mark as important') + '" onclick="event.stopPropagation();mtToggleTodoImportant(\'' + id + '\')">' + (t.is_important ? ICON.starOn : ICON.star) + ' ' + (t.is_important ? 'Important' : 'Star') + '</button>';
+      // Existing note actions stay inside the expanded details.
       const remBtnAct = '<button type="button" class="td-btn b-ghost' + (isRemOn ? ' is-imp-on' : '') +
         '" title="' + esc(remTitle) + '" onclick="event.stopPropagation();mtOpenRemPicker(\'' + id + '\')">' +
         ICON.bell + ' ' + (isRemOn ? esc(window.mgRmSummary(t)) : 'Remind') + '</button>';
@@ -18900,7 +18981,6 @@ function renderTodo(){
         '<button type="button" class="td-btn b-ghost" title="Edit note" onclick="event.stopPropagation();mtOpenNote(\'' + id + '\',\'edit\')">' + ICON.pencil + ' Edit</button>' +
         '<button type="button" class="td-btn b-ghost" title="Extra note / reply" onclick="event.stopPropagation();mtOpenNote(\'' + id + '\',\'extra\')">' + ICON.plusbox + ' Extra note</button>' +
         moveBtn +
-        starBtn +
         remBtnAct +
         delBtn +
       '</div>';
@@ -18926,19 +19006,18 @@ function renderTodo(){
       expandedHtml = extras + fullMetaHtml + statusActsHtml + mgrBarHtml + actionRowHtml + movePanelHtml;
     }
 
-    const starBtnSide = '<button type="button" class="td-star' + (t.is_important ? ' on' : '') + '" title="' + (t.is_important ? 'Remove important' : 'Mark as important') + '" onclick="event.stopPropagation();mtToggleTodoImportant(\'' + id + '\')">' + (t.is_important ? ICON.starOn : ICON.star) + '</button>';
+    const starBtnSide = '<button type="button" id="td-important-' + id + '" aria-label="' + (t.is_important ? 'Remove important' : 'Mark as important') + '" aria-pressed="' + !!t.is_important + '" class="td-star' + (t.is_important ? ' on' : '') + '" title="' + (t.is_important ? 'Remove important' : 'Mark as important') + '" onclick="event.stopPropagation();mtToggleTodoImportant(\'' + id + '\')">' + (t.is_important ? ICON.starOn : ICON.star) + '</button>';
 
     return '<div class="td-row' + (isOpen ? ' is-open' : '') + (solved ? ' is-solved' : '') + (t.is_important ? ' is-important' : '') + '" id="td-row-' + id + '" data-id="' + id + '">' +
-      '<button type="button" class="td-toggle ' + tcls + '" title="' + ttip + '" onclick="event.stopPropagation();mtToggleTodoStatus(\'' + id + '\')">' + tsvg + '</button>' +
-      '<div class="td-body" onclick="mtToggleTodoOpen(\'' + id + '\')">' +
-        '<div class="td-note" title="' + esc(showText) + '">' + esc(showText) + '</div>' +
+      '<button type="button" class="td-toggle ' + tcls + '" aria-label="' + ttip + '" title="' + ttip + '" onclick="event.stopPropagation();mtToggleTodoStatus(\'' + id + '\')">' + tsvg + '</button>' +
+      '<div class="td-body">' +
+        '<button type="button" id="td-preview-' + id + '" class="td-note" aria-expanded="' + isOpen + '" aria-controls="td-details-' + id + '" onclick="mtToggleTodoOpen(\'' + id + '\')" title="' + esc(showText) + '">' + esc(showText) + '</button>' +
         (!isOpen ? ('<div class="td-meta">' + thinMeta + '</div>') : '') +
-        expandedHtml +
+        '<div class="td-details" id="td-details-' + id + '"' + (isOpen ? '' : ' hidden') + '>' + expandedHtml + '</div>' +
       '</div>' +
       '<div class="td-side" onclick="event.stopPropagation()">' +
         starBtnSide +
-        remBtn +
-        '<span class="td-chev" onclick="mtToggleTodoOpen(\'' + id + '\')">' + ICON.chev + '</span>' +
+        '<button type="button" id="td-expand-' + id + '" class="td-chev" aria-label="' + (isOpen ? 'Collapse note details' : 'Expand note details') + '" aria-expanded="' + isOpen + '" aria-controls="td-details-' + id + '" onclick="mtToggleTodoOpen(\'' + id + '\')">' + ICON.chev + '</button>' +
       '</div>' +
     '</div>';
   };
@@ -19023,9 +19102,9 @@ function renderTodo(){
       const icon = (ICON[s.key] || (s.key === 'general' ? ICON.list : (s.key === 'mgr' ? ICON.user : (s.key === 'salary' ? ICON.salary : (ICON.task || ICON.list)))));
       const count = all.filter(function(t){ return getCat(t) === s.cat && !isSolvedT(t); }).length;
       const solved = all.filter(function(t){ return getCat(t) === s.cat && isSolvedT(t); }).length;
-      const doneLabel = (s.key === 'mgr' ? 'Informed ' : (s.key === 'salary' ? 'Cleared ' : 'Solved ')) + bn(solved);
+      const doneLabel = (s.key === 'salary' ? 'Cleared ' : 'Solved ') + bn(solved);
       const cls = 'td-tab t-' + s.key + (s.key === 'salary' ? ' t-sal' : '') + (active ? ' is-on' : '');
-      return '<button type="button" class="' + cls + '" onclick="mtSetTodoFilter(\'' + s.key + '\')">' +
+      return '<button type="button" class="' + cls + '" aria-pressed="' + active + '" onclick="mtSetTodoFilter(\'' + s.key + '\')">' +
         '<span class="ic">' + icon + '</span>' +
         '<span class="tbox">' +
           '<span class="tt">' + esc(s.label) + '</span>' +
@@ -19056,15 +19135,19 @@ function renderTodo(){
     ],
     mgr: [
       { key: 'all',       label: 'All',       count: totalCount },
-      { key: 'pending',   label: 'Waiting',   count: pendingCount },
+      { key: 'unsolved', label: 'Open', count: openCount },
+      { key: 'important', label: 'Important', count: importantCount },
+      { key: 'pending',   label: 'Pending',   count: pendingCount },
       { key: 'approved',  label: 'Approved',  count: approvedCount },
       { key: 'rejected',  label: 'Declined',  count: rejectedCount },
       { key: 'solved',    label: 'Solved',    count: solvedCount }
     ],
     salary: [
       { key: 'all',       label: 'All',       count: totalCount },
+      { key: 'pending', label: 'Pending', count: pendingCount },
+      { key: 'approved', label: 'Approved', count: approvedCount },
       { key: 'unsolved',  label: 'Open',      count: openCount },
-      { key: 'solved',    label: 'Cleared',   count: solvedCount },
+      { key: 'solved',    label: 'Solved',    count: solvedCount },
       { key: 'important', label: 'Important', count: importantCount }
     ]
   };
@@ -19078,14 +19161,14 @@ function renderTodo(){
 
   const mini = function(key, label, count){
     const cntBadge = count > 0 ? (' ' + bn(count)) : '';
-    return '<button type="button" class="td-chipbtn' + (subF === key ? ' on' : '') + '" onclick="mtSetTodoSub(\'' + key + '\')">' + esc(label) + cntBadge + '</button>';
+    return '<button type="button" class="td-chipbtn' + (subF === key ? ' on' : '') + '" aria-pressed="' + (subF === key) + '" onclick="mtSetTodoSub(\'' + key + '\')">' + esc(label) + cntBadge + '</button>';
   };
   const barHtml = '<div class="td-bar">' +
     '<div class="td-mini">' +
       activePills.map(function(p){ return mini(p.key, p.label, p.count); }).join('') +
     '</div>' +
     '<label class="td-search">' + ICON.search +
-      '<input type="search" id="tdSearch" placeholder="Search note, project or person..." value="' + esc(window.MG_TD_Q || '') + '" oninput="mtTodoSearch(this.value)">' +
+      '<input type="search" id="tdSearch" aria-label="Search notes, projects or people" placeholder="Search notes…" value="' + esc(window.MG_TD_Q || '') + '" oninput="mtTodoSearch(this.value)">' +
     '</label>' +
   '</div>';
 
@@ -19114,7 +19197,7 @@ function renderTodo(){
   const composeHtml = '<div class="td-compose">' +
     '<div class="td-fb-row">' +
       '<div class="td-fb-ava ' + compClass + '" data-cat="' + esc(currentCat) + '">' + compIcon + '</div>' +
-      '<textarea id="tdQuickNote" class="td-in" rows="1" placeholder="What\'s on your mind? Write a note…" oninput="this.style.height=\'auto\';this.style.height=Math.min(this.scrollHeight,150)+\'px\'" onkeydown="if((event.key===\'Enter\'||event.keyCode===13)&&!event.shiftKey){event.preventDefault();mtQuickAddTodo(event);}"></textarea>' +
+      '<textarea id="tdQuickNote" class="td-in" rows="2" aria-label="New follow-up note" placeholder="Write a note or follow-up…" oninput="this.style.height=\'auto\';this.style.height=Math.min(this.scrollHeight,150)+\'px\'" onkeydown="if((event.key===\'Enter\'||event.keyCode===13)&&!event.shiftKey){event.preventDefault();mtQuickAddTodo(event);}"></textarea>' +
     '</div>' +
     '<div class="td-fb-foot">' +
       '<label>Type <select id="tdQuickCat" onchange="window.MG_TD_CAT_PICK=this.value;if(typeof window.mtComposerCatChanged===\'function\'){window.mtComposerCatChanged(this.value);}else{renderTodo();}">' +
@@ -19126,12 +19209,12 @@ function renderTodo(){
         '<option value="today">Once today</option>' +
         '<option value="custom">Custom (choose dates on the card)</option>' +
       '</select></label>' +
-      '<button type="button" id="tdQuickSend" class="td-fb-send" onclick="mtQuickAddTodo()">Save note</button>' +
+      '<button type="button" id="tdQuickSend" class="td-fb-send" onclick="mtQuickAddTodo()">Save Note</button>' +
     '</div>' +
   '</div>';
 
   const gearOn = (typeof window.mgAiDot === 'function' && window.mgAiDot()) ? ' on' : '';
-  const solvedLabel = (curSec.key === 'mgr' ? 'informed' : (curSec.key === 'salary' ? 'cleared' : 'solved'));
+  const solvedLabel = (curSec.key === 'salary' ? 'cleared' : 'solved');
   const headSub = bn(totalCount) + ' ' + curSec.label.toLowerCase() + ' notes · ' + bn(openCount) + ' open · ' + bn(solvedCount) + ' ' + solvedLabel;
 
   const headHtml = '<div class="td-head">' +
@@ -19152,6 +19235,15 @@ function renderTodo(){
       '<div style="margin-top:14px">' + listContent + '</div>' +
     '</div>' +
   '</div>';
+
+  const composerInput = document.getElementById('tdQuickNote');
+  const composerReminder = document.getElementById('tdQuickRemindType');
+  if (composerInput) {
+    composerInput.value = composerDraft.text || '';
+    composerInput.style.height = 'auto';
+    composerInput.style.height = Math.min(Math.max(composerInput.scrollHeight,64),180) + 'px';
+  }
+  if (composerReminder) composerReminder.value = composerDraft.reminder || '';
 
   if(focusId){
     const el = document.getElementById(focusId);

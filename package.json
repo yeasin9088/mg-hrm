@@ -7,9 +7,13 @@
     "dev": "node server.js",
     "start": "node server.js",
     "lint": "node -c app-core.js config.js server.js",
-    "build": "node -e \"console.log('Build complete')\""
+    "build": "node -e \"console.log('Build complete')\"",
+    "test:reminder-db": "node scripts/test-reminder-db.mjs"
   },
   "dependencies": {
     "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.11"
   }
 }

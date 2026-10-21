@@ -2228,6 +2228,7 @@
       arr.forEach(function (r) {
         var db = toDb(k, r);
         if (k === 'todos') delete db.next_reminder_at;
+        if (k === 'todos') ['reminder_enabled','reminder_type','reminder_interval','reminder_dates','reminder_timezone'].forEach(function(field){ delete db[field]; });
         var key = rowKey(k, db);
         if (key === null) return;
         m[key] = hashOf(db);
@@ -2245,7 +2246,8 @@
     var rows = [], hashes = {}, seen = {};
     arr.forEach(function (r) {
       var db = toDb(k, r);
-      if (k === 'todos') delete db.next_reminder_at; // Owned by explicit schedule writes / atomic reminder claims.
+      if (k === 'todos') delete db.next_reminder_at;
+      if (k === 'todos') ['reminder_enabled','reminder_type','reminder_interval','reminder_dates','reminder_timezone'].forEach(function(field){ delete db[field]; }); // Owned by explicit schedule writes / atomic reminder claims.
       var key = rowKey(k, db);
       if (key === null) {
         /* Cannot identify this row. Push it as before - never silently drop it. */
@@ -2504,6 +2506,8 @@
   }
   var NotificationRepository = {
     list: notificationList,
+    reminderMode: function () { return rpcCall('notification_reminder_mode', {}); },
+    presenceHeartbeat: function (params) { return rpcCall('notification_presence_heartbeat', params); },
     claimTodoReminder: function (id, expected, next) { return rpcCall('notification_claim_todo_reminder', {p_todo_id:id,p_expected_next:expected,p_next:next}); },
     legacyStates: notificationLegacyStates,
     setLegacyState: notificationSetLegacyState,

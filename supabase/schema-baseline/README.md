@@ -7,6 +7,8 @@ Meeting Attendance objects were refreshed from deployed catalogs on **2026-10-21
 after the approved atomic migration. Notification Center objects were refreshed
 from deployed catalogs on **2026-10-21** after its additive migration; other
 objects retain the original capture date.
+The five Transfer RPC options and Realtime membership were refreshed from deployed
+catalogs on **2026-10-21** after the approved date and Realtime migration.
 It contains current definitions, including existing grants/policies; no proposed
 security changes are mixed in. It is **not a migration or a tested restore script**.
 
@@ -23,7 +25,7 @@ security changes are mixed in. It is **not a migration or a tested restore scrip
 | Triggers | 53 public plus Auth-to-profile provisioning trigger | 07-triggers.sql |
 | RLS | all 46 tables; 141 complete deployed policies | 08-rls-policies.sql |
 | Privileges | public schema/table/sequence/routine ACLs and six public default ACLs | 09-privileges.sql; 10-default-privileges.sql |
-| Realtime | 15 application members and publication settings | 11-publications.sql |
+| Realtime | 16 application members and publication settings | 11-publications.sql |
 | Platform dependencies | seven extensions; Auth helpers/keys, cron interfaces, managed roles/publication inventory | platform/; catalog.json |
 
 No standalone application enum/domain/range/composite/base types or application

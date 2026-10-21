@@ -25,7 +25,7 @@
     "publicTriggers": 53,
     "authBridgeTriggers": 1,
     "extensions": 7,
-    "applicationPublicationTables": 15,
+    "applicationPublicationTables": 16,
     "dependencies": 1677
   },
   "tables": [
@@ -352,7 +352,7 @@
     {
       "identity": "confirm_transfer_joining(bigint,date,text)",
       "file": "functions/hr-workflows.sql",
-      "definitionMd5": "4b2e78afc6352c79c1086ff581ab9bdc",
+      "definitionMd5": "2a858a7bf1f800a649fbb70016d05afb",
       "security": "invoker",
       "language": "plpgsql"
     },
@@ -366,14 +366,14 @@
     {
       "identity": "create_transfer_order(jsonb)",
       "file": "functions/hr-workflows.sql",
-      "definitionMd5": "f3c3e055238d2bff5a9eb5ab0693f42b",
+      "definitionMd5": "3cbd6ebc89b7ce8f3207c22f92b6f210",
       "security": "invoker",
       "language": "plpgsql"
     },
     {
       "identity": "get_transfer_action_queue()",
       "file": "functions/hr-workflows.sql",
-      "definitionMd5": "8e3b5a1cdfa0cbea9fd927964839559c",
+      "definitionMd5": "db6fbdbf93c742e729cb26fa21c08a55",
       "security": "invoker",
       "language": "sql"
     },
@@ -408,7 +408,7 @@
     {
       "identity": "mark_transfer_not_joined(bigint,text,text)",
       "file": "functions/hr-workflows.sql",
-      "definitionMd5": "4c5caa03553468be3102f914f727f5e1",
+      "definitionMd5": "e9a6d51547b0749ffb0c13ffd76e3c47",
       "security": "invoker",
       "language": "plpgsql"
     },
@@ -786,7 +786,7 @@
     {
       "identity": "reschedule_transfer(bigint,date,text)",
       "file": "functions/hr-workflows.sql",
-      "definitionMd5": "d2b82a3c766643609f57967b438ee45d",
+      "definitionMd5": "03f3400a415de330eff6a386646de25a",
       "security": "invoker",
       "language": "plpgsql"
     },
@@ -1041,7 +1041,7 @@
     },
     {
       "file": "functions/hr-workflows.sql",
-      "sha256": "bf67a9b075dd7e618d77d5c675f79cbf582957648ec89dcc57497f0f81cfe0b4"
+      "sha256": "113d693bcfb1043e580d9bbcf3095dc1d13837c427d86e4b1c91dae2510d8d65"
     },
     {
       "file": "functions/uniform.sql",
@@ -1077,7 +1077,7 @@
     },
     {
       "file": "11-publications.sql",
-      "sha256": "e48039b949ba7ad2de99639fd2b3a17ab46b0062fa6de4d52873d2658c1613b6"
+      "sha256": "2d1bfbb108727a5fc18a1ced1c1596a3476bb96dd8615dacb34782afa555bed8"
     },
     {
       "file": "platform/extensions.sql",

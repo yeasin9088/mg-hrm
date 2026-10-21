@@ -1235,6 +1235,7 @@
   /* ---------- Real-Time WebSockets ---------- */
   var _activeRealtimeChannel = null;
   var _realtimeSubscribed = false;
+  var _transferReloadSequence = 0;
   var lastSelfWriteAt = {};   /* table -> timestamp of our last successful upsert */
 
   var _refreshTimer = null;
@@ -1287,8 +1288,15 @@
           console.log('⚡ [Real-Time] Todos table changed:', payload);
           handleRealtimeEvent(payload);
         })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'transfers' }, function (payload) {
+          // Treat WAL events as invalidations. Only a fresh authenticated read
+          // may update transfer or employee state.
+          if (payload && payload.table === 'transfers' && typeof global.mgTransferRealtimeChanged === 'function') {
+            global.mgTransferRealtimeChanged(payload);
+          }
+        })
         .on('postgres_changes', { event: '*', schema: 'public' }, function (payload) {
-          if (payload && payload.table !== 'projects' && payload.table !== 'employees' && payload.table !== 'todos') {
+          if (payload && payload.table !== 'projects' && payload.table !== 'employees' && payload.table !== 'todos' && payload.table !== 'transfers') {
             console.log('⚡ [Real-Time] Remote change received:', payload);
             handleRealtimeEvent(payload);
           }
@@ -1296,6 +1304,7 @@
         .subscribe(function (status, err) {
           if (status === 'SUBSCRIBED') {
             _realtimeSubscribed = true;
+            if (typeof global.mgTransferRealtimeConnected === 'function') global.mgTransferRealtimeConnected();
             console.log('✅ [Real-Time] Connected to Supabase WebSockets');
           } else if (status === 'CHANNEL_ERROR') {
             _realtimeSubscribed = false;
@@ -1492,9 +1501,17 @@
   }
 
   function reloadBucket(bucket) {
-    if (!ready || !sb || !TABLE_MAP[bucket]) return Promise.resolve([]);
+    if (!ready || !sb || !TABLE_MAP[bucket]) {
+      return bucket === 'transfers'
+        ? Promise.reject(new Error('Transfer database connection is unavailable.'))
+        : Promise.resolve([]);
+    }
     var map = TABLE_MAP[bucket];
+    var transferSequence = bucket === 'transfers' ? ++_transferReloadSequence : 0;
     return sb.from(map.table).select('*').is('deleted_at', null).order(map.pk, { ascending: false }).then(function (r) {
+      if (bucket === 'transfers' && transferSequence !== _transferReloadSequence) {
+        return (global.DATA && global.DATA.transfers) || [];
+      }
       if (r.error) throw r.error;
       var rows = (r.data || []).map(function (row) { return fromDb(bucket, row); });
       if (!global.DATA) global.DATA = {};

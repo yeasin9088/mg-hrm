@@ -253,6 +253,7 @@ CREATE OR REPLACE FUNCTION public.confirm_transfer_joining(p_transfer_id bigint,
  RETURNS jsonb
  LANGUAGE plpgsql
  SET search_path TO 'public', 'pg_temp'
+ SET "TimeZone" TO 'Asia/Dhaka'
 AS $function$
 declare
   v_transfer public.transfers%rowtype;
@@ -430,6 +431,7 @@ CREATE OR REPLACE FUNCTION public.create_transfer_order(p_transfer jsonb)
  RETURNS jsonb
  LANGUAGE plpgsql
  SET search_path TO 'public', 'pg_temp'
+ SET "TimeZone" TO 'Asia/Dhaka'
 AS $function$
 declare
   v_employee public.employees%rowtype;
@@ -530,6 +532,7 @@ CREATE OR REPLACE FUNCTION public.get_transfer_action_queue()
  LANGUAGE sql
  STABLE
  SET search_path TO 'public', 'pg_temp'
+ SET "TimeZone" TO 'Asia/Dhaka'
 AS $function$
   select
     t.id,
@@ -571,6 +574,7 @@ CREATE OR REPLACE FUNCTION public.mark_transfer_not_joined(p_transfer_id bigint,
  RETURNS jsonb
  LANGUAGE plpgsql
  SET search_path TO 'public', 'pg_temp'
+ SET "TimeZone" TO 'Asia/Dhaka'
 AS $function$
 declare
   v_transfer public.transfers%rowtype;
@@ -841,6 +845,7 @@ CREATE OR REPLACE FUNCTION public.reschedule_transfer(p_transfer_id bigint, p_ne
  RETURNS jsonb
  LANGUAGE plpgsql
  SET search_path TO 'public', 'pg_temp'
+ SET "TimeZone" TO 'Asia/Dhaka'
 AS $function$
 declare
   v_transfer public.transfers%rowtype;

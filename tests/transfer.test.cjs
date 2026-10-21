@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 
 const html = fs.readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
+const core = fs.readFileSync(require('node:path').join(__dirname, '..', 'app-core.js'), 'utf8');
 
 test('application inline JavaScript parses', () => {
   let count = 0;
@@ -143,4 +144,79 @@ test('project movement counts only confirmed actual joins, never scheduled desti
   assert.deepEqual(Array.from(summary.projects,x=>[x.project,x.incoming,x.outgoing,x.net]),[
     ['A',0,1,-1],['B',1,0,1]
   ]);
+});
+
+test('Realtime transfer invalidations are filtered, debounced and refreshed on reconnect', async () => {
+  const start=html.indexOf('let transferSyncInFlight = false;');
+  const end=html.indexOf('function isoDateInput(',start);
+  assert.ok(start>=0 && end>start);
+  const data={transfers:[]};
+  let calls=0, renders=0;
+  const context={
+    DATA:data,document:{hidden:false,getElementById:()=>null,addEventListener:()=>{}},
+    window:{MGHRM:{reloadTransfers:async()=>{calls++;data.transfers=[{id:1,status:'Scheduled',updated_at:'v1'}];return data.transfers;}},addEventListener:()=>{}},
+    setInterval:()=>0,setTimeout,clearTimeout,
+    transferTodayISO:()=> '2026-10-21',
+    renderTransferTable:()=>{renders++;},toast:()=>{}
+  };
+  vm.createContext(context);
+  vm.runInContext("let currentPage='transfer';\n"+html.slice(start,end),context);
+  context.window.mgTransferRealtimeChanged({table:'employees',eventType:'UPDATE'});
+  context.window.mgTransferRealtimeChanged({table:'transfers',eventType:'UPDATE'});
+  context.window.mgTransferRealtimeChanged({table:'transfers',eventType:'UPDATE'});
+  await new Promise(resolve=>setTimeout(resolve,360));
+  assert.equal(calls,1);
+  assert.equal(renders,1);
+  context.window.mgTransferRealtimeConnected();
+  await new Promise(resolve=>setTimeout(resolve,0));
+  assert.equal(calls,2);
+  vm.runInContext("currentPage='reports'",context);
+  context.window.mgTransferRealtimeConnected();
+  await new Promise(resolve=>setTimeout(resolve,0));
+  assert.equal(calls,3);
+});
+
+test('failed employee reconciliation after completion retries on the next transfer refresh', async () => {
+  const start=html.indexOf('let transferSyncInFlight = false;');
+  const end=html.indexOf('function isoDateInput(',start);
+  const data={transfers:[{id:1,status:'Scheduled',updated_at:'v1'}]};
+  let employeeFetches=0, employeeRenders=0;
+  const context={
+    DATA:data,document:{hidden:false,getElementById:()=>null,addEventListener:()=>{}},
+    window:{MGHRM:{reloadTransfers:async()=>{data.transfers=[{id:1,status:'Completed',updated_at:'v2'}];return data.transfers;}},addEventListener:()=>{}},
+    setInterval:()=>0,setTimeout,clearTimeout,
+    transferTodayISO:()=> '2026-10-21',
+    fetchEmployeesDirectly:async()=> ++employeeFetches>1 ? [{id:1,project_name:'Destination'}] : null,
+    renderEmpTable:()=>{employeeRenders++;},toast:()=>{}
+  };
+  vm.createContext(context);
+  vm.runInContext("let currentPage='employees';\n"+html.slice(start,end),context);
+  await context.syncTransfersFromServer(true);
+  assert.equal(employeeFetches,1);
+  assert.equal(employeeRenders,0);
+  await context.syncTransfersFromServer(true);
+  assert.equal(employeeFetches,2);
+  assert.equal(employeeRenders,1);
+});
+
+test('older transfer reload response cannot replace a newer server snapshot', async () => {
+  const start=core.indexOf('  function reloadBucket(bucket) {');
+  const end=core.indexOf('  function loadTransferActionQueue()',start);
+  assert.ok(start>=0 && end>start);
+  const pending=[];
+  const state={DATA:{transfers:[]}};
+  const query={select(){return this;},is(){return this;},order(){return new Promise(resolve=>pending.push(resolve));}};
+  const context={
+    ready:true,sb:{from:()=>query},TABLE_MAP:{transfers:{table:'transfers',pk:'id'}},
+    _transferReloadSequence:0,global:state,fromDb:(bucket,row)=>row,captureBaseline:()=>{}
+  };
+  vm.createContext(context);
+  vm.runInContext(core.slice(start,end),context);
+  const older=context.reloadBucket('transfers');
+  const newer=context.reloadBucket('transfers');
+  pending[1]({data:[{id:1,status:'Completed',updated_at:'v2'}],error:null});
+  await newer;
+  pending[0]({data:[{id:1,status:'Scheduled',updated_at:'v1'}],error:null});
+  await older;
+  assert.equal(state.DATA.transfers[0].status,'Completed');
 });

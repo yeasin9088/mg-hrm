@@ -30,6 +30,13 @@
       "row_filter": null
     },
     {
+      "schema": "public",
+      "row_filter": null,
+      "table_name": "transfers",
+      "publication": "supabase_realtime",
+      "explicit_attribute_numbers": null
+    },
+    {
       "publication": "supabase_realtime",
       "schema": "public",
       "table_name": "uniform_deliveries",
@@ -23825,6 +23832,51 @@
           "row_filter": null
         },
         {
+          "table": "transfers",
+          "schema": "public",
+          "columns": [
+            "id",
+            "employee_id",
+            "full_name",
+            "full_name_bn",
+            "designation",
+            "designation_bn",
+            "current_project",
+            "current_project_bn",
+            "new_project",
+            "new_project_bn",
+            "transfer_date",
+            "issues_date",
+            "created_at",
+            "employee_id_bn",
+            "transfer_date_bn",
+            "issues_date_bn",
+            "status",
+            "notes",
+            "employee_sys_id",
+            "deleted_at",
+            "deleted_by",
+            "updated_at",
+            "effective_date",
+            "actual_joining_date",
+            "joining_confirmed_at",
+            "joining_confirmed_by",
+            "not_joined_at",
+            "not_joined_by",
+            "not_joined_reason",
+            "not_joined_remarks",
+            "cancelled_at",
+            "cancelled_by",
+            "cancellation_reason",
+            "completed_at",
+            "completed_by",
+            "rescheduled_at",
+            "rescheduled_by",
+            "previous_effective_date"
+          ],
+          "row_filter": null
+        },
+        {
           "table": "uniform_deliveries",
           "schema": "public",
           "columns": [
@@ -24318,16 +24370,17 @@
       "language": "plpgsql",
       "arguments": "p_transfer_id bigint, p_actual_joining_date date, p_remarks text DEFAULT NULL::text",
       "proconfig": [
-        "search_path=public, pg_temp"
+        "search_path=public, pg_temp",
+        "TimeZone=Asia/Dhaka"
       ],
       "prosecdef": false,
       "proisstrict": false,
       "proparallel": "u",
       "provolatile": "v",
       "proleakproof": false,
-      "definition_md5": "4b2e78afc6352c79c1086ff581ab9bdc",
+      "definition_md5": "2a858a7bf1f800a649fbb70016d05afb",
       "identity_arguments": "p_transfer_id bigint, p_actual_joining_date date, p_remarks text",
-      "definition": "CREATE OR REPLACE FUNCTION public.confirm_transfer_joining(p_transfer_id bigint, p_actual_joining_date date, p_remarks text DEFAULT NULL::text)\n RETURNS jsonb\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\r\ndeclare\r\n  v_transfer public.transfers%rowtype;\r\n  v_employee public.employees%rowtype;\r\nbegin\r\n  if p_actual_joining_date is null then\r\n    raise exception using errcode = '23514', message = 'Actual joining date is required';\r\n  end if;\r\n  if p_actual_joining_date > current_date then\r\n    raise exception using errcode = '23514', message = 'Actual joining date cannot be in the future';\r\n  end if;\r\n\r\n  select * into v_transfer\r\n    from public.transfers\r\n   where id = p_transfer_id and deleted_at is null\r\n   for update;\r\n  if not found then\r\n    raise exception using errcode = 'P0002', message = 'Transfer not found';\r\n  end if;\r\n\r\n  if v_transfer.status not in ('Scheduled', 'Joining Pending') then\r\n    raise exception using errcode = '23514',\r\n      message = format('Transfer cannot be confirmed from status %s', v_transfer.status);\r\n  end if;\r\n  if v_transfer.effective_date is null then\r\n    raise exception using errcode = '23514', message = 'Transfer effective date is missing';\r\n  end if;\r\n  if v_transfer.effective_date > current_date then\r\n    raise exception using errcode = '23514', message = 'Transfer is not yet due';\r\n  end if;\r\n  if p_actual_joining_date < v_transfer.effective_date then\r\n    raise exception using errcode = '23514', message = 'Actual joining date cannot be before the effective date';\r\n  end if;\r\n\r\n  select * into v_employee\r\n    from public.employees\r\n   where id = v_transfer.employee_sys_id and deleted_at is null\r\n   for update;\r\n  if not found then\r\n    raise exception using errcode = 'P0002', message = 'Employee not found';\r\n  end if;\r\n  if lower(btrim(coalesce(v_employee.status, ''))) <> 'active' then\r\n    raise exception using errcode = '23514', message = 'Inactive employee cannot complete a transfer';\r\n  end if;\r\n  if lower(btrim(coalesce(v_employee.project_name, ''))) <>\r\n     lower(btrim(coalesce(v_transfer.current_project, ''))) then\r\n    raise exception using errcode = '40001',\r\n      message = 'Employee current project no longer matches the transfer source project';\r\n  end if;\r\n\r\n  update public.employees\r\n     set project_name = v_transfer.new_project, updated_at = now()\r\n   where id = v_employee.id\r\n   returning * into v_employee;\r\n\r\n  update public.transfers\r\n     set status = 'Completed',\r\n         actual_joining_date = p_actual_joining_date,\r\n         joining_confirmed_at = now(), joining_confirmed_by = auth.uid(),\r\n         completed_at = now(), completed_by = auth.uid(),\r\n         notes = case\r\n           when nullif(btrim(coalesce(p_remarks, '')), '') is null then notes\r\n           when nullif(btrim(coalesce(notes, '')), '') is null then p_remarks\r\n           else notes || E'\\nJoining confirmation: ' || p_remarks\r\n         end,\r\n         updated_at = now()\r\n   where id = v_transfer.id\r\n   returning * into v_transfer;\r\n\r\n  insert into public.activity_log (user_id, action, table_name, record_ref, detail)\r\n  values (\r\n    auth.uid(), 'complete', 'transfers', v_transfer.id::text,\r\n    format('Joining confirmed for employee system ID %s at %s', v_employee.id, v_transfer.new_project)\r\n  );\r\n\r\n  return jsonb_build_object('transfer', to_jsonb(v_transfer), 'employee', to_jsonb(v_employee));\r\nend;\r\n$function$\n"
+      "definition": "CREATE OR REPLACE FUNCTION public.confirm_transfer_joining(p_transfer_id bigint, p_actual_joining_date date, p_remarks text DEFAULT NULL::text)\n RETURNS jsonb\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\n SET \"TimeZone\" TO 'Asia/Dhaka'\nAS $function$\r\ndeclare\r\n  v_transfer public.transfers%rowtype;\r\n  v_employee public.employees%rowtype;\r\nbegin\r\n  if p_actual_joining_date is null then\r\n    raise exception using errcode = '23514', message = 'Actual joining date is required';\r\n  end if;\r\n  if p_actual_joining_date > current_date then\r\n    raise exception using errcode = '23514', message = 'Actual joining date cannot be in the future';\r\n  end if;\r\n\r\n  select * into v_transfer\r\n    from public.transfers\r\n   where id = p_transfer_id and deleted_at is null\r\n   for update;\r\n  if not found then\r\n    raise exception using errcode = 'P0002', message = 'Transfer not found';\r\n  end if;\r\n\r\n  if v_transfer.status not in ('Scheduled', 'Joining Pending') then\r\n    raise exception using errcode = '23514',\r\n      message = format('Transfer cannot be confirmed from status %s', v_transfer.status);\r\n  end if;\r\n  if v_transfer.effective_date is null then\r\n    raise exception using errcode = '23514', message = 'Transfer effective date is missing';\r\n  end if;\r\n  if v_transfer.effective_date > current_date then\r\n    raise exception using errcode = '23514', message = 'Transfer is not yet due';\r\n  end if;\r\n  if p_actual_joining_date < v_transfer.effective_date then\r\n    raise exception using errcode = '23514', message = 'Actual joining date cannot be before the effective date';\r\n  end if;\r\n\r\n  select * into v_employee\r\n    from public.employees\r\n   where id = v_transfer.employee_sys_id and deleted_at is null\r\n   for update;\r\n  if not found then\r\n    raise exception using errcode = 'P0002', message = 'Employee not found';\r\n  end if;\r\n  if lower(btrim(coalesce(v_employee.status, ''))) <> 'active' then\r\n    raise exception using errcode = '23514', message = 'Inactive employee cannot complete a transfer';\r\n  end if;\r\n  if lower(btrim(coalesce(v_employee.project_name, ''))) <>\r\n     lower(btrim(coalesce(v_transfer.current_project, ''))) then\r\n    raise exception using errcode = '40001',\r\n      message = 'Employee current project no longer matches the transfer source project';\r\n  end if;\r\n\r\n  update public.employees\r\n     set project_name = v_transfer.new_project, updated_at = now()\r\n   where id = v_employee.id\r\n   returning * into v_employee;\r\n\r\n  update public.transfers\r\n     set status = 'Completed',\r\n         actual_joining_date = p_actual_joining_date,\r\n         joining_confirmed_at = now(), joining_confirmed_by = auth.uid(),\r\n         completed_at = now(), completed_by = auth.uid(),\r\n         notes = case\r\n           when nullif(btrim(coalesce(p_remarks, '')), '') is null then notes\r\n           when nullif(btrim(coalesce(notes, '')), '') is null then p_remarks\r\n           else notes || E'\\nJoining confirmation: ' || p_remarks\r\n         end,\r\n         updated_at = now()\r\n   where id = v_transfer.id\r\n   returning * into v_transfer;\r\n\r\n  insert into public.activity_log (user_id, action, table_name, record_ref, detail)\r\n  values (\r\n    auth.uid(), 'complete', 'transfers', v_transfer.id::text,\r\n    format('Joining confirmed for employee system ID %s at %s', v_employee.id, v_transfer.new_project)\r\n  );\r\n\r\n  return jsonb_build_object('transfer', to_jsonb(v_transfer), 'employee', to_jsonb(v_employee));\r\nend;\r\n$function$\n"
     },
     {
       "owner": "postgres",
@@ -24360,16 +24413,17 @@
       "language": "plpgsql",
       "arguments": "p_transfer jsonb",
       "proconfig": [
-        "search_path=public, pg_temp"
+        "search_path=public, pg_temp",
+        "TimeZone=Asia/Dhaka"
       ],
       "prosecdef": false,
       "proisstrict": false,
       "proparallel": "u",
       "provolatile": "v",
       "proleakproof": false,
-      "definition_md5": "f3c3e055238d2bff5a9eb5ab0693f42b",
+      "definition_md5": "3cbd6ebc89b7ce8f3207c22f92b6f210",
       "identity_arguments": "p_transfer jsonb",
-      "definition": "CREATE OR REPLACE FUNCTION public.create_transfer_order(p_transfer jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\r\ndeclare\r\n  v_employee public.employees%rowtype;\r\n  v_transfer public.transfers%rowtype;\r\n  v_employee_id bigint;\r\n  v_destination text;\r\n  v_effective_date date;\r\n  v_issue_date text;\r\n  v_status text;\r\n  v_open_transfer_id bigint;\r\nbegin\r\n  v_employee_id := nullif(p_transfer->>'employee_sys_id', '')::bigint;\r\n  if v_employee_id is null then\r\n    raise exception using errcode = '22023', message = 'employee_sys_id is required';\r\n  end if;\r\n\r\n  select * into v_employee\r\n    from public.employees\r\n   where id = v_employee_id\r\n     and deleted_at is null\r\n   for update;\r\n\r\n  if not found then\r\n    raise exception using errcode = 'P0002', message = 'Employee not found';\r\n  end if;\r\n\r\n  if lower(btrim(coalesce(v_employee.status, ''))) <> 'active' then\r\n    raise exception using errcode = '23514', message = 'Only Active employees can be transferred';\r\n  end if;\r\n\r\n  v_destination := nullif(btrim(coalesce(p_transfer->>'new_project', '')), '');\r\n  if v_destination is null then\r\n    raise exception using errcode = '23514', message = 'Destination project is required';\r\n  end if;\r\n\r\n  if lower(btrim(coalesce(v_employee.project_name, ''))) = lower(v_destination) then\r\n    raise exception using errcode = '23514', message = 'Source and destination projects cannot be the same';\r\n  end if;\r\n\r\n  if nullif(btrim(coalesce(p_transfer->>'current_project', '')), '') is not null\r\n     and lower(btrim(p_transfer->>'current_project')) <> lower(btrim(coalesce(v_employee.project_name, ''))) then\r\n    raise exception using errcode = '40001', message = 'Employee current project changed. Reload and try again';\r\n  end if;\r\n\r\n  v_effective_date := coalesce(\r\n    nullif(p_transfer->>'effective_date', '')::date,\r\n    nullif(p_transfer->>'transfer_date', '')::date\r\n  );\r\n\r\n  if v_effective_date is null then\r\n    raise exception using errcode = '23514', message = 'Transfer effective date is required';\r\n  end if;\r\n\r\n  select id into v_open_transfer_id\r\n    from public.transfers\r\n   where employee_sys_id = v_employee_id\r\n     and deleted_at is null\r\n     and status in ('Draft', 'Scheduled', 'Joining Pending', 'Not Joined')\r\n   limit 1;\r\n\r\n  if v_open_transfer_id is not null then\r\n    raise exception using errcode = '23505',\r\n      message = format('Employee already has an unresolved transfer (ID %s)', v_open_transfer_id);\r\n  end if;\r\n\r\n  v_status := case when v_effective_date <= current_date then 'Joining Pending' else 'Scheduled' end;\r\n  v_issue_date := coalesce(nullif(p_transfer->>'issues_date', ''), current_date::text);\r\n\r\n  insert into public.transfers (\r\n    employee_sys_id, employee_id, employee_id_bn,\r\n    full_name, full_name_bn, designation, designation_bn,\r\n    current_project, current_project_bn, new_project, new_project_bn,\r\n    transfer_date, transfer_date_bn, effective_date,\r\n    issues_date, issues_date_bn, status, notes\r\n  ) values (\r\n    v_employee.id, v_employee.employee_id, p_transfer->>'employee_id_bn',\r\n    v_employee.full_name, v_employee.full_name_bn, v_employee.designation, p_transfer->>'designation_bn',\r\n    v_employee.project_name, p_transfer->>'current_project_bn', v_destination, p_transfer->>'new_project_bn',\r\n    v_effective_date::text, p_transfer->>'transfer_date_bn', v_effective_date,\r\n    v_issue_date, p_transfer->>'issues_date_bn', v_status, p_transfer->>'notes'\r\n  ) returning * into v_transfer;\r\n\r\n  insert into public.activity_log (user_id, action, table_name, record_ref, detail)\r\n  values (\r\n    auth.uid(), 'create', 'transfers', v_transfer.id::text,\r\n    format('Transfer created for employee system ID %s: %s to %s',\r\n      v_employee.id, coalesce(v_employee.project_name, 'Unassigned'), v_destination)\r\n  );\r\n\r\n  return jsonb_build_object('transfer', to_jsonb(v_transfer), 'employee', to_jsonb(v_employee));\r\nend;\r\n$function$\n"
+      "definition": "CREATE OR REPLACE FUNCTION public.create_transfer_order(p_transfer jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\n SET \"TimeZone\" TO 'Asia/Dhaka'\nAS $function$\r\ndeclare\r\n  v_employee public.employees%rowtype;\r\n  v_transfer public.transfers%rowtype;\r\n  v_employee_id bigint;\r\n  v_destination text;\r\n  v_effective_date date;\r\n  v_issue_date text;\r\n  v_status text;\r\n  v_open_transfer_id bigint;\r\nbegin\r\n  v_employee_id := nullif(p_transfer->>'employee_sys_id', '')::bigint;\r\n  if v_employee_id is null then\r\n    raise exception using errcode = '22023', message = 'employee_sys_id is required';\r\n  end if;\r\n\r\n  select * into v_employee\r\n    from public.employees\r\n   where id = v_employee_id\r\n     and deleted_at is null\r\n   for update;\r\n\r\n  if not found then\r\n    raise exception using errcode = 'P0002', message = 'Employee not found';\r\n  end if;\r\n\r\n  if lower(btrim(coalesce(v_employee.status, ''))) <> 'active' then\r\n    raise exception using errcode = '23514', message = 'Only Active employees can be transferred';\r\n  end if;\r\n\r\n  v_destination := nullif(btrim(coalesce(p_transfer->>'new_project', '')), '');\r\n  if v_destination is null then\r\n    raise exception using errcode = '23514', message = 'Destination project is required';\r\n  end if;\r\n\r\n  if lower(btrim(coalesce(v_employee.project_name, ''))) = lower(v_destination) then\r\n    raise exception using errcode = '23514', message = 'Source and destination projects cannot be the same';\r\n  end if;\r\n\r\n  if nullif(btrim(coalesce(p_transfer->>'current_project', '')), '') is not null\r\n     and lower(btrim(p_transfer->>'current_project')) <> lower(btrim(coalesce(v_employee.project_name, ''))) then\r\n    raise exception using errcode = '40001', message = 'Employee current project changed. Reload and try again';\r\n  end if;\r\n\r\n  v_effective_date := coalesce(\r\n    nullif(p_transfer->>'effective_date', '')::date,\r\n    nullif(p_transfer->>'transfer_date', '')::date\r\n  );\r\n\r\n  if v_effective_date is null then\r\n    raise exception using errcode = '23514', message = 'Transfer effective date is required';\r\n  end if;\r\n\r\n  select id into v_open_transfer_id\r\n    from public.transfers\r\n   where employee_sys_id = v_employee_id\r\n     and deleted_at is null\r\n     and status in ('Draft', 'Scheduled', 'Joining Pending', 'Not Joined')\r\n   limit 1;\r\n\r\n  if v_open_transfer_id is not null then\r\n    raise exception using errcode = '23505',\r\n      message = format('Employee already has an unresolved transfer (ID %s)', v_open_transfer_id);\r\n  end if;\r\n\r\n  v_status := case when v_effective_date <= current_date then 'Joining Pending' else 'Scheduled' end;\r\n  v_issue_date := coalesce(nullif(p_transfer->>'issues_date', ''), current_date::text);\r\n\r\n  insert into public.transfers (\r\n    employee_sys_id, employee_id, employee_id_bn,\r\n    full_name, full_name_bn, designation, designation_bn,\r\n    current_project, current_project_bn, new_project, new_project_bn,\r\n    transfer_date, transfer_date_bn, effective_date,\r\n    issues_date, issues_date_bn, status, notes\r\n  ) values (\r\n    v_employee.id, v_employee.employee_id, p_transfer->>'employee_id_bn',\r\n    v_employee.full_name, v_employee.full_name_bn, v_employee.designation, p_transfer->>'designation_bn',\r\n    v_employee.project_name, p_transfer->>'current_project_bn', v_destination, p_transfer->>'new_project_bn',\r\n    v_effective_date::text, p_transfer->>'transfer_date_bn', v_effective_date,\r\n    v_issue_date, p_transfer->>'issues_date_bn', v_status, p_transfer->>'notes'\r\n  ) returning * into v_transfer;\r\n\r\n  insert into public.activity_log (user_id, action, table_name, record_ref, detail)\r\n  values (\r\n    auth.uid(), 'create', 'transfers', v_transfer.id::text,\r\n    format('Transfer created for employee system ID %s: %s to %s',\r\n      v_employee.id, coalesce(v_employee.project_name, 'Unassigned'), v_destination)\r\n  );\r\n\r\n  return jsonb_build_object('transfer', to_jsonb(v_transfer), 'employee', to_jsonb(v_employee));\r\nend;\r\n$function$\n"
     },
     {
       "owner": "postgres",
@@ -24381,16 +24435,17 @@
       "language": "sql",
       "arguments": "",
       "proconfig": [
-        "search_path=public, pg_temp"
+        "search_path=public, pg_temp",
+        "TimeZone=Asia/Dhaka"
       ],
       "prosecdef": false,
       "proisstrict": false,
       "proparallel": "u",
       "provolatile": "s",
       "proleakproof": false,
-      "definition_md5": "8e3b5a1cdfa0cbea9fd927964839559c",
+      "definition_md5": "db6fbdbf93c742e729cb26fa21c08a55",
       "identity_arguments": "",
-      "definition": "CREATE OR REPLACE FUNCTION public.get_transfer_action_queue()\n RETURNS TABLE(transfer_id bigint, employee_sys_id bigint, employee_id text, full_name text, designation text, current_project text, new_project text, effective_date date, stored_status text, queue_status text, overdue_days integer, not_joined_reason text, not_joined_remarks text)\n LANGUAGE sql\n STABLE\n SET search_path TO 'public', 'pg_temp'\nAS $function$\r\n  select\r\n    t.id,\r\n    t.employee_sys_id,\r\n    t.employee_id,\r\n    t.full_name,\r\n    t.designation,\r\n    t.current_project,\r\n    t.new_project,\r\n    t.effective_date,\r\n    t.status,\r\n    case\r\n      when t.status = 'Scheduled' and t.effective_date <= current_date then 'Joining Pending'\r\n      else t.status\r\n    end,\r\n    case\r\n      when t.effective_date is null or t.effective_date > current_date then 0\r\n      else (current_date - t.effective_date)::integer\r\n    end,\r\n    t.not_joined_reason,\r\n    t.not_joined_remarks\r\n  from public.transfers t\r\n  where t.deleted_at is null\r\n    and t.status in ('Scheduled', 'Joining Pending', 'Not Joined')\r\n  order by\r\n    case\r\n      when t.status = 'Not Joined' then 0\r\n      when t.effective_date < current_date then 1\r\n      when t.effective_date = current_date then 2\r\n      else 3\r\n    end,\r\n    t.effective_date,\r\n    t.id;\r\n$function$\n"
+      "definition": "CREATE OR REPLACE FUNCTION public.get_transfer_action_queue()\n RETURNS TABLE(transfer_id bigint, employee_sys_id bigint, employee_id text, full_name text, designation text, current_project text, new_project text, effective_date date, stored_status text, queue_status text, overdue_days integer, not_joined_reason text, not_joined_remarks text)\n LANGUAGE sql\n STABLE\n SET search_path TO 'public', 'pg_temp'\n SET \"TimeZone\" TO 'Asia/Dhaka'\nAS $function$\r\n  select\r\n    t.id,\r\n    t.employee_sys_id,\r\n    t.employee_id,\r\n    t.full_name,\r\n    t.designation,\r\n    t.current_project,\r\n    t.new_project,\r\n    t.effective_date,\r\n    t.status,\r\n    case\r\n      when t.status = 'Scheduled' and t.effective_date <= current_date then 'Joining Pending'\r\n      else t.status\r\n    end,\r\n    case\r\n      when t.effective_date is null or t.effective_date > current_date then 0\r\n      else (current_date - t.effective_date)::integer\r\n    end,\r\n    t.not_joined_reason,\r\n    t.not_joined_remarks\r\n  from public.transfers t\r\n  where t.deleted_at is null\r\n    and t.status in ('Scheduled', 'Joining Pending', 'Not Joined')\r\n  order by\r\n    case\r\n      when t.status = 'Not Joined' then 0\r\n      when t.effective_date < current_date then 1\r\n      when t.effective_date = current_date then 2\r\n      else 3\r\n    end,\r\n    t.effective_date,\r\n    t.id;\r\n$function$\n"
     },
     {
       "owner": "postgres",
@@ -24486,16 +24541,17 @@
       "language": "plpgsql",
       "arguments": "p_transfer_id bigint, p_reason text, p_remarks text DEFAULT NULL::text",
       "proconfig": [
-        "search_path=public, pg_temp"
+        "search_path=public, pg_temp",
+        "TimeZone=Asia/Dhaka"
       ],
       "prosecdef": false,
       "proisstrict": false,
       "proparallel": "u",
       "provolatile": "v",
       "proleakproof": false,
-      "definition_md5": "4c5caa03553468be3102f914f727f5e1",
+      "definition_md5": "e9a6d51547b0749ffb0c13ffd76e3c47",
       "identity_arguments": "p_transfer_id bigint, p_reason text, p_remarks text",
-      "definition": "CREATE OR REPLACE FUNCTION public.mark_transfer_not_joined(p_transfer_id bigint, p_reason text, p_remarks text DEFAULT NULL::text)\n RETURNS jsonb\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\r\ndeclare\r\n  v_transfer public.transfers%rowtype;\r\nbegin\r\n  if nullif(btrim(coalesce(p_reason, '')), '') is null then\r\n    raise exception using errcode = '23514', message = 'Not-joined reason is required';\r\n  end if;\r\n\r\n  select * into v_transfer\r\n    from public.transfers\r\n   where id = p_transfer_id\r\n     and deleted_at is null\r\n   for update;\r\n\r\n  if not found then\r\n    raise exception using errcode = 'P0002', message = 'Transfer not found';\r\n  end if;\r\n\r\n  if v_transfer.status not in ('Scheduled', 'Joining Pending') then\r\n    raise exception using errcode = '23514',\r\n      message = format('Transfer cannot be marked Not Joined from status %s', v_transfer.status);\r\n  end if;\r\n\r\n  if v_transfer.effective_date > current_date then\r\n    raise exception using errcode = '23514', message = 'Transfer is not yet due';\r\n  end if;\r\n\r\n  update public.transfers\r\n     set status = 'Not Joined',\r\n         not_joined_at = now(),\r\n         not_joined_by = auth.uid(),\r\n         not_joined_reason = btrim(p_reason),\r\n         not_joined_remarks = nullif(btrim(coalesce(p_remarks, '')), ''),\r\n         updated_at = now()\r\n   where id = v_transfer.id\r\n   returning * into v_transfer;\r\n\r\n  insert into public.activity_log (user_id, action, table_name, record_ref, detail)\r\n  values (\r\n    auth.uid(), 'not_joined', 'transfers', v_transfer.id::text,\r\n    format('Employee system ID %s did not join destination project: %s',\r\n      v_transfer.employee_sys_id, p_reason)\r\n  );\r\n\r\n  return to_jsonb(v_transfer);\r\nend;\r\n$function$\n"
+      "definition": "CREATE OR REPLACE FUNCTION public.mark_transfer_not_joined(p_transfer_id bigint, p_reason text, p_remarks text DEFAULT NULL::text)\n RETURNS jsonb\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\n SET \"TimeZone\" TO 'Asia/Dhaka'\nAS $function$\r\ndeclare\r\n  v_transfer public.transfers%rowtype;\r\nbegin\r\n  if nullif(btrim(coalesce(p_reason, '')), '') is null then\r\n    raise exception using errcode = '23514', message = 'Not-joined reason is required';\r\n  end if;\r\n\r\n  select * into v_transfer\r\n    from public.transfers\r\n   where id = p_transfer_id\r\n     and deleted_at is null\r\n   for update;\r\n\r\n  if not found then\r\n    raise exception using errcode = 'P0002', message = 'Transfer not found';\r\n  end if;\r\n\r\n  if v_transfer.status not in ('Scheduled', 'Joining Pending') then\r\n    raise exception using errcode = '23514',\r\n      message = format('Transfer cannot be marked Not Joined from status %s', v_transfer.status);\r\n  end if;\r\n\r\n  if v_transfer.effective_date > current_date then\r\n    raise exception using errcode = '23514', message = 'Transfer is not yet due';\r\n  end if;\r\n\r\n  update public.transfers\r\n     set status = 'Not Joined',\r\n         not_joined_at = now(),\r\n         not_joined_by = auth.uid(),\r\n         not_joined_reason = btrim(p_reason),\r\n         not_joined_remarks = nullif(btrim(coalesce(p_remarks, '')), ''),\r\n         updated_at = now()\r\n   where id = v_transfer.id\r\n   returning * into v_transfer;\r\n\r\n  insert into public.activity_log (user_id, action, table_name, record_ref, detail)\r\n  values (\r\n    auth.uid(), 'not_joined', 'transfers', v_transfer.id::text,\r\n    format('Employee system ID %s did not join destination project: %s',\r\n      v_transfer.employee_sys_id, p_reason)\r\n  );\r\n\r\n  return to_jsonb(v_transfer);\r\nend;\r\n$function$\n"
     },
     {
       "owner": "postgres",
@@ -25618,16 +25674,17 @@
       "language": "plpgsql",
       "arguments": "p_transfer_id bigint, p_new_effective_date date, p_reason text",
       "proconfig": [
-        "search_path=public, pg_temp"
+        "search_path=public, pg_temp",
+        "TimeZone=Asia/Dhaka"
       ],
       "prosecdef": false,
       "proisstrict": false,
       "proparallel": "u",
       "provolatile": "v",
       "proleakproof": false,
-      "definition_md5": "d2b82a3c766643609f57967b438ee45d",
+      "definition_md5": "03f3400a415de330eff6a386646de25a",
       "identity_arguments": "p_transfer_id bigint, p_new_effective_date date, p_reason text",
-      "definition": "CREATE OR REPLACE FUNCTION public.reschedule_transfer(p_transfer_id bigint, p_new_effective_date date, p_reason text)\n RETURNS jsonb\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\r\ndeclare\r\n  v_transfer public.transfers%rowtype;\r\nbegin\r\n  if p_new_effective_date is null then\r\n    raise exception using errcode = '23514', message = 'New effective date is required';\r\n  end if;\r\n\r\n  if nullif(btrim(coalesce(p_reason, '')), '') is null then\r\n    raise exception using errcode = '23514', message = 'Reschedule reason is required';\r\n  end if;\r\n\r\n  select * into v_transfer\r\n    from public.transfers\r\n   where id = p_transfer_id\r\n     and deleted_at is null\r\n   for update;\r\n\r\n  if not found then\r\n    raise exception using errcode = 'P0002', message = 'Transfer not found';\r\n  end if;\r\n\r\n  if v_transfer.status not in ('Scheduled', 'Joining Pending', 'Not Joined') then\r\n    raise exception using errcode = '23514',\r\n      message = format('Transfer cannot be rescheduled from status %s', v_transfer.status);\r\n  end if;\r\n\r\n  update public.transfers\r\n     set previous_effective_date = effective_date,\r\n         effective_date = p_new_effective_date,\r\n         transfer_date = p_new_effective_date::text,\r\n         status = case when p_new_effective_date <= current_date then 'Joining Pending' else 'Scheduled' end,\r\n         rescheduled_at = now(),\r\n         rescheduled_by = auth.uid(),\r\n         not_joined_at = null,\r\n         not_joined_by = null,\r\n         not_joined_reason = null,\r\n         not_joined_remarks = null,\r\n         notes = case\r\n           when nullif(btrim(coalesce(notes, '')), '') is null then 'Rescheduled: ' || p_reason\r\n           else notes || E'\\nRescheduled: ' || p_reason\r\n         end,\r\n         updated_at = now()\r\n   where id = v_transfer.id\r\n   returning * into v_transfer;\r\n\r\n  insert into public.activity_log (user_id, action, table_name, record_ref, detail)\r\n  values (\r\n    auth.uid(), 'reschedule', 'transfers', v_transfer.id::text,\r\n    format('Transfer rescheduled for employee system ID %s to %s: %s',\r\n      v_transfer.employee_sys_id, p_new_effective_date, p_reason)\r\n  );\r\n\r\n  return to_jsonb(v_transfer);\r\nend;\r\n$function$\n"
+      "definition": "CREATE OR REPLACE FUNCTION public.reschedule_transfer(p_transfer_id bigint, p_new_effective_date date, p_reason text)\n RETURNS jsonb\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\n SET \"TimeZone\" TO 'Asia/Dhaka'\nAS $function$\r\ndeclare\r\n  v_transfer public.transfers%rowtype;\r\nbegin\r\n  if p_new_effective_date is null then\r\n    raise exception using errcode = '23514', message = 'New effective date is required';\r\n  end if;\r\n\r\n  if nullif(btrim(coalesce(p_reason, '')), '') is null then\r\n    raise exception using errcode = '23514', message = 'Reschedule reason is required';\r\n  end if;\r\n\r\n  select * into v_transfer\r\n    from public.transfers\r\n   where id = p_transfer_id\r\n     and deleted_at is null\r\n   for update;\r\n\r\n  if not found then\r\n    raise exception using errcode = 'P0002', message = 'Transfer not found';\r\n  end if;\r\n\r\n  if v_transfer.status not in ('Scheduled', 'Joining Pending', 'Not Joined') then\r\n    raise exception using errcode = '23514',\r\n      message = format('Transfer cannot be rescheduled from status %s', v_transfer.status);\r\n  end if;\r\n\r\n  update public.transfers\r\n     set previous_effective_date = effective_date,\r\n         effective_date = p_new_effective_date,\r\n         transfer_date = p_new_effective_date::text,\r\n         status = case when p_new_effective_date <= current_date then 'Joining Pending' else 'Scheduled' end,\r\n         rescheduled_at = now(),\r\n         rescheduled_by = auth.uid(),\r\n         not_joined_at = null,\r\n         not_joined_by = null,\r\n         not_joined_reason = null,\r\n         not_joined_remarks = null,\r\n         notes = case\r\n           when nullif(btrim(coalesce(notes, '')), '') is null then 'Rescheduled: ' || p_reason\r\n           else notes || E'\\nRescheduled: ' || p_reason\r\n         end,\r\n         updated_at = now()\r\n   where id = v_transfer.id\r\n   returning * into v_transfer;\r\n\r\n  insert into public.activity_log (user_id, action, table_name, record_ref, detail)\r\n  values (\r\n    auth.uid(), 'reschedule', 'transfers', v_transfer.id::text,\r\n    format('Transfer rescheduled for employee system ID %s to %s: %s',\r\n      v_transfer.employee_sys_id, p_new_effective_date, p_reason)\r\n  );\r\n\r\n  return to_jsonb(v_transfer);\r\nend;\r\n$function$\n"
     },
     {
       "owner": "postgres",
@@ -36435,5 +36492,6 @@
   ],
   "additional_standalone_types": [],
   "attendanceRefreshedOn": "2026-10-21",
-  "notificationRefreshedOn": "2026-10-21"
+  "notificationRefreshedOn": "2026-10-21",
+  "transferRefreshedOn": "2026-10-21"
 }

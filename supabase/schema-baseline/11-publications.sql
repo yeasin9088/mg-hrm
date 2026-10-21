@@ -9,6 +9,7 @@ ALTER PUBLICATION "supabase_realtime" ADD TABLE "public"."employees";
 ALTER PUBLICATION "supabase_realtime" ADD TABLE "public"."notifications";
 ALTER PUBLICATION "supabase_realtime" ADD TABLE "public"."projects";
 ALTER PUBLICATION "supabase_realtime" ADD TABLE "public"."todos";
+ALTER PUBLICATION "supabase_realtime" ADD TABLE "public"."transfers";
 ALTER PUBLICATION "supabase_realtime" ADD TABLE "public"."uniform_deliveries";
 ALTER PUBLICATION "supabase_realtime" ADD TABLE "public"."uniform_delivery_bills";
 ALTER PUBLICATION "supabase_realtime" ADD TABLE "public"."uniform_delivery_issues";

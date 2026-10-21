@@ -10604,27 +10604,54 @@ window.trClearFilters = trClearFilters;
 
 let transferSyncInFlight = false;
 let transferSyncWarningShown = false;
-async function syncTransfersFromServer(){
-  if (transferSyncInFlight || document.hidden || typeof currentPage === 'undefined' || currentPage !== 'transfer' ||
+let transferSyncPending = false;
+let transferRealtimeTimer = null;
+let transferLastSyncDay = '';
+let transferEmployeeRefreshPending = false;
+async function syncTransfersFromServer(force){
+  if (transferSyncInFlight) { if (force === true) transferSyncPending = true; return; }
+  if (document.hidden || typeof currentPage === 'undefined' || (!force && currentPage !== 'transfer') ||
       !window.MGHRM || !window.MGHRM.reloadTransfers) return;
   transferSyncInFlight = true;
   try {
-    const previous = new Map((DATA.transfers || []).map(t=>[String(t.id), String(t.status || t.Status || '')]));
+    const previous = new Map((DATA.transfers || []).map(t=>[String(t.id), String(t.status || t.Status || '')+'|'+String(t.updated_at || '')]));
     const rows = await window.MGHRM.reloadTransfers();
-    if (rows.some(t=>String(t.status || t.Status)==='Completed' && previous.get(String(t.id))!=='Completed') &&
-        typeof fetchEmployeesDirectly === 'function') {
-      await fetchEmployeesDirectly({render:false,reason:'transfer-sync'});
+    const changed = rows.length !== previous.size || rows.some(t=>previous.get(String(t.id))!==String(t.status || t.Status || '')+'|'+String(t.updated_at || ''));
+    const completed = rows.some(t=>String(t.status || t.Status)==='Completed' && !String(previous.get(String(t.id)) || '').startsWith('Completed|'));
+    const today = transferTodayISO();
+    const dayChanged = today !== transferLastSyncDay;
+    transferLastSyncDay = today;
+    if (completed) transferEmployeeRefreshPending = true;
+    const refreshEmployees = transferEmployeeRefreshPending;
+    if (refreshEmployees && typeof fetchEmployeesDirectly === 'function') {
+      if (!await fetchEmployeesDirectly()) throw new Error('Employee refresh failed after transfer completion');
+      transferEmployeeRefreshPending = false;
       if (document.getElementById('trEmp')?.value && typeof trFillEmp === 'function') trFillEmp();
     }
     transferSyncWarningShown = false;
-    renderTransferTable();
+    if (currentPage === 'transfer' && (changed || dayChanged)) renderTransferTable();
+    else if (changed || refreshEmployees) {
+      if (currentPage === 'dashboard' && typeof renderDashboard === 'function') renderDashboard();
+      if (currentPage === 'reports' && typeof renderReportSelected === 'function') renderReportSelected();
+      if (refreshEmployees && currentPage === 'employees' && typeof renderEmpTable === 'function') renderEmpTable();
+      if (refreshEmployees && currentPage === 'projects' && typeof updateProjectsTableUI === 'function') updateProjectsTableUI();
+    }
   } catch(err) {
     if (!transferSyncWarningShown) toast('Transfer sync unavailable. Reload to check for updates.', 'warning');
     transferSyncWarningShown = true;
-  } finally { transferSyncInFlight = false; }
+  } finally {
+    transferSyncInFlight = false;
+    if (transferSyncPending) { transferSyncPending = false; setTimeout(()=>syncTransfersFromServer(true), 0); }
+  }
 }
-window.addEventListener('focus', syncTransfersFromServer);
-document.addEventListener('visibilitychange', function(){ if (!document.hidden) syncTransfersFromServer(); });
+window.mgTransferRealtimeChanged = function(payload){
+  if (!payload || payload.table !== 'transfers' || !['INSERT','UPDATE','DELETE'].includes(payload.eventType)) return;
+  clearTimeout(transferRealtimeTimer);
+  transferRealtimeTimer = setTimeout(()=>{ transferRealtimeTimer=null; syncTransfersFromServer(true); }, 300);
+};
+window.mgTransferRealtimeConnected = function(){ syncTransfersFromServer(true); };
+window.addEventListener('focus', function(){ syncTransfersFromServer(true); });
+document.addEventListener('visibilitychange', function(){ if (!document.hidden) syncTransfersFromServer(true); });
 setInterval(syncTransfersFromServer, 60000);
 
 

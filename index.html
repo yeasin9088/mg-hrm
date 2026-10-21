@@ -19206,7 +19206,7 @@ function renderTodo(){
       '<label class="td-cf">Reminder<select id="tdQuickRemindType">' +
         '<option value="">Off</option><option value="30m">30 min</option>' +
         '<option value="1h">1 hour</option><option value="2h">2 hours</option>' +
-        '<option value="today">Once today</option>' +
+        '<option value="once">Once now</option><option value="today">Daily (legacy)</option>' +
         '<option value="custom">Custom (choose dates on the card)</option>' +
       '</select></label>' +
       '<button type="button" id="tdQuickSend" class="td-fb-send" onclick="mtQuickAddTodo()">Save Note</button>' +
@@ -19392,7 +19392,7 @@ window.mtQuickAddTodo = async function(event) {
       task.reminder_enabled  = true;
       task.reminder_type     = remChoice;
       task.reminder_interval = window.MG_RM_TYPES[remChoice].interval;
-      task.next_reminder_at  = null;            /* the engine computes it on the next tick */
+      task.next_reminder_at  = (remChoice === 'once' || remChoice === 'today') ? nowIso : null;
     } else if (remChoice === 'custom'){
       if (typeof toast === 'function') toast('Open the bell on the card to pick custom dates', 'info');
     }
@@ -19799,13 +19799,14 @@ window.mgTdIsSolved = function(t){
 /* ==========================================================================
    MG REMINDER SYSTEM v2 — per-note, database-driven schedules
    ========================================================================== */
-window.MG_RM_TYPE_ORDER = ['30m', '1h', '2h', 'today', 'custom'];
+window.MG_RM_TYPE_ORDER = ['30m', '1h', '2h', 'once', 'today', 'custom'];
 
 window.MG_RM_TYPES = {
   '30m':    { label: 'Every 30 minutes', interval: 30,   hint: 'Repeats all day, every day' },
   '1h':     { label: 'Every 1 hour',     interval: 60,   hint: 'Repeats all day, every day' },
   '2h':     { label: 'Every 2 hours',    interval: 120,  hint: 'Repeats all day, every day' },
-  'today':  { label: 'Once Today',       interval: 1440, hint: 'Shows once now, then once a day at the same time' },
+  'once':   { label: 'Once now', interval: 1440, hint: 'One reminder only; no automatic repeat' },
+  'today':  { label: 'Daily (legacy)',       interval: 1440, hint: 'Shows once now, then once a day at the same time' },
   'custom': { label: 'Custom dates',     interval: 60,   hint: 'Pick dates and an interval for each date' }
 };
 
@@ -19884,7 +19885,8 @@ window.mgRmIvLabel = function(v){
 window.mgRmSummary = function(t){
   if (!t || t.reminder_enabled !== true) return 'No reminder';
   var type = window.mgRmTypeOf(t);
-  if (type !== 'custom') return window.MG_RM_TYPES[type].label;
+  if (type === 'once' || type === 'today') return window.MG_RM_TYPES[type].label;
+  if (type !== 'custom') return window.mgRmIvLabel(window.mgRmIntervalOf(t));
   var defs = window.mgRmDates(t);
   if (!defs.length) return 'Custom dates';
   var parts = [];
@@ -19920,6 +19922,8 @@ window.mgRmNextAt = function(t, fromMs){
     }
     return best;
   }
+
+  if (type === 'once') return cur === null ? fromMs : null;
 
   if (type === 'today'){
     if (cur === null) return fromMs;                    /* first time: fire now */
@@ -20082,12 +20086,14 @@ window.mgRmFire = function(t){
   window.mgRmQueueToast(t.id);
 };
 
-/* THE ENGINE — the only scheduler in the app */
+/* Legacy compatibility producer. The database atomically fences it after server cutover. */
 let mgReminderClaimRunning = false;
 window.mgReminderTick = async function(){
   if (mgReminderClaimRunning) return;
   mgReminderClaimRunning = true;
   try {
+    // Before migration an absent capability RPC means legacy mode; SQL fences stale clients.
+    try { if (await window.MGHRM?.notifications?.reminderMode?.()) return; } catch (_) {}
     const cfg = window.MG_TD_CFG || {};
     if (cfg.master === false || !window.MGHRM?.notifications) return;
     for (const todo of window.mgRmActiveTodos()) {
@@ -20165,7 +20171,7 @@ window.mgRmRenderPicker = function(){
 
   html += '<div style="font-size:11.5px;color:var(--text-mute);line-height:1.5;">' +
     'The schedule is stored in the database with this note, so it survives refresh, browser restart and logout. ' +
-    'A solved or deleted note stops reminding automatically.</div></div>';
+    'A solved or deleted note stops reminding automatically. To-Do reminders respect your To-Do category preferences and quiet hours; they resume after quiet hours. Device permission is always required for push.</div></div>';
 
   var actions = ((t && t.reminder_enabled === true)
       ? '<button type="button" class="btn ghost sm" onclick="mtRemOff()">Turn off reminder</button>' : '') +
@@ -20222,6 +20228,7 @@ window.mtRemSave = async function(){
     if (!clean.length){ if (typeof toast === 'function') toast('Add at least one date', 'error'); return; }
     patch.reminder_dates = clean;
   }
+  try { if (await window.MGHRM?.notifications?.reminderMode?.()) patch.reminder_timezone = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (_) {}
   var tmp = {};
   for (var k in t){ if (t.hasOwnProperty(k)) tmp[k] = t[k]; }
   for (var k2 in patch){ if (patch.hasOwnProperty(k2)) tmp[k2] = patch[k2]; }
@@ -24438,6 +24445,7 @@ setInterval(()=>checkPendingToast(true), 180000);
 })();
 </script>
 <script src="./notification-model.js"></script>
+<script src="./notification-presence.js"></script>
 <script src="./notification-center.js"></script>
 
 <link rel="stylesheet" href="./notification-ui.css">

@@ -257,7 +257,25 @@
     clearTimeout(reloadTimer);
     reloadTimer = setTimeout(() => window.mgLoadBackendNotifications(), 150);
   };
+  let foregroundPresence=null, presenceUser=null;
+  async function refreshPresence(session) {
+    const version=generation;
+    let enabled=false;
+    try { enabled=await repo()?.reminderMode?.(); } catch (_) { /* Pre-migration or offline: absence never suppresses push. */ }
+    if(version!==generation) return;
+    if(foregroundPresence && (!enabled || !session?.user || presenceUser!==session.user.id)) {
+      foregroundPresence.stop(); foregroundPresence=null; presenceUser=null;
+    }
+    if(enabled && session?.user && !foregroundPresence && window.NotificationPresence && window.crypto?.randomUUID && repo()?.presenceHeartbeat) {
+      presenceUser=session.user.id;
+      foregroundPresence=window.NotificationPresence.create({window,document,heartbeat:params=>repo().presenceHeartbeat(params)});
+    }
+  }
   async function start() {
+    const version=generation;
+    const session=await window.MGHRM.getSession();
+    if(version!==generation||!session?.user) return;
+    refreshPresence(session).catch(()=>{});
     await window.mgLoadBackendNotifications();
     window.mgNotifCfgLoad();
     if (repo()?.subscribe) {
@@ -267,6 +285,7 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(start, 500));
   else setTimeout(start, 500);
   if (window.MGHRM?.onChange) window.MGHRM.onChange(function (event, session) {
+    if(foregroundPresence && (!session?.user || presenceUser!==session.user.id)) { foregroundPresence.stop(); foregroundPresence=null;presenceUser=null; }
     generation++; loading = null;
     window.MG_NOTIFICATION_STATE.loading = false;
     if (session?.user) start();
@@ -282,5 +301,5 @@
   });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) window.mgHandleNotificationRealtime(); });
   window.addEventListener('online', window.mgHandleNotificationRealtime);
-  setInterval(() => { if (!document.hidden) window.mgHandleNotificationRealtime(); }, 60000);
+  setInterval(() => { if (!document.hidden) { window.mgHandleNotificationRealtime(); window.MGHRM?.getSession?.().then(refreshPresence).catch(()=>{}); } }, 60000);
 })();

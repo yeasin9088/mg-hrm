@@ -117,3 +117,65 @@
 .mg-n-center-head{gap:10px;flex-wrap:wrap}.mg-n-center-head>div:last-child{display:flex;flex-wrap:wrap;gap:5px}
 @media(min-width:1000px){.mg-n-page .mg-n-content{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px}.mg-n-page .mg-n-top,.mg-n-page .mg-n-message{grid-column:1}.mg-n-page .mg-n-row-actions{grid-column:2;grid-row:1/4;align-content:center;margin:0;max-width:250px}.mg-n-page .mg-n-meta{grid-column:1}}
 @media(max-width:768px){.mg-n-page .mg-n-card{padding:10px}.mg-n-page .mg-n-btn{min-height:36px}.mg-n-page .mg-n-time{font-size:10px;white-space:nowrap}.mg-n-page .mg-n-tools{display:flex;flex-wrap:wrap}.mg-n-page .mg-n-search{flex:1 1 100%;min-width:0}.mg-n-page .mg-n-select{min-width:0;max-width:46%}.mg-n-tabs{overflow-x:auto}.mg-n-tabs .mg-n-btn{white-space:nowrap;flex-shrink:0}}
+
+
+/* Notification inbox: compact, disclosure-first layout. Bell dropdown and settings remain unchanged. */
+.mg-n-inbox .mg-n-inbox-head{margin:0 0 4px;min-height:0;gap:5px}
+.mg-n-inbox .mg-n-inbox-head h2{font-size:19px;line-height:1.25}
+.mg-n-inbox .mg-n-inbox-head p{margin:1px 0 0;font-size:11px;line-height:1.3}
+.mg-n-inbox .mg-n-toolbar-line{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:3px 0 7px;min-width:0}
+.mg-n-inbox .mg-n-inbox-tabs{min-width:0;flex:1}
+.mg-n-inbox .mg-n-inbox-tabs .mg-n-tabs{display:flex;flex-wrap:nowrap;gap:4px;padding:0;border:0;overflow-x:auto;scrollbar-width:thin}
+.mg-n-inbox .mg-n-inbox-tabs .mg-n-btn{min-height:30px;padding:3px 8px;font-size:11px;font-weight:600;border-radius:7px;flex:none;white-space:nowrap}
+.mg-n-inbox .mg-n-inbox-tabs .mg-n-btn[aria-pressed="true"]{background:var(--bg-dim,#f1f5f9);border-color:var(--border,#e2e8f0);color:var(--text,#334155)}
+.mg-n-inbox .mg-n-toolbar-actions{display:flex;gap:4px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.mg-n-inbox .mg-n-toolbar-actions .mg-n-btn{min-height:30px;padding:3px 8px;border-radius:7px;font-size:11px;font-weight:600;white-space:nowrap;flex:none}
+.mg-n-inbox .mg-n-filter-drawer{margin:0 0 7px;padding:9px;border:1px solid var(--mg-n-border);background:var(--bg-dim,#f1f5f9);border-radius:9px}
+.mg-n-inbox .mg-n-filter-drawer[hidden]{display:none!important}
+.mg-n-inbox .mg-n-tools{display:grid;grid-template-columns:minmax(0,1fr) minmax(120px,175px) minmax(110px,145px) auto;gap:6px;padding:0;margin:0}
+.mg-n-inbox .mg-n-tools .mg-n-search,.mg-n-inbox .mg-n-tools .mg-n-select{flex:none;min-width:0;max-width:none;width:100%;min-height:34px;height:34px;padding:0 9px;font-size:12px}
+.mg-n-inbox .mg-n-tools .mg-n-btn{min-height:34px;padding:3px 8px;font-size:11px}
+.mg-n-inbox .mg-n-page-list{display:block;gap:0;border:1px solid var(--mg-n-border);border-radius:10px;overflow:hidden}
+.mg-n-inbox .mg-n-card{display:block;position:relative;min-height:0;padding:9px 12px;margin:0;border:0;border-bottom:1px solid var(--mg-n-border);border-radius:0;cursor:pointer;background:var(--card,#fff)}
+.mg-n-inbox .mg-n-card:last-child{border-bottom:0}
+.mg-n-inbox .mg-n-card.read{background:var(--bg,#f8fafc)}
+.mg-n-inbox .mg-n-card.unread{background:var(--card,#fff);box-shadow:inset 3px 0 var(--mg-n-blue)}
+.mg-n-inbox .mg-n-card.is-expanded{background:var(--card,#fff)}
+.mg-n-inbox .mg-n-content{display:block;min-width:0}
+.mg-n-inbox .mg-n-top{display:flex;align-items:flex-start;flex-wrap:nowrap;gap:6px;min-width:0}
+.mg-n-inbox .mg-n-open{display:block;flex:1;min-width:0;min-height:0;padding:0;font-size:12.5px;font-weight:700;line-height:1.4;color:var(--text);text-align:left;overflow-wrap:anywhere}
+.mg-n-inbox .mg-n-card.read .mg-n-open{font-weight:550;color:var(--text-2)}
+.mg-n-inbox .mg-n-time{font-size:10px;line-height:1.4;flex:none;max-width:105px;white-space:normal;text-align:right;margin:1px 0 0}
+.mg-n-inbox .mg-n-unread-dot{margin-top:5px}
+.mg-n-inbox .mg-n-expand-icon{display:inline-flex;align-items:center;justify-content:center;flex:none;color:var(--text-muted);font-size:16px;line-height:1.1;width:13px}
+.mg-n-inbox .mg-n-message{display:-webkit-box;margin:3px 0 0;font-size:11.5px;line-height:1.4;white-space:normal;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden;overflow-wrap:anywhere;grid-column:auto}
+.mg-n-inbox .mg-n-card.is-expanded .mg-n-message{display:block;white-space:pre-wrap;overflow:visible;-webkit-line-clamp:unset}
+.mg-n-inbox .mg-n-row-detail{min-width:0}
+.mg-n-inbox .mg-n-row-detail[hidden]{display:none!important}
+.mg-n-inbox .mg-n-meta{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px;grid-column:auto}
+.mg-n-inbox .mg-n-chip{min-height:18px;padding:2px 6px;border-radius:5px;font-size:10px}
+.mg-n-inbox .mg-n-row-actions{display:flex;align-items:center;align-content:center;flex-wrap:wrap;gap:2px;margin:7px 0 0;padding:5px 0 0;border-top:1px solid var(--mg-n-border);grid-column:auto;grid-row:auto;max-width:none}
+.mg-n-inbox .mg-n-row-actions .mg-n-btn{min-height:30px;flex:0 0 auto!important;padding:3px 8px;font-size:11px;font-weight:600;line-height:1.35;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--text-2,#475569);box-shadow:none}
+.mg-n-inbox .mg-n-row-actions .mg-n-btn:hover,.mg-n-inbox .mg-n-row-actions .mg-n-btn:focus-visible{border-color:var(--mg-n-border);background:var(--bg-dim,#f1f5f9)}
+@media(max-width:900px){
+  .mg-n-inbox .mg-n-toolbar-line{flex-wrap:wrap;gap:5px}
+  .mg-n-inbox .mg-n-inbox-tabs{flex:1 1 100%;width:100%}
+  .mg-n-inbox .mg-n-toolbar-actions{justify-content:flex-start;width:100%}
+  .mg-n-inbox .mg-n-tools{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .mg-n-inbox .mg-n-tools .mg-n-search{grid-column:1/-1;font-size:16px}
+}
+@media(max-width:600px){
+  .mg-n-inbox .mg-n-inbox-head{margin-bottom:3px}
+  .mg-n-inbox .mg-n-inbox-head h2{font-size:17px}
+  .mg-n-inbox .mg-n-toolbar-line{gap:4px;padding:1px 0 6px}
+  .mg-n-inbox .mg-n-inbox-tabs .mg-n-btn{min-height:30px;padding:3px 7px;font-size:10.5px}
+  .mg-n-inbox .mg-n-toolbar-actions{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin}
+  .mg-n-inbox .mg-n-toolbar-actions .mg-n-btn{min-height:32px;padding:4px 7px;font-size:10.5px}
+  .mg-n-inbox .mg-n-card{padding:9px 10px;min-height:0}
+  .mg-n-inbox .mg-n-top{gap:5px}
+  .mg-n-inbox .mg-n-open{font-size:12px}
+  .mg-n-inbox .mg-n-time{font-size:9.5px;max-width:88px}
+  .mg-n-inbox .mg-n-message{font-size:11px}
+  .mg-n-inbox .mg-n-row-actions .mg-n-btn{min-height:34px;padding:4px 8px;flex:none!important}
+  .mg-n-inbox .mg-n-tools .mg-n-select{max-width:none}
+}

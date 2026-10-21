@@ -1,0 +1,28 @@
+name: Compact Notification Inbox checks
+on:
+  pull_request:
+    paths:
+      - notification-ui.js
+      - notification-ui.css
+      - tests/notification-inbox-ux.test.cjs
+      - .github/workflows/notification-inbox-ui.yml
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: All Node regression tests
+        run: node --test tests/*.test.cjs
+      - name: Lint and JavaScript syntax
+        run: |
+          npm run lint
+          node --check notification-ui.js
+      - name: Diff whitespace verification
+        run: git diff --check HEAD~1 HEAD

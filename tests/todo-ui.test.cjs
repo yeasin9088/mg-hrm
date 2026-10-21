@@ -1,0 +1,87 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const source=fs.readFileSync('index.html','utf8');
+function part(start,end){const a=source.indexOf(start);assert(a>=0,start);const b=source.indexOf(end,a);assert(b>a,end);return source.slice(a,b);}
+const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const note=(id,patch={})=>({id,category:'note',status:'pending',note_bn:'নিরাপত্তা কর্মীর অনুসরণ '+id,date:'2026-10-20',created_at:'2026-10-20T10:00:00Z',...patch});
+function fixture(rows=[note(1)]){
+ let markup='',elements={};
+ const input=()=>({value:'',style:{},scrollHeight:64,focus(){},setSelectionRange(){}});
+ const page={get innerHTML(){return markup},set innerHTML(v){markup=v;elements={...elements,tdQuickNote:input(),tdQuickRemindType:input(),tdQuickCat:{value:c.MG_TD_CAT_PICK||'note'}};}};
+ const c=vm.createContext({console,Date,Intl,Set,Map,
+  document:{activeElement:null,getElementById:id=>id==='page-todo'?page:elements[id]||null},
+  DATA:{todos:rows},escapeHtml:escape,tdCatOf:t=>t.category||'note',todayISO:()=> '2026-10-21',activeProjects:()=>[],
+  mgRmSummary:()=> 'Every 1 hour',updateTodoBadge(){},persist:async()=>{},toast(){},checkSalaryReminder(){},
+  MG_RM_TYPES:{'1h':{interval:60}},MG_TD_SUB:'all'});
+ c.window=c;
+ vm.runInContext(part('function renderTodo(){','window.mtRowClick'),c);
+ c.renderTodo();
+ return {c,page,get elements(){return elements},render(){c.renderTodo();return markup},rows(){return [...markup.matchAll(/class="td-row[^\"]*" id="td-row-([^\"]+)"/g)].map(m=>Number(m[1]))}};
+}
+test('all four categories retain their open/solved counts and historical records without render-time mutations',()=>{
+ const rows=[note(1),note(2,{status:'solved_approved'}),note(3,{category:'task'}),note(4,{category:'permission',manager_status:'asked'}),note(5,{category:'salary',status:'done'}),note(6,{deleted_at:'2026-10-21'})];
+ const before=JSON.stringify(rows),f=fixture(rows);
+ for(const text of ['General','My Task','Inform to Manager','Salary Notes'])assert(f.page.innerHTML.includes(text));
+ assert.deepEqual(f.rows(),[1,2]);assert.match(f.page.innerHTML,/Solved 1/);
+ f.c.tdMainFilter='salary';f.render();assert.deepEqual(f.rows(),[5]);assert.match(f.page.innerHTML,/Cleared 1/);
+ f.c.tdMainFilter='mgr';f.render();assert.deepEqual(f.rows(),[4]);assert.match(f.page.innerHTML,/Awaiting reply/);
+ assert.equal(JSON.stringify(rows),before);
+});
+test('each collapsed and expanded note has one accessible right-side star and retains full detail/actions',()=>{
+ const f=fixture([note(1,{is_important:true,reminder_enabled:true,extra_notes:[{raw:'Historical reply'}]})]);
+ for(const expanded of [false,true]){
+  f.c.MG_TD_OPEN={'1':expanded};const html=f.render();
+  assert.equal((html.match(/onclick="event.stopPropagation\(\);mtToggleTodoImportant/g)||[]).length,1);
+  assert.match(html,/id="td-important-1" aria-label="Remove important" aria-pressed="true"/);
+  assert(!html.includes('★ Important'));assert(!html.includes('td-meta-imp'));
+  assert.match(html,new RegExp('id="td-expand-1"[^>]*aria-expanded="'+expanded+'"'));
+  assert.match(html,/Every 1 hour/);
+  if(expanded)for(const action of ['Historical reply','Edit note','Extra note / reply','Move note','Delete note','mtOpenRemPicker'])assert(html.includes(action),action);
+ }
+});
+test('all/open/pending/approved/solved/important filters and Bengali/history search keep existing ordering',()=>{
+ const f=fixture([note(1),note(2,{status:'approved',is_important:true}),note(3,{status:'solved_rejected',is_important:true,extra_notes:[{raw:'Unique history'}]})]);
+ assert.match(f.page.innerHTML,/Important 2<\/button>/);
+ for(const [filter,expected] of [['all',[2,1,3]],['unsolved',[2,1]],['pending',[1]],['approved',[2]],['solved',[3]],['important',[2,3]]]){
+  f.c.MG_TD_SUB=filter;f.render();assert.deepEqual(f.rows(),expected,filter);
+ }
+ f.c.MG_TD_SUB='all';f.c.MG_TD_Q='unique history';f.render();assert.deepEqual(f.rows(),[3]);
+ f.c.MG_TD_Q='নিরাপত্তা';f.render();assert.equal(f.rows().length,3);
+});
+test('composer text and schedule survive list refreshes and note previews escape markup safely',()=>{
+ const f=fixture([note(1,{note_bn:'<script>alert(1)</script>'})]);
+ f.elements.tdQuickNote.value='অসমাপ্ত খসড়া';f.elements.tdQuickRemindType.value='custom';
+ f.c.MG_TD_SUB='solved';f.render();assert.equal(f.elements.tdQuickNote.value,'অসমাপ্ত খসড়া');assert.equal(f.elements.tdQuickRemindType.value,'custom');
+ f.c.MG_TD_SUB='all';f.render();assert.match(f.page.innerHTML,/&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+ assert(!f.page.innerHTML.includes('<script>alert(1)'));
+ for(const option of ['30m','1h','2h','today','custom'])assert(f.page.innerHTML.includes('value="'+option+'"'));
+});
+test('synthetic note creation preserves category, pending state and existing reminder options',async()=>{
+ const f=fixture([]);const writes=[];f.c.mgTdPush=async(t,keys)=>{writes.push({t,keys});return true};
+ vm.runInContext(part('window.mtQuickAddTodo = async function(event)', 'window.mtRequestSalaryNotif'),f.c);
+ f.elements.tdQuickNote.value='নতুন নোট';f.elements.tdQuickCat.value='permission';f.elements.tdQuickRemindType.value='1h';
+ const result=await f.c.mtQuickAddTodo();assert.equal(result.status,'pending');assert.equal(result.category,'permission');assert.equal(result.manager_status,'asked');assert.equal(result.reminder_interval,60);assert.equal(writes.length,1);assert.equal(f.elements.tdQuickNote.value,'');
+ f.elements.tdQuickNote.value='  ';assert.equal(await f.c.mtQuickAddTodo(),null);assert.equal(writes.length,1);
+});
+test('star, completion and expansion invoke existing transitions using isolated data',async()=>{
+ const f=fixture([note(1)]),writes=[];
+ f.c.appData={update:async(bucket,id,patch)=>{writes.push({bucket,id,patch})}};
+ f.c.mgTdFlagWrite=async(t,patch)=>{Object.assign(t,patch);f.render();return true};
+ vm.runInContext(part('window.mtToggleTodoImportant = function(id)','window.mtQuickAddTodo'),f.c);
+ f.c.mtToggleTodoImportant(1);await Promise.resolve();assert.equal(f.c.DATA.todos[0].is_important,true);
+ vm.runInContext(part('window.mtSetTodoStatus = function(id','window.delTodo'),f.c);
+ f.c.mtToggleTodoStatus(1);assert.equal(f.c.DATA.todos[0].status,'approved');
+ f.c.mtToggleTodoStatus(1);assert.equal(f.c.DATA.todos[0].status,'solved_approved');assert(f.c.DATA.todos[0].solved_at);
+ f.c.mtToggleTodoStatus(1);assert.equal(f.c.DATA.todos[0].status,'pending');assert.equal(f.c.DATA.todos[0].solved_at,null);
+ vm.runInContext(part('window.mtToggleTodoOpen = function(id)','window.MG_TD_MOVE = null;'),f.c);
+ f.c.mtToggleTodoOpen(1);assert.match(f.page.innerHTML,/aria-expanded="true"/);assert.equal(writes.length,3);
+});
+test('existing editor preserves completion, reminder metadata and replies while updating note text',async()=>{
+ const f=fixture([note(1,{status:'solved_approved',solved_at:'2026-10-20',reminder_type:'custom',extra_notes:[{raw:'Past reply'}]})]);
+ Object.assign(f.elements,{mgEdNote:{value:'সংশোধিত নোট'},mgEdProj:{value:'Synthetic'},mgEdDate:{value:'2026-10-20'},mgEdCat:{value:'note'},mgEdImp:{checked:false},mgEdMgr:{checked:false}});
+ Object.assign(f.c,{MG_TD_EDIT_ID:1,find:id=>f.c.DATA.todos.find(t=>t.id===id),el:id=>f.elements[id],busy(){},translate:async raw=>({ok:true,bn:raw}),nowIso:()=> '2026-10-21',toastSafe(){},mtCloseNote(){},mgTdPush:async()=>true});
+ vm.runInContext(part('window.mtSaveNote = async function(){','window.mtAddExtra'),f.c);
+ await f.c.mtSaveNote();const row=f.c.DATA.todos[0];assert.equal(row.note_bn,'সংশোধিত নোট');assert.equal(row.status,'solved_approved');assert.equal(row.reminder_type,'custom');assert.equal(row.extra_notes[0].raw,'Past reply');
+});

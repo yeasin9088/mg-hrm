@@ -104,6 +104,13 @@ function findEmp(rid) {
 #page-dashboard .trq-item{padding:10px 14px}#page-dashboard .trq-head{padding:12px 14px}
 @media(max-width:900px){#page-dashboard .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){#page-dashboard .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px}#page-dashboard .kpi{padding:12px 10px}#page-dashboard .kpi-value{font-size:24px}#page-dashboard .dash-heading h2{font-size:20px}#page-dashboard .dash-heading p{max-width:220px}#page-dashboard .grid-2{grid-template-columns:minmax(0,1fr)}#page-dashboard .trq-item{align-items:flex-start;flex-wrap:wrap}#page-dashboard .trq-actions{margin-left:auto}#page-dashboard .trq-name-row{flex-wrap:wrap}#page-dashboard .trq-head{flex-wrap:wrap}}
+/* The global topbar is utilities only; titles belong to their section. */
+.main > .topbar{justify-content:flex-end;margin-bottom:10px}
+.topbar-left[hidden]{display:none!important}
+.section-page-heading{margin:0 0 18px;min-width:0}
+.section-page-heading h2{font-size:22px;font-weight:700;letter-spacing:-.3px;line-height:1.25;margin:0}
+.section-page-heading p{font-size:12px;color:var(--text-muted);margin:4px 0 0;line-height:1.5}
+@media(max-width:768px){.main > .topbar{margin:0;padding:0!important;min-height:0}.section-page-heading{margin-bottom:14px}.section-page-heading h2{font-size:20px}}
 </style>
 <style>
 :root {
@@ -3639,7 +3646,7 @@ input:focus, select:focus, textarea:focus {
       </div>
     </div>
     <div class="topbar">
-      <div class="topbar-left">
+      <div class="topbar-left" hidden>
         <h2 id="pageTitle">Dashboard</h2>
         <p id="pageSub"></p>
       </div>
@@ -3812,6 +3819,40 @@ function applyI18n(){
   document.getElementById('pageTitle').textContent = meta[0];
   document.getElementById('pageSub').textContent   = meta[1];
 }
+
+/* One heading owner: a section's own title, or this shared fallback. */
+function syncSectionHeading(){
+  const page = document.getElementById('page-' + currentPage);
+  const title = document.getElementById('pageTitle');
+  const subtitle = document.getElementById('pageSub');
+  if (!page || !title || !subtitle) return;
+  const fallback = page.querySelector('[data-shared-section-heading]');
+  const first = [...page.querySelectorAll('h1,h2,h3')].find(heading =>
+    !heading.closest('[data-shared-section-heading], [role="dialog"], .modal, [hidden]'));
+  const normalize = text => String(text || '').trim().replace(/\s+/g,' ').toLowerCase();
+  // h3 card/form headings remain content unless they are the section title itself.
+  const ownsHeading = first && (first.tagName !== 'H3' || normalize(first.textContent) === normalize(title.textContent));
+  if (ownsHeading) { if (fallback) fallback.remove(); return; }
+  let header = fallback;
+  if (!header) {
+    header = document.createElement('header');
+    header.className = 'section-page-heading';
+    header.setAttribute('data-shared-section-heading','');
+    header.append(document.createElement('h2'),document.createElement('p'));
+    page.prepend(header);
+  }
+  // Idempotent updates avoid observer loops and preserve section controls/focus.
+  if (header.children[0].textContent !== title.textContent) header.children[0].textContent = title.textContent;
+  if (header.children[1].textContent !== subtitle.textContent) header.children[1].textContent = subtitle.textContent;
+}
+document.addEventListener('DOMContentLoaded', function(){
+  const observer = new MutationObserver(syncSectionHeading);
+  // Watch section replacements, including async Dashboard/Employees renderers.
+  document.querySelectorAll('.main > .page').forEach(page=>observer.observe(page,{childList:true,subtree:true}));
+  const source = document.querySelector('.topbar-left');
+  if (source) observer.observe(source,{childList:true,subtree:true,characterData:true});
+  syncSectionHeading();
+}, {once:true});
 
 /* ============ Utils ============ */
 function toBnDigits(s){
@@ -22236,6 +22277,7 @@ function renderAll(){
   applyI18n();
   const map = {dashboard:renderDashboard,notifications:renderNotifications,todo:renderTodo,employees:renderEmployees,recruitment:renderRecruitment,parade:renderParade,projects:renderProjects,meeting:renderMeeting,uniform:renderUniform,transfer:renderTransfer,disciplinary:renderDisciplinary,leave:renderLeave,exit:renderExit,salary:renderSalary,increment:renderIncrement,reports:renderReports,settings:renderSettings};
   const f = map[currentPage]; if(f) f();
+  syncSectionHeading();
   updateBackupStatus();
   updateNotifBadge();
   updateMeetingBadge();

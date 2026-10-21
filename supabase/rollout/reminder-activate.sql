@@ -1,4 +1,4 @@
--- PENDING: run only after verified backup/restore, hosted integration and an
+-- PENDING: run only after hosted integration and an
 -- authenticated read-only sender health response (200, configured=true).
 -- Review existing push work explicitly. Never bulk-send or delete old history.
 BEGIN;

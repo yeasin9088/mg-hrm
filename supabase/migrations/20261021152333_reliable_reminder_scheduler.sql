@@ -1,4 +1,4 @@
--- Pending rollout. See docs/reminder-rollout.md; do not apply before backup/restore gates.
+-- Pending rollout. See docs/reminder-rollout.md; owner-authorized rollout; see dated recovery-risk waiver.
 -- Additive infrastructure; activation is a separate, explicit service-only transaction.
 BEGIN;
 CREATE SCHEMA IF NOT EXISTS notification_private;

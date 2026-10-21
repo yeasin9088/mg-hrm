@@ -1,4 +1,4 @@
--- PENDING, not an automatic migration. Production backup + isolated restore gates first.
+-- PENDING, not an automatic migration. Owner waived backup/restore; security and integration checks still apply.
 -- Securely provision Vault mg_notification_sender_token and the SAME Edge secret
 -- WEB_PUSH_SENDER_TOKEN out-of-band. Never put their values in SQL source or logs.
 -- Deploy and authenticate the reviewed sender before replacing its existing Cron.
@@ -32,5 +32,5 @@ COMMIT;
 -- While paused, invoke notification_private.invoke_web_push_sender(true).
 -- Inspect that request ID's response for HTTP 200/configured=true; do not run the
 -- legacy sender v5 POST with a health parameter: v5 does not implement dry-run.
--- After backup/integration gates, health and explicit backlog review, use
+-- After required integration gates, health and explicit backlog review, use
 -- reminder-activate.sql. No activation or backlog mutation happens in this file.

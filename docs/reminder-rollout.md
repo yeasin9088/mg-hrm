@@ -1,6 +1,85 @@
 # Server reminders — implementation and gated rollout
 
-Status: source implementation; NOT deployed. Production producer mode has NOT been changed.
+Status: production migration and sender v6 deployed; server-authoritative mode and
+corrected sender Cron ENABLED at 2026-10-21 18:10:22 UTC. GitHub delivery is
+pending at this checkpoint; follow PR #9 for final merge/Pages status.
+
+## Owner authorization and recovery-risk decision (2026-10-21 Asia/Dhaka)
+
+The owner explicitly authorized production SQL migrations, the reviewed Edge
+sender deployment, secure Cron configuration and server-reminder activation.
+The owner waived the previously required fresh encrypted backup and isolated
+restore prerequisites, accepts the additional recovery risk, and prohibits any
+paid Supabase upgrade or paid environment. Those two gates below are historical
+requirements superseded by this decision, not completed verification. No backup
+or restore success is claimed. Security, functional, authentication, concurrency,
+queue-burst prevention and platform permission checks remain in force.
+
+Apply the additive migration with server mode disabled; pause the existing sender
+while configuring and testing protected read-only health. Preserve existing
+records and subscription/VAPID keys. Review and mark only identified obsolete
+push attempts as cancelled without deleting inbox/history. Activate only after
+relevant hosted checks pass; keep the documented producer/sender rollback path.
+Do not merge or claim device receipt before their respective checks succeed.
+
+Dashboard sign-in subsequently succeeded. Free plan has no managed backup; no
+upgrade was purchased. All four custom sender/VAPID secrets are present by
+metadata; their values were not exposed and runtime compatibility is unverified.
+
+
+## Production execution record (2026-10-21 UTC)
+
+- Reviewed PR parent 59751fb12341ca285d692f1413ba993adbf4eae4 against unchanged
+  main 3dc3f1d0456aea39d18c5ac1ffce022f2b53b00f. Five replaced RPC definition
+  hashes matched the deployed baseline before migration.
+- Applied `reliable_reminder_scheduler` from the reviewed versioned migration,
+  verified default-off mode, private RLS and denied client scheduler/activation access.
+- Migrated the existing Cron token internally into Vault without retrieving its
+  value, paused the sender, deployed reviewed `web-push-sender` v6, then applied
+  `secure_paused_reminder_sender_cron`. Downloaded deployed files match reviewed
+  `index.ts` and `worker.mjs` exactly. Custom authentication remains required.
+- pg_net protected health request 14694: HTTP 200, configured=true, mode=false.
+  Missing-token health request 14695: HTTP 401 as expected, no work performed.
+  Protected health is configuration/RPC proof, not provider or device receipt.
+- Applied `reminder-backlog.sql`: exactly 28 never-attempted pre-cutover ToDo jobs
+  and 56 device attempts, all older than the 30-minute ToDo delivery TTL, marked
+  Cancelled with STALE_PRE_CUTOVER diagnostics. No inbox/note/history deleted.
+  Scope/count guards reject changed work; application settings remain intact.
+- `supabase/acceptance/reminder-hosted.sql` passed against hosted PostgreSQL,
+  with synthetic Auth/session/note/subscription fixtures rolled back together.
+  Covered assigned-user routing, one-time and 30-minute recurrence, occurrence
+  dedupe, browser fencing, inbox, per-device fanout/denied devices, foreground,
+  hidden/stale/forged sessions, snooze/reschedule/solved state, quiet hours,
+  simulated 410/503 retry/backoff and revoked-device exclusion. Synthetic
+  provider results are NOT real provider acceptance. No fixture rows survive.
+- Genuine independent database sessions: a self-disabling test Cron backend
+  1436996 held the producer lock; backend 1436997 returned busy=true. Test Cron
+  finished successfully and was removed. This verifies the concurrency fence;
+  it is not an extended high-load stress test. Hosted event uniqueness was also
+  checked using the authoritative scheduler in the rollback-only transaction.
+- Existing processor and sender remain one each, at one-minute cadence. Existing
+  five-minute operations maintenance Cron was preserved. No duplicate scheduler.
+- Activated with `reminder-activate.sql` after unresolved event/push queues were
+  empty and security/health checks passed. Mode=true and same sender active=true
+  verified at 18:10:22 UTC. Legacy claim returned claimed=false, producer=server.
+- First real post-activation cycle: 4 processed events and 4 delivered inbox
+  records. Sender pg_net request 14697 returned HTTP 200, claimed=2,
+  providerAccepted=2, failed=1, jobErrors=0. Two device attempts received genuine
+  HTTP 201 provider acceptance; one expired subscription returned HTTP 410 and
+  was automatically revoked, leaving one eligible subscription. Per-device
+  retry/backoff continues for unfinished new work. No stale backlog was sent.
+  Actual Android/Windows OS display has NOT been observed or owner-confirmed.
+- Final local checks: 124 Node passed / 0 failed / 1 browser test skipped;
+  21 isolated PostgreSQL acceptance groups; lint, syntax and diff checks passed.
+  Fixed a clock-dependent quiet-hours test fixture, without changing production
+  preference policy. Fresh backup and isolated restore were WAIVED, not verified.
+
+Rollback (authorized operations only): in one transaction, acquire producer lock
+73110420261021, call notification_set_server_reminders(false), and pause the
+existing notification-web-push-sender with cron.alter_job. Keep schema, Vault,
+subscriptions, schedules, inbox and history; do not run destructive down SQL.
+Already accepted provider messages cannot be recalled. Verify mode/Cron state
+and use foreground/browser fallback while investigating before reactivation.
 
 ## Verified starting state (2026-10-21 UTC)
 
@@ -24,7 +103,7 @@ Status: source implementation; NOT deployed. Production producer mode has NOT be
 - Browser mgReminderTick is the existing TodoReminderDue event producer.
   Existing Cron processes events; it does not compute due To-Do schedules.
 
-## Targeted 401 investigation and remaining access gate (2026-10-21)
+## Historical 401 investigation and access gate (superseded by execution record)
 
 Cause VERIFIED, not a token-mismatch assumption: the named sender Cron targets
 `/functions/v1/web-push-config` on the correct project, rather than
@@ -169,13 +248,14 @@ Verified local results: Node 124 passed / 0 failed / 1 browser test skipped;
 diff checks and isolated Deno sender type-check passed. Real multi-session
 concurrency, hosted extensions and physical-device receipt remain unverified.
 
-## Blocking production gates and ordered rollout
+## Historical gates and ordered rollout (owner decision above supersedes backup/restore)
 
 No production migration, function deployment, Cron change or producer cutover has
 been executed. No production data was exported. This session cannot demonstrate
 a fresh encrypted production backup and isolated restored copy through its exposed
 connected tools. An existing schema baseline is NOT a backup or restore proof.
-Do not merge this PR or deploy until these gates are demonstrated:
+The owner has waived steps 1–2 backup/restore requirements; retain the remaining
+security and functional checks before activation/merge:
 
 1. Create a fresh encrypted production backup via an authorized secure backup
    facility. Keep ciphertext and encryption keys separately; never place either

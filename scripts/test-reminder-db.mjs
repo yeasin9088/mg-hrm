@@ -149,7 +149,7 @@ try {
    assert.equal(await count('notification_deliveries',"channel='WebPush' and delivery_status in ('Pending','Failed') and notification_id in(select id from notifications where entity_id='3')"),0);
  });
  await check('quiet hours defer explicit ToDo reminders and coalesce intervening cycles',async()=>{
-   await db.exec("update notification_preferences set quiet_hours_enabled=true,quiet_hours_start='00:00',quiet_hours_end='23:59' where user_id=$1",[a]);
+   await db.exec("update notification_preferences set timezone='UTC',quiet_hours_enabled=true,quiet_hours_start=((now() at time zone 'UTC')-interval '1 hour')::time,quiet_hours_end=((now() at time zone 'UTC')+interval '1 hour')::time where user_id=$1",[a]);
    await todo(10);await tick();await db.exec("select notification_run_server_processor('quiet-test',100)");
    assert.equal((await db.exec("select scheduled_for>now() ok from notifications where entity_id='10'")).rows[0].ok,true);
    await db.exec("select set_config('mghrm.scheduler_write','on',false);update todos set next_reminder_at=now()-interval '1 minute' where id=10;select set_config('mghrm.scheduler_write','off',false)");
@@ -220,6 +220,30 @@ try {
    assert.equal((await db.exec('select active from cron.job where jobid=2')).rows[0].active,true);
    assert.equal(await count('todos','true'),notes);assert.equal(await count('notification_events','true'),events);
    assert.equal(await count('net.recorded_http_calls','true'),1);
+ });
+ await check('reviewed stale-push disposition rejects changed scope and preserves inbox/history',async()=>{
+   await db.exec('select notification_set_server_reminders(false);update cron.job set active=false where jobid=2');
+   const create=async(from,to)=>{
+     await db.exec(`insert into notifications(recipient_user_id,category,title,message,entity_type,entity_id,status,scheduled_for,dedupe_key)
+       select $1,'ToDo','SYNTHETIC','SYNTHETIC','todo','rollout-fixture:'||i,'Read',now(),'rollout-fixture:'||i from generate_series($2::int,$3::int)i`,[a,from,to]);
+     await db.exec(`insert into notification_jobs(notification_id,job_type,run_at,created_at)
+       select n.id,'DeliverWebPush',now(),'2000-01-01' from notifications n where n.dedupe_key like 'rollout-fixture:%'
+       and not exists(select 1 from notification_jobs j where j.notification_id=n.id)`);
+     await db.exec(`insert into notification_deliveries(notification_id,subscription_id,channel)
+       select n.id,s.id,'WebPush' from notifications n cross join push_subscriptions s
+       where n.dedupe_key like 'rollout-fixture:%' and s.id in (1,2) on conflict do nothing`);
+   };
+   const dispose=await read('supabase/rollout/reminder-backlog.sql');
+   await create(1,27);
+   await assert.rejects(db.exec(dispose),{code:'P0001'});await db.exec('rollback');
+   assert.equal(await count('notification_jobs',"last_error like 'STALE_PRE_CUTOVER:%'"),0);
+   await create(28,28);
+   const inbox=await count('notifications','true'),events=await count('notification_events','true'),notes=await count('todos','true');
+   await db.exec(dispose);
+   assert.equal(await count('notification_jobs',"last_error like 'STALE_PRE_CUTOVER:%' and job_status='Cancelled'"),28);
+   assert.equal(await count('notification_deliveries',"error_code='STALE_PRE_CUTOVER' and delivery_status='Cancelled'"),56);
+   assert.equal(await count('notifications','true'),inbox);assert.equal(await count('notification_events','true'),events);assert.equal(await count('todos','true'),notes);
+   assert.equal(await count('notifications',"dedupe_key like 'rollout-fixture:%' and status='Read'"),28);
  });
  console.log(`PASS ${passed} isolated PostgreSQL acceptance groups (synthetic data only)`);
 } finally {

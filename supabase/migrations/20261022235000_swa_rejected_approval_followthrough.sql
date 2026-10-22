@@ -48,7 +48,7 @@ BEGIN
    IF (w.manager_required AND w.manager_informed_at IS NULL) OR
       (w.approval_required AND w.manager_decision NOT IN ('approved','rejected')) OR
       (w.communication_required AND w.communicated_at IS NULL) OR
-      (w.execution_required AND w.executed_at IS NULL) OR
+      (w.execution_required AND w.executed_at IS NULL AND NOT(w.approval_required AND w.manager_decision='rejected')) OR
       (w.verification_required AND w.verified_at IS NULL) THEN
      RAISE EXCEPTION 'Required manager, communication, execution or verification steps remain';
    END IF;

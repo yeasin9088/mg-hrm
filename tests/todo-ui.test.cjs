@@ -52,7 +52,7 @@ test('Open is the default status for General, My Task, Inform to Manager and Sal
  f.render();
  assert.deepEqual(f.rows(),[1,2]);
  // Changing tabs explicitly resets the status to Open as requested.
- f.c.tdSec=(k)=>({key:k,cat:({general:'note',task:'task',mgr:'permission',salary:'salary'})[k]});
+ f.c.tdSec=(k)=>({key:k,cat:({general:'note',task:'task',mgr:'permission',salary:'salary'})[k],label:({general:'General',task:'My Task',mgr:'Inform to Manager',salary:'Salary Notes'})[k],sub:'',icon:'list'});
  f.c.mtSetTodoSub=(k)=>{f.c.MG_TD_SUB=k;};
  vm.runInContext(part("window.mtSetTodoFilter = function(key){","function host(){"),f.c);
  for(const [tab,expected] of [['task',3],['mgr',5],['salary',7],['general',1]]){

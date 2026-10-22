@@ -1,0 +1,34 @@
+name: Meeting Attendance UX checks
+on:
+  pull_request:
+    paths:
+      - 'meeting-ui.js'
+      - 'meeting-ui.css'
+      - 'meeting-attendance.js'
+      - 'index.html'
+      - 'tests/meeting-*.test.cjs'
+      - 'supabase/migrations/20261022110000_meeting_present_representative.sql'
+      - '.github/workflows/meeting-attendance-ux.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install existing dependencies
+        run: npm ci
+      - name: Node regression tests
+        run: node --test tests/*.test.cjs
+      - name: Lint and syntax checks
+        run: |
+          npm run lint
+          node --check meeting-ui.js
+          node --check meeting-attendance.js
+      - name: Whitespace check
+        run: git diff --check HEAD~1 HEAD

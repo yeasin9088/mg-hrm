@@ -16023,12 +16023,25 @@ function mtBuildNotesSection(iso, proj, isEditing, draftText){
 }
 window.mtBuildNotesSection = mtBuildNotesSection;
 
+function mtHasSelectedRep(iso, proj) {
+  const d = mtEnsure(iso);
+  const rep = d.representatives?.[proj];
+  return !!(rep && typeof rep === 'object' &&
+    String(rep.employee_id || rep.EmployeeID || rep.id || '').trim() &&
+    String(rep.full_name || rep.fullName || rep.FullName || rep.name || '').trim());
+}
+window.mtHasSelectedRep = mtHasSelectedRep;
+
 function mtToggleProject(iso, proj){
   if(!guardEdit()) return;
   const d = mtEnsure(iso);
   if(d.submitted && !d.unlocked){ toast('Attendance already submitted for today','error'); return; }
   if(d.off){ toast('This day is marked off — unmark it first','error'); return; }
   if(!Array.isArray(d.presentOrder)) d.presentOrder = [];
+  if (!d.present[proj] && !mtHasSelectedRep(iso, proj)) {
+    MeetingAttendanceUI.requestRepresentative(iso, proj);
+    return;
+  }
   if(d.present[proj]){
     delete d.present[proj];
     d.presentOrder = d.presentOrder.filter(p => p !== proj);
@@ -16268,20 +16281,30 @@ function mtSaveRep(iso, proj, selectEl){
   if(d.submitted && !d.unlocked) return;
   const val = (selectEl && selectEl.value) ? selectEl.value : '';
   if(!d.representatives) d.representatives = {};
-  if(!val){
-    d.representatives[proj] = null; // Explicit clear, distinct from an incomplete draft.
+  const previous = d.representatives[proj];
+  if(!val && d.present?.[proj]){
+    // An already-Present project cannot lose its required representative.
+    const lastId = String(previous?.employee_id || previous?.EmployeeID || previous?.id || '');
+    const last = selectEl && [...selectEl.options].find(option => option.value.split('|')[0] === lastId);
+    if (last) selectEl.value = last.value;
+    toast('Select another representative before clearing the current one, or change attendance to Absent.', 'error');
+    return;
+  }
+  if(!val) {
+    d.representatives[proj] = null;
   } else {
     const parts = val.split('|');
+    if (!String(parts[0]||'').trim() || !String(parts[1]||'').trim()) {
+      toast('Choose a valid representative from the project list.', 'error');
+      return;
+    }
     d.representatives[proj] = {
-      id: parts[0] || '',
-      employee_id: parts[0] || '',
-      name: parts[1] || '',
-      fullName: parts[1] || '',
-      designation: parts[2] || '',
-      value: val
+      id: parts[0], employee_id: parts[0], name: parts[1],
+      fullName: parts[1], designation: parts[2] || '', value: val
     };
   }
   persist();
+  MeetingAttendanceUI.representativeSaved(iso, proj);
   if(typeof window.mtCheckDirty === 'function') window.mtCheckDirty(iso);
 }
 window.mtSaveRep = mtSaveRep;
@@ -16299,6 +16322,11 @@ function mtSetStatus(iso, proj, status){
   const d = mtEnsure(iso);
   if(d.submitted && !d.unlocked){ toast('Attendance already submitted for today','error'); return; }
   if(d.off){ toast('This day is marked off — unmark it first','error'); return; }
+  if(status === 'present' && !mtHasSelectedRep(iso, proj)){
+    MeetingAttendanceUI.requestRepresentative(iso, proj);
+    toast('Choose a representative to confirm Present.', 'info');
+    return; // No state mutation, no pending draft counted as Present.
+  }
   if(!Array.isArray(d.presentOrder)) d.presentOrder = [];
   if (status !== 'blank' && d.attendanceBlanks) delete d.attendanceBlanks[proj];
   if(status === 'present'){
@@ -16508,7 +16536,7 @@ async function mtSubmitDay(iso, event) {
   const d = mtEnsure(iso);
   if (d.submitted && !d.unlocked) return toast('Already submitted', 'info');
   const historicalEdit = !!window.mtAttendanceEdits[iso]?.original;
-  if (!MeetingAttendanceUI.validation(Object.keys(mtEligible()), d, historicalEdit).allowed) {
+  if (!MeetingAttendanceUI.validation(Object.keys(mtEligible()), d, historicalEdit, window.mtAttendanceEdits[iso]?.original).allowed) {
     MeetingAttendanceUI.reviewPending();
     return toast('Pending projects must be marked before final submission', 'error');
   }
@@ -17154,6 +17182,19 @@ window.mtUnlockDay = function(iso) {
 };
 window.mtOverridePostpone = window.mtUnlockDay;
 
+window.MT_CALENDAR_VISIBLE = window.MT_CALENDAR_VISIBLE === true;
+window.mtToggleCalendar = function() {
+  const workspace = document.querySelector('#page-meeting .mt-workspace');
+  const panel = document.getElementById('mtCalendarCard');
+  const button = document.getElementById('mtCalendarToggle');
+  if (!workspace || !panel || !button) return;
+  window.MT_CALENDAR_VISIBLE = !window.MT_CALENDAR_VISIBLE;
+  panel.hidden = !window.MT_CALENDAR_VISIBLE;
+  workspace.classList.toggle('mt-calendar-collapsed', !window.MT_CALENDAR_VISIBLE);
+  button.setAttribute('aria-expanded', String(window.MT_CALENDAR_VISIBLE));
+  button.textContent = window.MT_CALENDAR_VISIBLE ? 'Hide calendar' : 'Show calendar';
+};
+
 function renderMeeting(){
   const page = document.getElementById('page-meeting');
   const today = MT_SELECTED_DATE;
@@ -17181,6 +17222,9 @@ function renderMeeting(){
   const rec = d;
   const isFri = mtIsFriday(today);
   const isOff = isFri || !!(rec && rec.off);
+  const isAttendanceBoard = !isOff && !(rec && rec.submitted && !rec.isEditing) &&
+    !isCountdownState && !isStartPromptState;
+  const calendarInitiallyOpen = !isAttendanceBoard || window.MT_CALENDAR_VISIBLE === true;
   const eligible = mtEligible();
   const projNames = mtHistoricalProjects(today, eligible, rec);
   const y = MT_MONTH.getFullYear();
@@ -17207,9 +17251,9 @@ function renderMeeting(){
     const isDayOff = fri || (r && r.off) || isCalDayAutoPostponed;
     const dayReason = fri ? 'Friday — Weekly Holiday' : ((r && (r.offReason || r.note)) || (isCalDayAutoPostponed ? 'Meeting Postponed' : ''));
     const cls = future ? '' : isDayOff ? 'off' : (r && Object.keys(r.present||{}).length) ? 'held' : 'missed';
-    calHtml += `<div class="mt-day ${cls} ${isTodayCal?'today':''} ${isSelected?'selected':''}" onclick="mtSelectDate('${iso}')" style="${isSelected?'border:2px solid var(--primary);box-shadow:0 0 0 2px rgba(37,99,235,0.25);':''}" title="${iso}${fri?' (Friday)':''}${dayReason?' — '+dayReason:''}">
+    calHtml += `<div class="mt-day ${cls} ${future?'future':''} ${isTodayCal?'today':''} ${isSelected?'selected':''}" data-meeting-day="${iso}" onclick="mtSelectDate('${iso}')" style="${isSelected?'border:2px solid var(--primary);box-shadow:0 0 0 2px rgba(37,99,235,0.25);':''}" title="${iso}${fri?' (Friday)':''}${dayReason?' — '+dayReason:''}">
       <div class="d">${num(d)}</div>
-      <div style="font-size:9px;opacity:.8">${future?'—':fri?'Fri':isDayOff?'Off':(r&&Object.keys(r.present||{}).length)?num(Object.keys(r.present).length)+' ✓':'✗'}</div>
+      <div class="mt-day-count">${future?'—':fri?'Fri':isDayOff?'Off':(r&&Object.keys(r.present||{}).length)?num(Object.keys(r.present).length)+' ✓':'✗'}</div>
     </div>`;
   }
 
@@ -17334,7 +17378,7 @@ function renderMeeting(){
       ${kpi('Most Absent', absentRank.length&&absentRank[0].absent>0?num(absentRank[0].absent)+(' days'):'—','y', ico('warn'), absentRank.length&&absentRank[0].absent>0?projName(absentRank[0].p):('All regular'),'','')}
     </div>
 
-    <div class="grid-2 mt-workspace">
+    <div class="grid-2 mt-workspace ${calendarInitiallyOpen?'':'mt-calendar-collapsed'}">
       <div class="card mt-attendance-card">
         <div class="card-header mt-hd">
           <div class="mt-hd-l">
@@ -17343,6 +17387,8 @@ function renderMeeting(){
               <button type="button" class="btn ghost sm" id="btnMeetingSettings" title="Meeting Attendance Settings" aria-label="Meeting Attendance Settings" onclick="openMeetingSettingsModal()" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border-radius:6px;border:1px solid var(--border,#cbd5e1);background:var(--surface,#fff);color:var(--primary,#2563eb);cursor:pointer;transition:all .15s ease;" onmouseover="this.style.borderColor='var(--primary,#2563eb)';this.style.background='var(--primary-soft,#eff6ff)';" onmouseout="this.style.borderColor='var(--border,#cbd5e1)';this.style.background='var(--surface,#fff)';">
                 ${ico('settings', 15)}
               </button>
+              <button type="button" class="btn ghost sm mt-calendar-toggle" id="mtCalendarToggle" aria-controls="mtCalendarCard"
+                aria-expanded="${calendarInitiallyOpen}" onclick="mtToggleCalendar()">${calendarInitiallyOpen ? 'Hide calendar' : 'Show calendar'}</button>
             </div>
             <h3 class="mt-hd-title">${fmtDateLong(today)}</h3>
             <div class="mt-hd-meta">
@@ -17440,13 +17486,17 @@ function renderMeeting(){
                         </div>
                         <span class="mt-check" aria-hidden="true"></span>
                       </div>
-                      <span class="mt-state">${statusLabel}</span>
+                      <div class="mt-tile-status-line">
+                        <span class="mt-state">${statusLabel}</span>
+                        <span class="mt-rep-summary" ${savedRep?'':'hidden'}>${escapeHtml(savedRep && typeof savedRep === 'object' ? (savedRep.fullName || savedRep.FullName || savedRep.name || '') : '')}</span>
+                      </div>
                       <div class="mt-actions" role="group" aria-label="Attendance for ${escapeHtml(p)}">
                         <button type="button" data-status="present" aria-pressed="${isPres}" class="${presBtnCls}" onclick="mtSetStatus('${today}', this.closest('.mt-tile').dataset.proj, 'present')">Present</button>
                         <button type="button" data-status="absent" aria-pressed="${isAbs}" class="${absBtnCls}" onclick="mtSetStatus('${today}', this.closest('.mt-tile').dataset.proj, 'absent')">Absent</button>
                       </div>
                       <button type="button" class="btn ghost sm mt-details-toggle" aria-expanded="false" onclick="MeetingAttendanceUI.toggleDetails(this)">Representative &amp; notes <span aria-hidden="true">&#8964;</span></button>
                       <div class="mt-tile-body" hidden>
+                        <div class="mt-rep-hint" role="status" hidden></div>
                         ${repSelectHtml}
                         ${noteHtml}
                         <button type="button" class="btn ghost sm" onclick="mtSetStatus('${today}', this.closest('.mt-tile').dataset.proj, 'blank')">Clear attendance</button>
@@ -17477,7 +17527,7 @@ function renderMeeting(){
         </div>
       </div>
 
-      <div class="card">
+      <div class="card mt-calendar-card" id="mtCalendarCard" ${calendarInitiallyOpen?'':'hidden'}>
         <div class="card-header">
           <div><h3>${monthNames[mIdx]} ${y} — ${'Monthly View'}</h3>
           <span class="sub">${'Green = held · Red = missed · Grey = off'}</span></div>

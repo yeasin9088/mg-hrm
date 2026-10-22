@@ -32,9 +32,11 @@ test('new final submission requires completion; historical blanks are never forc
   const day = {present: {A: true}, absent: {}, attendanceBlanks: {B: true}};
   const before = JSON.stringify(day);
   assert(!ui.validation(['A', 'B'], day, false).allowed);
-  assert(ui.validation(['A', 'B'], day, true).allowed);
+  assert(ui.validation(['A', 'B'], day, true, {present:{A:true}, representatives:{}}).allowed);
   assert.equal(JSON.stringify(day), before);
   day.absent.B = true;
+  assert(!ui.validation(['A', 'B'], day, false).allowed, 'Present requires representative');
+  day.representatives = {A: {id: 'E-A', name: 'Representative A'}};
   assert(ui.validation(['A', 'B'], day, false).allowed);
 });
 test('direct new-day save with Pending performs zero database calls, even without the submit button', async () => {
@@ -72,24 +74,29 @@ function browserFixture() {
   const start = html.indexOf('<div class="mt-summary"');
   const end = html.indexOf('</div>`}', start) + '</div>'.length;
   const template = html.slice(start, end);
-  const day = {present: {P0: true}, absent: {P1: true}, representatives: {}, notes: {}};
+  const day = {present: {P0: true}, absent: {P1: true}, representatives: {P0: {id: 'E0', name: 'Rep 0'}}, notes: {}};
   const projects = Array.from({length: 40}, (_, i) => 'P' + i);
   const escapeHtml = x => String(x).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
   const params = {today: '2026-01-01', rec: day, projNames: projects,
-    num: String, escapeHtml, mtGetProjectReps: () => [], mtBuildNotesSection: () => '<textarea aria-label="Project note"></textarea>',
+    num: String, escapeHtml, mtGetProjectReps: p => [{id: 'E' + p.slice(1), FullName: 'Rep ' + p.slice(1), Designation: 'Supervisor'}], mtBuildNotesSection: () => '<textarea aria-label="Project note"></textarea>',
     projName: p => 'Project ' + p, projStaffCount: () => 1, ico: () => ''};
   const rendered = Function(...Object.keys(params), 'return `' + template + '`;')(...Object.values(params));
   const originalStyles = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
   const setStatus = html.slice(html.indexOf('function mtSetStatus('), html.indexOf('window.mtSetStatus ='));
+  const saveRep = html.slice(html.indexOf('function mtSaveRep('), html.indexOf('window.mtSaveRep ='));
+  const validRep = html.slice(html.indexOf('function mtHasSelectedRep('), html.indexOf('window.mtHasSelectedRep ='));
   return `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
     <style>${originalStyles}\n${css}\nbody{margin:0}.main{max-width:1400px;margin:auto}#result{position:fixed;bottom:0;background:white;z-index:99}</style>
     <main class="main"><div class="grid-2 mt-workspace"><section class="card mt-attendance-card"><div class="card-body">${rendered}</div></section><aside>Monthly calendar (existing workflow)</aside></div></main><pre id="result">RUNNING</pre>
     <script>${source}</script><script>
     const day=${JSON.stringify(day)}, projects=${JSON.stringify(projects)};
     function guardEdit(){return true} function mtEnsure(){return day} function persist(){} function toast(){}
-    function mtSaveRep(){} function mtSaveMeetingNote(){}
+    function mtSaveMeetingNote(){}
     function mtSetFilter(f){MeetingAttendanceUI.setFilter(f)}
+    ${validRep}
+    ${saveRep}
     ${setStatus}
+    window.mtSetStatus = mtSetStatus;
     function check(ok,message){if(!ok)throw Error(message)}
     try {
       MeetingAttendanceUI.mount('2026-01-01',day,projects,false);
@@ -99,7 +106,11 @@ function browserFixture() {
       check(document.querySelectorAll('.mt-tile:not([hidden])').length===38,'pending filter');
       const tile=document.querySelector('.mt-tile:not([hidden])');
       const button=tile.querySelector('[data-status="present"]'); button.focus(); button.click();
-      check(document.getElementById('mtCount-present').textContent==='2','status click updates summary');
+      check(document.getElementById('mtCount-present').textContent==='1','no Present without representative');
+      check(tile.classList.contains('expanded'),'picker expands on Present');
+      const rep=tile.querySelector('.mt-rep-select');
+      rep.value=rep.options[1].value; rep.dispatchEvent(new Event('change',{bubbles:true}));
+      check(document.getElementById('mtCount-present').textContent==='2','selecting representative auto-confirms Present');
       check(tile.hidden,'marked project leaves pending view');
       check(document.activeElement!==button && document.activeElement.dataset.status==='present','keyboard moves to next pending');
       MeetingAttendanceUI.search('no matching project');

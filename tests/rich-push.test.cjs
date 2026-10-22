@@ -58,33 +58,60 @@ function serviceWorker(){
   async function click(notification){let promise;listeners.notificationclick({notification:{data:notification.options.data,close(){}},waitUntil:p=>{promise=p;}});await promise;return opened.at(-1);}
   return {push,click,shown};
 }
-test('logo uses the scoped absolute URL and survives an unrelated shell-cache failure',async()=>{
-  const listeners={},added=[],logo='https://yeasinh.me/mg-hrm/icon-192.png';
-  const cached={source:'pre-cached Mahbub logo'};
-  const cache={add:async request=>added.push(request.url),addAll:async()=>{throw Error('unrelated asset unavailable');}};
-  const self={registration:{scope:'https://yeasinh.me/mg-hrm/',showNotification:async(title,options)=>{self.shown={title,options};}},
+test('notification icon is the original Mahbub logo; Android badge is a transparent 96px PNG',()=>{
+  const badge=fs.readFileSync('notification-badge-96.png');
+  assert.equal(badge.subarray(0,8).toString('hex'),'89504e470d0a1a0a');
+  assert.equal(badge.readUInt32BE(16),96);
+  assert.equal(badge.readUInt32BE(20),96);
+  assert.equal(badge[25],6); // PNG RGBA with alpha
+  const icon=fs.readFileSync('icon-192.png');
+  assert.equal(icon.readUInt32BE(16),192);
+  assert(fs.readFileSync('scripts/build-pages.mjs','utf8').includes("'notification-badge-96.png'"));
+});
+test('both branded push images are independently cached and survive an unrelated shell failure',async()=>{
+  const listeners={},requests=[],stored=new Map(),origin='https://yeasinh.me/mg-hrm/';
+  const logo=origin+'icon-192.png?notification-icon=v38';
+  const badge=origin+'notification-badge-96.png?notification-badge=v38';
+  const response=url=>({ok:true,headers:{get:()=> 'image/png'},url});
+  const cache={put:async (url,value)=>stored.set(url,value),addAll:async()=>{throw Error('unrelated shell unavailable');}};
+  const self={registration:{scope:origin,showNotification:async(title,options)=>{self.shown={title,options};}},
     clients:{},skipWaiting(){},addEventListener:(name,fn)=>listeners[name]=fn};
   vm.runInNewContext(fs.readFileSync('sw.js','utf8'),{self,URL,Request,console,
-    caches:{open:async()=>cache,match:async url=>url===logo?cached:null},fetch(){throw Error('offline');}});
+    caches:{open:async()=>cache,match:async url=>stored.get(url)},
+    fetch:async req=>{requests.push(req.url);return response(req.url)}});
   let pending;listeners.install({waitUntil:p=>{pending=p;}});await pending;
-  assert.deepEqual(added,[logo]);
+  assert.deepEqual(requests,[logo,badge]);
   listeners.push({data:{json:()=>({title:'MG-HRM · To-Do Reminder',body:'বাংলা'})},waitUntil:p=>{pending=p;}});
-  await pending;assert.equal(self.shown.options.icon,logo);assert.equal(self.shown.options.badge,logo);
-  let response;listeners.fetch({request:{url:logo,method:'GET'},respondWith:p=>{response=p;}});
-  assert.equal(await response,cached);
+  await pending;
+  assert.equal(self.shown.options.icon,logo);
+  assert.equal(self.shown.options.badge,badge);
+  for(const url of [logo,badge]){
+    let cached;
+    listeners.fetch({request:{url,method:'GET'},respondWith:p=>{cached=p;}});
+    assert.equal(await cached,stored.get(url));
+  }
+  const originalRequestCount=requests.length;
+  listeners.fetch({request:{url:origin+'broken.png',method:'GET'},respondWith:()=>{throw Error('PNG must not receive HTML shell');}});
+  assert.equal(requests.length,originalRequestCount);
 });
-test('worker activation stops when the Mahbub logo cannot be cached',async()=>{
-  const listeners={},self={registration:{scope:'https://yeasinh.me/mg-hrm/'},skipWaiting(){},addEventListener:(name,fn)=>listeners[name]=fn};
-  vm.runInNewContext(fs.readFileSync('sw.js','utf8'),{self,URL,Request,console,
-    caches:{open:async()=>({add:async()=>{throw Error('logo fetch failed');},addAll:async()=>{throw Error('should not reach shell');}})}});
-  let pending;listeners.install({waitUntil:p=>{pending=p;}});
-  await assert.rejects(pending,/logo fetch failed/);
+test('Service Worker installation rejects non-PNG or unavailable logo/badge instead of activating unbranded',async()=>{
+  for (const failAt of [0,1]) {
+    const listeners={},fetched=[];
+    const self={registration:{scope:'https://yeasinh.me/mg-hrm/'},skipWaiting(){},addEventListener:(name,fn)=>listeners[name]=fn};
+    vm.runInNewContext(fs.readFileSync('sw.js','utf8'),{self,URL,Request,console,
+      caches:{open:async()=>({put:async()=>{},addAll:async()=>{throw Error('should not reach shell')}})},
+      fetch:async req=>{fetched.push(req.url);return {ok:true,headers:{get:()=> fetched.length===failAt+1?'text/html':'image/png'}};}});
+    let pending;listeners.install({waitUntil:p=>{pending=p;}});
+    await assert.rejects(pending,/not a valid PNG/);
+    assert.equal(fetched.length,failAt+1);
+  }
 });
 test('Android/Windows Service Worker displays safe payload and opens a cold To-Do route',async()=>{
   const sw=serviceWorker(),id='11111111-1111-4111-8111-111111111111';
   let shown=await sw.push({notification_id:id,title:'MG-HRM · To-Do Reminder',body:'বাংলা নোট',entity_type:'todo',entity_id:'42',action_route:'todo',priority:'Urgent'});
   assert.equal(shown.options.body,'বাংলা নোট');assert.equal(shown.options.requireInteraction,true);
-  assert.equal(shown.options.icon,'https://yeasinh.me/mg-hrm/icon-192.png');
+  assert.equal(shown.options.icon,'https://yeasinh.me/mg-hrm/icon-192.png?notification-icon=v38');
+  assert.equal(shown.options.badge,'https://yeasinh.me/mg-hrm/notification-badge-96.png?notification-badge=v38');
   const url=new URL(await sw.click(shown));assert.equal(url.searchParams.get('notification_id'),id);
   assert.equal(url.searchParams.get('notification_route'),'todo');assert.equal(url.searchParams.get('notification_entity'),'42');
   shown=await sw.push({notification_id:'22222222-2222-4222-8222-222222222222',title:'MG-HRM · To-Do Reminder',body:'Next occurrence'});

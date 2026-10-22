@@ -5,6 +5,7 @@ on:
     paths:
       - index.html
       - tests/dashboard-ux.test.cjs
+      - tests/todo-ui.test.cjs
       - sw.js
       - tests/transfer.test.cjs
       - tests/transfer-integrity.test.cjs
@@ -16,6 +17,7 @@ on:
     paths:
       - index.html
       - tests/dashboard-joining-ui.test.cjs
+      - tests/todo-ui.test.cjs
       - tests/transfer*.test.cjs
       - .github/workflows/dashboard-joining-ui-test.yml
   workflow_dispatch:

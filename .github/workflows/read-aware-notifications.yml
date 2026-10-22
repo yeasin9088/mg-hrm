@@ -2,7 +2,7 @@ name: Read-aware notification follow-up checks
 on:
   pull_request:
     paths:
-      - 'supabase/migrations/20261022190000_read_aware_notification_followups.sql'
+      - 'supabase/migrations/20261022135600_read_aware_notification_followups.sql'
       - 'scripts/test-reminder-db.mjs'
       - 'docs/notifications/read-aware-followup-policy.md'
       - '.github/workflows/read-aware-notifications.yml'

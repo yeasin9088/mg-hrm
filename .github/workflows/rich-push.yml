@@ -1,0 +1,37 @@
+name: Rich Web Push validation
+on:
+  pull_request:
+    paths:
+      - 'notification-center.js'
+      - 'notification-settings.js'
+      - 'sw.js'
+      - 'supabase/functions/web-push-sender/**'
+      - 'supabase/migrations/*rich_push*'
+      - 'scripts/test-reminder-db.mjs'
+      - 'tests/rich-push.test.cjs'
+      - '.github/workflows/rich-push.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Node regression suite
+        run: node --test tests/*.test.cjs
+      - name: Isolated PostgreSQL reminder and preview checks
+        run: npm run test:reminder-db
+      - name: Lint and syntax
+        run: |
+          npm run lint
+          node --check sw.js
+          node --check notification-center.js
+          node --check notification-settings.js
+          node --check supabase/functions/web-push-sender/worker.mjs
+      - name: Whitespace
+        run: git diff --check HEAD~1 HEAD

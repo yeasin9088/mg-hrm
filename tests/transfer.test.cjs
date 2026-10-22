@@ -103,6 +103,7 @@ test('joining confirmation changes no local project before verified server compl
     document:{getElementById:()=>null},
     todayISO:()=> '2026-10-21',
     transferTodayISO:()=> '2026-10-21',
+    transferIsJoiningDue:()=>true,
     window:{MGHRM:{confirmTransferJoining:async()=>response}},
     toast:(message,type)=>messages.push([message,type]),
     phase2RefreshTransferState:async()=>{refreshes++;},

@@ -106,6 +106,8 @@
     const display = model.todoPresentation(item, window.DATA?.todos || []);
     const route = model.route(display.actionRoute || legacyRoutes[item.type] || item.entityType);
     if (route === 'todo' && display.ref && typeof window.mgTodoNotifOpen === 'function') window.mgTodoNotifOpen(display.ref);
+    else if (route === 'disciplinary' && item.isBackend && item.entityType === 'disciplinary' &&
+      item.ref && typeof window.mgOpenDisciplinaryRecord === 'function') window.mgOpenDisciplinaryRecord(item.ref);
     else if (route === 'transfer' && item.ref && typeof navigate === 'function') {
       if (typeof window.openDashboardTransfer === 'function') window.openDashboardTransfer(item.ref);
       else { navigate('transfer'); if (typeof window.openTransferPopup === 'function') window.openTransferPopup(item.ref); }

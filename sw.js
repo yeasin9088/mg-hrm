@@ -2,24 +2,34 @@
    MG Security HRM — Service Worker
    Role: Offline application cache + safe notification display/click flow
    ===================================================================== */
-const CACHE = 'mghrm-v37';
-const LOGO_URL = new URL('icon-192.png', self.registration.scope).href;
-const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './bd-geo.json', './config.js', './app-core.js', './meeting-attendance.js', './meeting-ui.js', './meeting-ui.css', './notification-model.js', './notification-center.js', './notification-presence.js', './notification-ui.js', './notification-ui.css', './notification-settings.js'];
+const CACHE = 'mghrm-v38';
+const LOGO_URL = new URL('icon-192.png?notification-icon=v38', self.registration.scope).href;
+const BADGE_URL = new URL('notification-badge-96.png?notification-badge=v38', self.registration.scope).href;
+const BRAND_IMAGES = [LOGO_URL, BADGE_URL];
+const SHELL = ['./', './index.html', './manifest.json', './icon-512.png', './bd-geo.json', './config.js', './app-core.js', './meeting-attendance.js', './meeting-ui.js', './meeting-ui.css', './notification-model.js', './notification-center.js', './notification-presence.js', './notification-ui.js', './notification-ui.css', './notification-settings.js'];
+
+async function cacheVerifiedBrandImage(cache, url) {
+  const response = await fetch(new Request(url, { cache: 'reload' }));
+  if (!response.ok || !/^image\/png(?:;|$)/i.test(response.headers.get('content-type') || '')) {
+    throw Error('Push notification brand image is not a valid PNG');
+  }
+  await cache.put(url, response);
+}
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
   e.waitUntil(caches.open(CACHE).then(async (c) => {
-    // Keep the previous worker active if the logo cannot be fetched. A failure
-    // in an unrelated shell asset must not leave new pushes without branding.
-    await c.add(new Request(LOGO_URL, { cache: 'reload' }));
-    await c.addAll(SHELL.filter(asset => asset !== './icon-192.png')).catch(() => {});
+    // Only activate this worker if both branded notification assets were
+    // fetched successfully as real PNG images (never an offline HTML fallback).
+    for (const url of BRAND_IMAGES) await cacheVerifiedBrandImage(c, url);
+    await c.addAll(SHELL).catch(() => {});
   }));
 });
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
-      .then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((ks) => Promise.all(ks.filter((k) => k.startsWith('mghrm-v') && k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -33,10 +43,12 @@ self.addEventListener('fetch', (e) => {
     return;
   }
   if (e.request.method !== 'GET') return;
-  if (url.href === LOGO_URL) {
-    e.respondWith(caches.match(LOGO_URL).then((cached) => cached || fetch(e.request)));
+  if (BRAND_IMAGES.includes(url.href)) {
+    e.respondWith(caches.match(url.href).then((cached) => cached || fetch(e.request)));
     return;
   }
+  // Never return an HTML application shell to PNG requests.
+  if (url.pathname.endsWith('.png')) return;
   const isCoreAsset = url.pathname.endsWith('/index.html') ||
     url.pathname.endsWith('/app-core.js') ||
     url.pathname.endsWith('/meeting-attendance.js') ||
@@ -93,7 +105,7 @@ self.addEventListener('push', (event) => {
   const options = {
     body,
     icon: LOGO_URL,
-    badge: LOGO_URL,
+    badge: BADGE_URL,
     tag: 'mghrm-' + (notificationId || 'notification'),
     renotify: false,
     requireInteraction: priority === 'Urgent' || payload.require_interaction === true,

@@ -1,0 +1,75 @@
+/* MG-HRM SWA V2: scoped responsive panel, does not change existing To-Do styles. */
+#swa-launcher{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:960;
+ border:1px solid rgba(255,255,255,.20);background:linear-gradient(135deg,#174c70,#145b68);color:white;
+ padding:13px 17px;border-radius:999px;box-shadow:0 7px 25px #0005;font:700 14px system-ui,sans-serif;cursor:pointer}
+#swa-launcher:focus-visible,#swa-shell button:focus-visible,#swa-shell input:focus-visible,
+#swa-shell select:focus-visible,#swa-shell textarea:focus-visible{outline:3px solid #40a7db;outline-offset:2px}
+body.swa-open{overflow:hidden}
+#swa-shell[hidden],#swa-launcher[hidden],#swa-shell [hidden]{display:none!important}
+#swa-shell{position:fixed;inset:0;z-index:2500;font:14px/1.55 'Hind Siliguri',system-ui,sans-serif;color:#203147}
+.swa-backdrop{position:absolute;inset:0;background:rgba(7,19,34,.62)}
+.swa-panel{position:absolute;inset:clamp(0px,3vh,26px) clamp(0px,3vw,40px);max-width:1100px;margin:auto;
+ display:flex;flex-direction:column;border-radius:17px;background:#f8fafc;box-shadow:0 20px 70px #0005;overflow:hidden}
+.swa-header{display:flex;align-items:center;justify-content:space-between;padding:15px 22px;background:#102d46;color:#fff}
+.swa-header small{color:#b3cddd;letter-spacing:.035em}.swa-header h2{font:750 22px/1.3 system-ui,sans-serif;margin:5px 0 0}
+#swa-shell button{font:inherit;border:1px solid #b9ccd8;padding:8px 13px;border-radius:9px;background:#fff;color:#20415a;cursor:pointer;min-height:40px}
+#swa-shell button:disabled{opacity:.45;cursor:default}
+#swa-shell .swa-close{background:#214966;color:#fff;border-color:#426580;font:20px system-ui;min-width:42px}
+#swa-shell .swa-primary{background:#076b89;border-color:#076b89;color:white;font-weight:700}
+.swa-tabs{display:flex;align-items:center;gap:7px;overflow-x:auto;padding:10px 16px;background:#ecf4f7;scrollbar-width:thin}
+#swa-shell .swa-tabs button{white-space:nowrap;border-radius:8px;background:transparent;font-weight:600}
+#swa-shell .swa-tabs button.selected{background:#164d71;color:white;border-color:#164d71}
+.swa-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:11px 18px;border-bottom:1px solid #dbe5eb;background:white}
+#swa-summary{font-size:12px;color:#566e7c;flex:1;min-width:170px}
+.swa-manager-tools{display:flex;align-items:center;flex-wrap:wrap;gap:9px;padding:12px 18px;background:#eef4f9;border-bottom:1px solid #d5e2ef}
+.swa-content{flex:1;min-height:80px;overflow-y:auto;display:flex;gap:14px;align-items:stretch;padding:18px}
+#swa-list{min-width:0;flex:1;display:grid;gap:12px;align-content:start}
+.swa-card{background:white;border:1px solid #dfe7ed;border-radius:12px;padding:16px 18px;box-shadow:0 2px 8px #0c34500d}
+.swa-card h3{font-size:17px;line-height:1.45;margin:8px 0;color:#122f48;overflow-wrap:anywhere}
+.swa-card p{margin:6px 0;font-size:13px;overflow-wrap:anywhere}
+.swa-itemtop{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.swa-tag,.swa-priority,.swa-risk{display:inline-block;padding:3px 8px;border-radius:7px;background:#eaf1f8;font-weight:650;font-size:11px}
+.swa-priority.critical,.swa-priority.urgent,.swa-risk{background:#fee7df;color:#9a3521}
+.swa-priority.routine{background:#e8f3ea;color:#326645}
+.swa-sub,.swa-times{color:#627386}
+.swa-times{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;margin:9px 0}
+.swa-steps{border-left:3px solid #1284a4;padding:5px 9px;background:#f0f8fa}
+.swa-controls{display:flex;align-items:end;flex-wrap:wrap;gap:7px;margin-top:11px}
+.swa-controls label{display:flex;flex-direction:column;font-size:12px;min-width:140px;gap:3px}
+#swa-shell input,#swa-shell textarea,#swa-shell select{width:100%;border:1px solid #bdcbd6;border-radius:8px;
+ padding:9px 10px;background:#fff;color:#18334e;font:inherit;min-height:40px;box-sizing:border-box}
+#swa-shell input[type=checkbox]{width:17px;min-height:17px;accent-color:#0d728e}
+.swa-more{margin-top:14px;border-top:1px solid #e1e9ee;padding-top:10px}
+.swa-more summary,#swa-shell details summary{cursor:pointer;color:#135c76;font-weight:650}
+#swa-capture{padding:14px 18px;max-height:60vh;overflow-y:auto;background:#f3f8fb;border-bottom:1px solid #cadce4}
+#swa-capture>label,#swa-capture details>label{display:block;margin:10px 0}
+#swa-capture label{font-size:13px;font-weight:600}
+.swa-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin:10px 0}
+.swa-fields label{min-width:0}
+.swa-capture-head,.swa-historyhead{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.swa-checks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+.swa-checks label{display:flex;align-items:center;gap:7px}
+.swa-hint{color:#6b7482;font-size:12px}
+.swa-footer{padding:9px 17px;background:#f0f5f8;color:#576c7e;font-size:11px}
+.swa-empty{margin:30px auto;text-align:center;color:#647789;padding:22px}
+#swa-timeline{flex:0 0 250px;max-width:38%;padding:14px;background:white;border:1px solid #e1e8ec;border-radius:12px}
+#swa-timeline p{font-size:12px;border-bottom:1px solid #e5edf2;padding-bottom:8px}
+#swa-toast{position:fixed;z-index:2600;bottom:32px;left:50%;transform:translateX(-50%);padding:14px 18px;background:#125d58;color:#fff;
+ border-radius:10px;box-shadow:0 4px 22px #0004;max-width:min(94vw,560px);font-weight:650}
+#swa-toast.error{background:#8c332d}
+@media(max-width:700px){
+ #swa-launcher{right:12px;bottom:calc(12px + env(safe-area-inset-bottom));font-size:13px;padding:11px 14px}
+ .swa-panel{inset:0;max-width:none;border-radius:0}
+ .swa-header{padding:12px 14px}.swa-header h2{font-size:18px}
+ .swa-tabs{padding:8px 10px;gap:4px}
+ .swa-toolbar{padding:9px 11px;gap:6px}
+ .swa-content{padding:10px;flex-direction:column;gap:8px}
+ .swa-card{padding:12px}.swa-card h3{font-size:16px}
+ .swa-fields,.swa-checks{grid-template-columns:1fr}
+ .swa-controls label{flex:1 1 100%}
+ #swa-timeline{max-width:none;flex-basis:auto}
+ #swa-capture{max-height:56vh;padding:10px}
+ #swa-shell button{min-height:42px}
+ .swa-footer{padding:7px 10px}
+}
+@media(prefers-reduced-motion:reduce){#swa-shell *,#swa-launcher{transition:none!important;animation:none!important}}

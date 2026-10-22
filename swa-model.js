@@ -47,7 +47,7 @@
   if(item.manager_required&&!item.manager_informed_at)steps.push('ম্যানেজারকে জানান');
   if(item.approval_required&&!['approved','rejected'].includes(item.manager_decision))steps.push('ম্যানেজারের সিদ্ধান্ত');
   if(item.communication_required&&!item.communicated_at)steps.push('সংশ্লিষ্ট পক্ষকে জানান');
-  if(item.execution_required&&!item.executed_at)steps.push('অফিসীয় কাজ');
+  if(item.execution_required&&!item.executed_at&&!(item.approval_required&&item.manager_decision==='rejected'))steps.push('অফিসীয় কাজ');
   if(item.verification_required&&!item.verified_at)steps.push('যাচাই');
   return steps;
  }

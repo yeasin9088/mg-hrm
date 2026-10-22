@@ -196,6 +196,13 @@ try {
   await todo(90);await tick();await db.exec("select notification_run_server_processor('ack-test',100)");
   const root=(await db.exec("select id from notifications where entity_type='todo' and entity_id='90' order by created_at limit 1")).rows[0];
   assert(root,'Synthetic first alert missing');
+  // Historic duplicate with the same topic remains unread. A newer confirmed
+  // acknowledgement must still allow a future follow-up without rewriting history.
+  await db.exec(`insert into notifications(event_id,recipient_user_id,category,title,message,
+    entity_type,entity_id,status,scheduled_for,dedupe_key,created_at)
+    select event_id,recipient_user_id,category,title,message,entity_type,entity_id,
+      'Delivered',now()-interval '2 days','syn:historical:90',now()-interval '2 days'
+    from notifications where id=$1`,[root.id]);
   const due=async()=>{
    await db.exec("select set_config('mghrm.scheduler_write','on',false)");
    await db.exec("update todos set next_reminder_at=now()-interval '1 minute' where id=90");
@@ -210,7 +217,7 @@ try {
   await due();await tick();
   assert.equal(await count('notification_events',"entity_type='todo' and entity_id='90'"),2);
   await db.exec("select notification_run_server_processor('ack-followup',100)");
-  assert.equal(await count('notifications',"entity_type='todo' and entity_id='90'"),2);
+  assert.equal(await count('notifications',"entity_type='todo' and entity_id='90'"),3);
   await due();await tick();
   assert.equal(await count('notification_events',"entity_type='todo' and entity_id='90'"),2);
   await db.exec("update todos set status='solved',solved_at=now() where id=90");

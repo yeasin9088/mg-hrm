@@ -47,7 +47,7 @@ test('joining and not-joined actions share one server-compatible Dhaka-date guar
   assert(!source.includes('effectiveDate <= todayISO()'));
   assert(!source.includes('effectiveDate <= transferTodayISO()'));
   assert(html.includes('const isDueForJoining = !employeeInactive && transferIsJoiningDue(t);'));
-  assert(html.includes('const isDueForJoining = transferIsJoiningDue(t);'));
+  assert((html.match(/const isDueForJoining = !employeeInactive && transferIsJoiningDue\(t\);/g)||[]).length >= 2);
 });
 
 test('dashboard makes future orders visible without premature Joined actions',()=>{

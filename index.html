@@ -4671,11 +4671,16 @@ async function dashboardReadAll(client, table, columns){
 async function renderDashboard(){
   const container = document.getElementById('page-dashboard');
   if (!container) return;
+  // Preserve the last complete dashboard while a background refresh runs.
+  // On first boot, show one placeholder until the authenticated data connection is ready.
+  const hasOverview = container.innerHTML.includes('WORKFORCE OVERVIEW');
+  if (!hasOverview && !container.innerHTML.includes('Loading workforce overview')) {
+    container.innerHTML = '<div class="dash-state" role="status">Loading workforce overview…</div>';
+  }
+  if (!window.MGHRM?.isReady()) return;
   const version = ++dashboardRenderVersion;
-  container.innerHTML = '<div class="dash-state" role="status">Loading workforce overview…</div>';
   let metrics, snapshot;
   try {
-    if (!window.MGHRM?.isReady()) throw Error('Application data connection is not ready');
     const client = window.MGHRM._client();
     const [employees, projects, transfers] = await Promise.all([
       dashboardReadAll(client, 'employees', 'id,status,join_date,designation,project_name,deleted_at'),
@@ -4692,7 +4697,12 @@ async function renderDashboard(){
     metrics = dashboardMetrics(employees, projects, transferTodayISO());
   } catch (error) {
     if (version !== dashboardRenderVersion) return;
-    container.innerHTML = '<div class="dash-state" role="alert">Dashboard data could not be loaded. No estimated totals are shown. <button type="button" class="btn sm" onclick="renderDashboard()">Retry</button></div>';
+    // A transient network failure must not erase verified workforce counts.
+    if (!container.innerHTML.includes('WORKFORCE OVERVIEW')) {
+      container.innerHTML = '<div class="dash-state" role="alert">Dashboard data could not be loaded. No estimated totals are shown. <button type="button" class="btn sm" onclick="renderDashboard()">Retry</button></div>';
+    } else {
+      console.warn('[Dashboard] Refresh failed; preserving the last verified overview:', error);
+    }
     return;
   }
   if (version !== dashboardRenderVersion) return;
@@ -4747,7 +4757,7 @@ async function renderDashboard(){
   const transferActionQueue = snapshot.transfers;
   if (version !== dashboardRenderVersion) return;
 
-  container.innerHTML = `
+  const dashboardMarkup = `
     <header class="dash-heading"><div><span class="dash-eyebrow">WORKFORCE OVERVIEW</span><h2>Dashboard</h2><p>People, projects and actions that need your attention</p></div><button type="button" class="btn sm" onclick="renderDashboard()">Refresh overview</button></header>
     ${!totalEmps && !totalProjectCount ? '<div class="dash-state">No employee or project records are available to your account.</div>' : ''}
     <div class="kpi-grid">
@@ -4897,6 +4907,13 @@ async function renderDashboard(){
       </div>
     </div>
   `;
+  // Realtime/initial-sync requests often return identical snapshots. Avoid
+  // replacing the entire DOM and resetting visible cards or interaction state.
+  if (dashboardMarkup !== container.__mghrmLastDashboardMarkup ||
+      !container.innerHTML.includes('WORKFORCE OVERVIEW')) {
+    container.innerHTML = dashboardMarkup;
+    container.__mghrmLastDashboardMarkup = dashboardMarkup;
+  }
 }
 
 function dashboardMeetingCard(){
@@ -10833,7 +10850,7 @@ let transferSyncInFlight = false;
 let transferSyncWarningShown = false;
 let transferSyncPending = false;
 let transferRealtimeTimer = null;
-let transferLastSyncDay = '';
+let transferLastSyncDay = transferTodayISO();
 let transferEmployeeRefreshPending = false;
 async function syncTransfersFromServer(force){
   if (transferSyncInFlight) { if (force === true) transferSyncPending = true; return; }

@@ -32,7 +32,7 @@ test('new final submission requires completion; historical blanks are never forc
   const day = {present: {A: true}, absent: {}, attendanceBlanks: {B: true}};
   const before = JSON.stringify(day);
   assert(!ui.validation(['A', 'B'], day, false).allowed);
-  assert(ui.validation(['A', 'B'], day, true).allowed);
+  assert(ui.validation(['A', 'B'], day, true, {present:{A:true}, representatives:{}}).allowed);
   assert.equal(JSON.stringify(day), before);
   day.absent.B = true;
   assert(!ui.validation(['A', 'B'], day, false).allowed, 'Present requires representative');

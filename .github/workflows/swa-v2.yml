@@ -64,6 +64,8 @@ jobs:
       - name: Bootstrap isolated synthetic source schema
         run: psql -v ON_ERROR_STOP=1 -f scripts/swa-ci-bootstrap.sql
       - name: Apply V2 migration ONLY to synthetic CI database
-        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261022232000_swa_v2_foundation.sql
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261022232000_swa_v2_foundation.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261022235000_swa_rejected_approval_followthrough.sql
       - name: Validate permissions, idempotency and independent stage actions
         run: psql -v ON_ERROR_STOP=1 -f scripts/swa-ci-assertions.sql

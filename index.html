@@ -18723,6 +18723,7 @@ function uniformProductionDiagnostics(){
 
 DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
 window.MT_TODO_FILTER = window.MT_TODO_FILTER || 'open';
+window.MG_TD_SUB = window.MG_TD_SUB || 'unsolved'; // Open by default; 'unsolved' is the existing Open chip key.
 
 function renderTodo(){
   DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
@@ -18810,7 +18811,7 @@ function renderTodo(){
   const mainF = curSec.key;
   window.tdMainFilter = curSec.key;
   window.MT_TODO_FILTER = curSec.key;
-  let subF = window.MG_TD_SUB || 'all';
+  let subF = window.MG_TD_SUB || 'unsolved';
 
   const isSalaryTab = (mainF === 'salary');
 
@@ -19267,8 +19268,8 @@ function renderTodo(){
   const activePills = pillConfig[mainF] || pillConfig.general;
   const validSubKeys = activePills.map(function(p){ return p.key; });
   if (validSubKeys.indexOf(subF) === -1) {
-    subF = 'all';
-    window.MG_TD_SUB = 'all';
+    subF = 'unsolved';
+    window.MG_TD_SUB = 'unsolved';
   }
 
   const mini = function(key, label, count){
@@ -19675,7 +19676,7 @@ window.printTodos = function(mode) {
     return 'note';
   }));
   var curSec = getSec(typeof tdMainFilter !== 'undefined' ? tdMainFilter : (window.tdMainFilter || 'general'));
-  var subF = window.MG_TD_SUB || 'all';
+  var subF = window.MG_TD_SUB || 'unsolved';
   var q = String(window.MG_TD_Q || '').trim().toLowerCase();
 
   var xsOf = function(t){
@@ -20913,7 +20914,7 @@ window.cycleTodo = window.mtToggleTodoStatus;
     tdMainFilter = sec.key;
     window.tdMainFilter = tdMainFilter;
     window.MG_TD_CAT_PICK = sec.cat;
-    if (typeof window.mtSetTodoSub === 'function') window.mtSetTodoSub('all');
+    if (typeof window.mtSetTodoSub === 'function') window.mtSetTodoSub('unsolved');
     renderTodo();
   };
 

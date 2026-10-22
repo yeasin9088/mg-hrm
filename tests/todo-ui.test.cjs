@@ -6,7 +6,7 @@ const source=fs.readFileSync('index.html','utf8');
 function part(start,end){const a=source.indexOf(start);assert(a>=0,start);const b=source.indexOf(end,a);assert(b>a,end);return source.slice(a,b);}
 const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const note=(id,patch={})=>({id,category:'note',status:'pending',note_bn:'নিরাপত্তা কর্মীর অনুসরণ '+id,date:'2026-10-20',created_at:'2026-10-20T10:00:00Z',...patch});
-function fixture(rows=[note(1)]){
+function fixture(rows=[note(1)],initialSub='all'){
  let markup='',elements={};
  const input=()=>({value:'',style:{},scrollHeight:64,focus(){},setSelectionRange(){}});
  const page={get innerHTML(){return markup},set innerHTML(v){markup=v;elements={...elements,tdQuickNote:input(),tdQuickRemindType:input(),tdQuickCat:{value:c.MG_TD_CAT_PICK||'note'}};}};
@@ -14,7 +14,7 @@ function fixture(rows=[note(1)]){
   document:{activeElement:null,getElementById:id=>id==='page-todo'?page:elements[id]||null},
   DATA:{todos:rows},escapeHtml:escape,tdCatOf:t=>t.category||'note',todayISO:()=> '2026-10-21',activeProjects:()=>[],
   mgRmSummary:()=> 'Every 1 hour',updateTodoBadge(){},persist:async()=>{},toast(){},checkSalaryReminder(){},
-  MG_RM_TYPES:{'1h':{interval:60}},MG_TD_SUB:'all'});
+  MG_RM_TYPES:{'1h':{interval:60}},MG_TD_SUB:initialSub});
  c.window=c;
  vm.runInContext(part('function renderTodo(){','window.mtRowClick'),c);
  c.renderTodo();
@@ -28,6 +28,39 @@ test('all four categories retain their open/solved counts and historical records
  f.c.tdMainFilter='salary';f.render();assert.deepEqual(f.rows(),[5]);assert.match(f.page.innerHTML,/Cleared 1/);
  f.c.tdMainFilter='mgr';f.render();assert.deepEqual(f.rows(),[4]);assert.match(f.page.innerHTML,/Awaiting reply/);
  assert.equal(JSON.stringify(rows),before);
+});
+test('Open is the default status for General, My Task, Inform to Manager and Salary Notes',()=>{
+ const data=[
+  note(1,{category:'note'}),note(2,{category:'note',status:'solved_approved'}),
+  note(3,{category:'task'}),note(4,{category:'task',status:'done'}),
+  note(5,{category:'permission'}),note(6,{category:'permission',status:'solved_rejected'}),
+  note(7,{category:'salary'}),note(8,{category:'salary',status:'done'})
+ ];
+ const f=fixture(data,undefined);
+ assert.match(source,/window\.MG_TD_SUB = window\.MG_TD_SUB \|\| 'unsolved'/);
+ assert.match(source,/window\.mtSetTodoSub\('unsolved'\)/);
+ assert.equal(f.c.MG_TD_SUB,undefined);
+ for(const [tab,expected] of [['general',1],['task',3],['mgr',5],['salary',7]]){
+   f.c.tdMainFilter=tab;
+   const rendered=f.render();
+   assert.deepEqual(f.rows(),[expected],tab);
+   assert.match(rendered,/class="td-chipbtn on" aria-pressed="true" onclick="mtSetTodoSub\('unsolved'\)"/,tab);
+ }
+ // A user can still deliberately select All and view previously solved notes.
+ f.c.MG_TD_SUB='all';
+ f.c.tdMainFilter='general';
+ f.render();
+ assert.deepEqual(f.rows(),[1,2]);
+ // Changing tabs explicitly resets the status to Open as requested.
+ f.c.tdSec=(k)=>({key:k,cat:({general:'note',task:'task',mgr:'permission',salary:'salary'})[k]});
+ f.c.mtSetTodoSub=(k)=>{f.c.MG_TD_SUB=k;};
+ vm.runInContext(part("window.mtSetTodoFilter = function(key){","function host(){"),f.c);
+ for(const [tab,expected] of [['task',3],['mgr',5],['salary',7],['general',1]]){
+   f.c.MG_TD_SUB='all';
+   f.c.mtSetTodoFilter(tab);
+   assert.equal(f.c.MG_TD_SUB,'unsolved');
+   assert.deepEqual(f.rows(),[expected]);
+ }
 });
 test('each collapsed and expanded note has one accessible right-side star and retains full detail/actions',()=>{
  const f=fixture([note(1,{is_important:true,reminder_enabled:true,extra_notes:[{raw:'Historical reply'}]})]);

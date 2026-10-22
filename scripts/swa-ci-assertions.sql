@@ -54,3 +54,31 @@ BEGIN
  IF response->>'push_v2_enabled'<>'false' THEN RAISE EXCEPTION 'V2 push erroneously on'; END IF;
 END $$;
 SELECT 'SWA synthetic database acceptance passed' AS test_result;
+
+SET ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',false);
+DO $$
+DECLARE w public.swa_work_items;
+BEGIN
+ SELECT * INTO w FROM public.swa_capture('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+ '{"subject":"Synthetic decision rejected","category":"inform_manager","approval_required":true,
+   "communication_required":true,"execution_required":true}'::jsonb);
+ SELECT * INTO w FROM public.swa_act(w.id,w.row_version,'informed','in_person');
+ SELECT * INTO w FROM public.swa_act(w.id,w.row_version,'decision','rejected');
+ BEGIN
+  PERFORM public.swa_act(w.id,w.row_version,'executed');
+  RAISE EXCEPTION 'Rejected approval incorrectly executable';
+ EXCEPTION WHEN SQLSTATE 'P0001' THEN
+  IF SQLERRM='Rejected approval incorrectly executable' THEN RAISE; END IF;
+ END;
+ BEGIN
+  PERFORM public.swa_act(w.id,w.row_version,'complete');
+  RAISE EXCEPTION 'Incomplete communication incorrectly completed';
+ EXCEPTION WHEN SQLSTATE 'P0001' THEN
+  IF SQLERRM='Incomplete communication incorrectly completed' THEN RAISE; END IF;
+ END;
+ SELECT * INTO w FROM public.swa_act(w.id,w.row_version,'communicated');
+ SELECT * INTO w FROM public.swa_act(w.id,w.row_version,'complete');
+ IF w.stage<>'completed' OR w.executed_at IS NOT NULL THEN RAISE EXCEPTION 'Rejected followthrough did not complete safely'; END IF;
+END $$;
+RESET ROLE;

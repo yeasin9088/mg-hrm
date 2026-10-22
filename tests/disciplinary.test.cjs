@@ -9,6 +9,54 @@ const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const migration = fs.readFileSync(path.join(root, 'supabase/migrations/20261022170000_disciplinary_actions_notifications.sql'), 'utf8');
 
+test('disciplinary creation retries use the same ID after a lost response', async () => {
+  const start=html.indexOf('let dcCreateSaving = false;');
+  const end=html.indexOf('function reprintDisc(',start);
+  assert(start>0 && end>start);
+  const elements={
+    dcEmp:{value:'7'},dcType:{value:'Warning Letter'},dcRef:{value:'MEMO-1'},
+    dcIncident:{value:'2026-10-19'},dcIssue:{value:'2026-10-22'},
+    dcDesc:{value:'বাংলা বডি'},dcFormError:{textContent:''},
+    btnSubmitDisc:{disabled:false,textContent:'Save'}
+  };
+  let attempts=0,ids=0,saved=null,success=0,lookups=0;
+  const sent=[];
+  const readQuery={
+    select(){return this;},eq(){return this;},is(){return this;},
+    async maybeSingle(){lookups++;return {data:saved,error:null};}
+  };
+  const ctx=vm.createContext({
+    window:{sb:{from(table){assert.equal(table,'disciplinary');return {
+      insert(rows){sent.push({...rows[0]});return {
+        select(){return this;},async single(){
+          attempts++;
+          if(attempts===1){
+            saved={id:10,updated_at:'2026-10-22T10:00:00Z',...rows[0]};
+            return {data:null,error:{message:'Lost HTTP response'}};
+          }
+          return {data:null,error:{code:'23505',message:'Unique violation'}};
+        }
+      };},select(){return readQuery;}
+    };}},
+    mtCustomConfirm(_a,_b,_c,cb){ctx.confirm=cb;}},
+    document:{getElementById:id=>elements[id]},
+    crypto:{randomUUID(){ids++;return 'synthetic-id-'+ids;}},
+    MGDisciplinary:model,DC_TEMPLATES:{'Warning Letter':{label:{en:'Warning Letter'}}},
+    guardEdit:()=>true,dcGetBody:()=>elements.dcDesc.value,
+    assertActiveEmp:()=>({id:7,EmployeeID:'7',FullName:'Test Employee',Designation:'Guard',ProjectName:'Example'}),
+    DATA:{disciplinary:[]},toast:()=>success++,dcFillEmp:()=>{},todayISO:()=> '2026-10-22',
+    renderDisciplinaryTable:()=>{},console,Error,JSON
+  });
+  ctx.window.MGHRM={};
+  vm.runInContext(html.slice(start,end),ctx);
+  await ctx.submitDisciplinary();await ctx.confirm();
+  assert.equal(success,0);assert.equal(ctx.DATA.disciplinary.length,0);
+  await ctx.submitDisciplinary();await ctx.confirm();
+  assert.equal(attempts,2);assert.equal(lookups,1);
+  assert.equal(sent[0].action_id,sent[1].action_id);
+  assert.equal(ids,1);assert.equal(ctx.DATA.disciplinary.length,1);assert.equal(success,1);
+});
+
 test('exact approved action names, order and printable Bengali titles; historical titles remain readable', () => {
   assert.deepEqual(model.types.map(t => t.en), [
     'Show Cause Notice','Warning Letter','Final Warning Letter',

@@ -12366,15 +12366,19 @@ function dcFillEmp() {
   }
 }
 let dcCreateSaving = false;
+// Hold one operation key per unchanged draft if a committed insert loses its HTTP response.
+let dcCreateRetryFingerprint = '';
+let dcCreateRetryId = '';
 async function submitDisciplinary(){
   if(!guardEdit() || dcCreateSaving) return;
   const rid = document.getElementById('dcEmp').value;
   const type = document.getElementById('dcType').value;
+  const ref = document.getElementById('dcRef').value.trim();
   const fields = {incident_date:document.getElementById('dcIncident').value,
     issue_date:document.getElementById('dcIssue').value, description:dcGetBody()};
   const issue = !rid ? 'Select an employee.' :
     !DC_TEMPLATES[type] ? 'Select an approved Action Type.' :
-    !document.getElementById('dcRef').value.trim() ? 'Enter a Memo No.' :
+    !ref ? 'Enter a Memo No.' :
     MGDisciplinary.validate(fields);
   const errorEl = document.getElementById('dcFormError');
   if(issue){ if(errorEl) errorEl.textContent=issue; return; }
@@ -12393,10 +12397,15 @@ async function submitDisciplinary(){
       if(!e) throw new Error('Employee not found or inactive');
       if(!window.sb) throw new Error('Database connection not established.');
 
-      const newId = crypto.randomUUID();
+      const fingerprint = JSON.stringify([rid,type,ref,fields.incident_date,fields.issue_date,fields.description]);
+      if (dcCreateRetryFingerprint !== fingerprint) {
+        dcCreateRetryFingerprint = fingerprint;
+        dcCreateRetryId = crypto.randomUUID();
+      }
+      const newId = dcCreateRetryId;
       const payload = {
         action_id: newId,
-        ref_no: document.getElementById('dcRef').value.trim(),
+        ref_no: ref,
         employee_sys_id: e.id,
         employee_id: String(e.EmployeeID || e.id || ''),
         full_name: e.FullName || '',
@@ -12408,9 +12417,27 @@ async function submitDisciplinary(){
         description: fields.description
       };
       
-      const {data, error} = await window.sb.from('disciplinary').insert([payload])
-        .select('id,action_id,updated_at,ref_no,employee_sys_id,employee_id,full_name,designation,project_name,action_type,incident_date,issue_date,description').single();
-      if (error) throw error;
+      const readColumns = 'id,action_id,updated_at,ref_no,employee_sys_id,employee_id,full_name,designation,project_name,action_type,incident_date,issue_date,description';
+      const {data:inserted,error:insertError} = await window.sb.from('disciplinary').insert([payload])
+        .select(readColumns).single();
+      let data = inserted;
+      if (insertError && insertError.code === '23505') {
+        // The first call may have committed before its response was lost. Only
+        // recover the current user's RLS-visible, identical record.
+        const {data:existing,error:lookupError} = await window.sb.from('disciplinary')
+          .select(readColumns).eq('action_id',newId).is('deleted_at',null).maybeSingle();
+        if (lookupError || !existing ||
+            !['ref_no','action_type','incident_date','issue_date','description','employee_id'].every(k =>
+              String(existing[k]??'') === String(payload[k]??'')) ||
+            String(existing.employee_sys_id??'') !== String(payload.employee_sys_id??'')) throw insertError;
+        data = existing;
+      } else if (insertError) throw insertError;
+      if (!data || String(data.action_id) !== String(newId)) {
+        throw Error('Save response incomplete. Retry the unchanged draft to verify the result.');
+      }
+      dcCreateRetryFingerprint = '';
+      dcCreateRetryId = '';
+      DATA.disciplinary = DATA.disciplinary.filter(x=>String(x.id||x.ActionID)!==String(data.id));
       DATA.disciplinary.unshift(Object.assign({},data,{
         ActionID:data.id,RefNo:data.ref_no,EmployeeID:data.employee_id,FullName:data.full_name,
         Designation:data.designation,ProjectName:data.project_name,ActionType:data.action_type,

@@ -191,7 +191,7 @@ try {
    await db.exec("select notification_finalize_web_push_job($1,'retry-worker-2')",[job.id]);
    assert.equal((await db.exec('select job_status from notification_jobs where id=$1',[job.id])).rows[0].job_status,'Completed');
  });
- 
+
  await check('unread ToDo suppresses repeated due slots; read unlocks exactly one after interval',async()=>{
   await todo(90);await tick();await db.exec("select notification_run_server_processor('ack-test',100)");
   const root=(await db.exec("select id from notifications where entity_type='todo' and entity_id='90' order by created_at limit 1")).rows[0];

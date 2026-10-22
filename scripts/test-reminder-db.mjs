@@ -42,6 +42,8 @@ try {
  for(const statement of grants.split(';')) if(/^(?:\s*)(?:GRANT|REVOKE)[\s\S]*ON FUNCTION public\.(?:notification_|push_subscription_)/.test(statement)) await db.exec(statement+';');
  const migration=await read('supabase/migrations/20261021152333_reliable_reminder_scheduler.sql');
  await db.exec(migration);await db.exec(migration); // Replay must preserve configuration and rows.
+ const previewMigration=await read('supabase/migrations/20261022120000_rich_push_previews.sql');
+ await db.exec(previewMigration);await db.exec(previewMigration);
  const a='11111111-1111-4111-8111-111111111111',b='22222222-2222-4222-8222-222222222222',sid='33333333-3333-4333-8333-333333333333';
  await db.exec('INSERT INTO auth.users(id) VALUES($1),($2)',[a,b]);
  await db.exec("INSERT INTO public.profiles(id,role) VALUES($1,'admin'),($2,'admin')",[a,b]);
@@ -125,6 +127,17 @@ try {
    const job=(await db.exec("select j.* from notification_jobs j join notifications n on n.id=j.notification_id where j.job_type='DeliverWebPush' and n.entity_id='2'")).rows[0];
    let dispatch=(await db.exec("select notification_get_web_push_dispatch($1,'synthetic-dispatch') r",[job.id])).rows[0].r;
    assert.equal(dispatch.deliveries.length,2);
+   await db.exec('update todos set note_bn=$1 where id=2',['সাত্তার আউটসোর্স নবায়ন ডিউটি বিলের বিষয়ে সিদ্ধান্ত নিতে হবে।']);
+   const preview=()=>db.exec("select notification_web_push_preview($1,'synthetic-dispatch') r",[job.id]).then(x=>x.rows[0].r);
+   assert.equal((await preview()).todo_note,'সাত্তার আউটসোর্স নবায়ন ডিউটি বিলের বিষয়ে সিদ্ধান্ত নিতে হবে।');
+   await db.exec("update notification_preferences set show_content_preview=false where user_id=$1 and category='*'",[a]);
+   assert.equal((await preview()).enabled,false);
+   await db.exec("update notification_preferences set show_content_preview=true where user_id=$1 and category='*'",[a]);
+   await db.exec('update notifications set recipient_user_id=$1 where id=$2',[b,job.notification_id]);
+   assert.equal((await preview()).todo_id,undefined);
+   await db.exec('update notifications set recipient_user_id=$1 where id=$2',[a,job.notification_id]);
+   await auth();await assert.rejects(preview(),{code:'42501'});await reset();
+   await assert.rejects(db.exec("select notification_web_push_preview($1,'wrong-worker')",[job.id]),{code:'42501'});
    await db.exec('update push_subscriptions set is_active=false where id=1');
    dispatch=(await db.exec("select notification_get_web_push_dispatch($1,'synthetic-dispatch') r",[job.id])).rows[0].r;
    assert.equal(dispatch.deliveries.length,1);

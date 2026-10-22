@@ -2,7 +2,7 @@
    MG Security HRM — Service Worker
    Role: Offline application cache + safe notification display/click flow
    ===================================================================== */
-const CACHE = 'mghrm-v35';
+const CACHE = 'mghrm-v36';
 const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './bd-geo.json', './config.js', './app-core.js', './meeting-attendance.js', './meeting-ui.js', './meeting-ui.css', './notification-model.js', './notification-center.js', './notification-presence.js', './notification-ui.js', './notification-ui.css', './notification-settings.js'];
 
 self.addEventListener('install', (e) => {
@@ -50,10 +50,19 @@ function safePushPayload(event) {
   if (!event.data) return {};
   try {
     const parsed = event.data.json();
-    return parsed && typeof parsed === 'object' ? parsed : {};
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
   } catch (err) {
     try { return { body: event.data.text() }; } catch (ignore) { return {}; }
   }
+}
+function pushText(value, max, fallback) {
+  if(typeof value!=='string') return fallback;
+  const plain=value.replace(/<[^>]*>/g,' ').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e]/g,' ').replace(/\s+/gu,' ').trim();
+  if(!plain) return fallback;
+  const chars=typeof Intl.Segmenter==='function'
+    ? Array.from(new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(plain),part=>part.segment)
+    : Array.from(plain);
+  return chars.length>max?chars.slice(0,max-1).join('').trimEnd()+'…':plain;
 }
 
 function safeRoute(value) {
@@ -65,9 +74,10 @@ function safeRoute(value) {
 
 self.addEventListener('push', (event) => {
   const payload = safePushPayload(event);
-  const notificationId = String(payload.notification_id || payload.id || '');
-  const title = 'MG-HRM';
-  const body = 'You have a new notification. Open MG-HRM to review it.';
+  const notificationId = /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(String(payload.notification_id||payload.id||''))
+    ? String(payload.notification_id||payload.id) : '';
+  const title = pushText(payload.title, 90, 'MG-HRM');
+  const body = pushText(payload.body, 200, 'You have a new notification. Open MG-HRM to review it.');
   const route = safeRoute(payload.action_route || payload.route);
   const priority = String(payload.priority || 'Normal');
   const options = {
@@ -80,9 +90,9 @@ self.addEventListener('push', (event) => {
     data: {
       notificationId,
       route,
-      actionParams: payload.action_params && typeof payload.action_params === 'object' ? payload.action_params : {},
-      entityType: String(payload.entity_type || ''),
-      entityId: payload.entity_id == null ? null : String(payload.entity_id)
+      entityType: payload.entity_type === 'todo' ? 'todo' : '',
+      entityId: route === 'todo' && payload.entity_type === 'todo' && /^\d{1,18}$/.test(String(payload.entity_id||''))
+        ? String(payload.entity_id) : null
     }
   };
   event.waitUntil(self.registration.showNotification(title, options));
@@ -92,12 +102,11 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const data = event.notification.data || {};
   const route = safeRoute(data.route);
-  const targetUrl = new URL('./index.html?notification_route=' + encodeURIComponent(route) + '&notification_id=' + encodeURIComponent(data.notificationId || '') + '&notification_entity=' + encodeURIComponent(data.entityId || ''), self.registration.scope).href;
+  const targetUrl = new URL('./index.html?notification_route=' + encodeURIComponent(route) + '&notification_id=' + encodeURIComponent(data.notificationId || '') + (data.entityId ? '&notification_entity=' + encodeURIComponent(data.entityId) : ''), self.registration.scope).href;
   const message = {
     type: 'MG_NOTIFICATION_CLICK',
     notificationId: data.notificationId || '',
     route,
-    actionParams: data.actionParams || {},
     entityType: data.entityType || '',
     entityId: data.entityId == null ? null : data.entityId
   };

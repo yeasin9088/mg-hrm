@@ -9,6 +9,7 @@ function harness({statuses=[201,201],eligible=true,failRecord=false}={}) {
   calls.push({name,p});
   if(name==='notification_claim_web_push_jobs') return {data:[{id:1,attempt_count:2}]};
   if(name==='notification_get_web_push_dispatch') return {data:{notification:{id:'occurrence-1',title:'CONFIDENTIAL',message:'PRIVATE NOTE'},deliveries:eligible?rows.filter(r=>r.result!=='sent'&&!r.revoked):[]}};
+  if(name==='notification_web_push_preview') return {data:{enabled:false}};
   if(name==='notification_record_web_push_result') {
     if(failRecord) return {error:{message:'SENSITIVE ENDPOINT'}};
     const r=rows.find(r=>r.delivery_id===p.p_delivery_id);r.result=p.p_success?'sent':'failed';r.revoked=p.p_revoke_subscription;return {data:{}};

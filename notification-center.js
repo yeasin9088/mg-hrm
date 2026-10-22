@@ -56,6 +56,7 @@
           window.MG_NOTIFICATION_STATE.loading = false;
           loading = null;
           window.mgRebuildNotificationView();
+          if(window.mgTryPendingPushOpen)window.mgTryPendingPushOpen();
           if (invalidated) reloadTimer = setTimeout(() => window.mgLoadBackendNotifications(), 0);
         }
       }
@@ -236,9 +237,25 @@
     if(data.notificationId){
       var n=(window.NOTIFICATIONS||[]).find(function(x){return String(x.id)===String(data.notificationId);});
       if(n&&n.isBackend){window.handleNotifClick(n.id,n.type);return;}
+      // A URL supplied by a push may only open a record present in this account's Inbox.
+      if(/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(String(data.notificationId))){
+        var pending=new URLSearchParams(location.search);pending.set('notification_id',String(data.notificationId));pending.set('notification_route',route);
+        history.replaceState(null,'',location.pathname+'?'+pending+location.hash);
+        if(!window.MG_NOTIFICATION_STATE.loading)window.mgLoadBackendNotifications();
+      }
+      return;
     }
     if(route==='todo'&&data.entityId&&typeof window.mgTodoNotifOpen==='function')window.mgTodoNotifOpen(data.entityId);
     else if(typeof navigate==='function')navigate(route);
+  };
+  window.mgTryPendingPushOpen=function(){
+    var q=new URLSearchParams(location.search),id=q.get('notification_id'),route=q.get('notification_route');
+    if(!id||!route)return;
+    var own=(window.NOTIFICATIONS||[]).find(function(x){return x.isBackend&&String(x.id)===id;});
+    if(!own)return; // Keep the intent through a cold Auth start until this user's Inbox loads.
+    q.delete('notification_route');q.delete('notification_id');q.delete('notification_entity');
+    history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash);
+    window.mgHandleSystemNotificationClick({route:route,notificationId:id});
   };
   if('serviceWorker' in navigator){
     navigator.serviceWorker.addEventListener('message',function(event){
@@ -246,8 +263,7 @@
       if(data.type==='MG_PUSH_SUBSCRIPTION_CHANGED'){window.MG_NOTIFICATION_STATE.error='Device registration changed. Re-enable this browser in notification settings.';window.mgRebuildNotificationView();}
       if(data.type==='MG_NOTIFICATION_CLICK')window.mgHandleSystemNotificationClick(data);
     });
-    var initialRoute=new URLSearchParams(location.search).get('notification_route');
-    if(initialRoute)setTimeout(async function(){await window.mgLoadBackendNotifications();window.mgHandleSystemNotificationClick({route:initialRoute,notificationId:new URLSearchParams(location.search).get('notification_id'),entityId:new URLSearchParams(location.search).get('notification_entity')});},900);
+    if(new URLSearchParams(location.search).has('notification_id'))setTimeout(async function(){await window.mgLoadBackendNotifications();window.mgTryPendingPushOpen();},900);
   }
 
   window.mgHandleNotificationRealtime = function () {

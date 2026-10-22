@@ -33,6 +33,13 @@ export function privatePayload(n, preview = {}) {
   if(enabled && category==='todo' && preview.todo_id != null) {
     const note=clean(preview.todo_note,180);
     if(note) { title='MG-HRM · To-Do Reminder'; body=note; route='todo'; entityId=String(preview.todo_id); }
+  } else if(enabled && category==='transfer' && n.entity_type==='transfer' &&
+      n.action_label==='Review Transfer' && /^\d{1,18}$/.test(String(n.entity_id||''))) {
+    // Only this explicitly authorized, non-sensitive order identifier is visible on devices.
+    // Never expose employee names, projects, notes, or reasons in Web Push previews.
+    title='MG-HRM · Transfer Joining Due';
+    body='Transfer order #'+String(n.entity_id)+' needs Joined / Not Joined confirmation.';
+    route='transfer';
   } else if(enabled && categories[category]) {
     title='MG-HRM · '+categories[category][0];body=categories[category][1];
     route=['recruitment','transfer','leave','disciplinary','uniform','meeting'].includes(category)?category:'notifications';

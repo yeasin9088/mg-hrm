@@ -36,10 +36,10 @@ test('Open is the default status for General, My Task, Inform to Manager and Sal
   note(5,{category:'permission'}),note(6,{category:'permission',status:'solved_rejected'}),
   note(7,{category:'salary'}),note(8,{category:'salary',status:'done'})
  ];
- const f=fixture(data,undefined);
+ const f=fixture(data,null);
  assert.match(source,/window\.MG_TD_SUB = window\.MG_TD_SUB \|\| 'unsolved'/);
  assert.match(source,/window\.mtSetTodoSub\('unsolved'\)/);
- assert.equal(f.c.MG_TD_SUB,undefined);
+ assert.equal(f.c.MG_TD_SUB,null);
  for(const [tab,expected] of [['general',1],['task',3],['mgr',5],['salary',7]]){
    f.c.tdMainFilter=tab;
    const rendered=f.render();

@@ -12244,12 +12244,14 @@ window.dcClearBody     = dcClearBody;
 window.openDisciplinaryPopup = openDisciplinaryPopup;
 window.mgOpenDisciplinaryRecord = async function(id){
   navigate('disciplinary');
-  const found = DATA.disciplinary.find(d => String(d.id || d.ActionID) === String(id));
-  if(found){ openDisciplinaryPopup(id); return; }
-  if(!window.sb || !/^[0-9]+$/.test(String(id))) return;
+  if(!window.sb || !/^[0-9]+$/.test(String(id))){
+    toast('This disciplinary record is unavailable or access is denied.','error'); return;
+  }
   const {data,error} = await window.sb.from('disciplinary').select('*')
     .eq('id',id).is('deleted_at',null).maybeSingle();
   if(error || !data){ toast('This disciplinary record is unavailable or access is denied.','error'); return; }
+  const current = DATA.disciplinary.findIndex(d => String(d.id || d.ActionID) === String(id));
+  if(current>=0) DATA.disciplinary.splice(current,1);
   DATA.disciplinary.unshift(Object.assign({},data,{ActionID:data.id,RefNo:data.ref_no,
     EmployeeID:data.employee_id,FullName:data.full_name,Designation:data.designation,
     ProjectName:data.project_name,ActionType:data.action_type,IncidentDate:data.incident_date,

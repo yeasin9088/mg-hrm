@@ -59,6 +59,29 @@ test('record opens via authorized inbox route and push remains privacy safe', ()
   assert.match(push, /disciplinary:\['Disciplinary Update','A confidential disciplinary update is ready for review\.'/);
 });
 
+test('deep link checks the current account through RLS before showing a cached disciplinary record', async () => {
+  const start=html.indexOf('window.mgOpenDisciplinaryRecord = async function(id){');
+  const end=html.indexOf('function openDisciplinaryPopup',start);
+  assert.ok(start>0 && end>start);
+  const stale={id:17,Description:'stale private text'};
+  const data={disciplinary:[stale]};
+  let result={data:null,error:null},opened=0,errors=0;
+  const query={eq(){return this;},is(){return this;},async maybeSingle(){return result;}};
+  const context=vm.createContext({DATA:data,window:{sb:{from(){return {select(){return query;}}}}},
+    navigate:()=>{},openDisciplinaryPopup:()=>opened++,renderDisciplinaryTable:()=>{},
+    toast:()=>errors++});
+  vm.runInContext(html.slice(start,end),context);
+  await context.window.mgOpenDisciplinaryRecord(17);
+  assert.equal(opened,0);
+  assert.equal(errors,1);
+  assert.equal(data.disciplinary[0],stale);
+  result={data:{id:17,action_type:'Warning Letter',description:'authorized'},error:null};
+  await context.window.mgOpenDisciplinaryRecord(17);
+  assert.equal(opened,1);
+  assert.equal(data.disciplinary.length,1);
+  assert.equal(data.disciplinary[0].Description,'authorized');
+});
+
 test('edit writes only three columns and a stale device keeps the unsaved draft with an error', async () => {
   const start = html.indexOf('let dcEditSaving = false;');
   const end = html.indexOf('async function deleteDisciplinary',start);

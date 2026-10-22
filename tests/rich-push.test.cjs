@@ -58,6 +58,22 @@ function serviceWorker(){
   async function click(notification){let promise;listeners.notificationclick({notification:{data:notification.options.data,close(){}},waitUntil:p=>{promise=p;}});await promise;return opened.at(-1);}
   return {push,click,shown};
 }
+test('approved MG-HRM app mark and separate monochrome small glyph have correct source formats',()=>{
+  const app=fs.readFileSync('app-logo-192.webp');
+  assert.equal(app.subarray(0,4).toString('ascii'),'RIFF');
+  assert.equal(app.subarray(8,12).toString('ascii'),'WEBP');
+  const badge=fs.readFileSync('notification-small-m-96.png');
+  assert.equal(badge.subarray(0,8).toString('hex'),'89504e470d0a1a0a');
+  assert.equal(badge.readUInt32BE(16),96);
+  assert.equal(badge.readUInt32BE(20),96);
+  assert.equal(badge[25],6);
+  const page=fs.readFileSync('index.html','utf8');
+  assert(page.includes('const logoContent = \'<img src="./app-logo-192.webp"'));
+  assert(page.includes('<img src="./app-logo-192.webp" alt="MG-HRM app icon" width="60" height="60">'));
+  assert(page.includes('id="mobileBrandLogo" aria-hidden="true"><img src="./app-logo-192.webp"'));
+  const workflow=fs.readFileSync('.github/workflows/pages.yml','utf8');
+  assert(workflow.includes('convert _site/app-logo-192.webp'));
+});
 test('notification icon is the original Mahbub logo; Android badge is a transparent 96px PNG',()=>{
   const badge=fs.readFileSync('notification-badge-96.png');
   assert.equal(badge.subarray(0,8).toString('hex'),'89504e470d0a1a0a');
@@ -70,8 +86,8 @@ test('notification icon is the original Mahbub logo; Android badge is a transpar
 });
 test('both branded push images are independently cached and survive an unrelated shell failure',async()=>{
   const listeners={},requests=[],stored=new Map(),origin='https://yeasinh.me/mg-hrm/';
-  const logo=origin+'icon-192.png?notification-icon=v38';
-  const badge=origin+'notification-badge-96.png?notification-badge=v38';
+  const logo=origin+'icon-192.png?notification-icon=v39';
+  const badge=origin+'notification-small-m-96.png?notification-badge=v39';
   const response=url=>({ok:true,headers:{get:()=> 'image/png'},url});
   const cache={put:async (url,value)=>stored.set(url,value),addAll:async()=>{throw Error('unrelated shell unavailable');}};
   const self={registration:{scope:origin,showNotification:async(title,options)=>{self.shown={title,options};}},
@@ -110,8 +126,8 @@ test('Android/Windows Service Worker displays safe payload and opens a cold To-D
   const sw=serviceWorker(),id='11111111-1111-4111-8111-111111111111';
   let shown=await sw.push({notification_id:id,title:'MG-HRM · To-Do Reminder',body:'বাংলা নোট',entity_type:'todo',entity_id:'42',action_route:'todo',priority:'Urgent'});
   assert.equal(shown.options.body,'বাংলা নোট');assert.equal(shown.options.requireInteraction,true);
-  assert.equal(shown.options.icon,'https://yeasinh.me/mg-hrm/icon-192.png?notification-icon=v38');
-  assert.equal(shown.options.badge,'https://yeasinh.me/mg-hrm/notification-badge-96.png?notification-badge=v38');
+  assert.equal(shown.options.icon,'https://yeasinh.me/mg-hrm/icon-192.png?notification-icon=v39');
+  assert.equal(shown.options.badge,'https://yeasinh.me/mg-hrm/notification-small-m-96.png?notification-badge=v39');
   const url=new URL(await sw.click(shown));assert.equal(url.searchParams.get('notification_id'),id);
   assert.equal(url.searchParams.get('notification_route'),'todo');assert.equal(url.searchParams.get('notification_entity'),'42');
   shown=await sw.push({notification_id:'22222222-2222-4222-8222-222222222222',title:'MG-HRM · To-Do Reminder',body:'Next occurrence'});

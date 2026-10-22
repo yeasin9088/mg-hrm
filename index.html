@@ -222,7 +222,7 @@ body.lang-bn { font-family: var(--font-bn), var(--font-en); }
   font-weight: 800; font-size: 15px; letter-spacing: -.5px;
   overflow: hidden; flex-shrink: 0;
 }
-.brand-logo img { width: 100%; height: 100%; object-fit: contain; background: #fff; border-radius: 8px; }
+.brand-logo img { width: 100%; height: 100%; object-fit: contain; background: transparent; border-radius: 8px; }
 .brand h1 { font-size: 14px; font-weight: 700; letter-spacing: .2px; }
 .brand p  { font-size: 10.5px; opacity: .55; margin-top: 1px; text-transform: uppercase; letter-spacing: .6px; }
 .nav-section {
@@ -3364,8 +3364,8 @@ input:focus, select:focus, textarea:focus {
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="MG HRM">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<link rel="apple-touch-icon" href="./icon-192.png">
-<link rel="icon" type="image/png" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./icon-192.png?v=mgbrand-20261022">
+<link rel="icon" type="image/png" href="./icon-192.png?v=mgbrand-20261022">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="./config.js"></script>
 <script src="./meeting-attendance.js"></script>
@@ -3492,7 +3492,7 @@ input:focus, select:focus, textarea:focus {
   justify-content:center;color:#fff;font-weight:800;font-size:21px;letter-spacing:.5px;
   background:linear-gradient(135deg,var(--primary),var(--purple));
   box-shadow:0 10px 26px rgba(79,70,229,.42);overflow:hidden}
-.mg-boot-logo img{width:100%;height:100%;object-fit:contain;background:#fff}
+.mg-boot-logo img{width:100%;height:100%;object-fit:contain;background:transparent}
 .mg-boot-name{margin:17px 0 0;font-size:17px;font-weight:700;color:#fff;letter-spacing:-.01em}
 .mg-boot-sub{margin:4px 0 0;font-size:11.5px;font-weight:600;letter-spacing:.16em;
   text-transform:uppercase;color:rgba(255,255,255,.52)}
@@ -3507,7 +3507,7 @@ input:focus, select:focus, textarea:focus {
 }
 </style>
 <div id="mgBoot" role="status" aria-live="polite" aria-label="Loading MG Security HRM">
-  <div class="mg-boot-logo" id="mgBootLogo"><span class="mg-boot-logo-text">MG</span></div>
+  <div class="mg-boot-logo" id="mgBootLogo"><img src="./app-logo-192.webp" alt="MG-HRM app icon" width="60" height="60"></div>
   <p class="mg-boot-name">MG Security HRM</p>
   <p class="mg-boot-sub">HR Management System</p>
   <div class="mg-boot-track"><div class="mg-boot-fill" id="mgBootBar"></div></div>
@@ -3636,7 +3636,7 @@ input:focus, select:focus, textarea:focus {
   <aside class="sidebar">
     <div class="brand sidebar-brand" id="sidebarBrand" onclick="mtToggleSidebar()" title="Toggle Sidebar (Expand / Collapse)" role="button" tabindex="0">
       <div class="brand-logo" id="brandLogo">
-        <span class="brand-logo-text">MG</span>
+        <img src="./app-logo-192.webp" alt="MG-HRM" width="40" height="40">
         <div class="toggle-icon" aria-hidden="true" title="Toggle Sidebar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="11 17 6 12 11 7"/>
@@ -3761,7 +3761,7 @@ input:focus, select:focus, textarea:focus {
         </svg>
       </button>
       <div class="mobile-brand-lockup">
-        <span class="mobile-brand-logo" id="mobileBrandLogo" aria-hidden="true">MG</span>
+        <span class="mobile-brand-logo" id="mobileBrandLogo" aria-hidden="true"><img src="./app-logo-192.webp" width="32" height="32" alt=""></span>
         <h3>Mahbub Group</h3>
       </div>
       <div class="mobile-header-actions">
@@ -14437,20 +14437,20 @@ function uploadLogo(ev){
   reader.onload = e => {
     COMPANY.logoDataUrl = e.target.result;
     renderBrandLogo();
-    toast('Logo uploaded — applied to header & letterhead','success');
+    toast('Company logo updated for official letterheads','success');
     renderSettings(); persist();
   };
   reader.readAsDataURL(file);
 }
 function renderBrandLogo(){
   const el = document.getElementById('brandLogo'); if(!el) return;
-  const logoContent = COMPANY && COMPANY.logoDataUrl ? `<img src="${COMPANY.logoDataUrl}" alt="logo">` : '<span class="brand-logo-text">MG</span>';
+  const logoContent = '<img src="./app-logo-192.webp" alt="MG-HRM app icon" width="40" height="40">';
   const toggleIconHtml = `<div class="toggle-icon" aria-hidden="true" title="Toggle Sidebar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg></div>`;
   el.innerHTML = logoContent + toggleIconHtml;
 }
 function renderGateLogos(){
   document.querySelectorAll('[data-gate-logo]').forEach(function(el){
-    if (COMPANY && COMPANY.logoDataUrl) el.innerHTML = '<img src="'+COMPANY.logoDataUrl+'" alt="Mahbub Group">';
+    el.innerHTML = '<img src="./app-logo-192.webp" alt="MG-HRM app icon" width="58" height="58">';
   });
 }
 
@@ -23946,7 +23946,7 @@ setInterval(()=>checkPendingToast(true), 180000);
 .gate-logo{width:58px;height:58px;border-radius:15px;background:linear-gradient(135deg,var(--primary),var(--purple));
   display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:20px;
   letter-spacing:.5px;margin:0 auto 15px;box-shadow:0 8px 20px rgba(79,70,229,.32)}
-.gate-logo img{width:100%;height:100%;object-fit:contain;background:#fff;border-radius:15px}
+.gate-logo img{width:100%;height:100%;object-fit:contain;background:transparent;border-radius:15px}
 .gate-card h1{font-size:20px;font-weight:700;color:var(--sidebar);text-align:center;margin:0 0 6px}
 .gate-card .sub{font-size:13px;color:var(--text-muted);text-align:center;margin:0 0 22px;line-height:1.6}
 .gate-card label{display:block;font-size:12.5px;font-weight:600;color:#3d3d63;margin:0 0 6px}

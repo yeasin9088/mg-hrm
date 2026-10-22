@@ -32,6 +32,16 @@ jobs:
       - name: Package public application assets
         run: node scripts/build-pages.mjs
 
+      - name: Render approved main app icon in installable PNG sizes
+        run: |
+          if ! command -v convert >/dev/null 2>&1; then
+            echo "ImageMagick is required to create branded PNG icons"; exit 1
+          fi
+          convert _site/app-logo-192.webp -filter Lanczos -resize 192x192 -strip _site/icon-192.png
+          convert _site/app-logo-192.webp -filter Lanczos -resize 512x512 -strip _site/icon-512.png
+          test "$(identify -format '%wx%h' _site/icon-192.png)" = "192x192"
+          test "$(identify -format '%wx%h' _site/icon-512.png)" = "512x512"
+          test "$(identify -format '%wx%h' _site/notification-small-m-96.png)" = "96x96"
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
         with:

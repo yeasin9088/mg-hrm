@@ -44,7 +44,7 @@ try {
  await db.exec(migration);await db.exec(migration); // Replay must preserve configuration and rows.
  const previewMigration=await read('supabase/migrations/20261022120000_rich_push_previews.sql');
  await db.exec(previewMigration);await db.exec(previewMigration);
- const followupMigration=await read('supabase/migrations/20261022190000_read_aware_notification_followups.sql');
+ const followupMigration=await read('supabase/migrations/20261022135600_read_aware_notification_followups.sql');
  await db.exec(followupMigration);await db.exec(followupMigration); // Idempotent replay.
  const a='11111111-1111-4111-8111-111111111111',b='22222222-2222-4222-8222-222222222222',sid='33333333-3333-4333-8333-333333333333';
  await db.exec('INSERT INTO auth.users(id) VALUES($1),($2)',[a,b]);

@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - index.html
+      - tests/dashboard-ux.test.cjs
+      - sw.js
       - tests/transfer.test.cjs
       - tests/transfer-integrity.test.cjs
       - supabase/migrations/*transfer_due*

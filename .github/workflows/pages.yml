@@ -32,11 +32,12 @@ jobs:
       - name: Package public application assets
         run: node scripts/build-pages.mjs
 
+      - name: Install image converter for approved app icons
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq imagemagick
       - name: Render approved main app icon in installable PNG sizes
         run: |
-          if ! command -v convert >/dev/null 2>&1; then
-            echo "ImageMagick is required to create branded PNG icons"; exit 1
-          fi
           convert _site/app-logo-192.webp -filter Lanczos -resize 192x192 -strip _site/icon-192.png
           convert _site/app-logo-192.webp -filter Lanczos -resize 512x512 -strip _site/icon-512.png
           test "$(identify -format '%wx%h' _site/icon-192.png)" = "192x192"

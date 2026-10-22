@@ -196,6 +196,10 @@ try {
   await todo(90);await tick();await db.exec("select notification_run_server_processor('ack-test',100)");
   const root=(await db.exec("select id from notifications where entity_type='todo' and entity_id='90' order by created_at limit 1")).rows[0];
   assert(root,'Synthetic first alert missing');
+  // Simulate completed provider fan-out. Existing pending per-device jobs
+  // intentionally suppress another due event even when the user has read it.
+  await db.exec("update notification_jobs set job_status='Completed',completed_at=now() where notification_id=$1 and job_type='DeliverWebPush'",[root.id]);
+  await db.exec("update notification_deliveries set delivery_status='Sent',sent_at=now() where notification_id=$1 and channel='WebPush'",[root.id]);
   // Historic duplicate with the same topic remains unread. A newer confirmed
   // acknowledgement must still allow a future follow-up without rewriting history.
   await db.exec(`insert into notifications(event_id,recipient_user_id,category,title,message,

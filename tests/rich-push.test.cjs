@@ -18,6 +18,22 @@ test('authorized Bengali and English To-Do notes become concise push previews',a
   assert(Array.from(new Intl.Segmenter('bn',{granularity:'grapheme'}).segment(p.body)).length<=180);assert(p.body.endsWith('…'));
   assert(!p.body.includes('\ufffd'));
 });
+test('due transfer push preview gives safe action context only with preview enabled',async()=>{
+  const {privatePayload}=await worker;
+  const notice={id:'11111111-1111-4111-8111-111111111111',category:'Transfer',
+    entity_type:'transfer',entity_id:'196',action_label:'Review Transfer',
+    priority:'High',message:'PRIVATE employee information',title:'PRIVATE project information'};
+  const enabled=JSON.parse(privatePayload(notice,{enabled:true}));
+  assert.equal(enabled.title,'MG-HRM · Transfer Joining Due');
+  assert.equal(enabled.body,'Transfer order #196 needs Joined / Not Joined confirmation.');
+  assert.equal(enabled.action_route,'transfer');
+  assert(!JSON.stringify(enabled).includes('PRIVATE'));
+  const restricted=JSON.parse(privatePayload(notice,{enabled:false}));
+  assert.equal(restricted.body,generic);
+  assert.equal(restricted.action_route,'notifications');
+  const other=JSON.parse(privatePayload({...notice,action_label:'Another Workflow'},{enabled:true}));
+  assert.equal(other.body,'A transfer update is ready for review.');
+});
 test('missing or restricted content falls back; sensitive categories reveal only fixed summaries',async()=>{
   const {privatePayload}=await worker;
   const n={id:'123',category:'ToDo',title:'PRIVATE',message:'secret employee data'};

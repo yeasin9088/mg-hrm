@@ -40,7 +40,7 @@ This is the implementation policy for the existing single-operator, multi-device
 
 ## Implementation points
 
-- Database migration `supabase/migrations/20261022190000_read_aware_notification_followups.sql`: private `todo_followup_allowed`, amended authoritative and legacy fallback To-Do scheduler eligibility, a private BEFORE INSERT gate for repeat children, repeat-only rule compatibility, bounded workflow defaults, and recurrence candidate prioritization.
+- Database migration `supabase/migrations/20261022135600_read_aware_notification_followups.sql`: private `todo_followup_allowed`, amended authoritative and legacy fallback To-Do scheduler eligibility, a private BEFORE INSERT gate for repeat children, repeat-only rule compatibility, bounded workflow defaults, and recurrence candidate prioritization.
 - No client-side guessing, clearing Android tray, suppressing all push, per-device read flag or unilateral changes to workflow status.
 - Preserve and verify the transfer invariant: a transfer remains pending until the operator explicitly confirms joining/not joining via the existing process.
 

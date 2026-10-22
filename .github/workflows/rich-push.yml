@@ -1,5 +1,11 @@
 name: Rich Web Push validation
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/web-push-sender/**'
+      - 'tests/rich-push.test.cjs'
+      - '.github/workflows/rich-push.yml'
   pull_request:
     paths:
       - 'notification-center.js'

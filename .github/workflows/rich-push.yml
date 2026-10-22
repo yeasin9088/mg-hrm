@@ -5,6 +5,9 @@ on:
     paths:
       - 'supabase/functions/web-push-sender/**'
       - 'tests/rich-push.test.cjs'
+      - 'sw.js'
+      - 'notification-badge-96.png'
+      - 'scripts/build-pages.mjs'
       - '.github/workflows/rich-push.yml'
   pull_request:
     paths:

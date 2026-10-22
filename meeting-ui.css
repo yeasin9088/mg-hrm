@@ -52,3 +52,62 @@
   .mt-submit-actions > button { min-height: 44px; flex: 1 1 auto; }
 }
 @media print { .mt-summary, #mtBoardBar, #mtPendingPanel, #mtDraftHelp, .mt-draft-heading { display: none !important; } }
+
+
+/* Meeting attendance: focused, compact project board and collapsible calendar. */
+#page-meeting .mt-workspace.mt-calendar-collapsed{grid-template-columns:minmax(0,1fr)!important}
+#page-meeting #mtCalendarCard[hidden]{display:none!important}
+#page-meeting .mt-calendar-toggle{min-height:34px!important;padding:5px 10px;font-size:11.5px;white-space:nowrap;border:1px solid var(--border);border-radius:8px}
+#page-meeting .mt-calendar-card{min-width:0}
+#page-meeting .mt-calendar-card .mt-day-count{font-size:10px;opacity:.83;font-variant-numeric:tabular-nums;min-height:14px}
+#page-meeting .mt-workspace{gap:12px}
+#page-meeting .mt-attendance-card .card-header{padding:12px 15px}
+#page-meeting .mt-attendance-card .card-body{padding:12px 14px}
+#page-meeting .mt-summary{padding:9px 12px;margin-bottom:10px;border-radius:10px;box-shadow:0 2px 9px rgba(15,23,42,.06)}
+#page-meeting .mt-counts{gap:6px}
+#page-meeting .mt-counts strong{font-size:19px}
+#page-meeting .mt-progress-row{margin-top:5px}
+#page-meeting #mtDraftHelp{margin-bottom:7px;line-height:1.45}
+#page-meeting #mtBoardBar{margin-bottom:9px;gap:6px}
+#page-meeting #mtFilterChips .mt-chip{min-height:36px;padding:5px 10px;border-radius:8px;font-size:11px}
+#page-meeting #mtBoardBar #mtSearch{min-height:38px}
+#page-meeting #mtTiles .mt-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:9px;align-items:start}
+#page-meeting #mtTiles .mt-group{margin-bottom:12px}
+#page-meeting #mtTiles .mt-group-h{margin:0 0 8px}
+#page-meeting #mtTiles .mt-tile{padding:11px 12px 10px!important;border:1px solid var(--border-strong,#cbd5e1)!important;border-radius:10px!important;background:var(--card,#fff)!important;box-shadow:0 1px 3px rgba(15,23,42,.035);min-height:0;transition:border-color .15s ease,box-shadow .15s ease}
+#page-meeting #mtTiles .mt-tile:hover{border-color:var(--primary,#4f46e5)!important;box-shadow:0 3px 12px rgba(15,23,42,.075)}
+#page-meeting #mtTiles .mt-tile.present{border-left:3px solid #16866b!important;background:color-mix(in srgb,var(--card,#fff) 96%,#1f9d74)!important}
+#page-meeting #mtTiles .mt-tile.absent{border-left:3px solid #d94b64!important;background:color-mix(in srgb,var(--card,#fff) 96%,#e25f79)!important}
+#page-meeting #mtTiles .mt-tile.mt-needs-rep{border-color:#d97706!important}
+#page-meeting #mtTiles .mt-tile.expanded{border-color:var(--primary,#4f46e5)!important;box-shadow:0 4px 16px rgba(46,45,120,.11)}
+#page-meeting #mtTiles .mt-tile h5{font-size:12.5px;line-height:1.35;letter-spacing:0;font-weight:700}
+#page-meeting #mtTiles .mt-tile .mt-kicker{font-size:10.5px;margin-top:2px}
+#page-meeting #mtTiles .mt-tile .mt-check{width:17px;height:17px;right:10px;top:10px}
+#page-meeting #mtTiles .mt-tile-status-line{display:flex;align-items:center;gap:6px;min-width:0;margin-top:6px}
+#page-meeting #mtTiles .mt-tile .mt-state{margin-top:0;flex:none;min-height:20px;padding:2px 7px;border-radius:6px;font-size:10px;font-weight:700}
+#page-meeting #mtTiles .mt-rep-summary{color:var(--text-muted,#64748b);font-size:10px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#page-meeting #mtTiles .mt-rep-summary[hidden]{display:none!important}
+#page-meeting #mtTiles .mt-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:8px}
+#page-meeting #mtTiles .mt-btn-present,#page-meeting #mtTiles .mt-btn-absent{width:100%;min-height:36px;height:36px!important;padding:4px 8px;border-radius:7px;font-size:11.5px}
+#page-meeting #mtTiles .mt-details-toggle{min-height:32px;width:100%;margin:4px 0 0;padding:4px 6px;border:0!important;background:transparent!important;color:var(--text-muted,#64748b);font-size:11px;font-weight:600}
+#page-meeting #mtTiles .mt-details-toggle[aria-expanded=true]{color:var(--primary,#4f46e5)}
+#page-meeting #mtTiles .mt-tile-body{margin-top:3px;padding-top:9px;border-top:1px solid var(--border);min-width:0}
+#page-meeting #mtTiles .mt-rep-select{min-height:40px;width:100%;max-width:100%;border-radius:7px}
+#page-meeting #mtTiles .mt-rep-hint{font-size:11px;line-height:1.45;padding:6px 8px;margin-bottom:6px;border-radius:7px;color:#92400e;background:#fffbeb;border:1px solid #fde68a}
+#page-meeting #mtTiles .mt-rep-hint[hidden]{display:none!important}
+#page-meeting #mtTiles .mt-tile-body button{min-height:36px}
+#page-meeting .mt-attendance-card :is(button,select,textarea):focus-visible{outline:2px solid var(--primary,#4f46e5);outline-offset:2px}
+@media(max-width:700px){
+ #page-meeting .mt-attendance-card .card-header{padding:10px 11px}
+ #page-meeting .mt-attendance-card .card-body{padding:10px}
+ #page-meeting #mtTiles .mt-grid{grid-template-columns:minmax(0,1fr)}
+ #page-meeting #mtTiles .mt-tile{padding:10px!important}
+ #page-meeting #mtTiles .mt-btn-present,#page-meeting #mtTiles .mt-btn-absent{min-height:42px;height:42px!important}
+ #page-meeting #mtTiles .mt-details-toggle{min-height:40px}
+ #page-meeting #mtTiles .mt-tile-body button{min-height:42px}
+ #page-meeting .mt-calendar-toggle{min-height:40px!important}
+ #page-meeting #mtFilterChips .mt-chip{min-height:38px}
+}
+@media(prefers-reduced-motion:reduce){
+ #page-meeting #mtTiles .mt-tile{transition:none!important}
+}

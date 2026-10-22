@@ -98,7 +98,7 @@ test('backdated attendance has separate meeting/date identity and cannot alter l
 });
 test('Present, Absent, explicit blank and unknown historic values do not become inferred Present/Absent', () => {
   const c = setup(), store = c.MeetingAttendanceStore;
-  const d = {present: {P: true}, absent: {A: true}};
+  const d = {present: {P: true}, absent: {A: true}, representatives: {P: {id: 'EMP-P', name: 'Synthetic Representative'}}};
   const rows = store.plan(d, null, empty(), ['P', 'A', 'Blank'], []);
   assert.deepEqual(clone(rows.map(r => r.status)), ['Present', 'Absent', null]);
   const meeting = {meeting_id: 'M', meeting_date: iso};

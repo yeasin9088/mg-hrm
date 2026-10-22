@@ -4,6 +4,10 @@
   const filters = ['all', 'pending', 'present', 'absent'];
   const views = new Map();
   let current = null;
+  let pendingRepresentative = null;
+  const repId = rep => String(rep && typeof rep === 'object' ? (rep.employee_id || rep.EmployeeID || rep.id || '') : (rep || '')).trim();
+  const repName = rep => String(rep && typeof rep === 'object' ? (rep.full_name || rep.fullName || rep.FullName || rep.name || '') : '').trim();
+  const hasRepresentative = (day, project) => !!(repId(day.representatives?.[project]) && repName(day.representatives?.[project]));
   function status(day, project) {
     return day.present?.[project] ? 'present' : day.absent?.[project] ? 'absent' : 'pending';
   }
@@ -22,9 +26,14 @@
   function matches(name, state, filter, query) {
     return (filter === 'all' || state === filter) && name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
   }
-  function validation(projects, day, historicalEdit) {
+  function validation(projects, day, historicalEdit, original) {
     const missing = historicalEdit ? [] : summarize(projects, day).missing;
-    return {allowed: missing.length === 0, missing};
+    const missingRepresentatives = [...new Set(projects)].filter(project => {
+      if (!day.present?.[project] || hasRepresentative(day, project)) return false;
+      // Grandfather an unchanged historical Present row; never rewrite old data.
+      return !(historicalEdit && original?.present?.[project] && !hasRepresentative(original, project));
+    });
+    return {allowed: !missing.length && !missingRepresentatives.length, missing, missingRepresentatives};
   }
   const byId = id => document.getElementById(id);
   function setFilter(value) {
@@ -40,6 +49,7 @@
   function mount(iso, day, projects, historicalEdit) {
     const board = byId('mtTiles');
     current = null;
+    pendingRepresentative = null;
     if (!board) return;
     if (!views.has(iso)) views.set(iso, {filter: 'all', query: '', review: false});
     current = {iso, day, projects, historicalEdit, view: views.get(iso), board};
@@ -50,6 +60,8 @@
     if (!current || !current.board.isConnected) return;
     const {day, projects, view, historicalEdit, board} = current;
     const counts = summarize(projects, day);
+    const original = global.mtAttendanceEdits?.[current.iso]?.original || null;
+    const check = validation(projects, day, historicalEdit, original);
     const focusedTile = document.activeElement?.closest?.('.mt-tile');
     const focusedStatus = document.activeElement?.dataset?.status;
     const badge = byId('mtAttendanceCounterBadge');
@@ -61,17 +73,18 @@
     byId('mtProgress').setAttribute('aria-valuetext', counts.completed + ' of ' + counts.total + ' projects marked');
     byId('mtProgressLabel').textContent = counts.completed + ' of ' + counts.total + ' marked · ' + counts.percent + '%';
     byId('mtDraftLabel').textContent = historicalEdit ? 'Editing saved attendance' : 'Draft · not submitted';
-    byId('mtDraftHelp').textContent = historicalEdit
-      ? 'Update changes when ready. Existing historical blanks can remain blank.'
+    byId('mtDraftHelp').textContent = check.missingRepresentatives.length
+      ? check.missingRepresentatives.length + ' Present project(s) need a representative before saving.'
+      : historicalEdit ? 'Update changes when ready. Historical records remain intact.'
       : 'Changes are not submitted yet. Mark every required project, then submit.';
     const submit = byId('mtSubmitDayBtn');
     if (submit && !historicalEdit) {
-      submit.disabled = counts.pending > 0 || !!global.mtAttendanceSaving;
-      submit.title = counts.pending ? 'Mark all pending projects before submitting' : 'Submit complete attendance';
+      submit.disabled = !check.allowed || !!global.mtAttendanceSaving;
+      submit.title = check.missingRepresentatives.length ? 'Choose a representative for every Present project' : counts.pending ? 'Mark all pending projects before submitting' : 'Submit complete attendance';
     }
     const review = byId('mtReviewPending');
-    review.hidden = counts.pending === 0;
-    review.textContent = 'Review pending (' + counts.pending + ')';
+    review.hidden = counts.pending === 0 && check.missingRepresentatives.length === 0;
+    review.textContent = 'Review required (' + (counts.pending + check.missingRepresentatives.length) + ')';
     let shown = 0;
     board.querySelectorAll('.mt-tile').forEach(tile => {
       const project = tile.dataset.proj;
@@ -80,6 +93,18 @@
       tile.classList.toggle('absent', state === 'absent');
       tile.querySelector('.mt-state').textContent = state[0].toUpperCase() + state.slice(1);
       tile.querySelectorAll('[data-status]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.status === state)));
+      const savedRep = day.representatives?.[project];
+      const repText = tile.querySelector('.mt-rep-summary');
+      if (repText) {
+        repText.textContent = repName(savedRep) || (hasRepresentative(day, project) ? 'Representative selected' : '');
+        repText.hidden = !repText.textContent;
+      }
+      tile.classList.toggle('mt-needs-rep', state === 'present' && !hasRepresentative(day, project));
+      const select = tile.querySelector('.mt-rep-select');
+      if (select && savedRep && select.value === '') {
+        const existingOption = [...select.options].find(option => option.value.split('|')[0] === repId(savedRep));
+        if (existingOption) select.value = existingOption.value;
+      }
       tile.hidden = !matches(tile.querySelector('h5').textContent, state, view.filter, view.query);
       if (!tile.hidden) shown++;
     });
@@ -95,15 +120,24 @@
     byId('mtEmptyFilter').hidden = shown !== 0;
     const missing = byId('mtPendingList');
     missing.replaceChildren();
-    byId('mtPendingPanel').hidden = !view.review || counts.pending === 0;
-    if (view.review) counts.missing.forEach(project => {
+    byId('mtPendingPanel').hidden = !view.review || (counts.pending === 0 && check.missingRepresentatives.length === 0);
+    if (view.review) [...new Set([...counts.missing, ...check.missingRepresentatives])].forEach(project => {
       const button = document.createElement('button');
       button.type = 'button';
       // Use textContent, never interpolate project names into handlers/HTML.
       button.textContent = project;
-      button.onclick = () => reach(project);
+      button.onclick = () => reach(project, check.missingRepresentatives.includes(project));
       missing.append(button);
     });
+    // Patch the visible month's count without re-rendering the board/note drafts.
+    const cell = document.querySelector('.mt-calendar-card .mt-day[data-meeting-day="' + current.iso + '"]');
+    if (cell && !cell.classList.contains('off') && !cell.classList.contains('future')) {
+      cell.classList.toggle('held', counts.present > 0);
+      cell.classList.toggle('missed', counts.present === 0);
+      const label = cell.querySelector('.mt-day-count');
+      if (label) label.textContent = counts.present ? counts.present + ' ✓' : '✗';
+      cell.title = current.iso + ' — ' + counts.present + ' present';
+    }
     if (focusedTile?.hidden) {
       const next = [...board.querySelectorAll('.mt-tile')].find(tile => !tile.hidden);
       const target = next?.querySelector('[data-status="' + (focusedStatus === 'absent' ? 'absent' : 'present') + '"]')
@@ -111,23 +145,26 @@
       target.focus({preventScroll: true});
     }
   }
-  function reach(project) {
+  function reach(project, needsRepresentative = false) {
     if (!current) return;
     current.view.review = false;
     current.view.query = '';
-    current.view.filter = 'pending';
+    current.view.filter = needsRepresentative ? 'all' : 'pending';
     byId('mtSearch').value = '';
     refresh();
     const tile = [...current.board.querySelectorAll('.mt-tile')].find(el => el.dataset.proj === project);
     if (tile) {
       tile.scrollIntoView({block: 'center', behavior: 'instant'});
-      tile.querySelector('[data-status="present"]').focus({preventScroll: true});
+      if (needsRepresentative) requestRepresentative(current.iso, project);
+      else tile.querySelector('[data-status="present"]').focus({preventScroll: true});
     }
   }
   function reviewPending() {
     if (!current) return;
     current.view.review = true;
-    current.view.filter = 'pending';
+    const check = validation(current.projects, current.day, current.historicalEdit,
+      global.mtAttendanceEdits?.[current.iso]?.original);
+    current.view.filter = check.missingRepresentatives.length ? 'all' : 'pending';
     current.view.query = '';
     byId('mtSearch').value = '';
     refresh();
@@ -141,11 +178,69 @@
     byId('mtSearch').value = '';
     setFilter('all');
   }
+  function closeTile(tile) {
+    if (!tile) return;
+    tile.classList.remove('expanded');
+    const control = tile.querySelector('.mt-details-toggle');
+    if (control) control.setAttribute('aria-expanded', 'false');
+    const body = tile.querySelector('.mt-tile-body');
+    if (body) body.hidden = true;
+    const hint = tile.querySelector('.mt-rep-hint');
+    if (hint) hint.hidden = true;
+  }
+  function openTile(tile, selectRepresentative = false) {
+    if (!tile || !current) return;
+    current.board.querySelectorAll('.mt-tile.expanded').forEach(other => {
+      if (other !== tile) closeTile(other);
+    });
+    tile.classList.add('expanded');
+    const button = tile.querySelector('.mt-details-toggle');
+    if (button) button.setAttribute('aria-expanded', 'true');
+    const body = tile.querySelector('.mt-tile-body');
+    if (body) body.hidden = false;
+    const select = tile.querySelector('.mt-rep-select');
+    if (selectRepresentative && select) {
+      select.focus({preventScroll: true});
+      if (typeof select.showPicker === 'function') {
+        try {select.showPicker();} catch (_) { /* Manual selection remains available. */ }
+      }
+    }
+  }
+  function requestRepresentative(iso, project) {
+    if (!current || current.iso !== iso) return false;
+    const tile = [...current.board.querySelectorAll('.mt-tile')].find(row => row.dataset.proj === project);
+    if (!tile) return false;
+    pendingRepresentative = {iso, project};
+    openTile(tile, true);
+    const hint = tile.querySelector('.mt-rep-hint');
+    if (hint) {
+      hint.textContent = tile.querySelector('.mt-rep-select')?.options?.length > 1
+        ? 'Choose a representative to confirm Present automatically.'
+        : 'No eligible representative available; Present cannot be confirmed.';
+      hint.hidden = false;
+    }
+    return true;
+  }
+  function representativeSaved(iso, project) {
+    if (!current || current.iso !== iso) return;
+    refresh();
+    if (pendingRepresentative?.iso !== iso || pendingRepresentative.project !== project ||
+        !hasRepresentative(current.day, project)) return;
+    pendingRepresentative = null;
+    if (typeof global.mtSetStatus === 'function') global.mtSetStatus(iso, project, 'present');
+    const tile = [...current.board.querySelectorAll('.mt-tile')].find(row => row.dataset.proj === project);
+    closeTile(tile);
+  }
   function toggleDetails(button) {
     const tile = button.closest('.mt-tile');
-    const open = tile.classList.toggle('expanded');
-    button.setAttribute('aria-expanded', String(open));
-    tile.querySelector('.mt-tile-body').hidden = !open;
+    if (!tile || !current) return;
+    if (tile.classList.contains('expanded')) {
+      closeTile(tile);
+      if (pendingRepresentative?.project === tile.dataset.proj) pendingRepresentative = null;
+    } else {
+      pendingRepresentative = null;
+      openTile(tile, !hasRepresentative(current.day, tile.dataset.proj));
+    }
   }
-  global.MeetingAttendanceUI = {status, summarize, matches, validation, mount, refresh, setFilter, search, reviewPending, reset, toggleDetails};
+  global.MeetingAttendanceUI = {status, summarize, matches, validation, hasRepresentative, mount, refresh, setFilter, search, reviewPending, reset, requestRepresentative, representativeSaved, toggleDetails};
 })(typeof window !== 'undefined' ? window : globalThis);

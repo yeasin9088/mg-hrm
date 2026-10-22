@@ -112,9 +112,15 @@
       ...Object.keys(day.absent || {}), ...Object.keys(day.representatives || {}), ...Object.keys(day.notes || {})]);
     for (const project of keys) {
       const current = rowFor(day, project, employees);
+      const before = original ? rowFor(original, project, employees) : null;
+      if (current.status === 'Present' && (!String(current.employee_id || '').trim() ||
+          !String(current.full_name || '').trim()) &&
+          !(before && before.status === 'Present' && before.employee_id === current.employee_id &&
+            before.full_name === current.full_name)) {
+        throw Error('Choose a representative before marking Present for ' + project);
+      }
       if (!original) result.set(project, current);
       else {
-        const before = rowFor(original, project, employees);
         const changed = fields.filter(k => k !== 'project_name' && current[k] !== before[k]);
         if (changed.length) {
           const row = result.get(project) || before;

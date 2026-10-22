@@ -85,9 +85,9 @@ test('notification repository keyset pagination reads past 100/200 rows and thro
   vm.runInContext(coreSource.slice(coreSource.indexOf('  function notificationClient()'),coreSource.indexOf('  function notificationGetPreferences()')),c);
   assert.equal((await c.notificationList()).length,420);fail=true;await assert.rejects(c.notificationList(),/Page failed/);
 });
-test('service worker keeps cold-start identity and uses private lock-screen content',()=>{
-  const sw=fs.readFileSync('sw.js','utf8');assert.match(sw,/notification_id=/);assert.match(sw,/const title = 'MG-HRM'/);
-  assert(!/const body = String\(payload/.test(sw));assert.match(sw,/pushsubscriptionchange/);
+test('service worker keeps cold-start identity and validates displayed content',()=>{
+  const sw=fs.readFileSync('sw.js','utf8');assert.match(sw,/notification_id=/);assert.match(sw,/pushText\(payload\.title/);
+  assert.match(sw,/pushText\(payload\.body/);assert.match(sw,/pushsubscriptionchange/);
   assert(!/notifs\.length = 200|notifs\.splice\(i, 1\).*RETENTION/.test(html));
 });
 test('ordinary cache autosync cannot rewind a reminder claim and scheduling does not fire local duplicates',()=>{

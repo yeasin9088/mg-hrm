@@ -11,21 +11,28 @@ SET LOCAL statement_timeout='90s';
 CREATE OR REPLACE FUNCTION notification_private.todo_followup_allowed(
  p_todo public.todos,p_recipient uuid,p_now timestamptz
 ) RETURNS boolean LANGUAGE plpgsql STABLE SET search_path=pg_catalog AS $mg$
-DECLARE last_ack timestamptz; step_minutes integer;
+DECLARE last_ack timestamptz; latest_status text; latest_read timestamptz;
+ step_minutes integer;
 BEGIN
  IF p_recipient IS NULL OR p_todo.id IS NULL THEN RETURN false; END IF;
- IF EXISTS (
-   SELECT 1 FROM public.notifications n
-   JOIN public.notification_events e ON e.id=n.event_id
-   WHERE n.recipient_user_id=p_recipient AND n.entity_type='todo'
-     AND n.entity_id=p_todo.id::text AND e.event_type='TodoReminderDue'
-     AND n.status IN ('Scheduled','Ready','Delivered','Read','Actioned','Snoozed','Failed')
-     AND (n.read_at IS NULL OR n.status='Snoozed')
- ) THEN RETURN false; END IF;
- SELECT max(coalesce(n.read_at,n.dismissed_at)) INTO last_ack
+ -- Historic duplicates from the former scheduler must not block the operator
+ -- forever after they acknowledge the NEWEST occurrence of this topic.
+ SELECT n.status,n.read_at,coalesce(n.read_at,n.dismissed_at)
+ INTO latest_status,latest_read,last_ack
  FROM public.notifications n JOIN public.notification_events e ON e.id=n.event_id
  WHERE n.recipient_user_id=p_recipient AND n.entity_type='todo'
-   AND n.entity_id=p_todo.id::text AND e.event_type='TodoReminderDue';
+   AND n.entity_id=p_todo.id::text AND e.event_type='TodoReminderDue'
+ ORDER BY n.created_at DESC,n.id DESC LIMIT 1;
+ IF latest_status IN ('Scheduled','Ready','Delivered','Read','Actioned','Snoozed','Failed')
+    AND (latest_read IS NULL OR latest_status='Snoozed')
+ THEN RETURN false; END IF;
+ -- Preserve a deliberate still-active snooze even if newer historical copies exist.
+ IF EXISTS (
+   SELECT 1 FROM public.notifications n JOIN public.notification_events e ON e.id=n.event_id
+   WHERE n.recipient_user_id=p_recipient AND n.entity_type='todo'
+     AND n.entity_id=p_todo.id::text AND e.event_type='TodoReminderDue'
+     AND n.status='Snoozed' AND n.snoozed_until>p_now
+ ) THEN RETURN false; END IF;
  step_minutes:=CASE coalesce(p_todo.reminder_type,'1h')
    WHEN 'today' THEN 1440
    ELSE greatest(5,least(1440,coalesce(nullif(p_todo.reminder_interval,0),

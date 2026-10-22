@@ -44,6 +44,8 @@ try {
  await db.exec(migration);await db.exec(migration); // Replay must preserve configuration and rows.
  const previewMigration=await read('supabase/migrations/20261022120000_rich_push_previews.sql');
  await db.exec(previewMigration);await db.exec(previewMigration);
+ const followupMigration=await read('supabase/migrations/20261022135600_read_aware_notification_followups.sql');
+ await db.exec(followupMigration);await db.exec(followupMigration); // Idempotent replay.
  const a='11111111-1111-4111-8111-111111111111',b='22222222-2222-4222-8222-222222222222',sid='33333333-3333-4333-8333-333333333333';
  await db.exec('INSERT INTO auth.users(id) VALUES($1),($2)',[a,b]);
  await db.exec("INSERT INTO public.profiles(id,role) VALUES($1,'admin'),($2,'admin')",[a,b]);
@@ -188,6 +190,68 @@ try {
    await db.exec("select notification_record_web_push_result($1,'retry-worker-2',$2,true,'201')",[job.id,dispatch.deliveries[0].delivery_id]);
    await db.exec("select notification_finalize_web_push_job($1,'retry-worker-2')",[job.id]);
    assert.equal((await db.exec('select job_status from notification_jobs where id=$1',[job.id])).rows[0].job_status,'Completed');
+ });
+
+ await check('unread ToDo suppresses repeated due slots; read unlocks exactly one after interval',async()=>{
+  await todo(90);await tick();await db.exec("select notification_run_server_processor('ack-test',100)");
+  const root=(await db.exec("select id from notifications where entity_type='todo' and entity_id='90' order by created_at limit 1")).rows[0];
+  assert(root,'Synthetic first alert missing');
+  // Simulate completed provider fan-out. Existing pending per-device jobs
+  // intentionally suppress another due event even when the user has read it.
+  await db.exec("update notification_jobs set job_status='Completed',completed_at=now() where notification_id=$1 and job_type='DeliverWebPush'",[root.id]);
+  await db.exec("update notification_deliveries set delivery_status='Sent',sent_at=now() where notification_id=$1 and channel='WebPush'",[root.id]);
+  // Historic duplicate with the same topic remains unread. A newer confirmed
+  // acknowledgement must still allow a future follow-up without rewriting history.
+  await db.exec(`insert into notifications(event_id,recipient_user_id,category,title,message,
+    entity_type,entity_id,status,scheduled_for,dedupe_key,created_at)
+    select event_id,recipient_user_id,category,title,message,entity_type,entity_id,
+      'Delivered',now()-interval '2 days','syn:historical:90',now()-interval '2 days'
+    from notifications where id=$1`,[root.id]);
+  const due=async()=>{
+   await db.exec("select set_config('mghrm.scheduler_write','on',false)");
+   await db.exec("update todos set next_reminder_at=now()-interval '1 minute' where id=90");
+   await db.exec("select set_config('mghrm.scheduler_write','off',false)");
+  };
+  await due();await tick();
+  assert.equal(await count('notification_events',"entity_type='todo' and entity_id='90'"),1);
+  await auth();await db.exec('select notification_mark_read($1)',[root.id]);await reset();
+  await due();await tick();
+  assert.equal(await count('notification_events',"entity_type='todo' and entity_id='90'"),1);
+  await db.exec("update notifications set read_at=now()-interval '31 minutes' where id=$1",[root.id]);
+  await due();await tick();
+  assert.equal(await count('notification_events',"entity_type='todo' and entity_id='90'"),2);
+  await db.exec("select notification_run_server_processor('ack-followup',100)");
+  assert.equal(await count('notifications',"entity_type='todo' and entity_id='90'"),3);
+  await due();await tick();
+  assert.equal(await count('notification_events',"entity_type='todo' and entity_id='90'"),2);
+  await db.exec("update todos set status='solved',solved_at=now() where id=90");
+  await due();await tick();
+  assert.equal(await count('notification_events',"entity_type='todo' and entity_id='90'"),2);
+ });
+ await check('snooze retains one ToDo occurrence without parallel duplicate',async()=>{
+  await todo(91);await tick();await db.exec("select notification_run_server_processor('ack-snooze',100)");
+  const n=(await db.exec("select id from notifications where entity_type='todo' and entity_id='91'")).rows[0];
+  assert(n);
+  await auth();await db.exec("select notification_snooze($1,now()+interval '1 hour')",[n.id]);await reset();
+  await db.exec("select set_config('mghrm.scheduler_write','on',false)");
+  await db.exec("update todos set next_reminder_at=now()-interval '1 minute' where id=91");
+  await db.exec("select set_config('mghrm.scheduler_write','off',false)");
+  await tick();
+  assert.equal(await count('notification_events',"entity_type='todo' and entity_id='91'"),1);
+ });
+ await check('repeat children require read, repeat interval and an unresolved source',async()=>{
+  await db.exec("insert into todos(id,note,status,owner_user_id,assigned_to_user_id,reminder_enabled) values(92,'SYNTHETIC','pending',$1,$1,false)",[a]);
+  const rule=(await db.exec("insert into notification_escalation_rules(rule_key,rule_name,category,source_priority,first_repeat_after_minutes,escalation_after_minutes,repeat_every_minutes,maximum_repeat_count) values('synthetic-read-test','SYNTHETIC','ToDo','Low',30,999999,30,4) returning id")).rows[0].id;
+  const root=(await db.exec("insert into notifications(recipient_user_id,category,title,message,entity_type,entity_id,status,scheduled_for,dedupe_key,created_at) values($1,'ToDo','SYNTHETIC','SYNTHETIC','todo','92','Delivered',now(),'syn:thread:92',now()-interval '2 hours') returning id",[a])).rows[0].id;
+  const child=seq=>db.exec("insert into notifications(recipient_user_id,category,title,message,entity_type,entity_id,status,scheduled_for,dedupe_key,parent_notification_id,escalation_rule_id,repeat_count,escalation_level) values($1,'ToDo','SYNTHETIC','SYNTHETIC','todo','92','Ready',now(),$2,$3,$4,$5,0) returning id",[a,'syn:child:'+seq,root,rule,seq]);
+  assert.equal((await child(1)).rows.length,0);
+  await db.exec("update notifications set read_at=now()-interval '31 minutes',status='Read' where id=$1",[root]);
+  const first=(await child(1)).rows[0];assert(first);
+  assert.equal((await child(2)).rows.length,0);
+  await db.exec("update notifications set read_at=now()-interval '31 minutes',status='Read' where id=$1",[first.id]);
+  assert.equal((await child(2)).rows.length,1);
+  await db.exec("update todos set status='solved',solved_at=now() where id=92");
+  assert.equal((await child(3)).rows.length,0);
  });
  await check('migration replay preserves enabled cutover and historical rows; failure rolls back atomically',async()=>{
    const before=await count('notification_events','true');await db.exec(migration);

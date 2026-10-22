@@ -93,7 +93,7 @@ test('Dashboard renders authoritative totals, preserved sections and empty/loadi
   const container={innerHTML:''};
   const c=metricsContext({document:{getElementById:()=>container},MGHRM:{isReady:()=>false}});
   vm.runInContext('let dashboardRenderVersion = 0;'+section('async function renderDashboard(', 'function dashboardMeetingCard('),c);
-  await c.renderDashboard();assert.match(container.innerHTML,/could not be loaded/);assert(!container.innerHTML.includes('Active Employees'));
+  await c.renderDashboard();assert.match(container.innerHTML,/Loading workforce overview/);assert(!container.innerHTML.includes('Active Employees'));
   let release;
   const gate = new Promise(resolve=>{release=resolve});
   c.MGHRM={isReady:()=>true,_client:()=>({})};
@@ -110,6 +110,19 @@ test('Dashboard renders authoritative totals, preserved sections and empty/loadi
   assert.match(container.innerHTML,/Meeting summary/);assert.match(container.innerHTML,/Quick Actions/);
   // A stale read cannot replace the latest rendered overview.
   release([]);await staleRender;assert.match(container.innerHTML,/Total Projects:0/);
+  // Another initial-sync/Realtime refresh must never remove already visible KPI cards.
+  const firstMarkup=container.innerHTML;
+  let finish;
+  const slow=new Promise(resolve=>{finish=resolve;});
+  c.dashboardReadAll=()=>slow;
+  const reloading=c.renderDashboard();
+  assert.equal(container.innerHTML,firstMarkup,'existing dashboard remains visible during refresh');
+  finish([]);await reloading;
+  assert.equal(container.innerHTML,firstMarkup,'identical snapshots do not tear down the DOM');
+  c.dashboardReadAll=async()=>{throw Error('simulated transient outage');};
+  await c.renderDashboard();
+  assert.equal(container.innerHTML,firstMarkup,'refresh errors preserve verified dashboard');
+  assert(html.includes('let transferLastSyncDay = transferTodayISO();'), 'startup transfer sync cannot invent a day rollover');
 });
 test('Dashboard pending eligibility uses fresh server records instead of stale cached dates/statuses',()=>{
   const c=queueContext({1:{dRow:{status:'Completed',effective_date:'2026-10-01'}}});

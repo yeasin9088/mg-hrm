@@ -1,9 +1,18 @@
 name: Dashboard joining UI validation
 on:
+  push:
+    branches: [main]
+    paths:
+      - index.html
+      - tests/transfer.test.cjs
+      - tests/transfer-integrity.test.cjs
+      - supabase/migrations/*transfer_due*
+      - .github/workflows/dashboard-joining-ui-test.yml
   pull_request:
     paths:
       - index.html
       - tests/dashboard-joining-ui.test.cjs
+      - tests/transfer*.test.cjs
       - .github/workflows/dashboard-joining-ui-test.yml
   workflow_dispatch:
 

@@ -4093,6 +4093,15 @@ function transferDhakaDate(date){
   return parts.year+'-'+parts.month+'-'+parts.day;
 }
 function transferScheduledDate(t){ return String(t.effective_date || t.TransferDate || t.transfer_date || '').slice(0,10); }
+// A date makes an order actionable; it never changes its persisted status or assignment.
+function transferIsJoiningDue(t, today = transferTodayISO()){
+  if (!t) return false;
+  const status = String(t.status || t.Status || t.stored_status || '');
+  const date = transferScheduledDate(t);
+  if (!['Scheduled','Joining Pending'].includes(status) || !/^\d{4}-\d{2}-\d{2}$/.test(date) || date > today) return false;
+  const parsed = new Date(date + 'T00:00:00Z');
+  return !isNaN(parsed.getTime()) && parsed.toISOString().slice(0,10) === date;
+}
 function transferCompletedDate(t){
   if (t.actual_joining_date) return String(t.actual_joining_date).slice(0,10);
   if (!t.completed_at) return '';
@@ -10785,11 +10794,12 @@ function renderTransferTable(){
         const isNotJoined = trStatus === 'Not Joined';
         const employeeInactive = !!(e && ['inactive','exited'].includes(String(e.Status || e.status || '').trim().toLowerCase()));
         const effectiveDate = transferScheduledDate(t);
-        const isDueForJoining = (trStatus === 'Joining Pending' || trStatus === 'Scheduled') && effectiveDate && effectiveDate <= transferTodayISO();
+        const isDueForJoining = !employeeInactive && transferIsJoiningDue(t);
         const pillClass = isCancelled ? 'inactive'
           : isCompleted ? 'completed'
           : isNotJoined ? 'danger'
-          : trStatus === 'Joining Pending' ? 'warning' : 'scheduled';
+          : isDueForJoining || trStatus === 'Joining Pending' ? 'warning' : 'scheduled';
+        const visibleStatus = isDueForJoining ? 'Joining due' : trStatus;
         return `<tr class="row-click" onclick="openTransferPopup(${jsQ(t.id)})" style="cursor:pointer">
           <td>${escapeHtml(num(t.id))}</td>
           <td><span class="chip" style="font-size:11px;font-weight:600">${escapeHtml(num(empId))}</span></td>
@@ -10797,7 +10807,7 @@ function renderTransferTable(){
           <td>${escapeHtml(projName(t.CurrentProject))}</td>
           <td>${escapeHtml(projName(t.NewProject))}</td>
           <td>${escapeHtml(fmtDate(effectiveDate))}</td>
-          <td><span class="pill ${pillClass}">${escapeHtml(trStatus)}</span></td>
+          <td><span class="pill ${pillClass}">${escapeHtml(visibleStatus)}</span></td>
           <td onclick="event.stopPropagation()" style="text-align:right;white-space:nowrap">
             ${isDueForJoining
               ? `<button class="btn sm" style="background:#0f766e;color:#fff;border:1px solid #0f766e;padding:4px 8px;font-size:11px;font-weight:600;margin-right:4px;border-radius:5px" title="Confirm Destination Joined" onclick="openConfirmTransferJoining(${jsQ(t.id)})">✓ Joined</button><button class="btn sm" style="background:#fff;color:#475569;border:1px solid #cbd5e1;padding:4px 7px;font-size:11px;font-weight:500;margin-right:4px;border-radius:5px" title="Mark Not Joined" onclick="openMarkTransferNotJoined(${jsQ(t.id)})">✕</button>`
@@ -10892,7 +10902,7 @@ function openTransferPopup(tid){
   const isCancelled = status==='Cancelled';
   const isCompleted = status==='Completed';
   const effectiveDate = transferScheduledDate(t);
-  const isDueForJoining = (status === 'Joining Pending' || status === 'Scheduled') && effectiveDate && effectiveDate <= transferTodayISO();
+  const isDueForJoining = transferIsJoiningDue(t);
   const canCancel = ['Draft', 'Scheduled', 'Joining Pending', 'Not Joined'].includes(status);
   const isPendingJoin = isDueForJoining;
   const pillCls = isCancelled ? 'inactive' : isCompleted ? 'completed' : (status==='Not Joined' ? 'danger' : (isPendingJoin ? 'warning' : 'scheduled'));
@@ -23035,7 +23045,7 @@ function findTransferObject(transferId){
   const currentProject = (qRow && qRow.current_project) || (dRow && (dRow.CurrentProject || dRow.current_project)) || (emp && (emp.ProjectName || emp.project_name)) || 'Unassigned';
   const newProject = (qRow && qRow.new_project) || (dRow && (dRow.NewProject || dRow.new_project)) || '';
   const effectiveDate = (dRow && transferScheduledDate(dRow)) || (qRow && qRow.effective_date) || '';
-  const rawStatus = (qRow && (qRow.queue_status || qRow.status)) || (dRow && (dRow.status || dRow.Status)) || 'Scheduled';
+  const rawStatus = (dRow && (dRow.status || dRow.Status)) || (qRow && (qRow.stored_status || qRow.status)) || 'Scheduled';
   const overdueDays = qRow ? Number(qRow.overdue_days || 0) : 0;
   const designation = (dRow && (dRow.Designation || dRow.designation)) || (emp && (emp.Designation || emp.designation)) || '';
   const notJoinedReason = (qRow && qRow.not_joined_reason) || (dRow && (dRow.not_joined_reason || dRow.NotJoinedReason || dRow.notJoinedReason)) || '';
@@ -23052,7 +23062,7 @@ function findTransferObject(transferId){
     new_project: newProject,
     effective_date: effectiveDate,
     status: rawStatus,
-    queue_status: rawStatus,
+    queue_status: (qRow && qRow.queue_status) || rawStatus,
     overdue_days: overdueDays,
     not_joined_reason: notJoinedReason,
     remarks: remarks,
@@ -23105,9 +23115,25 @@ function dashboardPendingTransfers(rows, today = transferTodayISO(), employees =
   return [...unique.values()];
 }
 function dashboardTransferQueueHtml(rows, employees){
-  const pending = dashboardPendingTransfers(rows, transferTodayISO(), employees);
-  if (!pending.length) return '<section class="dash-state">No transfers currently require joining confirmation.</section>';
-  return dashboardJoiningCardsHtml(pending);
+  const today = transferTodayISO();
+  const pending = dashboardPendingTransfers(rows, today, employees)
+    .sort((a,b)=>b.overdue_days-a.overdue_days || String(a.effective_date).localeCompare(String(b.effective_date)) || Number(a.transfer_id)-Number(b.transfer_id));
+  const upcoming = (rows || []).filter(t=>!t.deleted_at &&
+    String(t.status || t.Status || '') === 'Scheduled' &&
+    /^\d{4}-\d{2}-\d{2}$/.test(transferScheduledDate(t)) &&
+    transferScheduledDate(t) > today);
+  const earliest = upcoming.length ? upcoming.map(transferScheduledDate).sort()[0] : '';
+  const confirmations = pending.length
+    ? dashboardJoiningCardsHtml(pending)
+    : '<section class="dash-state">No transfers currently require joining confirmation.</section>';
+  const future = upcoming.length
+    ? '<section class="dash-state dj-upcoming" aria-label="Upcoming transfer orders"><strong>' + upcoming.length +
+      ' upcoming scheduled transfer' + (upcoming.length === 1 ? '' : 's') + '</strong> · next effective ' +
+      phase2Esc(phase2Date(earliest)) +
+      '. Joined / Not Joined actions become available on their effective date (Asia/Dhaka). ' +
+      '<button type="button" class="btn sm" onclick="navigate(\'transfer\')">View scheduled orders</button></section>'
+    : '';
+  return confirmations + future;
 }
 function dashboardJoiningCardsHtml(rows){
   const overdue = rows.filter(r => Number(r.overdue_days || 0) > 0).length;
@@ -23285,9 +23311,7 @@ async function phase2RefreshTransferState(){
 function openConfirmTransferJoining(transferId){
   const item = findTransferObject(transferId);
   if (!item) return toast('Transfer record not found', 'error');
-  const effectiveDate = String(item.effective_date || '').slice(0, 10);
-  const storedStatus = item.status || (item.dRow && (item.dRow.status || item.dRow.Status)) || '';
-  if (!(['Joining Pending','Scheduled'].includes(storedStatus) && effectiveDate && effectiveDate <= transferTodayISO())) {
+  if (!transferIsJoiningDue(item.dRow || item)) {
     return toast('This transfer is not due for joining confirmation yet.', 'warning');
   }
   const dateVal = item.effective_date ? String(item.effective_date).slice(0, 10) : (typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0, 10));
@@ -23405,8 +23429,7 @@ async function confirmTransferJoined(transferId, explicitDate, explicitRemarks){
   const remarks = (explicitRemarks !== undefined) ? explicitRemarks : (document.getElementById('p2JoinRemarks')?.value || '');
   const effectiveDate = String(item.effective_date || '').slice(0, 10);
   const today = transferTodayISO();
-  const storedStatus = item.status || (item.dRow && (item.dRow.status || item.dRow.Status)) || '';
-  if (!(storedStatus === 'Joining Pending' || (storedStatus === 'Scheduled' && effectiveDate && effectiveDate <= today))) {
+  if (!transferIsJoiningDue(item.dRow || item, today)) {
     return toast('This transfer is not due for joining confirmation yet.', 'warning');
   }
   if (date < effectiveDate) return toast('Actual joining date cannot be before the transfer date.', 'error');
@@ -23442,9 +23465,7 @@ window.confirmTransferJoined = confirmTransferJoined;
 function openMarkTransferNotJoined(transferId){
   const item = findTransferObject(transferId);
   if (!item) return toast('Transfer record not found', 'error');
-  const effectiveDate = String(item.effective_date || '').slice(0, 10);
-  const storedStatus = item.status || (item.dRow && (item.dRow.status || item.dRow.Status)) || '';
-  if (!(['Joining Pending','Scheduled'].includes(storedStatus) && effectiveDate && effectiveDate <= transferTodayISO())) {
+  if (!transferIsJoiningDue(item.dRow || item)) {
     return toast('This transfer is not due, so it cannot be marked Not Joined.', 'warning');
   }
   const body = `
@@ -23520,9 +23541,7 @@ async function markTransferNotJoinedUI(transferId){
   if (!guardEdit()) return;
   const item = findTransferObject(transferId);
   const reason = document.getElementById('p2NotJoinedReason')?.value;
-  const effectiveDate = String(item.effective_date || '').slice(0, 10);
-  const storedStatus = item.status || (item.dRow && (item.dRow.status || item.dRow.Status)) || '';
-  if (!(storedStatus === 'Joining Pending' || (storedStatus === 'Scheduled' && effectiveDate && effectiveDate <= todayISO()))) {
+  if (!transferIsJoiningDue(item.dRow || item)) {
     return toast('This transfer is not due, so it cannot be marked Not Joined.', 'warning');
   }
   const remarks = document.getElementById('p2NotJoinedRemarks')?.value || '';
@@ -23709,7 +23728,7 @@ function openRescheduleTransfer(transferId){
     </div>
   `;
   openModal('Reschedule Transfer Date', body, `
-    <button type="button" class="btn ghost" onclick="openNotJoinedFollowUp(${Number(transferId)})">Back</button>
+    <button type="button" class="btn ghost" onclick="openTransferPopup(${Number(transferId)})">Back</button>
     <button type="button" class="btn primary" id="p2RescheduleBtn" style="font-weight:600" onclick="rescheduleTransferUI(${Number(transferId)})">Confirm Reschedule</button>
   `);
 }

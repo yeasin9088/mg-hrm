@@ -101,4 +101,3 @@ $function$;
 REVOKE ALL ON FUNCTION public.mghrm_sync_due_transfer_notifications() FROM PUBLIC, anon, authenticated;
 COMMENT ON FUNCTION public.mghrm_sync_due_transfer_notifications() IS
 'Cron-only idempotent Transfer joining-due event producer; never mutates employee assignments or transfer status.';
-

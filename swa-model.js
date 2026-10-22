@@ -53,9 +53,8 @@
  }
  function canComplete(item){return !CLOSED.has(item.stage)&&outstanding(item).length===0;}
  function active(item,now=Date.now()){
-  if(CLOSED.has(item.stage))return false;
-  const snooze=Date.parse(item.snoozed_until||'');
-  return !Number.isFinite(snooze)||snooze<=now||dueRisk(item,now).severe;
+  // Universal Action Center is persistent even when ACK or snoozed. Only pushes may be delayed.
+  return !CLOSED.has(item.stage);
  }
  function group(item,now=Date.now()){
   if(CLOSED.has(item.stage))return 'resolved';

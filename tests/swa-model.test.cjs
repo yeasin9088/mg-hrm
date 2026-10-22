@@ -35,3 +35,11 @@ test('Resolved work is removed from actionable queues',()=>{
  assert.equal(m.active({stage:'completed',deadline_at:'2026-01-01T00:00:00Z'}),false);
  assert.equal(m.isManagerPending({stage:'completed',manager_required:true}),false);
 });
+
+test('Rejected required approval still requires communication but not execution',()=>{
+ const item={stage:'active',manager_required:true,manager_informed_at:'2026-10-22T15:00:00Z',
+ approval_required:true,manager_decision:'rejected',communication_required:true,execution_required:true,verification_required:false};
+ assert.deepEqual(m.outstanding(item),['সংশ্লিষ্ট পক্ষকে জানান']);
+ assert.equal(m.canComplete(item),false);
+ assert.equal(m.canComplete({...item,communicated_at:'2026-10-22T15:20:00Z'}),true);
+});

@@ -77,15 +77,15 @@
    '<div class="swa-times">'+(item.deadline_at?'<span>Deadline: '+safe(format(item.deadline_at))+'</span>':'')+
    (item.promised_at?'<span>প্রতিশ্রুতি: '+safe(format(item.promised_at))+'</span>':'')+
    (item.next_review_at?'<span>ফলো-আপ: '+safe(format(item.next_review_at))+'</span>':'')+'</div>'+
-   (item.manager_required?'<p class="swa-sub">ম্যানেজার: '+(item.manager_informed_at?'জানানো হয়েছে ('+safe(format(item.manager_informed_at))+')':'এখনও জানানো হয়নি')+
-   ' · সিদ্ধান্ত: '+safe(item.manager_decision)+' · '+(item.manager_decision_at?'ম্যানুয়ালি নথিবদ্ধ':'সিদ্ধান্ত নথিবদ্ধ নয়')+'</p>':'')+
+   (item.manager_required?'<p class="swa-sub">ম্যানেজার: '+(item.manager_informed_at?'জানানো হয়েছে ('+safe(format(item.manager_informed_at))+')' :'নতুন Work Ledger-এ যোগাযোগ নথিবদ্ধ নয়')+
+   ' · সিদ্ধান্ত: '+safe(item.manager_decision)+' · '+(item.manager_decision_at?'ম্যানুয়ালি নথিবদ্ধ':'নতুন Work Ledger-এ সিদ্ধান্ত নথিবদ্ধ নয়')+'</p>':'')+
    (steps.length?'<p class="swa-steps">বাকি: '+safe(steps.join(' → '))+'</p>':'<p class="swa-steps">আবশ্যক ধাপগুলো নথিবদ্ধ হয়েছে</p>')+
    (todo?'<button class="swa-link" data-do="source" data-id="'+item.id+'">মূল To-Do দেখুন ↗</button>':'')+
    managerControls+
    (isClosed?'<div class="swa-controls"><button data-do="reopen" data-id="'+item.id+'">পুনরায় খুলুন</button><button data-do="history" data-id="'+item.id+'">ইতিহাস</button></div>':
     '<details class="swa-more" '+(brief?'':'')+'><summary>পরবর্তী পদক্ষেপ ও অন্যান্য অ্যাকশন</summary><div class="swa-controls">'+
      (item.communication_required&&!item.communicated_at?'<button data-do="communicated" data-id="'+item.id+'">সংশ্লিষ্ট পক্ষকে জানিয়েছি</button>':'')+
-     (item.execution_required&&!item.executed_at?'<button data-do="executed" data-id="'+item.id+'">অফিসীয় কাজ করেছি</button>':'')+
+     (item.execution_required&&!item.executed_at&&!(item.approval_required&&item.manager_decision==='rejected')?'<button data-do="executed" data-id="'+item.id+'">অফিসীয় কাজ করেছি</button>':'')+
      (item.verification_required&&!item.verified_at?'<button data-do="verified" data-id="'+item.id+'">যাচাই করেছি</button>':'')+
      '<button data-do="next_action" data-id="'+item.id+'">Next Action</button><button data-do="waiting_external" data-id="'+item.id+'">External Reply</button>'+
      '<button data-do="followup" data-id="'+item.id+'">Follow-up সময়</button><button data-do="ack" data-id="'+item.id+'">৪ ঘণ্টা Acknowledge</button>'+

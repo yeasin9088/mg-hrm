@@ -2,12 +2,18 @@
    MG Security HRM — Service Worker
    Role: Offline application cache + safe notification display/click flow
    ===================================================================== */
-const CACHE = 'mghrm-v36';
+const CACHE = 'mghrm-v37';
+const LOGO_URL = new URL('icon-192.png', self.registration.scope).href;
 const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './bd-geo.json', './config.js', './app-core.js', './meeting-attendance.js', './meeting-ui.js', './meeting-ui.css', './notification-model.js', './notification-center.js', './notification-presence.js', './notification-ui.js', './notification-ui.css', './notification-settings.js'];
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL).catch(() => {})));
+  e.waitUntil(caches.open(CACHE).then(async (c) => {
+    // Keep the previous worker active if the logo cannot be fetched. A failure
+    // in an unrelated shell asset must not leave new pushes without branding.
+    await c.add(new Request(LOGO_URL, { cache: 'reload' }));
+    await c.addAll(SHELL.filter(asset => asset !== './icon-192.png')).catch(() => {});
+  }));
 });
 
 self.addEventListener('activate', (e) => {
@@ -27,6 +33,10 @@ self.addEventListener('fetch', (e) => {
     return;
   }
   if (e.request.method !== 'GET') return;
+  if (url.href === LOGO_URL) {
+    e.respondWith(caches.match(LOGO_URL).then((cached) => cached || fetch(e.request)));
+    return;
+  }
   const isCoreAsset = url.pathname.endsWith('/index.html') ||
     url.pathname.endsWith('/app-core.js') ||
     url.pathname.endsWith('/meeting-attendance.js') ||
@@ -82,8 +92,8 @@ self.addEventListener('push', (event) => {
   const priority = String(payload.priority || 'Normal');
   const options = {
     body,
-    icon: './icon-192.png',
-    badge: './icon-192.png',
+    icon: LOGO_URL,
+    badge: LOGO_URL,
     tag: 'mghrm-' + (notificationId || 'notification'),
     renotify: false,
     requireInteraction: priority === 'Urgent' || payload.require_interaction === true,

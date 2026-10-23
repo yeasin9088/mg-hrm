@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'supabase/migrations/*notification_phase6_dispatch_integrity.sql'
+      - 'supabase/migrations/*notification_recruitment_selection_followup.sql'
       - 'notification-engine-ui.js'
       - 'tests/notification-integrity-fixture.mjs'
       - 'tests/notification-dispatch-integrity.test.mjs'

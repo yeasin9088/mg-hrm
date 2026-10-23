@@ -26,6 +26,8 @@ test('Phase6 source, atomic reservation, read independence, ACK and digest safet
  UPDATE public.recruitment_archive SET result='rejected';UPDATE public.disciplinary SET deleted_at=now();`);
  for(const typ of ['leave','transfer','uniform_delivery_issue','uniform_delivery_bill','disciplinary'])assert.equal((await snap(typ)).actionable,false,typ+' terminal');
  assert.equal((await snap('recruitment','candidate-1')).actionable,false);
+ await db.exec("UPDATE public.recruitment_archive SET result='selected'");
+ assert.equal((await snap('recruitment','candidate-1')).actionable,true,'selection is not joining or hired');
  // Explicit known server time: 10:00 Dhaka. Read has no role in a quota.
  const at='2026-10-23T04:00:00Z';
  await db.exec(`INSERT INTO public.notifications(id,recipient_user_id,category,priority,status,entity_type,entity_id)

@@ -43,4 +43,5 @@ export async function setup(db){
  INSERT INTO public.recruitment_archive VALUES('candidate-1','pending',null);
  `);
  await db.exec(read(migration));
+ await db.exec(read('supabase/migrations/20261023084013_notification_recruitment_selection_followup.sql'));
 }

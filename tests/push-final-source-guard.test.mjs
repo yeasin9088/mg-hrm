@@ -83,6 +83,12 @@ test('final Web Push dispatch checks authoritative source state and current reci
   assert.equal(skipped.response_metadata.gate_reason,'source_ineligible_or_recipient_changed');
   await db.exec(`UPDATE public.todos SET assigned_to_user_id=null,solved_at=now() WHERE id=101`);
   assert.equal(await source('todo','101'),true,'resolved todo must block');
+  // Break-glass rollback is synthetic only: prove that it restores prior
+  // dispatch behavior while leaving the data rows and subscriptions intact.
+  await db.exec(`UPDATE public.todos SET solved_at=null,assigned_to_user_id='${bob}' WHERE id=101;
+    UPDATE public.notification_deliveries SET delivery_status='Pending',provider_status=null`);
+  await db.exec(readFileSync(new URL('../supabase/rollout/push-final-source-guard-rollback.sql',import.meta.url),'utf8'));
+  assert.equal((await dispatch()).deliveries.length,1,'rollback restores historic V1 behavior; owner-gap must be documented');
   const grants=(await db.query(`SELECT
     has_function_privilege('anon','notification_private.push_source_ineligible(text,text,uuid)','EXECUTE') AS anon,
     has_function_privilege('authenticated','notification_private.push_source_ineligible(text,text,uuid)','EXECUTE') AS authenticated`)).rows[0];

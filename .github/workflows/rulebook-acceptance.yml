@@ -7,6 +7,7 @@ on:
       - 'tests/**'
       - 'scripts/run-rulebook-acceptance.mjs'
       - 'scripts/test-notification-workflow-concurrency.mjs'
+      - 'scripts/test-notification-source-security.mjs'
       - 'docs/notifications/rulebook-acceptance-catalogue.json'
       - 'docs/notifications/migration-history-manifest.json'
       - 'notification-workflow-ui.*'
@@ -52,6 +53,8 @@ jobs:
         run: node scripts/run-rulebook-acceptance.mjs
       - name: Real PostgreSQL concurrent capture, decisions, schedulers and digest
         run: node scripts/test-notification-workflow-concurrency.mjs
+      - name: Real PostgreSQL source permission boundaries
+        run: node scripts/test-notification-source-security.mjs
       - run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright@1.58.0
       - name: Install Chromium
         timeout-minutes: 4

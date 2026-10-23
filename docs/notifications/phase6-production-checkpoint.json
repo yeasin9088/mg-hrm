@@ -23,7 +23,7 @@
     "V2 gates remain disabled; final acceptance is not complete.",
     "Atomic reservations and integrated workflow are installed and tested; live V2/provider/device acceptance remains unverified.",
     "Supported source adapters and canonical terminal-state alignment are implemented; complete live acceptance for every Rulebook module transition remains unverified.",
-    "All 69 ATs audited: 52 synthetic passes, 15 partial, 2 blocked. 67 passing automated scopes are not 67 complete acceptance passes.",
+    "All 69 ATs audited: 59 synthetic passes, 8 partial, 2 blocked. 67 passing automated scopes are not 67 complete acceptance passes.",
     "Real Android/Windows Push display, Service Worker click, offline/permission walkthrough and 14-30 day pilot remain unobserved.",
     "Final responsive UX acceptance needs authenticated live and physical-device evidence beyond the synthetic Chromium checks.",
     "No P0/P1 emergency override, official weekend/holiday or payroll cutoff policy approved."
@@ -41,8 +41,8 @@
   "dispatch_integrity_pages_deployment_verified": true,
   "selection_followup_production_migration": "20261023084252 notification_recruitment_selection_followup",
   "latest_complete_local_regression": {
-    "total": 259,
-    "passed": 256,
+    "total": 267,
+    "passed": 264,
     "skipped": 3,
     "failed": 0
   },
@@ -65,14 +65,14 @@
   "canonical_terminal_state_alignment_live_proven": true,
   "workflow_completion_deployment_run": 39959453663,
   "rulebook_acceptance_audited": 69,
-  "rulebook_synthetic_pass": 52,
-  "rulebook_partial": 15,
+  "rulebook_synthetic_pass": 59,
+  "rulebook_partial": 8,
   "rulebook_blocked": 2,
   "rulebook_automated_scope_pass": 67,
   "rulebook_automated_scope_skipped": 2,
   "rulebook_acceptance_evidence": "docs/notifications/phase6-acceptance-audit-2026-10-23.md",
   "acceptance_gaps_production_migration": "20261023142411 notification_acceptance_gaps",
-  "migration_history_versions_reconciled": 31,
+  "migration_history_versions_reconciled": 33,
   "supabase_preview_error_cause": "Remote migration versions not found in local migrations directory",
   "supabase_preview_fix_live_verified": true,
   "preclose_risk_classification_test_proven": true,
@@ -88,5 +88,14 @@
   "after_hours_action_and_duplicate_labels_six_viewports_proven": true,
   "pages_icon_apt_dependency_removed": true,
   "approved_icon_bytes_match_existing_production": true,
-  "pages_offline_packaging_tests_passed": 4
+  "pages_offline_packaging_tests_passed": 4,
+  "overdue_transition_production_migration": "20261023155900 notification_overdue_transition_alert",
+  "source_access_guard_production_migration": "20261023161105 notification_source_access_guard",
+  "operator_source_boundary_live_verified": true,
+  "acceptance_supporting_suites_pass": true,
+  "notification_thread_grouping_synthetic_proven": true,
+  "service_role_retry_deadletter_synthetic_proven": true,
+  "calendar_proposal_only_synthetic_proven": true,
+  "operations_health_live": true,
+  "ui_shell_cache": "mghrm-v46"
 }

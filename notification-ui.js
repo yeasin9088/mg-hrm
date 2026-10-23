@@ -4,7 +4,7 @@
   const model = global.NotificationModel;
   const view = {pageTab: 'all', panelTab: 'all', category: 'all', priority: 'all', query: '', visible: 50, filtersOpen: false, expandedId: null};
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const items = () => (global.NOTIFICATIONS || []).map(item => model.todoPresentation(item, global.DATA?.todos || []));
+  const items = () => model.workThreads((global.NOTIFICATIONS || []).map(item => model.todoPresentation(item, global.DATA?.todos || [])));
   const category = item => item.category || item.entityType || item.type || 'General';
   function filter(tab) {
     return items().filter(item => (tab === 'all' || (tab === 'unread' && model.unread(item)) ||
@@ -61,6 +61,7 @@
       (expanded?'<div class="mg-n-meta">'+
         '<span class="mg-n-chip">'+escape(category(item))+'</span>'+
         '<span class="mg-n-chip mg-n-priority-'+safePriority+'">'+escape(priority)+'</span>'+status+'</div>'+
+        (item.threadMembers?'<p class="mg-n-message">'+item.threadMembers.length+' alert occurrence(s) · '+item.threadReasons.map(x=>escape(x.replace(/_/g,' '))).join(' · ')+'</p>':'')+
         '<div class="mg-n-row-actions">'+controls+'</div>':'')+'</div>'+
       '</div></article>';
   }
@@ -137,8 +138,18 @@
     if (target.disabled) return;
     const {notificationAction:action,id,where} = target.dataset;
     event.stopPropagation();
-    const actions = {read:()=>global.markNotifAsRead(id),open:()=>global.handleNotifClick(id),bulk:()=>global.markAllNotifsAsRead(),
-      snooze:()=>global.mgBackendNotifSnooze(id,global.MG_TD_CFG?.snoozeMin||15),dismiss:()=>global.mgBackendNotifDismiss(id),complete:()=>global.mgBackendNotifComplete(id),refresh:()=>global.mgLoadBackendNotifications()};
+    const applyThread=async(kind)=>{
+      const thread=items().find(x=>String(x.id)===String(id));
+      const members=(thread?.threadMembers||[thread]).filter(Boolean);
+      for(const member of members){
+        if(model.terminal(member)||kind==='read'&&!model.unread(member))continue;
+        const result=await ({read:()=>global.markNotifAsRead(member.id),snooze:()=>global.mgBackendNotifSnooze(member.id,global.MG_TD_CFG?.snoozeMin||15),dismiss:()=>global.mgBackendNotifDismiss(member.id),complete:()=>global.mgBackendNotifComplete(member.id)})[kind]();
+        if(result===false)return false;
+      }
+      return true;
+    };
+    const actions = {read:()=>applyThread('read'),open:async()=>{if(await applyThread('read'))return global.handleNotifClick(id);},bulk:()=>global.markAllNotifsAsRead(),
+      snooze:()=>applyThread('snooze'),dismiss:()=>applyThread('dismiss'),complete:()=>applyThread('complete'),refresh:()=>global.mgLoadBackendNotifications()};
     if (actions[action]) {target.disabled=true;target.setAttribute('aria-busy','true');try{await actions[action]();}finally{target.disabled=false;target.removeAttribute('aria-busy');}return;}
     if (action==='toggle') {view.expandedId=view.expandedId===String(id)?null:String(id);global.renderNotifications();return;}
     if (action==='filter-toggle') {view.filtersOpen=!view.filtersOpen;global.renderNotifications();return;}

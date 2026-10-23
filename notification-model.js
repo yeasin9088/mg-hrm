@@ -67,7 +67,25 @@
     }).map(item => applyLegacyState(item, states));
     return canonical.concat(unique).sort((a, b) => timestamp(b.createdAt) - timestamp(a.createdAt) || String(a.id).localeCompare(String(b.id)));
   }
+  function workThreads(items, now = Date.now()) {
+    const groups=new Map(), result=[];
+    for(const item of items.flatMap(x=>x.threadMembers||[x])){
+      const p=item.actionParams||item.raw?.action_params||{};
+      if(!item.isBackend||item.entityType!=='todo'||!p.governance_source_version||!p.policy_reason){result.push(item);continue;}
+      const key=String(item.entityId??item.ref), members=groups.get(key)||new Map();
+      members.set(String(item.id),item);groups.set(key,members);
+    }
+    for(const members of groups.values()){
+      const all=[...members.values()].sort((a,b)=>timestamp(b.createdAt)-timestamp(a.createdAt)||String(a.id).localeCompare(String(b.id)));
+      const representative=all.find(x=>eligible(x,now))||all[0];
+      const hasUnread=all.some(x=>unread(x,now));
+      result.push({...representative,status:hasUnread?'Ready':representative.status,isRead:!hasUnread,
+        threadMembers:all,threadReasons:[...new Set(all.map(x=>(x.actionParams||x.raw?.action_params).policy_reason))]});
+    }
+    return result.sort((a,b)=>timestamp(b.createdAt)-timestamp(a.createdAt)||String(a.id).localeCompare(String(b.id)));
+  }
   function counts(items, now = Date.now()) {
+    items=workThreads(items,now);
     return {all: items.length, unread: items.filter(item => unread(item, now)).length,
       action: items.filter(item => actionable(item, now)).length, snoozed: items.filter(item => snoozed(item, now)).length};
   }
@@ -94,5 +112,5 @@
     if (name === 'meetings') return 'meeting';
     return ['dashboard', 'notifications', 'todo', 'transfer', 'employees', 'recruitment', 'disciplinary', 'leave', 'uniform', 'meeting', 'reports'].includes(name) ? name : 'notifications';
   }
-  global.NotificationModel = {timestamp, terminal, snoozed, eligible, unread, actionable, legacyKey, applyLegacyState, upsert, normalize, merge, counts, route, todoPresentation};
+  global.NotificationModel = {timestamp, terminal, snoozed, eligible, unread, actionable, legacyKey, applyLegacyState, upsert, normalize, merge, counts, route, todoPresentation,workThreads};
 })(typeof window !== 'undefined' ? window : globalThis);

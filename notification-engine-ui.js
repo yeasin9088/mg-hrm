@@ -17,7 +17,14 @@ async function health(){
   var d=await rpc('notification_operator_diagnostics',{p_notification_id:null});if(token!==opening||!panel.isConnected)return;
   var workHealth=null;try{workHealth=await rpc('notification_work_health',{});}catch(e){}
   var h=d.health||{},jobs=h.jobs||{},push=h.web_push_deliveries||{},devices=h.subscriptions||{},policy=d.policy||{};
+  var warnings=[];
+  if(Number(jobs.failed)>0)warnings.push('Push delivery failed. Pending work remains in To-Do; retry diagnostics need review.');
+  if(Number(jobs.deadletter)>0)warnings.push('Delivery retries exhausted. Review dead-letter diagnostics; source work remains open.');
+  if(Number(jobs.overdue_pending)>0||Number(jobs.stale_processing)>0)warnings.push('Delivery queue is delayed. Pending work has not been completed.');
+  if(workHealth&&workHealth.processor_recent!==true)warnings.push('Scheduler is delayed or stopped. Review the last processor run.');
+  if(typeof window.Notification!=='undefined'&&window.Notification.permission==='denied')warnings.push('Push is blocked on this device. Pending tasks remain available in To-Do.');
   panel.innerHTML='<h3>Scheduler and delivery health</h3><p class="mg-ns-help">'+(h.healthy===true&&(!workHealth||workHealth.processor_recent===true)?'Scheduler checks passed.':'Review delivery diagnostics.')+' Checked '+esc(time(d.checked_at))+' · Asia/Dhaka</p>'+
+   warnings.map(function(w){return '<p class="mg-ns-help error" role="alert">'+esc(w)+'</p>';}).join('')+
    '<dl class="mg-n6-detail-grid"><dt>Engine</dt><dd>'+esc(policy.governance_enabled&&policy.digest_bridge_enabled?'V2 enabled':'V1 live · V2 staged')+'</dd>'+
    '<dt>Open To-Do sources</dt><dd>'+esc(d.open_source_count)+'</dd><dt>Active Push devices</dt><dd>'+esc(devices.active)+'</dd>'+
    '<dt>Overdue / failed / dead-letter jobs</dt><dd>'+esc(jobs.overdue_pending||0)+' / '+esc(jobs.failed||0)+' / '+esc(jobs.deadletter||0)+'</dd>'+
@@ -25,10 +32,19 @@ async function health(){
    (workHealth?'<dt>Latest processor run</dt><dd>'+esc(time(workHealth.last_processor_run_at))+'</dd><dt>V2 source reconciliation</dt><dd>'+esc(time(workHealth.last_succeeded_at))+'</dd>':'')+
    '<dt>Unconfirmed quota reservations</dt><dd>'+esc(d.uncertain_quota_occurrences||0)+'</dd></dl>'+
    '<p class="mg-ns-help">Provider acceptance does not prove that a notification appeared on a device. Read and device clearing never complete a source task. Holiday calendar and payroll cutoff remain unconfigured.</p>'+
+   '<details><summary>Office calendar proposal · not active</summary><p class="mg-ns-help">Prepare a draft for verification. No weekly closure or holiday is assumed, saved or activated by this preview.</p><label>Proposed weekly closed days<select id="mgCalendarWeekdays" multiple aria-label="Proposed weekly closed days">'+['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map(function(day,i){return '<option value="'+i+'">'+day+'</option>';}).join('')+'</select></label><label>Proposed holiday dates · one YYYY-MM-DD per line<textarea id="mgCalendarDates" rows="3"></textarea></label><label>Evidence / approval reference<input id="mgCalendarEvidence" type="text"></label><button type="button" class="mg-ns-btn" id="mgCalendarPreview">Preview proposal</button><pre id="mgCalendarProposal" role="status" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>'+
    '<button type="button" class="mg-ns-btn" id="mgEngineHealthRefresh">Refresh diagnostics</button>';
   var refresh=document.getElementById('mgEngineHealthRefresh');if(refresh)refresh.addEventListener('click',health);
+  var preview=document.getElementById('mgCalendarPreview');if(preview)preview.addEventListener('click',window.mgEngineCalendarProposal);
  }catch(e){if(token===opening)panel.textContent='Delivery diagnostics unavailable. Reopen settings after checking your connection and operator access.';}
 }
+window.mgEngineCalendarProposal=function(){
+ var output=document.getElementById('mgCalendarProposal');if(!output)return;
+ var dates=String(document.getElementById('mgCalendarDates').value||'').split(/\s+/).filter(Boolean);
+ if(dates.some(function(x){return !/^\d{4}-\d{2}-\d{2}$/.test(x)||!Number.isFinite(Date.parse(x+'T00:00:00Z'))||new Date(x+'T00:00:00Z').toISOString().slice(0,10)!==x;})){output.textContent='Use real calendar dates in YYYY-MM-DD format. No policy changed.';return;}
+ var days=Array.from(document.getElementById('mgCalendarWeekdays').selectedOptions||[]).map(function(x){return Number(x.value);}).filter(function(x){return Number.isInteger(x)&&x>=0&&x<=6;});
+ output.textContent='DRAFT ONLY · not saved or active\n'+JSON.stringify({timezone:'Asia/Dhaka',weekly_closed_days:Array.from(new Set(days)).sort(),holiday_dates:Array.from(new Set(dates)).sort(),evidence_reference:document.getElementById('mgCalendarEvidence').value||'',calendar_verified:false},null,2);
+};
 var previousSettings=window.mgOpenNotifSettings;
 if(typeof previousSettings==='function')window.mgOpenNotifSettings=window.mtOpenNotifSettings=async function(event){await previousSettings(event);await health();};
 var previousDetails=window.mgOpenNotificationDetails;

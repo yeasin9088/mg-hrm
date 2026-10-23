@@ -43,6 +43,23 @@ function renderFixture() {
   return {c, page, events, click};
 }
 
+test('AT-009/018 policy alerts across days remain one visual work thread with all reasons and independent requests',async()=>{
+ const {c,page,click}=renderFixture();
+ const base=c.NOTIFICATIONS[0];
+ c.NOTIFICATIONS=Array.from({length:10},(_,i)=>({...base,id:'tick-'+i,createdAt:base.createdAt+i*86400000,actionParams:{governance_source_version:'revision-'+i,policy_reason:i%2?'overdue_work':'verified_time_risk'}}));
+ c.NOTIFICATIONS.push({...base,id:'independent',ref:'10',entityId:'10',actionParams:{governance_source_version:'v1',policy_reason:'overdue_work'}});
+ c.NOTIFICATIONS.push({...base,id:'ordinary',actionParams:{}});
+ const before=JSON.stringify(c.NOTIFICATIONS);
+ c.renderNotifications();assert.equal((page.innerHTML.match(/data-notification-expand-row=/g)||[]).length,3);
+ assert.equal(c.NotificationModel.counts(c.NOTIFICATIONS).unread,3);
+ const grouped=c.NotificationModel.workThreads(c.NOTIFICATIONS);const thread=grouped.find(x=>x.threadMembers?.length===10);
+ assert(thread);assert.equal(JSON.stringify(c.NOTIFICATIONS),before,'presentation retains every original record');
+ await click('toggle',thread.id);assert.match(page.innerHTML,/10 alert occurrence/);assert.match(page.innerHTML,/overdue work/);assert.match(page.innerHTML,/verified time risk/);
+ const read=[];c.markNotifAsRead=async id=>{read.push(id);const n=c.NOTIFICATIONS.find(x=>x.id===id);n.isRead=true;n.status='Read';return true;};
+ await click('read',thread.id);assert.equal(read.length,10);assert(!read.includes('independent'));assert(!read.includes('ordinary'));
+ assert.equal(c.NotificationModel.counts(c.NOTIFICATIONS).unread,2);
+});
+
 test('Notification inbox shows categories as compact tabs and keeps advanced filters hidden on initial render',()=>{
   const {c,page}=renderFixture();
   c.renderNotifications();
@@ -106,14 +123,15 @@ test('Switching page tabs closes expanded actions without marking notifications 
   assert.equal(c.NOTIFICATIONS[0].isRead,undefined);
 });
 
-test('Text-like actions, compact rows and mobile filter layout keep existing controls discoverable',()=>{
+test('Text-like actions, compact rows and mobile filter layout keep existing controls discoverable',async()=>{
   assert.match(css,/\.mg-n-inbox \.mg-n-row-actions \.mg-n-btn\{[^}]*min-height:30px/);
   assert.match(css,/\.mg-n-inbox \.mg-n-filter-drawer\[hidden\]\{display:none!important/);
   assert.match(css,/\.mg-n-inbox \.mg-n-message\{[^}]*-webkit-line-clamp:1/);
   assert.match(css,/@media\(max-width:600px\)/);
   assert.match(css,/\.mg-n-inbox \.mg-n-toolbar-actions\{flex-wrap:nowrap/);
   assert.match(source,/open:.*global\.handleNotifClick\(id\)/);
-  assert.match(source,/snooze:.*global\.mgBackendNotifSnooze\(id/);
-  assert.match(source,/dismiss:.*global\.mgBackendNotifDismiss\(id\)/);
-  assert.match(source,/complete:.*global\.mgBackendNotifComplete\(id\)/);
+  for(const [action,name] of [['snooze','mgBackendNotifSnooze'],['dismiss','mgBackendNotifDismiss'],['complete','mgBackendNotifComplete']]){
+    const {c,click}=renderFixture();const calls=[];c[name]=async(...args)=>{calls.push(args);return true;};
+    await click(action,'n1');assert.equal(calls.length,1);assert.equal(calls[0][0],'n1');
+  }
 });

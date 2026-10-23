@@ -1,14 +1,15 @@
 {
-  "checked_at": "2026-10-23T14:24:56.976Z",
+  "checked_at": "2026-10-23T16:12:26.288Z",
   "environment": "isolated synthetic PGlite and sender mock; external evidence separately referenced",
-  "source_fingerprint": "e600e120d0004a0255fbe6f1eb062c15ad71733107852f72fdc6934ee60dc394",
+  "source_fingerprint": "2e975541f13606bcd2ff1efb0990bd68cff10e4ad4e6f45504c2ec3730d564e0",
+  "supporting_suites_pass": true,
   "counts": {
     "total": 69,
     "automation_pass": 67,
     "automation_fail": 0,
     "automation_not_run": 2,
-    "synthetic_pass": 52,
-    "partial": 15,
+    "synthetic_pass": 59,
+    "partial": 8,
     "blocked": 2
   },
   "scenarios": [
@@ -79,17 +80,17 @@
     {
       "id": "AT-009",
       "requirement": "Routine unread ১০ scheduler ticks → one visual thread, no push storm।",
-      "acceptance_status": "PARTIAL",
-      "evidence": "tests/rulebook-acceptance.test.mjs: AT-009",
-      "observed": "Stable event keys and grouping tested; one visual thread across policy reasons and repeated days is not fully proven.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-009; tests/notification-inbox-ux.test.cjs",
+      "observed": "Repeated governed alerts share one source thread; routine digest slot replay is unique and per-item quotas remain independent of Read.",
       "automation_result": "PASS"
     },
     {
       "id": "AT-010",
       "requirement": "Urgent unread deadline approaching → bounded policy re-alert।",
-      "acceptance_status": "PARTIAL",
-      "evidence": "tests/rulebook-acceptance.test.mjs: AT-010",
-      "observed": "Deadline attention and quota bounds tested; the full urgent policy re-alert transition matrix remains unverified.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-010; tests/notification-operations.test.mjs",
+      "observed": "Provider-accepted approaching alert can transition to overdue exactly once; Read and 10 ticks do not re-alert, unchanged P2 two-per-rolling-24h quota blocks a third, explicit resolution suppresses later alerts.",
       "automation_result": "PASS"
     },
     {
@@ -151,9 +152,9 @@
     {
       "id": "AT-018",
       "requirement": "Multiple policies hit same item → one visible notification with reason(s)।",
-      "acceptance_status": "PARTIAL",
-      "evidence": "tests/rulebook-acceptance.test.mjs: AT-018",
-      "observed": "Overlapping deadlines create one attention event per source version/reason/day; a persistent visual thread combining all reasons is not fully implemented.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-018; tests/notification-inbox-ux.test.cjs",
+      "observed": "Multiple reasons and days remain one visible governed work thread; ten original occurrences and both reasons remain available, while independent sources and ordinary events stay separate.",
       "automation_result": "PASS"
     },
     {
@@ -247,9 +248,9 @@
     {
       "id": "AT-030",
       "requirement": "Push 503/retry → no new Work Item and traceable bounded retry।",
-      "acceptance_status": "PARTIAL",
-      "evidence": "tests/rulebook-acceptance.test.mjs: AT-030",
-      "observed": "Mock 503 records failures and bounded retry delays; complete database-to-provider retry/dead-letter lifecycle remains unverified.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-030; tests/notification-operations.test.mjs",
+      "observed": "Production claim/dispatch/result/finalize SQL runs as service_role with the actual V2 reservation path and synthetic 503 transport; failed devices retry, accepted device sends once, maximum attempts dead-letter and no new work is created.",
       "automation_result": "PASS"
     },
     {
@@ -312,8 +313,8 @@
       "id": "AT-038",
       "requirement": "Security: anon/non-owner denied, service workers narrowly privileged।",
       "acceptance_status": "PARTIAL",
-      "evidence": "tests/rulebook-acceptance.test.mjs: AT-038",
-      "observed": "New RPC ownership, private ACLs and anonymous denial tested; a complete service-role/RLS authorization matrix across all source modules remains unverified.",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-038; tests/notification-source-security.test.mjs; scripts/test-notification-source-security.mjs",
+      "observed": "New RPC ownership, private ACLs and anonymous denial tested; a complete service-role/RLS authorization matrix across all source modules remains unverified. Live source-role allowlist guard and restrictive uniform policies applied; approved admin retained, active unapproved admin/anon denial tested in an isolated database. Full matrix remains partial.",
       "automation_result": "PASS"
     },
     {
@@ -327,9 +328,9 @@
     {
       "id": "AT-040",
       "requirement": "Dead-letter failure → admin diagnostics and action center intact।",
-      "acceptance_status": "PARTIAL",
-      "evidence": "tests/rulebook-acceptance.test.mjs: AT-040",
-      "observed": "Dead-letter record retains its actionable source and diagnostic resolver; complete failure-to-health-warning integration remains unverified.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-040; tests/notification-operations.test.mjs",
+      "observed": "Actual retry exhaustion reaches production health SQL, authenticated diagnostics and a visible dead-letter alert while original source work stays open.",
       "automation_result": "PASS"
     },
     {
@@ -479,9 +480,9 @@
     {
       "id": "AT-059",
       "requirement": "Weekly holiday unknown → no invented weekend official policy; calendar warning and configurable proposal shown.",
-      "acceptance_status": "PARTIAL",
-      "evidence": "tests/rulebook-acceptance.test.mjs: AT-059",
-      "observed": "Unknown calendar remains explicitly unconfigured; a configurable calendar proposal workflow has not been provided.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-059; tests/notification-engine-ui.test.cjs",
+      "observed": "Unknown calendar displays a warning and an editable, explicitly unsaved/inactive proposal; no weekday is preselected, invalid dates are rejected and preview makes no server mutation.",
       "automation_result": "PASS"
     },
     {
@@ -551,9 +552,9 @@
     {
       "id": "AT-068",
       "requirement": "Morning digest fails/Web Push blocked → all actionable overnight tasks present in `Needs Attention`; health warning visible.",
-      "acceptance_status": "PARTIAL",
-      "evidence": "tests/rulebook-acceptance.test.mjs: AT-068",
-      "observed": "Denied Push/failed jobs retain actionable morning tasks; full failure-to-visible-health-warning integration remains unverified.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-068; tests/notification-operations.test.mjs",
+      "observed": "Failed morning work delivery and denied device Push preserve every overnight task and digest member; actual health data reaches explicit failure/permission warnings.",
       "automation_result": "PASS"
     },
     {

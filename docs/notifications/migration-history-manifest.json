@@ -158,6 +158,16 @@
       "version": "20261023142411",
       "name": "notification_acceptance_gaps",
       "sha256": "0f59967c32c3813653e9c4357aa3ff9da1f4f19933199f958020450b6911828f"
+    },
+    {
+      "version": "20261023155900",
+      "name": "notification_overdue_transition_alert",
+      "sha256": "381cd5e8f76f7aaa8f2617d940cd6a78b2e7631938c04da559561371bdeddf5c"
+    },
+    {
+      "version": "20261023161105",
+      "name": "notification_source_access_guard",
+      "sha256": "7f7251659c7c1dd6c530cccb6eb1705144ea643c57669510743cd36a9261a852"
     }
   ]
 }

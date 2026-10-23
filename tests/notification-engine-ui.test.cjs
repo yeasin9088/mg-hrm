@@ -32,3 +32,12 @@ test('Network failure never claims confirmed health or work acknowledgement',asy
  await e.ctx.mgOpenNotificationDetails(e.ctx.NOTIFICATIONS[0].id);assert.match(e.modal,/Could not verify/);
  assert(!e.calls.some(c=>c.name==='notification_source_interaction'));
 });
+test('AT-059 unknown calendar starts with no invented weekend; configurable preview never changes server policy',async()=>{
+ const e=environment();await e.ctx.mgOpenNotifSettings();
+ const html=e.elements.get('mgEngineHealth').innerHTML;assert.match(html,/Office calendar proposal/);assert(!/<option[^>]*selected/.test(html));
+ e.refs.mgCalendarWeekdays={selectedOptions:[{value:'5'},{value:'6'}]};e.refs.mgCalendarDates={value:'2026-12-16\n2026-12-16'};e.refs.mgCalendarEvidence={value:'Draft for official verification'};e.refs.mgCalendarProposal={textContent:''};
+ const before=e.calls.length;e.ctx.mgEngineCalendarProposal();
+ assert.match(e.refs.mgCalendarProposal.textContent,/DRAFT ONLY/);const proposal=JSON.parse(e.refs.mgCalendarProposal.textContent.split('\n').slice(1).join('\n'));
+ assert.deepEqual(proposal.weekly_closed_days,[5,6]);assert.deepEqual(proposal.holiday_dates,['2026-12-16']);assert.equal(proposal.calendar_verified,false);assert.equal(e.calls.length,before);
+ e.refs.mgCalendarDates.value='2026-02-31';e.ctx.mgEngineCalendarProposal();assert.match(e.refs.mgCalendarProposal.textContent,/real calendar dates/);assert.equal(e.calls.length,before);
+});

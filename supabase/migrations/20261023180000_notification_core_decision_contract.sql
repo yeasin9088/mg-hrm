@@ -139,10 +139,9 @@ BEGIN
              local_time:=p_at AT TIME ZONE 'Asia/Dhaka';
              IF local_time::time<time '09:00' OR local_time::time>=time '18:00' THEN
                decision:='DIGEST';reason:='routine_push_outside_window';
-               next_at:=(CASE WHEN local_time::time>=time '18:00'
+               next_at:=((CASE WHEN local_time::time>=time '18:00'
                  THEN local_time::date+1 ELSE local_time::date END)
-                 +time '09:05';
-               next_at:=next_at AT TIME ZONE 'Asia/Dhaka';
+                 +time '09:05') AT TIME ZONE 'Asia/Dhaka';
              ELSE
                decision:='SEND_NOW';reason:='actionable_todo_candidate';
              END IF;

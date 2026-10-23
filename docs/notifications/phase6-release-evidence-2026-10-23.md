@@ -18,8 +18,8 @@ acceptance work and any final cutover belong to **Phase 6**, not a later phase.
 - Synthetic Node UI tests cover backend missing, editable controls,
   server-confirmed Save, read-back, cross-device revision conflict.
 - Existing Inbox CI repaired to install locked PGlite dependencies before tests.
-- PR #27 adds a real Chromium responsive viewport check with screenshot
-  artifacts and synthetic backend. **Browser emulator is NOT Android Push.**
+- PR #27 merged real Chromium responsive viewport checks with screenshot
+  artifacts and synthetic backend. The real-device tests remain separate. **Browser emulator is NOT Android Push.**
 - Production Phase3/Phase4/Phase5 SQL migrations applied in this order
   (all current real-data tables retained):
   1. `20261023071238 notification_digest_scheduler_phase3`
@@ -28,7 +28,7 @@ acceptance work and any final cutover belong to **Phase 6**, not a later phase.
   4. `20261023071403 notification_digest_event_guard_phase4`
   5. `20261023071437 notification_operator_settings_api_phase5`
   6. `20261023071450 notification_digest_settings_enforcement_phase5`
-- Phase 6 configurable-clock migration is staged at `20261023230000_notification_configurable_digest_window_phase6.sql`, with complete Phase1→6 synthetic tests; apply only after CI and official production release checks.
+- Phase 6 configurable-clock migration `20261023230000_notification_configurable_digest_window_phase6.sql` was **applied** as production migration `20261023073032 notification_configurable_digest_window_phase6`; final read-back confirmed the publisher and last-mile guard both reference `v_policy.push_end`, with both feature flags disabled.
 - After migration, read-only SQL confirms both `governance_control.enabled`
   and `digest_bridge_control.enabled` are **false**.
 - Production read-back: 122 original To-Dos, 117 notifications, 8 historical
@@ -56,7 +56,7 @@ acceptance work and any final cutover belong to **Phase 6**, not a later phase.
    real policy diagnostics, full ACK workflow and all UX-01–UX-22 criteria
    need final operator/browser verification. Current defaults can be
    configured but do not authorize activating the unverified pipeline.
-6. **Policy clocks:** Phase 6 configurable-window replacement and synthetic end-to-end tests are staged, but real cron/device cutoff has not been accepted. Saved settings must be verified after controlled migration before claiming customization is live.
+6. **Policy clocks:** Phase 6 configurable-window replacement is installed and passed synthetic CI, but real cron/device cutoff has not been accepted. Saved settings must be verified after controlled migration before claiming customization is live.
 
 ## One final operational rule
 Do NOT set either flag true or dispatch real V2 Push when the release gate

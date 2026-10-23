@@ -1,7 +1,7 @@
 {
   "release_id": "notification-v2-phase6-2026-10-23",
   "evidence_snapshot_date": "2026-10-23",
-  "production_commit": "72504323c0754d84f805ee58c861b6516190ab5f",
+  "production_commit": "882da5f6b39788091b4f9337003ac8073eda9fec",
   "governance_enabled": false,
   "digest_bridge_enabled": false,
   "phase3_4_5_migrations_applied": true,
@@ -27,5 +27,7 @@
     "Real Android and desktop Push receipts, Service Worker click and offline/permissions not yet verified.",
     "Full responsive Settings Center UX acceptance requires real-browser and authenticated live checks.",
     "No P0/P1 emergency override, official weekend/holiday or payroll policy approved."
-  ]
+  ],
+  "phase6_configurable_window_applied": true,
+  "phase6_clock_policy_readback_verified": true
 }

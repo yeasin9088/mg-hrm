@@ -13,10 +13,10 @@ Production: https://yeasinh.me/mg-hrm/
 |---|---|---|---|
 | 1 — Decision contract | `supabase/migrations/20261023180000_notification_core_decision_contract.sql` | Already applied to production as `20261023052759 notification_core_decision_contract` | Read-only preview |
 | 2 — Priority, risk, quotas | `supabase/migrations/20261023190000_notification_core_policy_phase2.sql` | Already applied to production as `20261023054338 notification_core_policy_phase2` | Read-only preview |
-| 3 — Digest scheduling | `supabase/migrations/20261023200000_notification_digest_scheduler_phase3.sql` | **READY FOR REVIEW; NOT APPLIED** | NO live cron or Push |
-| 4 — Gated digest event/push integration (partial) | `20261023210000_notification_digest_event_bridge_phase4.sql` → `20261023213000_notification_processor_bridge_phase4.sql` → `20261023214500_notification_digest_event_guard_phase4.sql` | STAGED IN REPOSITORY; NOT APPLIED | Both switches OFF |
-| 5 — Backend settings API + acceptance evidence | `20261023220000_notification_operator_settings_api_phase5.sql` → `20261023221000_notification_digest_settings_enforcement_phase5.sql` | STAGED ONLY; E2E/device acceptance pending | OFF |
-| 6 — FINAL UI/UX + migration + go-live | Controlled activation, existing responsive Settings Center, production smoke and sign-off | NOT EXECUTED | OFF |
+| 3 — Digest scheduling | `supabase/migrations/20261023200000_notification_digest_scheduler_phase3.sql` | **APPLIED** production `20261023071238`; feature inactive | NO live cron or Push |
+| 4 — Gated digest event/push integration (partial) | `20261023210000_notification_digest_event_bridge_phase4.sql` → `20261023213000_notification_processor_bridge_phase4.sql` → `20261023214500_notification_digest_event_guard_phase4.sql` | **APPLIED** production `20261023071309` → `20261023071348` → `20261023071403` | Both switches OFF |
+| 5 — Backend settings API + acceptance evidence | `20261023220000_notification_operator_settings_api_phase5.sql` → `20261023221000_notification_digest_settings_enforcement_phase5.sql` | **APPLIED** production `20261023071437` → `20261023071450`; no V2 activation | OFF |
+| 6 — FINAL UI/UX + migration + go-live | Existing responsive Settings Center + `20261023230000_notification_configurable_digest_window_phase6.sql` | UI PR #26 merged; phase6 clock migration applied `20261023073032`; real-device activation **BLOCKED** | OFF |
 
 **Important:** GitHub migration filename and the Supabase applied migration
 version may have different prefixes. Check the live migration table by
@@ -64,10 +64,10 @@ or infer from timestamps alone.
 - Separate default-off switch: `notification_private.digest_bridge_control.enabled=false`
 - **Not full Phase4 completion:** all-module adapters, atomic Push reservations,
   supplier/provider delivery E2E and final policy acceptance are still missing.
-- Phase4 SQL must follow the uninstalled Phase3 migration. Never enable
-  either feature switch during schema application.
+- Phase3 and Phase4 SQL were applied in approved order to production on 23 Oct 2026;
+  **do not replay them**. Both feature switches remain OFF.
 
-### Phase 5 — Existing Settings API and per-slot enforcement (STAGED)
+### Phase 5 — Existing Settings API and per-slot enforcement (installed; V2 not active)
 - Migration 1: `supabase/migrations/20261023220000_notification_operator_settings_api_phase5.sql`
 - Migration 2: `supabase/migrations/20261023221000_notification_digest_settings_enforcement_phase5.sql`
 - Synthetic isolated tests: `scripts/notification-settings-phase5-assertions.sql`,
@@ -81,8 +81,16 @@ or infer from timestamps alone.
   and the final dispatch source gate. Still no live UI controls before Phase 6.
 - Phase 5 rulebook acceptance matrix: `phase5-acceptance-evidence.md`.
 - **No claims of real Android/desktop/provider Push or all 69 AT accepted**.
+- Both Phase5 SQL files were applied; do not replay them.
 
-### Phase 6 — FINAL operator Settings Center and release
+### Phase 6 — FINAL operator Settings Center and release (IN PROGRESS; V2 NOT LIVE)
+- Phase6 UI/UX merged in PR #26, commit `72504323c0754d84f805ee58c861b6516190ab5f`.
+- Phase6 responsive Chromium testing + release gate in PR #27, merge
+  commit `882da5f6b39788091b4f9337003ac8073eda9fec`.
+- Dynamic clock guard applied to production:
+  `20261023073032 notification_configurable_digest_window_phase6`.
+- Production readiness report: `docs/notifications/phase6-release-evidence-2026-10-23.md`.
+- Machine-readiness probe: `node scripts/notification-phase6-release-gate.mjs --assert-ready`.
 - Mandatory design and acceptance contract:
   `docs/notifications/phase6-final-settings-center-ux-contract.md`.
 - Upgrade the EXISTING Notification Settings panel, never create a second UI.
@@ -96,6 +104,20 @@ or infer from timestamps alone.
   and Android Push, all 69 individual AT results, rollback and operator sign-off.
 - **There is no Phase 7**. If criteria remain unverified, report NOT READY
   within Phase 6 rather than invent another phase or falsely claiming Live.
+
+## Live implementation status confirmed 23 October 2026
+- **Already applied** in production: Phase3, Phase4 A/B/C, Phase5 A/B and Phase6
+  configurable digest push window. Database migration names/versions listed
+  above. Never replay a migration solely because its filename differs from
+  applied timestamp.
+- Existing V1 Notifications are the **only live sender**; Governance V2 and
+  digest bridge are `false`. Both source records and Push history preserved.
+- Private operator Settings RPC is installed; effective engine flags are OFF.
+- Browser UI merged; latest Pages deployment must be separately checked.
+- 69 ATs end-to-end **not accepted**; atomic concurrent Push cap and all HRM
+  authoritative source adapters are not proven.
+- No release gate may change both flags until remaining evidence truly passes;
+  no Phase 7 is planned. Everything outstanding remains Phase6 work.
 
 ## Full release gates (DO NOT SKIP)
 1. Read full Rulebook v1.1 and Project Context; re-audit latest `main`,

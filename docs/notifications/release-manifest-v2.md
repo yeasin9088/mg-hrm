@@ -14,7 +14,7 @@ Production: https://yeasinh.me/mg-hrm/
 | 1 — Decision contract | `supabase/migrations/20261023180000_notification_core_decision_contract.sql` | Already applied to production as `20261023052759 notification_core_decision_contract` | Read-only preview |
 | 2 — Priority, risk, quotas | `supabase/migrations/20261023190000_notification_core_policy_phase2.sql` | Already applied to production as `20261023054338 notification_core_policy_phase2` | Read-only preview |
 | 3 — Digest scheduling | `supabase/migrations/20261023200000_notification_digest_scheduler_phase3.sql` | **READY FOR REVIEW; NOT APPLIED** | NO live cron or Push |
-| 4 — Full pipeline and adapters | Future ordered migration(s) | NOT IMPLEMENTED | NO |
+| 4 — Gated digest event/push integration (partial) | `20261023210000_notification_digest_event_bridge_phase4.sql` then `20261023213000_notification_processor_bridge_phase4.sql` | STAGED IN REPOSITORY; NOT APPLIED | Both switches OFF |
 | 5 — Release acceptance | Full E2E/device tests and activation | NOT COMPLETED | NO |
 
 **Important:** GitHub migration filename and the Supabase applied migration
@@ -47,6 +47,20 @@ or infer from timestamps alone.
 - Preflight SQL: `scripts/notification-phase3-release-preflight.sql`
 - Postflight SQL: `scripts/notification-phase3-release-postflight.sql`
 - Containment: `supabase/rollout/notification-phase3-containment.sql`
+
+### Phase 4 (gated existing-pipeline bridge, NOT live)
+- SQL: `supabase/migrations/20261023210000_notification_digest_event_bridge_phase4.sql`
+- SQL: `supabase/migrations/20261023213000_notification_processor_bridge_phase4.sql`
+- Synthetic DB: `scripts/notification-phase4-ci-fixtures.sql`
+  and `scripts/notification-phase4-ci-assertions.sql`
+- Device privacy: `tests/notification-phase4-push.test.mjs`
+- Workflow: `.github/workflows/notification-core-phase4.yml`
+- Docs: `docs/notifications/phase4-pipeline-bridge.md`
+- Separate default-off switch: `notification_private.digest_bridge_control.enabled=false`
+- **Not full Phase4 completion:** all-module adapters, atomic Push reservations,
+  supplier/provider delivery E2E and final policy acceptance are still missing.
+- Phase4 SQL must follow the uninstalled Phase3 migration. Never enable
+  either feature switch during schema application.
 
 ## Full release gates (DO NOT SKIP)
 1. Read full Rulebook v1.1 and Project Context; re-audit latest `main`,

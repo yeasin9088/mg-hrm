@@ -144,3 +144,15 @@ test('containment preserves tasks, source records, audit and queued intents whil
  assert.equal(await q('select enabled v from notification_private.governance_control'),false);
  }finally{await db.close();}
 });
+test('important near-deadline alerts are bounded between digests and respect exact office clock',async()=>{
+ const db=new PGlite();try{await setup(db);
+ const q=async(sql,args=[])=>(await db.query(sql,args)).rows[0].v;
+ let d=await q('select public.notification_work_get(200) v');
+ d=await q('select public.notification_work_save(200,$1,$2,\'plan\',$3) v',[d.work.row_version,randomUUID(),{...plan,deadline_at:'2026-10-23T11:59:00Z'}]);
+ assert.equal(await q("select notification_private.publish_work_attention('2026-10-23T11:58:00Z') v"),1);
+ for(let i=0;i<10;i++)assert.equal(await q("select notification_private.publish_work_attention('2026-10-23T11:58:00Z') v"),0,'AT009/010 no tick storm');
+ assert.equal(await q("select notification_private.publish_work_attention('2026-10-23T12:00:00Z') v"),0,'AT054 18:00 routine push closed');
+ const events=(await db.query("select event_payload from public.notification_events where event_type='TodoWorkAttention'")).rows;
+ assert.equal(events.length,1);assert(!JSON.stringify(events).includes('Tell project'));
+ }finally{await db.close();}
+});

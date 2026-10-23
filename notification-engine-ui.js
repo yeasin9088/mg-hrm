@@ -15,12 +15,14 @@ async function health(){
  var token=++opening;panel.textContent='Checking scheduler and delivery health…';
  try{
   var d=await rpc('notification_operator_diagnostics',{p_notification_id:null});if(token!==opening||!panel.isConnected)return;
+  var workHealth=null;try{workHealth=await rpc('notification_work_health',{});}catch(e){}
   var h=d.health||{},jobs=h.jobs||{},push=h.web_push_deliveries||{},devices=h.subscriptions||{},policy=d.policy||{};
-  panel.innerHTML='<h3>Scheduler and delivery health</h3><p class="mg-ns-help">'+(h.healthy===true?'Scheduler checks passed.':'Review delivery diagnostics.')+' Checked '+esc(time(d.checked_at))+' · Asia/Dhaka</p>'+
+  panel.innerHTML='<h3>Scheduler and delivery health</h3><p class="mg-ns-help">'+(h.healthy===true&&(!workHealth||workHealth.processor_recent===true)?'Scheduler checks passed.':'Review delivery diagnostics.')+' Checked '+esc(time(d.checked_at))+' · Asia/Dhaka</p>'+
    '<dl class="mg-n6-detail-grid"><dt>Engine</dt><dd>'+esc(policy.governance_enabled&&policy.digest_bridge_enabled?'V2 enabled':'V1 live · V2 staged')+'</dd>'+
    '<dt>Open To-Do sources</dt><dd>'+esc(d.open_source_count)+'</dd><dt>Active Push devices</dt><dd>'+esc(devices.active)+'</dd>'+
    '<dt>Overdue / failed / dead-letter jobs</dt><dd>'+esc(jobs.overdue_pending||0)+' / '+esc(jobs.failed||0)+' / '+esc(jobs.deadletter||0)+'</dd>'+
    '<dt>Provider accepted / failed deliveries</dt><dd>'+esc(push.successful||0)+' / '+esc(push.failed||0)+'</dd>'+
+   (workHealth?'<dt>Latest processor run</dt><dd>'+esc(time(workHealth.last_processor_run_at))+'</dd><dt>V2 source reconciliation</dt><dd>'+esc(time(workHealth.last_succeeded_at))+'</dd>':'')+
    '<dt>Unconfirmed quota reservations</dt><dd>'+esc(d.uncertain_quota_occurrences||0)+'</dd></dl>'+
    '<p class="mg-ns-help">Provider acceptance does not prove that a notification appeared on a device. Read and device clearing never complete a source task. Holiday calendar and payroll cutoff remain unconfigured.</p>'+
    '<button type="button" class="mg-ns-btn" id="mgEngineHealthRefresh">Refresh diagnostics</button>';

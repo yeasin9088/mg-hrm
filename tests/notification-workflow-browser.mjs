@@ -31,16 +31,19 @@ try{for(const width of [320,360,390,768,1024,1440]){
  },{code});
  await page.evaluate(()=>mgWorkOpen(200));
  await page.getByText('Record decision',{exact:true}).click();
+ await page.waitForFunction(()=>document.getElementById('mgWorkStatus')?.textContent.includes('Saved on the server'));
  assert.match(await page.locator('#mgWorkStatus').innerText(),/Saved on the server/);
  await page.locator('summary').first().click();
  await page.locator('#mgWork_next_action').fill('Tell the project about the decision');
  await page.getByText('Save action plan',{exact:true}).click();
+ await page.waitForFunction(()=>document.getElementById('mgWorkStatus')?.textContent.includes('Saved on the server'));
  assert.match(await page.locator('#mgWorkStatus').innerText(),/Saved on the server/);
  const measured=await page.evaluate(()=>({width:window.innerWidth,scroll:document.documentElement.scrollWidth,min:Math.min(...Array.from(document.querySelectorAll('.mg-work button')).map(x=>x.getBoundingClientRect().height).filter(x=>x>0))}));
  assert(measured.scroll<=measured.width+1,'No horizontal overflow at '+width);assert(measured.min>=43,'44px touch targets');
  // Failed network stores an intent durably and never displays saved.
  await page.evaluate(()=>{window.__failure=true;});
  await page.getByText('Record decision',{exact:true}).click();
+ await page.waitForFunction(()=>document.getElementById('mgWorkStatus')?.textContent.includes('not confirmed'));
  assert.match(await page.locator('#mgWorkStatus').innerText(),/not confirmed/);
  await page.evaluate(()=>mgWorkPending());assert.match(await page.locator('#modal').innerText(),/Waiting for connection/);
  // Reopening / reloading script does not erase IndexedDB intents.
@@ -48,11 +51,11 @@ try{for(const width of [320,360,390,768,1024,1440]){
  await page.evaluate(()=>mgWorkSync());assert.match(await page.locator('#modal').innerText(),/No queued changes/);
  await page.evaluate(()=>mgWorkQuickCapture());
  await page.locator('#mgWork_capture_subject').fill('Offline request');await page.evaluate(()=>{window.__failure=true;});
- await page.locator('#mgWorkCaptureSave').click();assert.match(await page.locator('#modal').innerText(),/not confirmed/);
+ await page.locator('#mgWorkCaptureSave').click();await page.waitForFunction(()=>document.getElementById('modal').textContent.includes('not confirmed'));assert.match(await page.locator('#modal').innerText(),/not confirmed/);
  await page.evaluate(()=>{window.__failure=false;});await page.evaluate(()=>mgWorkSync());assert.equal(await page.evaluate(()=>window.__captures),1);
  // A cross-device conflict remains queued for explicit review, never overwritten.
  await page.evaluate(()=>mgWorkOpen(200));await page.evaluate(()=>{window.__conflict=true;});
- await page.getByText('Record decision',{exact:true}).click();assert.match(await page.locator('#mgWorkStatus').innerText(),/Another device/);
+ await page.getByText('Record decision',{exact:true}).click();await page.waitForFunction(()=>document.getElementById('mgWorkStatus')?.textContent.includes('Another device'));assert.match(await page.locator('#mgWorkStatus').innerText(),/Another device/);
  await page.evaluate(()=>mgWorkPending());assert.match(await page.locator('#modal').innerText(),/another device/i);
  await fs.mkdir('artifacts/notification-workflow',{recursive:true});await page.screenshot({path:'artifacts/notification-workflow/'+width+'.png',fullPage:true});
  assert.deepEqual(errors,[]);await context.close();

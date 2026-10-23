@@ -461,7 +461,7 @@ BEGIN
      updated_at=clock_timestamp();
 END $function$
 ;
-REVOKE EXECUTE ON FUNCTION public.notification_work_get(bigint),public.notification_work_save(bigint,integer,uuid,text,jsonb),public.notification_work_capture(uuid,jsonb),public.notification_work_brief_summary(uuid) FROM authenticated;
+REVOKE EXECUTE ON FUNCTION public.notification_work_get(bigint),public.notification_work_save(bigint,integer,uuid,text,jsonb),public.notification_work_capture(uuid,jsonb),public.notification_work_brief_summary(uuid),public.notification_work_health() FROM authenticated;
 GRANT EXECUTE ON FUNCTION public.swa_capture(uuid,jsonb) TO authenticated;
 -- Restore the prior source planner, retaining all private data.
 CREATE OR REPLACE FUNCTION notification_private.digest_plan(p_recipient uuid,p_day date,p_kind text,p_at timestamptz)
@@ -478,4 +478,3 @@ BEGIN
  RETURN j||jsonb_build_object('items',items,'item_count',jsonb_array_length(items),'groups',groups,'risk_count',(SELECT count(*) FROM jsonb_array_elements(items) x WHERE x->>'group_key' IN ('OVERDUE','BEFORE_NEXT_OPEN_RISK')));
 END $fn$;
 COMMIT;
-

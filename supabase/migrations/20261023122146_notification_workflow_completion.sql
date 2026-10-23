@@ -677,6 +677,36 @@ CREATE TABLE notification_private.work_engine_runs(
 INSERT INTO notification_private.work_engine_runs(singleton) VALUES(true);
 ALTER TABLE notification_private.work_engine_runs ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON notification_private.work_engine_runs FROM PUBLIC,anon,authenticated,service_role;
+-- Important, verified near-deadline work can surface between digest slots.
+-- P2 only, approved rolling caps still apply. No P0/P1 or night exception.
+CREATE FUNCTION notification_private.publish_work_attention(p_at timestamptz)
+RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
+DECLARE w public.swa_work_items; t public.todos; due timestamptz; fp text; key text; n int:=0; reason text; pol notification_private.core_policy_limits;
+BEGIN
+ SELECT * INTO pol FROM notification_private.core_policy_limits WHERE singleton;
+ IF (p_at AT TIME ZONE 'Asia/Dhaka')::time<pol.push_start OR (p_at AT TIME ZONE 'Asia/Dhaka')::time>=pol.push_end THEN RETURN 0; END IF;
+ FOR w IN SELECT * FROM public.swa_work_items WHERE source_module='todo' AND stage NOT IN ('completed','cancelled')
+ AND priority IN ('important','urgent','critical') LOOP
+  SELECT * INTO t FROM public.todos WHERE id::text=w.source_record_id;
+  IF NOT notification_private.todo_actionable(t) OR NOT coalesce(t.reminder_enabled,false) THEN CONTINUE; END IF;
+  due:=least(w.deadline_at,w.event_at,w.promised_at);
+  IF due IS NULL OR due>p_at+interval '4 hours' THEN CONTINUE; END IF;
+  reason:=CASE WHEN due<=p_at THEN 'overdue_work' ELSE 'verified_time_risk' END;
+  fp:=notification_private.source_snapshot('todo',t.id::text,w.owner_user_id)->>'source_version';
+  key:='work-attention:'||t.id||':'||fp||':'||reason||':'||(p_at AT TIME ZONE 'Asia/Dhaka')::date;
+  INSERT INTO public.notification_events(event_type,entity_type,entity_id,actor_user_id,event_key,event_payload,occurred_at)
+  VALUES('TodoWorkAttention','todo',t.id::text,w.owner_user_id,key,jsonb_build_object(
+   'recipient_user_id',w.owner_user_id,'category','ToDo','severity','Warning','priority','High',
+   'title','MG-HRM work needs attention','message','A time-sensitive work item needs review. Open MG-HRM for current details.',
+   'action_label','Review work','action_route','todo','dedupe_key',key,'scheduled_for',p_at,
+   'expires_at',((p_at AT TIME ZONE 'Asia/Dhaka')::date+pol.push_end) AT TIME ZONE 'Asia/Dhaka',
+   'action_params',jsonb_build_object('todo_id',t.id,'governance_source_version',fp,'policy_reason',reason)),p_at)
+  ON CONFLICT(event_key) DO NOTHING;
+  IF FOUND THEN n:=n+1; END IF;
+ END LOOP;
+ RETURN n;
+END $$;
+REVOKE ALL ON FUNCTION notification_private.publish_work_attention(timestamptz) FROM PUBLIC,anon,authenticated,service_role;
 CREATE OR REPLACE FUNCTION public.notification_cron_tick()
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
 DECLARE dg jsonb; ev jsonb; delivery jsonb; checked int;
@@ -687,6 +717,7 @@ BEGIN
   UPDATE notification_private.work_engine_runs SET last_started_at=clock_timestamp() WHERE singleton;
   checked:=notification_private.reconcile_module_work();
   PERFORM public.swa_reconcile(500);
+  PERFORM notification_private.publish_work_attention(clock_timestamp());
   dg:=notification_private.digest_publish_for_operators(clock_timestamp());
   ev:=public.notification_run_event_processor('cron:notification-v2-workflow',25,interval '15 minutes');
   delivery:=public.notification_prepare_deliveries(25);
@@ -713,6 +744,25 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.notification_work_brief_summary(uuid) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.notification_work_brief_summary(uuid) TO authenticated;
+CREATE FUNCTION public.notification_work_health()
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
+DECLARE result jsonb; recent_cron timestamptz; recent_status text;
+BEGIN
+ IF NOT public.swa_is_operator() THEN RAISE EXCEPTION 'Operator access required' USING ERRCODE='42501'; END IF;
+ SELECT jsonb_build_object('last_succeeded_at',last_succeeded_at,'last_error',last_error,
+  'source_rows_checked',source_rows_checked,'v2_recent_reconcile',last_succeeded_at>clock_timestamp()-interval '15 minutes') INTO result
+ FROM notification_private.work_engine_runs WHERE singleton;
+ IF to_regclass('cron.job_run_details') IS NOT NULL THEN
+  SELECT r.end_time,r.status INTO recent_cron,recent_status FROM cron.job_run_details r JOIN cron.job j ON j.jobid=r.jobid
+   WHERE j.jobname='notification-server-processor' AND r.end_time IS NOT NULL ORDER BY r.end_time DESC LIMIT 1;
+ END IF;
+ RETURN result||jsonb_build_object('last_processor_run_at',recent_cron,'processor_status',recent_status,
+ 'processor_recent',coalesce(recent_cron>clock_timestamp()-interval '15 minutes' AND recent_status='succeeded',false),
+ 'attention_count',(SELECT count(*) FROM public.swa_work_items w WHERE owner_user_id=auth.uid() AND (notification_private.work_summary(w,clock_timestamp())->>'active')::boolean),
+ 'device_display_observed',false,'calendar_verified',false,'checked_at',clock_timestamp());
+END $$;
+REVOKE ALL ON FUNCTION public.notification_work_health() FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.notification_work_health() TO authenticated;
 -- Privilege closure: public RPCs authenticate internally; everything else private.
 REVOKE ALL ON FUNCTION notification_private.work_summary(public.swa_work_items,timestamptz),
  notification_private.next_office_open(timestamptz),notification_private.sync_work_deadline(bigint),

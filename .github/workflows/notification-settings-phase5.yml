@@ -6,6 +6,8 @@ on:
       - 'scripts/notification-settings-phase5-assertions.sql'
       - 'scripts/notification-digest-switch-phase5-assertions.sql'
       - 'supabase/migrations/*notification_digest_settings_enforcement_phase5.sql'
+      - 'supabase/migrations/*notification_configurable_digest_window_phase6.sql'
+      - 'scripts/notification-configurable-window-phase6-assertions.sql'
       - '.github/workflows/notification-settings-phase5.yml'
       - 'docs/notifications/phase6-final-settings-center-ux-contract.md'
       - 'docs/notifications/phase5-acceptance-evidence.md'
@@ -108,3 +110,5 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023220000_notification_operator_settings_api_phase5.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023221000_notification_digest_settings_enforcement_phase5.sql
           psql -v ON_ERROR_STOP=1 -f scripts/notification-digest-switch-phase5-assertions.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023230000_notification_configurable_digest_window_phase6.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/notification-configurable-window-phase6-assertions.sql

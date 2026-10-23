@@ -5,7 +5,7 @@ import {fileURLToPath} from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
 // Explicit browser assets only. Never copy the repository recursively.
 export const publicAssets = Object.freeze([
-  'index.html', 'app-core.js', 'disciplinary-model.js', 'meeting-attendance.js', 'meeting-ui.js', 'meeting-ui.css', 'notification-model.js', 'notification-center.js', 'notification-presence.js', 'notification-ui.js', 'notification-ui.css', 'notification-settings.js', 'notification-engine-ui.js', 'config.js', 'sw.js',
+  'index.html', 'app-core.js', 'disciplinary-model.js', 'meeting-attendance.js', 'meeting-ui.js', 'meeting-ui.css', 'notification-model.js', 'notification-center.js', 'notification-presence.js', 'notification-ui.js', 'notification-ui.css', 'notification-settings.js', 'notification-engine-ui.js', 'notification-workflow-ui.js', 'notification-workflow-ui.css', 'config.js', 'sw.js',
   'manifest.json', 'icon-192.png', 'icon-512.png', 'app-logo-192.webp', 'notification-badge-96.png', 'notification-small-m-96.png', 'bd-geo.json'
 ]);
 

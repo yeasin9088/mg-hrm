@@ -1,0 +1,56 @@
+name: Notification Core Phase 3 Smart Scheduling
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/*notification_digest_scheduler_phase3.sql'
+      - 'scripts/notification-phase3-ci-*.sql'
+      - 'docs/notifications/phase3-*'
+      - 'docs/notifications/release-manifest-v2.md'
+      - '.github/workflows/notification-core-phase3.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  digest-postgresql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: digest_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d digest_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: digest_ci
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: Prepare synthetic Phase 1 and Phase 2 contracts
+        run: |
+          psql -v ON_ERROR_STOP=1 -f scripts/notification-core-ci-fixtures.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023180000_notification_core_decision_contract.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/notification-core-ci-assertions.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/notification-core-phase2-fixtures.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023190000_notification_core_policy_phase2.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/notification-core-phase2-assertions.sql
+      - name: Extend fixtures with 20 distinct overnight tasks
+        run: psql -v ON_ERROR_STOP=1 -f scripts/notification-phase3-ci-fixtures.sql
+      - name: Apply Phase 3 migration to isolated PostgreSQL only
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023200000_notification_digest_scheduler_phase3.sql
+      - name: Assert digest slot, no storm, missed cron, privacy and source truth
+        run: psql -v ON_ERROR_STOP=1 -f scripts/notification-phase3-ci-assertions.sql
+      - name: Check diff
+        run: git diff --check

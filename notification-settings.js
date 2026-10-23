@@ -125,3 +125,125 @@ window.mgOpenNotificationDetails=function(id){var n=find(id);if(!n)return;var r=
 var previousComplete=window.mgBackendNotifComplete;
 if(previousComplete)window.mgBackendNotifComplete=async function(id){try{return await previousComplete(id);}catch(e){if(typeof toast==='function')toast('The related HRM item is not resolved yet. Open it and complete the actual workflow first.','warning');throw e;}};
 })();
+
+
+/* Phase 6: a backend-authoritative Smart Policy section INSIDE the existing Settings panel.
+ * All privileged writes go through operator-verified, revision-checked RPCs.
+ * With migrations pending, show Staged/Unavailable; never simulate a live toggle. */
+(function(){
+'use strict';
+if(window.__mgNotificationPolicyPanel)return;
+window.__mgNotificationPolicyPanel=true;
+var P={base:null,draft:null,loading:false,saving:false,unavailable:false,problem:'',opening:0};
+var fields=[
+ ['morning_digest_enabled','Morning digest','toggle','Group outstanding actions at the morning slot.'],
+ ['afternoon_digest_enabled','Afternoon wrap-up','toggle','Review outstanding actions and next-office deadline risks.'],
+ ['morning_digest_time','Morning digest time','time','Asia/Dhaka; within eligible delivery hours.'],
+ ['afternoon_digest_time','Wrap-up digest time','time','Asia/Dhaka; must follow morning time.'],
+ ['push_start','Routine Push start','time','Delivery eligibility clock, not the actual business deadline.'],
+ ['push_end','Routine Push end','time','Office execution remains a different concept.'],
+ ['p3_item_cap_24h','Routine P3 Push / 24h','number','Approved baseline: one successful occurrence per source.'],
+ ['p2_item_cap_24h','Important P2 Push / 24h','number','Approved baseline: two successful occurrences per source.'],
+ ['p3_cooldown_minutes','P3 cooldown, minutes','optional','Blank means no additional configured cooldown.'],
+ ['p2_cooldown_minutes','P2 cooldown, minutes','optional','Blank means no additional configured cooldown.'],
+ ['user_cap_24h','Per-user Push cap / 24h','optional','Blank means no approved global user cap.'],
+ ['category_cap_24h','Per-category Push cap / 24h','optional','Blank means no approved category cap.']
+];
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function copy(v){return JSON.parse(JSON.stringify(v));}
+function client(){return window.MGHRM&&window.MGHRM.client;}
+function rpc(name,args){var c=client();if(!c||!c.rpc)return Promise.reject(Error('Backend unavailable'));return c.rpc(name,args||{}).then(function(x){if(x.error)throw x.error;return x.data;});}
+function section(){var b=document.getElementById('mgNsBody');if(!b)return null;var e=document.getElementById('mgNsSmartPolicy');if(!e){e=document.createElement('section');e.id='mgNsSmartPolicy';e.className='mg-ns-section mg-ns-engine';e.setAttribute('aria-label','Intelligent notification engine policy');b.appendChild(e);}return e;}
+function field(key,title,type,hint){
+ var val=P.draft[key],id='mgNsEng_'+key,disabled=P.saving?' disabled':'';
+ var control=type==='toggle'?'<input id="'+id+'" type="checkbox" role="switch" '+(val?'checked':'')+disabled+'>'
+ :'<input id="'+id+'" type="'+(type==='time'?'time':'number')+'" class="mg-ns-input"'+
+ (type==='time'?'': ' min="1" max="'+(key.includes('cooldown')?'1440':key==='user_cap_24h'||key==='category_cap_24h'?'100':'5')+'" step="1"')+
+ ' value="'+esc(val==null?'':val)+'" placeholder="'+(type==='optional'?'Not configured':'')+'"'+disabled+'>';
+ return '<label class="mg-ns-engine-field" for="'+id+'"><span><strong>'+esc(title)+'</strong><small>'+esc(hint)+'</small></span>'+control+'</label>';
+}
+function live(message,error){var e=document.getElementById('mgNsEngineLive');if(e){e.textContent=message||'';e.className='mg-ns-engine-live'+(error?' error':'');}}
+function valid(){
+ var d=P.draft;if(!d)return 'Settings are not loaded';
+ var pattern=/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/;
+ for(var k of ['push_start','push_end','morning_digest_time','afternoon_digest_time'])if(!pattern.test(d[k]))return 'Please provide valid 24-hour time values.';
+ if(!(d.push_start<d.morning_digest_time&&d.morning_digest_time<d.afternoon_digest_time&&d.afternoon_digest_time<d.push_end))return 'Digest times must be inside routine Push hours, in chronological order.';
+ for(var k of ['p2_item_cap_24h','p3_item_cap_24h'])if(!Number.isInteger(d[k])||d[k]<1||d[k]>5)return 'Priority Push caps must be 1–5.';
+ for(var k of ['p2_cooldown_minutes','p3_cooldown_minutes','user_cap_24h','category_cap_24h']){
+  if(d[k]!==null&&(!Number.isInteger(d[k])||d[k]<1||d[k]>(k.includes('cooldown')?1440:100)))return 'Cooldown or user/category cap is outside the allowed range.';
+ }
+ return '';
+}
+function changes(){var result={};if(!P.base||!P.draft)return result;fields.forEach(function(f){var k=f[0];if(P.base[k]!==P.draft[k])result[k]=P.draft[k];});return result;}
+function ready(){return !P.loading&&!P.saving&&P.base&&P.draft;}
+function render(){
+ var e=section();if(!e)return;
+ if(P.loading){e.innerHTML='<h3>Intelligent Notification Policy</h3><p class="mg-ns-help" role="status">Checking live engine status…</p>';return;}
+ if(!P.base){
+ e.innerHTML='<h3>Intelligent Notification Policy</h3><p class="mg-ns-help">The existing V1 notification settings above remain available.</p><div class="mg-ns-engine-status" role="status">V2 policy controls are staged, not active. '+esc(P.problem||'Required backend migration is not installed.')+'</div><p class="mg-ns-help">No changes to core engine settings are possible until the server supports authenticated policy access.</p>';
+ return;
+ }
+ var d=P.draft;
+ var active=d.governance_enabled===true&&d.digest_bridge_enabled===true;
+ e.innerHTML='<div class="mg-ns-engine-top"><div><h3>Intelligent Notification Policy</h3><p class="mg-ns-help">Authoritative server settings · Asia/Dhaka · '+esc(d.policy_version||'Unknown')+' · Revision '+esc(d.revision)+'</p></div><span class="mg-ns-engine-state">'+(active?'Governance active':'Governance staged')+'</span></div>'+
+ '<p class="mg-ns-help">Core policy is '+(active?'active':'not yet live')+'. These options require a successful backend save; reading a notification never completes a task.</p>'+
+ '<div class="mg-ns-engine-fields">'+fields.map(function(f){return field(f[0],f[1],f[2],f[3]);}).join('')+'</div>'+
+ '<div class="mg-ns-engine-locked"><strong>Safety controls</strong><p>Unverified P0 emergencies, P1 after-hours overrides, statutory holidays and payroll deadlines cannot be enabled without a formally approved policy. Digest times never modify real business deadlines.</p></div>'+
+ '<div class="mg-ns-engine-actions"><div id="mgNsEngineLive" class="mg-ns-engine-live" role="status" aria-live="polite"></div><button type="button" class="mg-ns-btn" id="mgNsEngineReload">Reload server values</button><button type="button" class="mg-ns-btn primary" id="mgNsEngineSave" '+(Object.keys(changes()).length&&!P.saving?'':'disabled')+'>Save engine policy</button></div>';
+ fields.forEach(function(f){var k=f[0],el=document.getElementById('mgNsEng_'+k);if(!el)return;el.addEventListener('change',function(){
+  var value=f[2]==='toggle'?el.checked:f[2]==='time'?el.value:el.value.trim()===''?null:Number(el.value);
+  P.draft[k]=value;
+  var save=document.getElementById('mgNsEngineSave');if(save)save.disabled=!!valid()||!Object.keys(changes()).length||P.saving;
+  live(valid(),!!valid());
+ });});
+ document.getElementById('mgNsEngineReload').addEventListener('click',function(){load();});
+ document.getElementById('mgNsEngineSave').addEventListener('click',save);
+}
+async function load(){
+ var e=section();if(!e)return;
+ var token=++P.opening;P.loading=true;P.problem='';render();
+ try{
+  var data=await rpc('notification_operator_policy_read',{});
+  if(token!==P.opening)return;
+  if(!data||!Number.isInteger(Number(data.revision)))throw Error('Invalid policy server response');
+  P.base=copy(data);P.draft=copy(data);
+ }catch(err){
+  if(token!==P.opening)return;
+  P.base=null;P.draft=null;
+  // Never silently claim a successfully staged UI switch can change live V1 behavior.
+  P.problem=/not found|schema cache|does not exist|404|Backend unavailable/i.test(String(err&&err.message))?
+    'The final policy API is not installed on the connected server.':'Policy status is unavailable. Confirm your authorization and connection.';
+ }finally{if(token===P.opening){P.loading=false;render();}}
+}
+async function save(){
+ if(!ready())return;
+ var msg=valid();if(msg){live(msg,true);return;}
+ var diff=changes();if(!Object.keys(diff).length)return;
+ var expected=P.base.revision;
+ P.saving=true;render();live('Saving and verifying database revision…');
+ try{
+  var saved=await rpc('notification_operator_policy_save',{p_expected_revision:expected,p_changes:diff});
+  if(!saved||saved.saved!==true||Number(saved.readback_revision)!==Number(expected)+1)
+   throw Error('Server did not confirm the policy update');
+  var checked=await rpc('notification_operator_policy_read',{});
+  if(Number(checked.revision)!==Number(saved.readback_revision))
+   throw Error('Server read-back revision mismatch');
+  for(var key of Object.keys(diff))if(checked[key]!==diff[key])
+   throw Error('Server returned a different saved value for '+key);
+  P.base=copy(checked);P.draft=copy(checked);P.saving=false;render();live('Policy saved and verified on server.');
+ }catch(err){
+  P.saving=false;render();
+  var conflict=/40001|revision conflict|concurrent/i.test(String(err&&err.message||''));
+  live(conflict?'Another device changed the policy. Reload server values and review before saving.':
+   'Policy was not confirmed: '+String(err&&err.message||'Connection error'),true);
+ }
+}
+var previous=window.mgOpenNotifSettings;
+if(typeof previous==='function'){
+ window.mgOpenNotifSettings=window.mtOpenNotifSettings=async function(ev){
+  await previous(ev);
+  await load();
+ };
+}
+window.mgReloadEngineSettings=load;
+})();

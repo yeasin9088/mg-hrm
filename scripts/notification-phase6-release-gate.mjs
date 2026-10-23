@@ -1,5 +1,5 @@
 // Run `node scripts/notification-phase6-release-gate.mjs [--assert-ready]`
-// Refuses to authorize live activation without independently recorded evidence.
+// Reports acceptance separately from an explicitly owner-authorized live activation.
 // It NEVER connects to or writes the production database.
 import fs from 'node:fs';
 const ledger=JSON.parse(fs.readFileSync('docs/notifications/rulebook-acceptance-catalogue.json','utf8'));
@@ -24,10 +24,11 @@ const required=[
 ];
 const unverified=required.filter(x=>snapshot[x]!==true);
 if(blocked||partial)unverified.push(partial+' Rulebook scenarios remain Partial; '+blocked+' remain Blocked');
-if(snapshot.governance_enabled||snapshot.digest_bridge_enabled)
- unverified.push('Production V2 is already enabled; manual incident review required');
+const live=!!snapshot.governance_enabled&&!!snapshot.digest_bridge_enabled;
+if((snapshot.governance_enabled||snapshot.digest_bridge_enabled)&&snapshot.owner_activation_authorized!==true)
+ unverified.push('Production V2 enabled without recorded owner activation authorization');
 const ready=unverified.length===0;
-const output={release_id:snapshot.release_id,status:ready?'READY':'NOT_READY',
+const output={release_id:snapshot.release_id,status:ready?'READY':live&&snapshot.owner_activation_authorized===true?'LIVE_USER_VALIDATION_PENDING':'NOT_READY',
  rulebook_scenarios:rows.length,synthetic_pass_scenarios:synthetic,partial_scenarios:partial,blocked_scenarios:blocked,
  production_flags:{governance:snapshot.governance_enabled,bridge:snapshot.digest_bridge_enabled},
  unverified,verified_at:snapshot.evidence_snapshot_date};

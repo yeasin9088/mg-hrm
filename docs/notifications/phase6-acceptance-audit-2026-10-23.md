@@ -1,3 +1,11 @@
+# Current live activation — 23 October 2026
+
+At 22:30:43 Asia/Dhaka, the owner explicitly authorized activating the current engine immediately and performing device acceptance through actual use. Both production gates are now ON. The first V2 processor returned Completed, mode governance_digest_bridge, 5 source rows checked, zero observed failures. Digest delivery correctly deferred outside the 09:00–18:00 authorized Push window. Existing source data was not reset and emergency/calendar settings were not changed. Schema was already deployed; activation used a transactional runtime configuration update, without adding or replaying a migration.
+
+Deployment status: LIVE_USER_VALIDATION_PENDING. Acceptance results remain 59 synthetic passes, 8 partial, 2 blocked; activation is not evidence that these remaining scenarios passed. The earlier OFF/NOT_READY statements below describe the pre-activation evidence snapshot. See [device tasks](notification-device-test-tasks-bn.md).
+
+---
+
 # Phase 6 — current acceptance evidence
 
 Evidence updated: 2026-10-23T16:12:26.288Z. **59 PASS_SYNTHETIC, 8 PARTIAL, 2 BLOCKED** across 69 Rulebook scenarios. All 67 executable AT scopes pass; two external scenarios are deliberately skipped. Supporting operations, inbox, settings and source-security suites pass. These numbers do not certify physical Push display or an elapsed pilot. Both V2 gates remain OFF; release remains NOT_READY.

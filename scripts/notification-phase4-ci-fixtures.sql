@@ -11,7 +11,8 @@ CREATE TABLE public.notification_events(
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
  event_type text NOT NULL,entity_type text NOT NULL,entity_id text NOT NULL,
  actor_user_id uuid,event_key text NOT NULL UNIQUE,event_payload jsonb NOT NULL,
- occurred_at timestamptz,processing_status text NOT NULL DEFAULT 'Pending'
+ occurred_at timestamptz,processing_status text NOT NULL DEFAULT 'Pending',
+ processed_at timestamptz,processing_error text
 );
 ALTER TABLE public.notifications
  ADD COLUMN event_id bigint,
@@ -49,6 +50,10 @@ CREATE FUNCTION public.notification_schedule_todos(integer)
  RETURNS jsonb LANGUAGE sql AS $$SELECT '{"legacy":"v1_sched"}'::jsonb$$;
 CREATE FUNCTION public.notification_run_server_processor(text,integer,interval)
  RETURNS jsonb LANGUAGE sql AS $$SELECT '{"legacy":"v1_processor"}'::jsonb$$;
+CREATE FUNCTION public.notification_complete_job(bigint,text)
+ RETURNS public.notification_jobs LANGUAGE sql AS $
+   SELECT j FROM public.notification_jobs j WHERE j.id=$1
+ $;
 CREATE FUNCTION public.notification_run_event_processor(text,integer,interval)
  RETURNS jsonb LANGUAGE sql AS $$SELECT '{"v2":"event_processor"}'::jsonb$$;
 CREATE FUNCTION public.notification_prepare_deliveries(integer)

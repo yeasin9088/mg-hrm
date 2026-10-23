@@ -57,6 +57,9 @@ or infer from timestamps alone.
 - Device privacy: `tests/notification-phase4-push.test.mjs`
 - Workflow: `.github/workflows/notification-core-phase4.yml`
 - Docs: `docs/notifications/phase4-pipeline-bridge.md`
+- Preflight: `scripts/notification-phase4-release-preflight.sql`
+- Postflight: `scripts/notification-phase4-release-postflight.sql`
+- Containment (break glass only): `supabase/rollout/notification-phase4-containment.sql`
 - Separate default-off switch: `notification_private.digest_bridge_control.enabled=false`
 - **Not full Phase4 completion:** all-module adapters, atomic Push reservations,
   supplier/provider delivery E2E and final policy acceptance are still missing.

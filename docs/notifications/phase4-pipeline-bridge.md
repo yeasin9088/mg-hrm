@@ -25,6 +25,12 @@ existing Web Push Edge Function and Service Worker only. NO Smart Work UI.
    `notification_get_web_push_dispatch` skips stale delivery records with
    reason `digest_source_or_window_invalid`. The worker calls this RPC again
    before each push send.
+6. A third guarded migration additionally protects the **Inbox**: a queued
+   `OperatorWorkDigest` event is marked Ignored if feature switches were
+   disabled or if its current source has vanished **before** the original
+   event processor creates a notification. Other V1 event types remain
+   untouched. Disabling the bridge also prevents any *previously queued*
+   digest Web Push from being sent.
 5. The existing Web Push JS worker sends a privacy-safe generic
    `MG-HRM · Work Digest` payload and opens the existing Notification Center;
    source content never enters its lock-screen payload.

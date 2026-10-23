@@ -6,6 +6,8 @@ on:
       - 'supabase/migrations/*salary_todo_push_privacy.sql'
       - 'supabase/migrations/*governance_todo_repeat_gate.sql'
       - 'supabase/migrations/*push_final_source_guard.sql'
+      - 'supabase/rollout/push-final-source-guard-rollback.sql'
+      - 'supabase/rollout/governance-repeat-gate-rollback.sql'
       - 'scripts/notification-governance*.sql'
       - 'tests/salary-push-privacy.test.mjs'
       - 'tests/governance-repeat-gate.test.mjs'

@@ -48,6 +48,9 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f scripts/notification-core-phase2-fixtures.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023190000_notification_core_policy_phase2.sql
           psql -v ON_ERROR_STOP=1 -f scripts/notification-core-phase2-assertions.sql
+      - name: Model existing production governance control (V2 OFF)
+        run: |
+          psql -v ON_ERROR_STOP=1 -c "CREATE TABLE notification_private.governance_control(singleton boolean PRIMARY KEY,enabled boolean NOT NULL); INSERT INTO notification_private.governance_control VALUES(true,false)"
       - name: Install staged Phase 5 Settings API
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023220000_notification_operator_settings_api_phase5.sql
       - name: Test operator-only persistence, safe switches and revision conflicts

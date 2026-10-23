@@ -1,7 +1,7 @@
 {
   "release_id": "notification-v2-phase6-2026-10-23",
   "evidence_snapshot_date": "2026-10-23",
-  "production_commit": "5a14e88634a61eb9665e31775215971ae7b1cfbf",
+  "production_commit": "1d4c0892bc2b9a98a388cb32b9e1e486983210d7",
   "governance_enabled": false,
   "digest_bridge_enabled": false,
   "phase3_4_5_migrations_applied": true,
@@ -55,5 +55,13 @@
   "integrated_manager_communication_execution_test_proven": true,
   "required_custom_substeps_test_proven": true,
   "salary_allocation_and_promise_test_proven": true,
-  "source_reschedule_and_handoff_test_proven": true
+  "source_reschedule_and_handoff_test_proven": true,
+  "workflow_completion_pages_deployment_verified": true,
+  "workflow_completion_final_head": "eeb18a14c76bc75bc21fd0e42ebbd0f063c0f193",
+  "workflow_completion_pr": 30,
+  "workflow_completion_ci_all_eight_passed": true,
+  "integrated_workflow_postgresql_concurrency_proven": true,
+  "integrated_workflow_six_viewport_reload_recovery_proven": true,
+  "canonical_terminal_state_alignment_live_proven": true,
+  "workflow_completion_deployment_run": 39959453663
 }

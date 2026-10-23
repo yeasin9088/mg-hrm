@@ -1,3 +1,10 @@
+> Update, 23 October 2026: this historical checkpoint predates the integrated
+> To-Do workflow, offline intent queue, source handoffs, salary allocation checks
+> and canonical source-truth repair shipped in PR #30. See
+> [current workflow evidence](phase6-workflow-evidence-2026-10-23.md).
+> Full final acceptance remains unverified; earlier backlog rows are not current
+> proof that those specific implementations are absent.
+
 # Notification-centric Rulebook v1.1 traceability — baseline inventory
 
 Generated from the actual Rulebook; every numbered behavior is reproduced below. This is an **honest unverified baseline**, not a completion claim. Module and type labels are search aids inferred from wording; a human must verify them. A blank evidence cell means no passing evidence has been collected.

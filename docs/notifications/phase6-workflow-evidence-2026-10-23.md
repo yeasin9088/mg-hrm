@@ -104,3 +104,26 @@ Alignment applied as `20261023130913 notification_source_truth_alignment`.
 Live read-back now agrees: canonical eight, snapshot eight, all eight visible
 through the operator role and linked to the existing work ledger. Scheduler,
 sender and maintenance remain healthy with zero failed/dead-letter jobs.
+
+## Verified merge and deployment
+
+PR #30 merged as `1d4c0892bc2b9a98a388cb32b9e1e486983210d7`. All eight
+workflows passed on final head `eeb18a14c76bc75bc21fd0e42ebbd0f063c0f193`.
+The final integrated workflow run is:
+https://github.com/yeasin9088/mg-hrm/actions/runs/39959103355 . It passed
+187 total regression tests (186 pass, one existing skip), real PostgreSQL
+concurrency, and Chromium at all six widths with an actual page reload between
+offline enqueue and recovery. The earlier re-evaluation test was replaced with
+a realistic reload; no browser result is claimed from a failed run.
+
+Pages succeeded:
+https://github.com/yeasin9088/mg-hrm/actions/runs/39959453663 . The production
+`notification-workflow-ui.js` returned HTTP 200 and matched the checked-in file
+byte for byte. The operator-role read returned all eight current workflows;
+a non-operator was denied, anon cannot invoke new mutations, and authenticated
+clients cannot write work rows directly or read private request receipts.
+
+Final V2 acceptance remains **NOT_READY**, both gates remain **OFF**. These
+installed workflow features are usable, but full V2 notification cutover has not
+occurred. This is not a claim that all 69 complete scenarios, actual-device
+Push, production recovery or the longitudinal pilot have passed.

@@ -59,6 +59,7 @@ jobs:
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023210000_notification_digest_event_bridge_phase4.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023213000_notification_processor_bridge_phase4.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023214500_notification_digest_event_guard_phase4.sql
       - name: Assert V1 rollback, single event, retry dedup and dispatch guard
         run: psql -v ON_ERROR_STOP=1 -f scripts/notification-phase4-ci-assertions.sql
       - name: Test safe Work Digest device payload

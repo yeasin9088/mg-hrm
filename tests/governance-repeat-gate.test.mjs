@@ -57,6 +57,12 @@ test('V1 unread suppression remains reversible and V2 repeat uses the source pol
     await db.exec("UPDATE public.notifications SET status='Completed' WHERE id=1");
     await db.exec('UPDATE notification_private.governance_control SET allow_repeat=true');
     assert.equal(await insert(), 0, 'terminal root cannot repeat');
+    await db.exec("UPDATE public.notifications SET status='Delivered', read_at=null WHERE id=1");
+    await db.exec(readFileSync(new URL('../supabase/rollout/governance-repeat-gate-rollback.sql',import.meta.url),'utf8'));
+    assert.equal((await db.query('SELECT enabled FROM notification_private.governance_control')).rows[0].enabled,
+      false, 'rollback must disable governance flag');
+    assert.equal(await insert(), 0, 'restored V1 unread repeat suppression');
+
   } finally {
     await db.close();
   }

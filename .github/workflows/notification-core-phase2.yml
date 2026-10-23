@@ -1,0 +1,52 @@
+name: Notification Core Phase 2 Policy
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/*notification_core_policy_phase2.sql'
+      - 'scripts/notification-core-phase2-*.sql'
+      - 'docs/notifications/core-policy-phase2.md'
+      - '.github/workflows/notification-core-phase2.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  phase2-policy-postgresql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: notification_phase2_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d notification_phase2_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: notification_phase2_ci
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Postgres client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: Setup isolated Phase 1 and validate the original contract
+        run: |
+          psql -v ON_ERROR_STOP=1 -f scripts/notification-core-ci-fixtures.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023180000_notification_core_decision_contract.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/notification-core-ci-assertions.sql
+      - name: Upgrade isolated schema to Phase 2 with synthetic delivery history
+        run: |
+          psql -v ON_ERROR_STOP=1 -f scripts/notification-core-phase2-fixtures.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023190000_notification_core_policy_phase2.sql
+      - name: Verify verified deadline / cap / ACK / source version / role invariants
+        run: psql -v ON_ERROR_STOP=1 -f scripts/notification-core-phase2-assertions.sql
+      - name: Check diff
+        run: git diff --check

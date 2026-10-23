@@ -51,9 +51,9 @@ CREATE FUNCTION public.notification_schedule_todos(integer)
 CREATE FUNCTION public.notification_run_server_processor(text,integer,interval)
  RETURNS jsonb LANGUAGE sql AS $$SELECT '{"legacy":"v1_processor"}'::jsonb$$;
 CREATE FUNCTION public.notification_complete_job(bigint,text)
- RETURNS public.notification_jobs LANGUAGE sql AS $
+ RETURNS public.notification_jobs LANGUAGE sql AS $stub$
    SELECT j FROM public.notification_jobs j WHERE j.id=$1
- $;
+ $stub$;
 CREATE FUNCTION public.notification_run_event_processor(text,integer,interval)
  RETURNS jsonb LANGUAGE sql AS $$SELECT '{"v2":"event_processor"}'::jsonb$$;
 CREATE FUNCTION public.notification_prepare_deliveries(integer)

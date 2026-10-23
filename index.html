@@ -18851,6 +18851,7 @@ function renderTodo(){
   const filtered = all.filter(function(t){
     if(getCat(t) !== activeCat) return false;
     if(!matchQ(t) || !passSub(t)) return false;
+    if(window.mgWorkPass && !window.mgWorkPass(t.id)) return false;
     return true;
   });
 
@@ -19010,6 +19011,7 @@ function renderTodo(){
 
     const orgName = esc(PN(t.project) || t.source || '');
     const showText = t.note_bn || t.note || t.note_in || '';
+    const workHtml = window.mgWorkRow ? window.mgWorkRow(t.id) : '';
 
     const remChip = (t.reminder_enabled === true) ? ('<span class="td-chip td-due" title="' + esc(window.mgRmSummary(t)) + '">' + ICON.bell + ' ' + esc(window.mgRmSummary(t)) + '</span>') : '';
 
@@ -19126,6 +19128,7 @@ function renderTodo(){
       '<div class="td-body">' +
         '<button type="button" id="td-preview-' + id + '" class="td-note" aria-expanded="' + isOpen + '" aria-controls="td-details-' + id + '" onclick="mtToggleTodoOpen(\'' + id + '\')" title="' + esc(showText) + '">' + esc(showText) + '</button>' +
         (!isOpen ? ('<div class="td-meta">' + thinMeta + '</div>') : '') +
+        workHtml +
         '<div class="td-details" id="td-details-' + id + '"' + (isOpen ? '' : ' hidden') + '>' + expandedHtml + '</div>' +
       '</div>' +
       '<div class="td-side" onclick="event.stopPropagation()">' +
@@ -24609,5 +24612,7 @@ setInterval(()=>checkPendingToast(true), 180000);
 <script src="./notification-ui.js"></script>
 <script src="./notification-settings.js"></script>
 <script src="./notification-engine-ui.js"></script>
+<link rel="stylesheet" href="./notification-workflow-ui.css">
+<script src="./notification-workflow-ui.js"></script>
 </body>
 </html>

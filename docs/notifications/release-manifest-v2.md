@@ -51,6 +51,7 @@ or infer from timestamps alone.
 ### Phase 4 (gated existing-pipeline bridge, NOT live)
 - SQL: `supabase/migrations/20261023210000_notification_digest_event_bridge_phase4.sql`
 - SQL: `supabase/migrations/20261023213000_notification_processor_bridge_phase4.sql`
+- SQL: `supabase/migrations/20261023214500_notification_digest_event_guard_phase4.sql`
 - Synthetic DB: `scripts/notification-phase4-ci-fixtures.sql`
   and `scripts/notification-phase4-ci-assertions.sql`
 - Device privacy: `tests/notification-phase4-push.test.mjs`

@@ -1,0 +1,70 @@
+name: Notification Core Phase 4 Pipeline Bridge
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/*phase4.sql'
+      - 'scripts/notification-phase4-ci-*.sql'
+      - 'supabase/functions/web-push-sender/worker.mjs'
+      - 'tests/notification-phase4-push.test.mjs'
+      - 'docs/notifications/phase4-*'
+      - 'docs/notifications/release-manifest-v2.md'
+      - '.github/workflows/notification-core-phase4.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  full-pipeline-postgresql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: mghrm_v2_phase4
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d mghrm_v2_phase4"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: mghrm_v2_phase4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: Compile Phase 1 and Phase 2 and original regression contracts
+        run: |
+          psql -v ON_ERROR_STOP=1 -f scripts/notification-core-ci-fixtures.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023180000_notification_core_decision_contract.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/notification-core-ci-assertions.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/notification-core-phase2-fixtures.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023190000_notification_core_policy_phase2.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/notification-core-phase2-assertions.sql
+      - name: Compile Phase 3 and its full regression contracts
+        run: |
+          psql -v ON_ERROR_STOP=1 -f scripts/notification-phase3-ci-fixtures.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023200000_notification_digest_scheduler_phase3.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/notification-phase3-ci-assertions.sql
+      - name: Extend with existing notification event and push pipeline schema
+        run: psql -v ON_ERROR_STOP=1 -f scripts/notification-phase4-ci-fixtures.sql
+      - name: Apply Phase 4 source bridge and gated last-mile validator
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023210000_notification_digest_event_bridge_phase4.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023213000_notification_processor_bridge_phase4.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023214500_notification_digest_event_guard_phase4.sql
+      - name: Assert V1 rollback, single event, retry dedup and dispatch guard
+        run: psql -v ON_ERROR_STOP=1 -f scripts/notification-phase4-ci-assertions.sql
+      - name: Test safe Work Digest device payload
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          node --test tests/notification-phase4-push.test.mjs
+      - name: Check diff
+        run: git diff --check

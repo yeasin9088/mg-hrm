@@ -33,6 +33,12 @@ export function privatePayload(n, preview = {}) {
   if(enabled && category==='todo' && preview.todo_id != null) {
     const note=clean(preview.todo_note,180);
     if(note) { title='MG-HRM · To-Do Reminder'; body=note; route='todo'; entityId=String(preview.todo_id); }
+  } else if(n.entity_type==='digest' && category==='system') {
+    // Safe summary content only. The private snapshot and HR details never
+    // leave Postgres; clicking opens the EXISTING Notification Center.
+    title='MG-HRM · Work Digest';
+    body='Your scheduled work summary is ready. Open MG-HRM to review pending actions.';
+    route='notifications';
   } else if(enabled && category==='transfer' && n.entity_type==='transfer' &&
       n.action_label==='Review Transfer' && /^\d{1,18}$/.test(String(n.entity_id||''))) {
     // Only this explicitly authorized, non-sensitive order identifier is visible on devices.

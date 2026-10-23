@@ -216,7 +216,7 @@ begin
       v_deliveries
   );
 end
-$function$
+$function$;
 
 REVOKE ALL ON FUNCTION public.notification_get_web_push_dispatch(bigint,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.notification_get_web_push_dispatch(bigint,text) TO service_role;

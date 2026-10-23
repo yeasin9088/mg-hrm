@@ -77,6 +77,7 @@ tests; calendar and end-to-end caps are not fully proven.
 4. Apply Phase4 in file order:
    - `20261023210000_notification_digest_event_bridge_phase4.sql`
    - `20261023213000_notification_processor_bridge_phase4.sql`
+   - `20261023214500_notification_digest_event_guard_phase4.sql`
 5. Verify V1 clone and the updated Dispatch function, keep **both flags
    FALSE** until a separate owner-authorized final activation.
 6. Re-run pre/post row counts, subscriptions, cron and per-device smoke tests.

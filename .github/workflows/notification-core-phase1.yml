@@ -1,0 +1,47 @@
+name: Notification Phase 1 Core Decision
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/*notification_core_decision_contract.sql'
+      - 'scripts/notification-core-ci-*.sql'
+      - 'docs/notifications/core-decision-engine-phase1.md'
+      - '.github/workflows/notification-core-phase1.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  core-contract-postgresql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: notification_core_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d notification_core_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: notification_core_ci
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: Create isolated synthetic operator and notifications
+        run: psql -v ON_ERROR_STOP=1 -f scripts/notification-core-ci-fixtures.sql
+      - name: Apply decision engine migration to isolated PostgreSQL
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023180000_notification_core_decision_contract.sql
+      - name: Test all core contract invariants
+        run: psql -v ON_ERROR_STOP=1 -f scripts/notification-core-ci-assertions.sql
+      - name: Check whitespace
+        run: git diff --check

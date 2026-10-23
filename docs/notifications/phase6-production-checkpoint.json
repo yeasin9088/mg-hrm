@@ -1,7 +1,7 @@
 {
   "release_id": "notification-v2-phase6-2026-10-23",
   "evidence_snapshot_date": "2026-10-23",
-  "production_commit": "882da5f6b39788091b4f9337003ac8073eda9fec",
+  "production_commit": "5a14e88634a61eb9665e31775215971ae7b1cfbf",
   "governance_enabled": false,
   "digest_bridge_enabled": false,
   "phase3_4_5_migrations_applied": true,
@@ -37,5 +37,13 @@
   "six_viewport_settings_and_source_lease_synthetic_browser_proven": true,
   "implementation_merge_deploy_authorized": true,
   "final_release_status": "NOT_READY",
-  "atomic_push_reservation_implemented_and_tested": true
+  "atomic_push_reservation_implemented_and_tested": true,
+  "dispatch_integrity_pages_deployment_verified": true,
+  "selection_followup_production_migration": "20261023084252 notification_recruitment_selection_followup",
+  "latest_complete_local_regression": {
+    "total": 177,
+    "passed": 176,
+    "skipped": 1,
+    "failed": 0
+  }
 }

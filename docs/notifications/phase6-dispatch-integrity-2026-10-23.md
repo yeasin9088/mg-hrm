@@ -98,3 +98,19 @@ cannot be moved by a reminder lease. Conflicting edits require reopening details
 - Live source snapshots classified 45 current and 77 resolved/ineligible To-Dos.
 - Both V2 gates remain false. Full final release is still NOT_READY for the
   remaining blockers above; deployment of these improvements is not activation.
+
+## Deployment verification
+
+PR #29 merged as `5a14e88634a61eb9665e31775215971ae7b1cfbf`. All 12
+PR workflows passed at final head `1d0449770c759f4f3ca57a8266cc8adecf89bd8f`.
+Pages deployment succeeded: https://github.com/yeasin9088/mg-hrm/actions/runs/39926639372
+The production `notification-engine-ui.js` returned HTTP 200 and exactly
+matched the checked-in file. Source selection/hiring semantics were corrected
+by tested forward migration `20261023084252 notification_recruitment_selection_followup`;
+selection alone is not terminal recruitment completion. The original applied
+migration is retained unchanged. Recent production processor/sender/transfer
+cron runs succeeded, with zero pending/processing/failed notification jobs.
+
+The final release readiness probe still returns NOT_READY (69 complete ATs
+unaccepted). Installed fixes and successful deployment are distinct from final
+V2 activation, which remains OFF. No physical-device display is claimed.

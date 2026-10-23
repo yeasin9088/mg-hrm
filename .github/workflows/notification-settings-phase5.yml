@@ -1,0 +1,110 @@
+name: Notification Final Settings API Contract
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/*notification_operator_settings_api_phase5.sql'
+      - 'scripts/notification-settings-phase5-assertions.sql'
+      - 'scripts/notification-digest-switch-phase5-assertions.sql'
+      - 'supabase/migrations/*notification_digest_settings_enforcement_phase5.sql'
+      - '.github/workflows/notification-settings-phase5.yml'
+      - 'docs/notifications/phase6-final-settings-center-ux-contract.md'
+      - 'docs/notifications/phase5-acceptance-evidence.md'
+      - 'docs/notifications/release-manifest-v2.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  operator-settings:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: operator_policy_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d operator_policy_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: operator_policy_ci
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Postgres CLI
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: Replay verified Phase 1/2 schema and compatibility
+        run: |
+          psql -v ON_ERROR_STOP=1 -f scripts/notification-core-ci-fixtures.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023180000_notification_core_decision_contract.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/notification-core-ci-assertions.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/notification-core-phase2-fixtures.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023190000_notification_core_policy_phase2.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/notification-core-phase2-assertions.sql
+      - name: Model existing production governance control (V2 OFF)
+        run: |
+          psql -v ON_ERROR_STOP=1 -c "CREATE TABLE notification_private.governance_control(singleton boolean PRIMARY KEY,enabled boolean NOT NULL); INSERT INTO notification_private.governance_control VALUES(true,false)"
+      - name: Install staged Phase 5 Settings API
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023220000_notification_operator_settings_api_phase5.sql
+      - name: Test operator-only persistence, safe switches and revision conflicts
+        run: psql -v ON_ERROR_STOP=1 -f scripts/notification-settings-phase5-assertions.sql
+      - name: Verify all 69 Rulebook acceptance IDs indexed
+        run: |
+          test "$(grep -c '^| AT-' docs/notifications/phase5-acceptance-evidence.md)" -eq 69
+          grep -q '0/69 fully accepted' docs/notifications/phase5-acceptance-evidence.md
+      - name: Check whitespace
+        run: git diff --check
+  digest-switch-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: operator_digest_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d operator_digest_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: operator_digest_ci
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Postgres CLI
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: Build isolated Phase 1 through Phase 3
+        run: |
+          psql -v ON_ERROR_STOP=1 -f scripts/notification-core-ci-fixtures.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023180000_notification_core_decision_contract.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/notification-core-phase2-fixtures.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023190000_notification_core_policy_phase2.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/notification-phase3-ci-fixtures.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023200000_notification_digest_scheduler_phase3.sql
+      - name: Build isolated Phase 4 existing event and dispatch pipeline
+        run: |
+          psql -v ON_ERROR_STOP=1 -f scripts/notification-phase4-ci-fixtures.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023210000_notification_digest_event_bridge_phase4.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023213000_notification_processor_bridge_phase4.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023214500_notification_digest_event_guard_phase4.sql
+      - name: Apply Phase 5 settings contract and enforce toggles
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023220000_notification_operator_settings_api_phase5.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023221000_notification_digest_settings_enforcement_phase5.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/notification-digest-switch-phase5-assertions.sql

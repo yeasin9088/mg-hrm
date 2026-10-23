@@ -104,15 +104,21 @@ test('salary month split, missing or overlapping days and promised next-cycle fo
 test('source rescheduling invalidates queued versions, terminal source preserves handoffs and no HR mutation',async()=>{
  const db=new PGlite();try{await setup(db);
  const q=async(sql,args=[])=>(await db.query(sql,args)).rows[0].v;
- await db.exec('select notification_private.reconcile_module_work()');
+ await db.exec('UPDATE notification_private.governance_control SET enabled=true; UPDATE notification_private.digest_bridge_control SET enabled=true;select notification_private.reconcile_module_work()');
  const tid=await q("select id v from public.todos where work_source_type='transfer' and work_source_id='1'");
  const before=await q("select notification_private.source_snapshot('todo',$1,$2) v",[String(tid),operator]);
  await db.exec("UPDATE public.transfers SET effective_date=current_date+2");
  const after=await q("select notification_private.source_snapshot('todo',$1,$2) v",[String(tid),operator]);assert.notEqual(after.source_version,before.source_version,'AT015 reschedule invalidates queued fingerprint');
+ await db.exec(`INSERT INTO public.notifications(id,recipient_user_id,category,entity_type,entity_id,status) VALUES('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','${operator}','ToDo','transfer','1','Ready'),('ffffffff-ffff-4fff-8fff-ffffffffffff','${operator}','ToDo','transfer','1','Ready');
+ INSERT INTO public.notification_deliveries(notification_id,channel,delivery_status,sent_at) VALUES('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','WebPush','Sent','2026-10-23T05:00:00Z'),('ffffffff-ffff-4fff-8fff-ffffffffffff','WebPush','Sent','2026-10-23T05:01:00Z');`);
+ assert.equal(await q("select notification_private.push_quota_allowed('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',$1,'todo',$2,'ToDo','P2','2026-10-23T05:02:00Z') v",[operator,String(tid)]),false,'direct historical source sends count towards the linked To-Do cap');
+
  const pending=await q('select public.notification_work_get($1) v',[tid]);assert.equal(pending.summary.can_complete,false,'future scheduled transfer still needs explicit joining');
  assert.equal(await q("select joining_confirmed_at v from public.transfers where id=1"),null,'AT019 no automatic joining');
  await db.exec("UPDATE public.transfers SET status='Not Joined',not_joined_at=now()");
  assert.equal(await q('select notification_private.todo_actionable(t) v from public.todos t where id=$1',[tid]),false,'AT020 source not-joined ends joining obligation');
+ await db.exec("UPDATE public.transfers SET status='Scheduled',not_joined_at=NULL");
+ assert.equal(await q('select notification_private.todo_actionable(t) v from public.todos t where id=$1',[tid]),true,'explicit source reopening restores its auto-closed follow-up');
  const leave=await q("select id v from public.todos where work_source_type='leave'");
  await db.exec("UPDATE public.leaves SET status='Approved'");
  const ld=await q('select public.notification_work_get($1) v',[leave]);assert.equal(ld.summary.communication_pending,true,'AT022 source approval retains project handoff');
@@ -154,5 +160,20 @@ test('important near-deadline alerts are bounded between digests and respect exa
  assert.equal(await q("select notification_private.publish_work_attention('2026-10-23T12:00:00Z') v"),0,'AT054 18:00 routine push closed');
  const events=(await db.query("select event_payload from public.notification_events where event_type='TodoWorkAttention'")).rows;
  assert.equal(events.length,1);assert(!JSON.stringify(events).includes('Tell project'));
+ }finally{await db.close();}
+});
+test('required substeps block parent completion and remain independently audited',async()=>{
+ const db=new PGlite();try{await setup(db);
+ const q=async(sql,args=[])=>(await db.query(sql,args)).rows[0].v;
+ let d=await q('select public.notification_work_get(101) v');
+ const save=async(a,p)=>{d=await q('select public.notification_work_save(101,$1,$2,$3,$4) v',[d.work.row_version,randomUUID(),a,p]);return d;};
+ const p={...plan,manager_required:false,approval_required:false,communication_required:false,execution_required:false,verification_required:false,change_reason:'Replace default with explicit document checklist',context:{checklist:[{id:'docs',label:'Obtain documents',required:true},{id:'placement',label:'Confirm placement',required:true}]}};
+ await save('plan',p);assert.equal(d.summary.can_complete,false);
+ await save('check_step',{value:'docs'});assert.equal(d.summary.can_complete,false);
+ await assert.rejects(()=>save('complete',{value:'Finished'}),/Required/);
+ await assert.rejects(()=>save('plan',{...p,change_reason:'',context:{checklist:[]}}),/Reason required/);
+ await save('check_step',{value:'placement'});assert.equal(d.summary.can_complete,true);
+ await save('complete',{value:'All documents and placement verified'});
+ assert.equal(d.summary.active,false);assert.equal(d.events.filter(e=>e.event_type==='checklist_step_recorded').length,2);
  }finally{await db.close();}
 });

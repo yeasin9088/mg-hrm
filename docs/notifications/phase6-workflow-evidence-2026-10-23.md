@@ -6,7 +6,7 @@ The four existing To-Do tabs now own the work interface: next action, responsibl
 party, review, real deadline, event and promised response time. Existing manager
 controls use the same audited workflow. Manager discussion, decision,
 party-specific communication, actual execution, verification and completion are
-independent records. A decision never performs an HR operation or sends messages.
+independent records. Required custom substeps also block parent completion. A decision never performs an HR operation or sends messages.
 
 The server uses source-row and workflow-row locks, optimistic versions, idempotent
 request IDs and private request receipts. Quick capture creates an ordinary
@@ -38,11 +38,11 @@ P0/P1 emergencies and after-hours overrides remain disabled.
 
 ## Verification
 
-- Eight workflow integration tests cover independent handoffs, stale revisions,
+- Nine workflow integration tests cover independent handoffs, stale revisions,
   retry receipts, rejected approvals, true deadlines, salary allocation,
   source reschedule/closure, 15-item manager sessions, bounded attention events
   and data-preserving containment.
-- Full local suite: 185 total, 184 passed, one existing skip, zero failures.
+- Full local suite: 186 total, 185 passed, one existing skip, zero failures.
 - Real PostgreSQL 16, two connections: concurrent manager writes reject the
   stale edit; simultaneous duplicate capture creates one task.
 - Actual Chromium at 320/360/390/768/1024/1440px: server saves, IndexedDB network

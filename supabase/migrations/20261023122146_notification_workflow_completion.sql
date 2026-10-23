@@ -68,7 +68,7 @@ FOR EACH ROW EXECUTE FUNCTION swa_private.todo_sync_trigger();
 
 CREATE FUNCTION notification_private.work_summary(w public.swa_work_items,p_at timestamptz)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $$
-DECLARE steps jsonb:='[]'; party text; due timestamptz; risk text; action text; grp text; t public.todos; src jsonb; allocation_problem boolean:=false; month_start date;
+DECLARE steps jsonb:='[]'; party text; due timestamptz; risk text; action text; grp text; t public.todos; src jsonb; allocation_problem boolean:=false; month_start date; step jsonb;
 BEGIN
  SELECT * INTO t FROM public.todos WHERE id::text=w.source_record_id AND w.source_module='todo';
  IF NOT notification_private.todo_actionable(t) THEN RETURN jsonb_build_object('active',false,'steps','[]'::jsonb,'group','resolved'); END IF;
@@ -83,6 +83,9 @@ BEGIN
  END IF;
  IF w.execution_required AND w.executed_at IS NULL AND NOT(w.approval_required AND w.manager_decision='rejected') THEN steps:=steps||'"অফিসীয় কাজ সম্পাদন করুন"'::jsonb; END IF;
  IF w.verification_required AND w.verified_at IS NULL THEN steps:=steps||'"ফলাফল যাচাই করুন"'::jsonb; END IF;
+ FOR step IN SELECT value FROM jsonb_array_elements(coalesce(w.context->'checklist','[]')) LOOP
+  IF coalesce((step->>'required')::boolean,true) AND step->>'completed_at' IS NULL THEN steps:=steps||jsonb_build_array(step->>'label'); END IF;
+ END LOOP;
  IF t.work_source_type IS NOT NULL THEN
   src:=notification_private.source_snapshot(t.work_source_type,t.work_source_id,w.owner_user_id);
   IF NOT coalesce((src->>'supported')::boolean,false) OR src->>'reason' IN ('source_missing','source_validation_failed') OR src->>'reason'='source_resolved_or_ineligible' AND EXISTS(SELECT 1 FROM public.todos q WHERE q.id=t.id AND q.work_source_type IS NOT NULL AND w.stage='blocked') THEN
@@ -126,7 +129,7 @@ BEGIN
  IF p_todo_id IS NULL THEN
   SELECT coalesce(jsonb_agg(jsonb_build_object('todo_id',t.id,'work',to_jsonb(s),'summary',notification_private.work_summary(s,clock_timestamp())) ORDER BY s.updated_at DESC),'[]') INTO items
   FROM public.todos t JOIN public.swa_work_items s ON s.source_module='todo' AND s.source_record_id=t.id::text
-  WHERE s.owner_user_id=auth.uid() AND t.deleted_at IS NULL;
+  WHERE s.owner_user_id=auth.uid() AND notification_private.todo_actionable(t);
   RETURN jsonb_build_object('items',items,'checked_at',clock_timestamp());
  END IF;
  IF NOT EXISTS(SELECT 1 FROM public.todos WHERE id=p_todo_id AND coalesce(assigned_to_user_id,owner_user_id)=auth.uid()) THEN RAISE EXCEPTION 'Source access denied' USING ERRCODE='42501'; END IF;
@@ -194,7 +197,7 @@ END $$;
 CREATE FUNCTION public.notification_work_save(p_todo_id bigint,p_expected_version integer,p_request_id uuid,p_action text,p_payload jsonb DEFAULT '{}')
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
 DECLARE w public.swa_work_items; old_w public.swa_work_items; cached notification_private.work_requests; body jsonb; result jsonb;
- k text; b boolean; party text; typ text; sid text; s jsonb;
+ k text; b boolean; party text; typ text; sid text; s jsonb; step_index int; happened timestamptz;
 BEGIN
  IF NOT public.swa_is_operator() THEN RAISE EXCEPTION 'Operator required' USING ERRCODE='42501'; END IF;
  IF p_request_id IS NULL OR jsonb_typeof(p_payload) IS DISTINCT FROM 'object' THEN RAISE EXCEPTION 'Request identity and payload required'; END IF;
@@ -232,6 +235,14 @@ BEGIN
   IF p_payload->>'priority' NOT IN ('routine','important','urgent','critical') THEN RAISE EXCEPTION 'Priority required'; END IF;
   w.priority:=p_payload->>'priority';w.context:=coalesce(p_payload->'context','{}');
   IF jsonb_typeof(w.context)<>'object' OR octet_length(w.context::text)>8000 THEN RAISE EXCEPTION 'Invalid context'; END IF;
+  IF w.context ? 'checklist' THEN
+   IF jsonb_typeof(w.context->'checklist')<>'array' OR jsonb_array_length(w.context->'checklist')>30 THEN RAISE EXCEPTION 'Invalid checklist'; END IF;
+   FOR s IN SELECT value FROM jsonb_array_elements(w.context->'checklist') LOOP
+    IF length(coalesce(s->>'id','')) NOT BETWEEN 1 AND 80 OR length(btrim(coalesce(s->>'label',''))) NOT BETWEEN 3 AND 300 THEN RAISE EXCEPTION 'Checklist identity and description required'; END IF;
+    IF s ? 'completed_at' AND s->>'completed_at' IS NOT NULL AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements(coalesce(old_w.context->'checklist','[]')) o WHERE o->>'id'=s->>'id' AND o->>'completed_at'=s->>'completed_at') THEN RAISE EXCEPTION 'Record checklist completion as a separate action'; END IF;
+   END LOOP;
+   IF (SELECT count(*) FROM jsonb_array_elements(w.context->'checklist'))<>(SELECT count(DISTINCT value->>'id') FROM jsonb_array_elements(w.context->'checklist')) THEN RAISE EXCEPTION 'Duplicate checklist identity'; END IF;
+  END IF;
   IF w.context ? 'allocations' THEN
    IF jsonb_typeof(w.context->'allocations')<>'array' OR jsonb_array_length(w.context->'allocations')>31 THEN RAISE EXCEPTION 'Invalid salary allocations'; END IF;
    FOR s IN SELECT value FROM jsonb_array_elements(w.context->'allocations') LOOP
@@ -239,6 +250,7 @@ BEGIN
    END LOOP;
   END IF;
   IF ((old_w.manager_required AND NOT w.manager_required) OR (old_w.approval_required AND NOT w.approval_required) OR (old_w.communication_required AND NOT w.communication_required) OR (old_w.execution_required AND NOT w.execution_required) OR (old_w.verification_required AND NOT w.verification_required)) AND length(btrim(coalesce(p_payload->>'change_reason','')))<3 THEN RAISE EXCEPTION 'Reason required for removing an existing workflow requirement'; END IF;
+  IF EXISTS(SELECT 1 FROM jsonb_array_elements(coalesce(old_w.context->'checklist','[]')) c WHERE coalesce((c->>'required')::boolean,true) AND c->>'completed_at' IS NULL AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements(coalesce(w.context->'checklist','[]')) x WHERE x->>'id'=c->>'id')) AND length(btrim(coalesce(p_payload->>'change_reason','')))<3 THEN RAISE EXCEPTION 'Reason required for removing an unfinished required step'; END IF;
   w.stage:=coalesce(nullif(p_payload->>'stage',''),'active');
   IF w.stage NOT IN ('active','waiting_manager','waiting_external','blocked','verification') THEN RAISE EXCEPTION 'Invalid open stage'; END IF;
   w.hold_reason:=left(nullif(p_payload->>'hold_reason',''),500);
@@ -256,6 +268,14 @@ BEGIN
    context=w.context,hold_reason=w.hold_reason,row_version=row_version+1,updated_at=clock_timestamp() WHERE id=w.id RETURNING * INTO w;
   UPDATE public.todos SET work_managed=true,work_source_type=typ,work_source_id=sid,is_important=(w.priority<>'routine'),priority=CASE WHEN w.priority='routine' THEN 'normal' ELSE 'important' END,updated_at=clock_timestamp() WHERE id=p_todo_id;
   INSERT INTO public.swa_work_events(item_id,actor_user_id,event_type,payload) VALUES(w.id,auth.uid(),'plan_updated',jsonb_build_object('before',to_jsonb(old_w),'after',to_jsonb(w),'change_reason',p_payload->>'change_reason'));
+ ELSIF p_action='check_step' THEN
+  SELECT ordinality::int-1 INTO step_index FROM jsonb_array_elements(coalesce(w.context->'checklist','[]')) WITH ORDINALITY x(value,ordinality) WHERE value->>'id'=p_payload->>'value';
+  IF step_index IS NULL OR w.stage IN ('completed','cancelled') THEN RAISE EXCEPTION 'Active checklist step required'; END IF;
+  happened:=coalesce(nullif(p_payload->>'occurred_at','')::timestamptz,clock_timestamp());
+  IF happened>clock_timestamp()+interval '5 minutes' THEN RAISE EXCEPTION 'Future completion not allowed'; END IF;
+  w.context:=jsonb_set(w.context,ARRAY['checklist',step_index::text,'completed_at'],to_jsonb(happened));
+  UPDATE public.swa_work_items SET context=w.context,row_version=row_version+1,updated_at=clock_timestamp() WHERE id=w.id;
+  INSERT INTO public.swa_work_events(item_id,actor_user_id,event_type,event_at,payload) VALUES(w.id,auth.uid(),'checklist_step_recorded',happened,jsonb_build_object('step',p_payload->>'value','before',old_w.context,'after',w.context));
  ELSE
   w:=public.swa_act(w.id,p_expected_version,p_action,p_payload->>'value',nullif(p_payload->>'occurred_at','')::timestamptz,nullif(p_payload->>'session_id','')::uuid);
   IF p_action='complete' THEN
@@ -359,6 +379,7 @@ BEGIN
   UPDATE public.swa_work_items SET context=context||'{"adapter_auto_closed":false}'::jsonb WHERE id=w.id;
  END IF;
  IF r IS NOT NULL AND w.context->>'adapter_source_version' IS DISTINCT FROM md5(r::text) THEN
+  INSERT INTO public.swa_work_events(item_id,actor_user_id,event_type,payload) VALUES(w.id,uid,'source_reconciled',jsonb_build_object('origin','server_adapter','source_type',p_type,'source_id',p_id,'source_version',md5(r::text),'source_state',coalesce(r->>'status',r->>'result',r->>'resolution_status',r->>'paid')));
   UPDATE public.swa_work_items SET context=context||jsonb_build_object('adapter_source_version',md5(r::text),'source_date',coalesce(r->>'effective_date',r->>'from_date')),row_version=row_version+1,updated_at=clock_timestamp() WHERE id=w.id;
   UPDATE public.todos SET updated_at=clock_timestamp() WHERE id=tid;
  END IF;
@@ -373,7 +394,12 @@ BEGIN
 END $$;
 CREATE FUNCTION notification_private.module_work_trigger()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
-BEGIN PERFORM notification_private.sync_module_work(TG_ARGV[0],coalesce(to_jsonb(NEW)->>'id',to_jsonb(NEW)->>'archive_id')); RETURN NEW;END $$;
+BEGIN
+ IF EXISTS(SELECT 1 FROM notification_private.governance_control WHERE singleton AND enabled) AND EXISTS(SELECT 1 FROM notification_private.digest_bridge_control WHERE singleton AND enabled) THEN
+  PERFORM notification_private.sync_module_work(TG_ARGV[0],coalesce(to_jsonb(NEW)->>'id',to_jsonb(NEW)->>'archive_id'));
+ END IF;
+ RETURN NEW;
+END $$;
 DO $$
 DECLARE typ text; tab text;
 BEGIN
@@ -383,10 +409,18 @@ BEGIN
 END $$;
 CREATE FUNCTION notification_private.reconcile_module_work()
 RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
-DECLARE typ text; tab text; keycol text; ident text; n int:=0;
+DECLARE typ text; tab text; keycol text; ident text; n int:=0; predicate text;
 BEGIN
  FOR typ,tab,keycol IN SELECT * FROM (VALUES('transfer','transfers','id'),('exit','exits','id'),('leave','leaves','id'),('uniform_supply_order','uniform_supply_orders','id'),('uniform_delivery_issue','uniform_delivery_issues','id'),('uniform_delivery_bill','uniform_delivery_bills','id'),('recruitment','recruitment_archive','archive_id')) v(a,b,c) LOOP
-  FOR ident IN EXECUTE format('SELECT %I::text FROM public.%I',keycol,tab) LOOP
+  predicate:=CASE typ
+   WHEN 'transfer' THEN 't.deleted_at IS NULL AND lower(t.status) IN (''scheduled'',''joining pending'')'
+   WHEN 'leave' THEN 't.deleted_at IS NULL AND lower(coalesce(t.status,'''')) NOT IN (''approved'',''rejected'',''cancelled'',''completed'',''closed'')'
+   WHEN 'exit' THEN 't.deleted_at IS NULL AND lower(coalesce(t.status,'''')) NOT IN (''completed'',''cancelled'')'
+   WHEN 'uniform_supply_order' THEN 'lower(coalesce(t.status,'''')) NOT IN (''completed'',''cancelled'')'
+   WHEN 'uniform_delivery_issue' THEN 'lower(coalesce(t.resolution_status,'''')) NOT IN (''resolved'',''cancelled'')'
+   WHEN 'uniform_delivery_bill' THEN 'NOT coalesce(t.paid,false)'
+   WHEN 'recruitment' THEN 't.deleted_at IS NULL AND lower(coalesce(t.result,'''')) NOT IN (''rejected'',''withdrawn'',''hired'',''cancelled'')' END;
+  FOR ident IN EXECUTE format('SELECT t.%I::text FROM public.%I t WHERE (%s) OR EXISTS(SELECT 1 FROM public.todos q WHERE q.work_source_type=$1 AND q.work_source_id=t.%I::text AND notification_private.todo_actionable(q))',keycol,tab,predicate,keycol) USING typ LOOP
    PERFORM notification_private.sync_module_work(typ,ident); n:=n+1;
   END LOOP;
  END LOOP;

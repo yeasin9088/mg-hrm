@@ -6,14 +6,7 @@ import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';
 const code=await fs.readFile('notification-workflow-ui.js','utf8');
 const css=await fs.readFile('notification-workflow-ui.css','utf8');
-const server=http.createServer((req,res)=>{res.writeHead(200,{'content-type':'text/html'});res.end('<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><div id="page-todo"></div><div id="modal"></div>');});
-await new Promise(r=>server.listen(0,'127.0.0.1',r));
-const browser=await chromium.launch({headless:true});
-try{for(const width of [320,360,390,768,1024,1440]){
- const context=await browser.newContext({viewport:{width,height:900}}),page=await context.newPage();
- const errors=[];page.on('pageerror',e=>errors.push(String(e)));
- await page.goto('http://127.0.0.1:'+server.address().port);await page.addStyleTag({content:css});
- await page.evaluate(({code})=>{
+const boot=({code})=>{
   window.DATA={todos:[{id:200,note:'Test manager request'}]};window.renderTodo=function(){};
   window.openModal=(title,body)=>{document.getElementById('modal').innerHTML='<h2>'+title+'</h2>'+body;};window.closeModal=()=>{document.getElementById('modal').innerHTML='';};
   window.__revision=1;window.__failure=false;window.__conflict=false;window.__captures=0;
@@ -28,7 +21,15 @@ try{for(const width of [320,360,390,768,1024,1440]){
    return {error:{message:'Unknown RPC '+name}};
   }}};
   (0,eval)(code);
- },{code});
+ };
+const server=http.createServer((req,res)=>{res.writeHead(200,{'content-type':'text/html'});res.end('<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><div id="page-todo"></div><div id="modal"></div>');});
+await new Promise(r=>server.listen(0,'127.0.0.1',r));
+const browser=await chromium.launch({headless:true});
+try{for(const width of [320,360,390,768,1024,1440]){
+ const context=await browser.newContext({viewport:{width,height:900}}),page=await context.newPage();
+ const errors=[];page.on('pageerror',e=>errors.push(String(e)));
+ await page.goto('http://127.0.0.1:'+server.address().port);await page.addStyleTag({content:css});
+ await page.evaluate(boot,{code});
  await page.evaluate(()=>mgWorkOpen(200));
  await page.getByText('Record decision',{exact:true}).click();
  await page.waitForFunction(()=>document.getElementById('mgWorkStatus')?.textContent.includes('Saved on the server'));
@@ -47,7 +48,7 @@ try{for(const width of [320,360,390,768,1024,1440]){
  assert.match(await page.locator('#mgWorkStatus').innerText(),/not confirmed/);
  await page.evaluate(()=>mgWorkPending());assert.match(await page.locator('#modal').innerText(),/Waiting for connection/);
  // Reopening / reloading script does not erase IndexedDB intents.
- await page.evaluate(()=>{window.__failure=false;window.__mgWorkSteps=false;});await page.evaluate(code=>{(0,eval)(code);},code);
+ await page.reload();await page.addStyleTag({content:css});await page.evaluate(boot,{code});
  await page.evaluate(()=>mgWorkSync());assert.match(await page.locator('#modal').innerText(),/No queued changes/);
  await page.evaluate(()=>mgWorkQuickCapture());
  await page.locator('#mgWork_capture_subject').fill('Offline request');await page.evaluate(()=>{window.__failure=true;});

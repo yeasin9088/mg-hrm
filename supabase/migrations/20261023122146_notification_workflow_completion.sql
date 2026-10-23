@@ -783,6 +783,14 @@ BEGIN
   IF due IS NULL OR due>p_at+interval '4 hours' THEN CONTINUE; END IF;
   reason:=CASE WHEN due<=p_at THEN 'overdue_work' ELSE 'verified_time_risk' END;
   fp:=notification_private.source_snapshot('todo',t.id::text,w.owner_user_id)->>'source_version';
+  -- A grouped occurrence already represents this exact source version. New
+  -- captures/changed plans may surface, but overlapping policies do not buzz twice.
+  IF EXISTS(SELECT 1 FROM notification_private.push_occurrences o WHERE o.recipient_user_id=w.owner_user_id AND o.entity_type='todo' AND o.entity_id=t.id::text AND o.source_version=fp AND o.state<>'Released' AND coalesce(o.accepted_at,o.reserved_at)>p_at-interval '24 hours')
+  OR EXISTS(SELECT 1 FROM notification_private.digest_items di JOIN notification_private.digest_batches b ON b.id=di.batch_id
+    JOIN public.notification_events e ON e.entity_type='digest' AND e.entity_id=b.id::text
+    WHERE b.recipient_user_id=w.owner_user_id AND di.todo_id=t.id AND di.source_version=fp AND di.is_current
+    AND (e.processing_status IN ('Pending','Failed') OR EXISTS(SELECT 1 FROM public.notification_jobs j WHERE j.event_id=e.id AND j.job_status IN ('Pending','Processing','Failed'))))
+  THEN CONTINUE; END IF;
   key:='work-attention:'||t.id||':'||fp||':'||reason||':'||(p_at AT TIME ZONE 'Asia/Dhaka')::date;
   INSERT INTO public.notification_events(event_type,entity_type,entity_id,actor_user_id,event_key,event_payload,occurred_at)
   VALUES('TodoWorkAttention','todo',t.id::text,w.owner_user_id,key,jsonb_build_object(
@@ -807,8 +815,8 @@ BEGIN
   UPDATE notification_private.work_engine_runs SET last_started_at=clock_timestamp() WHERE singleton;
   checked:=notification_private.reconcile_module_work();
   PERFORM public.swa_reconcile(500);
-  PERFORM notification_private.publish_work_attention(clock_timestamp());
   dg:=notification_private.digest_publish_for_operators(clock_timestamp());
+  IF coalesce((dg->>'events_created')::int,0)=0 THEN PERFORM notification_private.publish_work_attention(clock_timestamp()); END IF;
   ev:=public.notification_run_event_processor('cron:notification-v2-workflow',25,interval '15 minutes');
   delivery:=public.notification_prepare_deliveries(25);
   UPDATE notification_private.work_engine_runs SET last_succeeded_at=clock_timestamp(),last_error=NULL,source_rows_checked=checked WHERE singleton;

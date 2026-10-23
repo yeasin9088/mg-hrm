@@ -171,10 +171,13 @@ begin
 
   SELECT enabled INTO v_governance FROM notification_private.governance_control WHERE singleton;
   SELECT enabled INTO v_bridge FROM notification_private.digest_bridge_control WHERE singleton;
-  IF coalesce(v_governance,false) AND coalesce(v_bridge,false)
-     AND v_notification.entity_type='digest' THEN
-    v_digest_invalid:=NOT notification_private.digest_dispatch_allowed(
-      v_notification.entity_id,v_notification.recipient_user_id,clock_timestamp());
+  IF v_notification.entity_type='digest' THEN
+    -- A queued digest is NEVER sent after either policy switch is disabled.
+    -- This is a permanent containment gate, independent of V1 compatibility.
+    v_digest_invalid:=NOT (coalesce(v_governance,false)
+      AND coalesce(v_bridge,false)
+      AND notification_private.digest_dispatch_allowed(
+        v_notification.entity_id,v_notification.recipient_user_id,clock_timestamp()));
   END IF;
 
   -- Recheck immediately before dispatch, including source, preferences and live presence.

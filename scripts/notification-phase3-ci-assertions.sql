@@ -10,7 +10,7 @@ DECLARE
  wrap_due timestamptz:='2026-10-23T11:15:00Z';
  next_morning timestamptz:='2026-10-24T03:05:00Z';
  v jsonb; p jsonb; again jsonb;
- batch_id bigint; ver text;
+ v_batch_id bigint; ver text;
 BEGIN
  p:=notification_private.digest_plan(owner,'2026-10-23','morning',morning_early);
  IF p->>'status'<>'NOT_DUE' OR (p->>'item_count')::int<>0
@@ -36,11 +36,11 @@ BEGIN
  v:=public.notification_digest_prepare_slot(owner,'2026-10-23','morning',morning_due);
  IF (v->>'item_count')::int<>21 OR (v->>'push_jobs_created')::int<>0 THEN
    RAISE EXCEPTION 'Batch not durable or mistakenly dispatched %',v; END IF;
- batch_id:=(v->>'batch_id')::bigint;
- IF (SELECT count(*) FROM notification_private.digest_items WHERE batch_id=batch_id)<>21 THEN
+ v_batch_id:=(v->>'batch_id')::bigint;
+ IF (SELECT count(*) FROM notification_private.digest_items d WHERE d.batch_id=v_batch_id)<>21 THEN
    RAISE EXCEPTION 'Batch contains wrong number of source IDs'; END IF;
  again:=public.notification_digest_prepare_slot(owner,'2026-10-23','morning',morning_due+interval '1 second');
- IF (again->>'batch_id')::bigint<>batch_id OR
+ IF (again->>'batch_id')::bigint<>v_batch_id OR
     (SELECT count(*) FROM notification_private.digest_batches)<>1 OR
     (SELECT count(*) FROM notification_private.digest_items)<>21 THEN
     RAISE EXCEPTION 'Same slot replay duplicated batch/items %',again; END IF;
@@ -53,16 +53,16 @@ BEGIN
  UPDATE public.todos SET solved_at=morning_due WHERE id=201;
  again:=public.notification_digest_prepare_slot(owner,'2026-10-23','morning',morning_due+interval '2 seconds');
  IF (again->>'item_count')::int<>20 OR
-   (SELECT count(*) FROM notification_private.digest_items
-      WHERE batch_id=batch_id AND is_current)=0 OR
-   NOT EXISTS(SELECT 1 FROM notification_private.digest_items
-      WHERE batch_id=batch_id AND todo_id=201 AND is_current=false) THEN
+   (SELECT count(*) FROM notification_private.digest_items d
+      WHERE d.batch_id=v_batch_id AND is_current)=0 OR
+   NOT EXISTS(SELECT 1 FROM notification_private.digest_items d
+      WHERE d.batch_id=v_batch_id AND todo_id=201 AND is_current=false) THEN
    RAISE EXCEPTION 'Completed source was not retired with history retained %',again; END IF;
  UPDATE public.todos SET solved_at=NULL WHERE id=201;
  again:=public.notification_digest_prepare_slot(owner,'2026-10-23','morning',morning_due+interval '3 seconds');
  IF (again->>'item_count')::int<>21 OR NOT EXISTS (
-   SELECT 1 FROM notification_private.digest_items
-   WHERE batch_id=batch_id AND todo_id=201 AND is_current) THEN
+   SELECT 1 FROM notification_private.digest_items d
+   WHERE d.batch_id=v_batch_id AND todo_id=201 AND is_current) THEN
    RAISE EXCEPTION 'Reopened source not restored %',again; END IF;
  -- Source/recipient change must make old recipient digest ineligible.
  UPDATE public.todos SET assigned_to_user_id=other_user WHERE id=202;

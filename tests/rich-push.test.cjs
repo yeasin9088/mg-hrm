@@ -58,7 +58,7 @@ function serviceWorker(){
   async function click(notification){let promise;listeners.notificationclick({notification:{data:notification.options.data,close(){}},waitUntil:p=>{promise=p;}});await promise;return opened.at(-1);}
   return {push,click,shown};
 }
-test('approved MG-HRM app mark and separate monochrome small glyph have correct source formats',()=>{
+test('approved MG-HRM app mark and separate monochrome small glyph have correct source formats',async()=>{
   const app=fs.readFileSync('app-logo-192.webp');
   assert.equal(app.subarray(0,4).toString('ascii'),'RIFF');
   assert.equal(app.subarray(8,12).toString('ascii'),'WEBP');
@@ -71,8 +71,8 @@ test('approved MG-HRM app mark and separate monochrome small glyph have correct 
   assert(page.includes('const logoContent = \'<img src="./app-logo-192.webp"'));
   assert(page.includes('<img src="./app-logo-192.webp" alt="MG-HRM app icon" width="60" height="60">'));
   assert(page.includes('id="mobileBrandLogo" aria-hidden="true"><img src="./app-logo-192.webp"'));
-  const workflow=fs.readFileSync('.github/workflows/pages.yml','utf8');
-  assert(workflow.includes('convert _site/app-logo-192.webp'));
+  const {validateAppIcons}=await import('../scripts/validate-app-icons.mjs');
+  validateAppIcons('.');
 });
 test('notification icon is the original Mahbub logo; Android badge is a transparent 96px PNG',()=>{
   const badge=fs.readFileSync('notification-badge-96.png');

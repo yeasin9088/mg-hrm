@@ -1,0 +1,47 @@
+name: Notification Phase 6 Dispatch Integrity
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/*notification_phase6_dispatch_integrity.sql'
+      - 'notification-engine-ui.js'
+      - 'tests/notification-integrity-fixture.mjs'
+      - 'tests/notification-dispatch-integrity.test.mjs'
+      - 'tests/notification-engine-ui.test.cjs'
+      - 'scripts/test-notification-concurrency.mjs'
+      - '.github/workflows/notification-dispatch-integrity.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-and-quota:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: notification_integrity_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d notification_integrity_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: notification_integrity_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Synthetic regression suite
+        run: node --test --test-concurrency=1 tests/*.test.cjs tests/*.test.mjs
+      - name: Real concurrent PostgreSQL connections
+        run: node scripts/test-notification-concurrency.mjs
+      - run: git diff --check

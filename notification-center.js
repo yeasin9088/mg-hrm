@@ -101,6 +101,9 @@
     const item = find(id); if (!item) return;
     const success = await change(id, async () => item.isBackend ? persisted(await repo().open(id), id) : (await legacyChange(item, 'Read'), null));
     if (!success) return;
+    if (item.entityType === 'digest' && typeof window.mgOpenNotificationDetails === 'function') {
+      await window.mgOpenNotificationDetails(id); return;
+    }
     document.getElementById('notifDropdown')?.classList.remove('open');
     const legacyRoutes = {sc:'disciplinary', rec:'recruitment', transfer_join:'transfer', rehire:'employees', todo_rem:'todo', todo_salary:'todo'};
     const display = model.todoPresentation(item, window.DATA?.todos || []);

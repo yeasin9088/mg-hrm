@@ -209,3 +209,5 @@
 }
 @media(max-width:360px){.mg-ns-engine-top{flex-direction:column}.mg-ns-engine-actions .mg-ns-btn{flex-basis:100%}}
 @media(prefers-reduced-motion:reduce){#mgNsSmartPolicy *,#mgNsSmartPolicy *::before,#mgNsSmartPolicy *::after{animation:none!important;transition:none!important}}
+
+.mg-engine-source-list{display:grid;gap:8px;max-height:45vh;overflow:auto}.mg-engine-source-list .mg-ns-btn{text-align:left;white-space:normal;min-height:44px}.mg-n6-actions .mg-ns-btn{min-height:44px}.mg-ns-help.error{color:#b91c1c}

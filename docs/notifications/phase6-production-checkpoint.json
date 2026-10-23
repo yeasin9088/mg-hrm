@@ -20,13 +20,13 @@
   "owner_final_release_approval": true,
   "phase6_responsive_ux_verified": false,
   "known_limitations": [
-    "Read-only staged DB functions installed; V2 gates remain disabled.",
-    "Atomic reservations are installed and passed real concurrent PostgreSQL tests; live V2 remains disabled and real provider/worker acceptance is unverified.",
-    "Complete recipient-version source adapters not verified for every HRM module.",
-    "69 individual Rulebook ATs not end-to-end accepted.",
-    "Real Android and desktop Push receipts, Service Worker click and offline/permissions not yet verified.",
-    "Full responsive Settings Center UX acceptance requires real-browser and authenticated live checks.",
-    "No P0/P1 emergency override, official weekend/holiday or payroll policy approved."
+    "V2 gates remain disabled; final acceptance is not complete.",
+    "Atomic reservations and integrated workflow are installed and tested; live V2/provider/device acceptance remains unverified.",
+    "Supported source adapters and canonical terminal-state alignment are implemented; complete live acceptance for every Rulebook module transition remains unverified.",
+    "69 complete Rulebook AT scenarios are not all end-to-end accepted; component tests do not substitute for that catalogue.",
+    "Real Android/Windows Push display, Service Worker click, offline/permission walkthrough and 14-30 day pilot remain unobserved.",
+    "Final responsive UX acceptance needs authenticated live and physical-device evidence beyond the synthetic Chromium checks.",
+    "No P0/P1 emergency override, official weekend/holiday or payroll cutoff policy approved."
   ],
   "phase6_configurable_window_applied": true,
   "phase6_clock_policy_readback_verified": true,
@@ -41,9 +41,19 @@
   "dispatch_integrity_pages_deployment_verified": true,
   "selection_followup_production_migration": "20261023084252 notification_recruitment_selection_followup",
   "latest_complete_local_regression": {
-    "total": 177,
-    "passed": 176,
+    "total": 187,
+    "passed": 186,
     "skipped": 1,
     "failed": 0
-  }
+  },
+  "workflow_completion_production_migration": "20261023130557 notification_workflow_completion",
+  "source_truth_alignment_production_migration": "20261023130913 notification_source_truth_alignment",
+  "workflow_completion_installed": true,
+  "canonical_open_todo_count": 8,
+  "dispatch_snapshot_open_todo_count": 8,
+  "all_current_todos_have_workflow_links": true,
+  "integrated_manager_communication_execution_test_proven": true,
+  "required_custom_substeps_test_proven": true,
+  "salary_allocation_and_promise_test_proven": true,
+  "source_reschedule_and_handoff_test_proven": true
 }

@@ -38,11 +38,11 @@ P0/P1 emergencies and after-hours overrides remain disabled.
 
 ## Verification
 
-- Nine workflow integration tests cover independent handoffs, stale revisions,
+- Ten workflow integration tests cover independent handoffs, stale revisions,
   retry receipts, rejected approvals, true deadlines, salary allocation,
   source reschedule/closure, 15-item manager sessions, bounded attention events
   and data-preserving containment.
-- Full local suite: 186 total, 185 passed, one existing skip, zero failures.
+- Full local suite: 187 total, 186 passed, one existing skip, zero failures.
 - Real PostgreSQL 16, two connections: concurrent manager writes reject the
   stale edit; simultaneous duplicate capture creates one task.
 - Actual Chromium at 320/360/390/768/1024/1440px: server saves, IndexedDB network
@@ -85,3 +85,22 @@ when the required steps and original module permit it. **Brief manager now**
 is available after hours and summarizes each session independently. **Quick
 capture** stores one ordinary task; **Pending saves** shows unsynced/conflicted
 changes. **Needs attention** filters the current existing tab.
+
+## Production installation
+
+Applied `20261023130557 notification_workflow_completion`. All 122 original
+To-Dos, 117 notifications and two active registrations remain unchanged.
+There are eight canonically open To-Dos, all linked to the eight existing
+workflow rows. No source mirror was created while V2 gates were disabled.
+
+A live discrepancy was found in the earlier snapshot adapter: its incomplete
+terminal-state list counted 45 open tasks instead of the authoritative eight.
+Forward migration `notification_source_truth_alignment` now calls the exact
+canonical `todo_actionable` helper, including terminal manager-status spellings.
+The added test checks every terminal spelling in both status fields. This
+corrects earlier diagnostic counts without changing any source status.
+
+Alignment applied as `20261023130913 notification_source_truth_alignment`.
+Live read-back now agrees: canonical eight, snapshot eight, all eight visible
+through the operator role and linked to the existing work ledger. Scheduler,
+sender and maintenance remain healthy with zero failed/dead-letter jobs.

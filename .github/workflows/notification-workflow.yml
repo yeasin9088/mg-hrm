@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'supabase/migrations/*notification_workflow_completion.sql'
+      - 'supabase/migrations/*notification_source_truth_alignment.sql'
       - 'notification-workflow-ui.*'
       - 'tests/notification-workflow*'
       - 'scripts/test-notification-workflow-concurrency.mjs'
@@ -42,7 +43,9 @@ jobs:
       - run: node --test --test-concurrency=1 tests/*.test.cjs tests/*.test.mjs
       - run: node scripts/test-notification-workflow-concurrency.mjs
       - run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright@1.58.0
-      - run: npx playwright install chromium --with-deps
+      - name: Install Chromium headless shell
+        timeout-minutes: 4
+        run: npx playwright install chromium --only-shell
       - run: node tests/notification-workflow-browser.mjs
       - run: git diff --check
       - uses: actions/upload-artifact@v4

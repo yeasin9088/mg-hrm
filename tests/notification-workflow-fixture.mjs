@@ -6,8 +6,12 @@ export async function setup(db){
  await integrity(db);
  await db.exec(`CREATE TABLE auth.users(id uuid PRIMARY KEY); INSERT INTO auth.users VALUES('${operator}');
  DROP TABLE public.swa_work_items;
+ CREATE OR REPLACE FUNCTION notification_private.todo_actionable(t public.todos) RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path=pg_catalog AS $$
+ SELECT t.deleted_at IS NULL AND t.solved_at IS NULL
+ AND lower(btrim(coalesce(t.status,''))) NOT IN ('done','complete','completed','closed','resolved','cancelled','canceled','solved','solved_approved','solved_rejected')
+ AND lower(btrim(coalesce(t.manager_status,''))) NOT IN ('done','complete','completed','closed','resolved','cancelled','canceled','solved','solved_approved','solved_rejected') $$;
  ALTER TABLE public.todos ADD COLUMN note_bn text,ADD COLUMN who text,ADD COLUMN project text,ADD COLUMN date date,ADD COLUMN next_reminder_at timestamptz;
  CREATE SEQUENCE test_todo_ids START 10000; ALTER TABLE public.todos ALTER COLUMN id SET DEFAULT nextval('test_todo_ids');`);
- for(const f of ['supabase/migrations/20261022232000_swa_v2_foundation.sql','supabase/migrations/20261022235000_swa_rejected_approval_followthrough.sql',workflowMigration])await db.exec(fs.readFileSync(f,'utf8'));
+ for(const f of ['supabase/migrations/20261022232000_swa_v2_foundation.sql','supabase/migrations/20261022235000_swa_rejected_approval_followthrough.sql',workflowMigration,'supabase/migrations/20261023130721_notification_source_truth_alignment.sql'])await db.exec(fs.readFileSync(f,'utf8'));
  await db.exec(`SELECT set_config('request.jwt.claim.sub','${operator}',false);`);
 }

@@ -177,3 +177,14 @@ test('required substeps block parent completion and remain independently audited
  assert.equal(d.summary.active,false);assert.equal(d.events.filter(e=>e.event_type==='checklist_step_recorded').length,2);
  }finally{await db.close();}
 });
+test('dispatch snapshots and canonical scheduler agree on every terminal spelling and manager status',async()=>{
+ const db=new PGlite();try{await setup(db);
+ const q=async(sql,args=[])=>(await db.query(sql,args)).rows[0].v;
+ const closed=['done','complete','completed','closed','resolved','cancelled','canceled','solved','solved_approved','solved_rejected'];
+ for(const field of ['status','manager_status'])for(const value of closed){
+  await db.query('UPDATE public.todos SET status=\'pending\',manager_status=\'none\',solved_at=NULL WHERE id=101');
+  await db.query('UPDATE public.todos SET '+field+'=$1 WHERE id=101',[value]);
+  assert.equal(await q("select (notification_private.source_snapshot('todo','101',$1)->>'actionable')::boolean v",[operator]),false,field+' '+value);
+ }
+ }finally{await db.close();}
+});

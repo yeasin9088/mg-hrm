@@ -72,6 +72,17 @@ BEGIN
  (SELECT id FROM public.notification_jobs WHERE notification_id=n),'worker');
  IF jsonb_array_length(v->'deliveries')<>1 THEN
    RAISE EXCEPTION 'Valid digest must use existing Web Push dispatch %',v; END IF;
+ -- An in-flight or previously queued digest must NOT escape after V2 rollback.
+ UPDATE notification_private.digest_bridge_control SET enabled=false WHERE singleton;
+ v:=public.notification_get_web_push_dispatch(
+   (SELECT id FROM public.notification_jobs WHERE notification_id=n),'worker');
+ IF jsonb_array_length(v->'deliveries')<>0 OR NOT EXISTS(
+   SELECT 1 FROM public.notification_deliveries
+   WHERE notification_id=n AND delivery_status='Skipped'
+     AND response_metadata->>'gate_reason'='digest_source_or_window_invalid') THEN
+   RAISE EXCEPTION 'Disabling bridge leaked previously queued digest %',v; END IF;
+ UPDATE notification_private.digest_bridge_control SET enabled=true WHERE singleton;
+ UPDATE public.notification_deliveries SET delivery_status='Pending' WHERE notification_id=n;
  UPDATE public.todos SET solved_at=morning WHERE id BETWEEN 200 AND 219 OR id=101;
  IF notification_private.digest_dispatch_allowed(b::text,owner,morning) THEN
    RAISE EXCEPTION 'Resolved source cannot authorize stale digest delivery'; END IF;

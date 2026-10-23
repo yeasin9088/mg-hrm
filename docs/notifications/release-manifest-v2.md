@@ -14,7 +14,7 @@ Production: https://yeasinh.me/mg-hrm/
 | 1 — Decision contract | `supabase/migrations/20261023180000_notification_core_decision_contract.sql` | Already applied to production as `20261023052759 notification_core_decision_contract` | Read-only preview |
 | 2 — Priority, risk, quotas | `supabase/migrations/20261023190000_notification_core_policy_phase2.sql` | Already applied to production as `20261023054338 notification_core_policy_phase2` | Read-only preview |
 | 3 — Digest scheduling | `supabase/migrations/20261023200000_notification_digest_scheduler_phase3.sql` | **READY FOR REVIEW; NOT APPLIED** | NO live cron or Push |
-| 4 — Gated digest event/push integration (partial) | `20261023210000_notification_digest_event_bridge_phase4.sql` then `20261023213000_notification_processor_bridge_phase4.sql` | STAGED IN REPOSITORY; NOT APPLIED | Both switches OFF |
+| 4 — Gated digest event/push integration (partial) | `20261023210000_notification_digest_event_bridge_phase4.sql` → `20261023213000_notification_processor_bridge_phase4.sql` → `20261023214500_notification_digest_event_guard_phase4.sql` | STAGED IN REPOSITORY; NOT APPLIED | Both switches OFF |
 | 5 — Release acceptance | Full E2E/device tests and activation | NOT COMPLETED | NO |
 
 **Important:** GitHub migration filename and the Supabase applied migration

@@ -25,6 +25,16 @@ All 69 Rulebook IDs were inspected against the attached v1.1 catalogue. **52 hav
 - `tests/migration-history.test.mjs`: every captured applied version has matching recorded SQL content, no duplicate versions, no untracked historical replay, and all executable migration paths exist.
 - Formal release gate remains `NOT_READY`. The 15 partial rows below include implementation and integration gaps; the two external rows cannot be completed by inventing observations.
 
+## Published verification
+
+Code commit: [`c555d7618145ac874a13d98cbb9c9b5ee15f9bd2`](https://github.com/yeasin9088/mg-hrm/commit/c555d7618145ac874a13d98cbb9c9b5ee15f9bd2).
+
+- Supabase Preview check `120469722786` succeeded. The migration version mismatch is resolved. All 31 applied versions are represented in the repository.
+- [Rulebook 69 Acceptance Audit](https://github.com/yeasin9088/mg-hrm/actions/runs/39969876730) succeeded, including full regression, individual AT export, real PostgreSQL concurrency and Chromium six-viewport/offline/conflict checks.
+- Full local and CI regression: **259 total, 256 passed, 0 failed, 3 skipped** (two explicit external ATs plus one pre-existing skip). The dedicated 69-AT runner: **67 automated scopes passed, 0 failed, 2 not run**.
+- [Pages deployment](https://github.com/yeasin9088/mg-hrm/actions/runs/39969876656) succeeded. Live `notification-workflow-ui.js` and `sw.js` were fetched and compared byte-for-byte with the released files; both matched.
+- All six GitHub checks on the code commit succeeded. No real-device/pilot or full acceptance claims were inferred from these successful checks.
+
 ## Individual results
 
 | AT | Controlled acceptance status | Observed result / remaining work |

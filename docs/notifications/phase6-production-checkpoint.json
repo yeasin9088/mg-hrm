@@ -1,7 +1,7 @@
 {
   "release_id": "notification-v2-phase6-2026-10-23",
   "evidence_snapshot_date": "2026-10-23",
-  "production_commit": "1d4c0892bc2b9a98a388cb32b9e1e486983210d7",
+  "production_commit": "c555d7618145ac874a13d98cbb9c9b5ee15f9bd2",
   "governance_enabled": false,
   "digest_bridge_enabled": false,
   "phase3_4_5_migrations_applied": true,
@@ -74,9 +74,16 @@
   "acceptance_gaps_production_migration": "20261023142411 notification_acceptance_gaps",
   "migration_history_versions_reconciled": 31,
   "supabase_preview_error_cause": "Remote migration versions not found in local migrations directory",
-  "supabase_preview_fix_live_verified": false,
+  "supabase_preview_fix_live_verified": true,
   "preclose_risk_classification_test_proven": true,
   "duplicate_suggestion_only_test_proven": true,
   "synthetic_fixture_export_restore_test_proven": true,
-  "acceptance_gaps_rollback_test_proven": true
+  "acceptance_gaps_rollback_test_proven": true,
+  "supabase_preview_success_check_id": 120469722786,
+  "rulebook_acceptance_ci_run": 39969876730,
+  "rulebook_acceptance_ci_success": true,
+  "acceptance_gaps_pages_deployment_run": 39969876656,
+  "acceptance_gaps_live_assets_match": true,
+  "concurrent_scheduler_and_digest_slot_postgresql_proven": true,
+  "after_hours_action_and_duplicate_labels_six_viewports_proven": true
 }

@@ -11,11 +11,14 @@ test('anniversary boundary, backdated exit and leap day use calendar years',()=>
  assert.throws(()=>M.tenure('2026-02-30','2026-10-23'));
  assert.throws(()=>M.tenure('2026-10-24','2026-10-23'));
 });
-test('manual override must be explicit, disabled amounts are normalized to zero',()=>{
- assert.throws(()=>check({enabled:false}),/override/);
- assert.equal(check({enabled:false,override_reason:'Approved exception'}).expected,0);
- assert.throws(()=>check({},'2025-01-01'),/override/);
- assert.equal(check({override_reason:'Authority instruction'},'2025-01-01').expected,3000);
+test('under-one-year deduction decision is mandatory; one-year default remains optional',()=>{
+ assert.throws(()=>check({enabled:false}),/mandatory/);
+ assert.throws(()=>check({enabled:false,override_reason:'Exception'}),/mandatory/);
+ assert.throws(()=>check({enabled:true,outcome:'',reason:''}),/decision/);
+ assert.equal(check({enabled:false},'2025-10-23').outcome,'not_applicable');
+ assert.equal(check({enabled:false},'2025-10-23').expected,0);
+ assert.throws(()=>check({enabled:true},'2025-10-23'),/manually enabled/);
+ assert.equal(check({enabled:true,override_reason:'Management approval'},'2025-10-23').expected,3000);
 });
 test('money and outcome validation reject negative, nonfinite, rounding and inconsistent values',()=>{
  for(const deducted of [-1,NaN,Infinity,'0.001','1e3',3001])assert.throws(()=>check({deducted}));

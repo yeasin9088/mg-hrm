@@ -1,0 +1,107 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const M=require('../exit-model.js');
+function harness(join='2026-01-01'){
+ const elements=new Map();
+ const node=(id,value='')=>({id,value,checked:false,disabled:false,hidden:false,readOnly:false,dataset:{},textContent:'',title:'',innerHTML:'',style:{},
+  addEventListener(){},querySelector(){return {textContent:''};}});
+ for(const [id,val] of Object.entries({exEmp:'1',exDate:'',exType:'Voluntary Resignation',exIssue:'2026-10-23',exReason:'Synthetic exit',btnSubmitExit:''}))elements.set(id,node(id,val));
+ const employee={id:1,EmployeeID:'SYN-1',JoinDate:join,Status:'Active',FullName:'Synthetic Guard'};
+ const errors=[];let confirmed=null,called=0;
+ const g={ExitModel:M,escapeHtml:v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'),
+  findEmp:()=>employee,guardEdit:()=>true,toast:(message,type)=>errors.push([message,type]),
+  mtCustomConfirm:(a,b,c,callback)=>{confirmed=callback;},ExitService:{submit:async()=>{called++;return {exit_id:12}}},
+  DATA:{exits:[]},MGHRM:{reloadExits:async()=>[]},closeModal(){},renderExit(){},renderEmpTable(){}};
+ const sandbox={window:g,document:{getElementById:id=>elements.get(id)||null},console,Intl,Date,Error,Number,JSON,crypto:require('node:crypto').webcrypto};
+ vm.runInNewContext(fs.readFileSync(require.resolve('../exit-ui.js'),'utf8'),sandbox);
+ const html=g.ExitUI.html();
+ for(const match of html.matchAll(/<([a-z]+)\b([^>]*?)\bid="([^"]+)"([^>]*)>/gi)){
+  const attrs=match[2]+match[4],id=match[3];if(elements.has(id))continue;
+  const raw=attrs.match(/\bvalue="([^"]*)"/);
+  elements.set(id,node(id,raw?.[1]??''));
+ }
+ const get=id=>{const result=elements.get(id);assert(result,'missing '+id);return result;};
+ return {g,get,employee,errors,confirm:async()=>confirmed?.(),calls:()=>called,hasConfirm:()=>!!confirmed};
+}
+test('exit-date activation: under-one-year mandatory decision with one dropdown only',()=>{
+ const h=harness();h.g.ExitUI.reset();
+ assert.equal(h.get('xs_scope').hidden,true);
+ h.get('exDate').value='2026-10-23';h.g.ExitUI.update(true);
+ assert.equal(h.get('xs_scope').hidden,false);
+ assert.equal(h.get('xs_optional').hidden,true);
+ assert.equal(h.get('xs_required').hidden,false);
+ assert.equal(h.get('xs_decision_area').hidden,false);
+ assert.equal(h.get('xs_detail').hidden,true);
+ assert.equal(h.get('btnSubmitExit').disabled,true);
+ assert.match(h.get('xs_feedback').textContent,/decision/);
+});
+test('full deduction shows only relevant details and requires date',()=>{
+ const h=harness();h.get('exDate').value='2026-10-23';h.g.ExitUI.update(true);
+ h.get('xs_outcome').value='collected';h.g.ExitUI.choose();
+ assert.equal(h.get('xs_wrap_deducted_on').hidden,false);
+ assert.equal(h.get('xs_wrap_reason').hidden,true);
+ assert.equal(h.get('xs_wrap_approved_by').hidden,true);
+ assert.equal(h.get('xs_wrap_follow_up_on').hidden,true);
+ assert.equal(h.get('xs_wrap_deducted').hidden,false);
+ assert.equal(h.get('xs_deducted').value,'3000');
+ assert.equal(h.get('btnSubmitExit').disabled,true);
+ h.get('xs_deducted_on').value='2026-10-22';h.g.ExitUI.update();
+ assert.equal(h.get('btnSubmitExit').disabled,false);
+ assert.equal(h.g.ExitUI.collect().deducted,3000);
+});
+test('partial deduction reveals reason and optional deposit evidence',()=>{
+ const h=harness();h.get('exDate').value='2026-10-23';h.g.ExitUI.update(true);
+ h.get('xs_outcome').value='partial';h.g.ExitUI.choose();
+ assert.equal(h.get('xs_wrap_reason').hidden,false);
+ assert.equal(h.get('xs_wrap_follow_up_on').hidden,false);
+ assert.equal(h.get('xs_deposit_group').hidden,true);
+ h.get('xs_deducted').value='1200';h.get('xs_deducted_on').value='2026-10-22';h.g.ExitUI.update();
+ assert.equal(h.get('btnSubmitExit').disabled,true);
+ h.get('xs_reason').value='salary_held';h.g.ExitUI.update();
+ assert.equal(h.get('btnSubmitExit').disabled,false);
+ h.get('xs_deposit_now').checked=true;h.g.ExitUI.toggleDeposit();
+ assert.equal(h.get('xs_deposit_group').hidden,false);
+ h.get('xs_deposited').value='500';h.get('xs_deposited_on').value='2026-10-23';
+ h.get('xs_receipt_no').value='SYN-R1';h.get('xs_deposited_to').value='Accounts';h.g.ExitUI.update();
+ assert.equal(h.g.ExitUI.collect().deposited,500);
+});
+test('not deducted requires reason; waiver requires authorized approval and notes',()=>{
+ const h=harness();h.get('exDate').value='2026-10-23';h.g.ExitUI.update(true);
+ h.get('xs_outcome').value='pending';h.g.ExitUI.choose();
+ assert.equal(h.get('xs_wrap_deducted').hidden,true);
+ assert.equal(h.get('xs_wrap_reason').hidden,false);
+ assert.equal(h.get('btnSubmitExit').disabled,true);
+ h.get('xs_reason').value='salary_paid';h.g.ExitUI.update();
+ assert.equal(h.get('btnSubmitExit').disabled,false);
+ h.get('xs_outcome').value='waived';h.g.ExitUI.choose();
+ assert.equal(h.get('xs_wrap_reason').hidden,true);
+ assert.equal(h.get('xs_wrap_approved_by').hidden,false);
+ assert.equal(h.get('xs_wrap_follow_up_on').hidden,true);
+ assert.equal(h.get('btnSubmitExit').disabled,true);
+ h.get('xs_approved_by').value='Authorized Manager';h.get('xs_notes').value='Waiver decision recorded';h.g.ExitUI.update();
+ assert.equal(h.get('btnSubmitExit').disabled,false);
+ assert.equal(h.g.ExitUI.collect().reason,'special_waiver');
+});
+test('one-year completed: off by default, can save without extra fields, opt-in needs reason',()=>{
+ const h=harness('2025-10-23');h.get('exDate').value='2026-10-23';h.g.ExitUI.update(true);
+ assert.equal(h.get('xs_optional').hidden,false);
+ assert.equal(h.get('xs_decision_area').hidden,true);
+ assert.equal(h.get('btnSubmitExit').disabled,false);
+ assert.equal(h.g.ExitUI.collect().outcome,'not_applicable');
+ h.get('xs_enabled').checked=true;h.g.ExitUI.toggleOptional();
+ assert.equal(h.get('xs_override_wrap').hidden,false);
+ assert.equal(h.get('xs_decision_area').hidden,false);
+ h.get('xs_outcome').value='pending';h.g.ExitUI.choose();h.get('xs_reason').value='no_salary_due';h.g.ExitUI.update();
+ assert.equal(h.get('btnSubmitExit').disabled,true);
+ h.get('xs_override_reason').value='Operator decision';h.g.ExitUI.update();
+ assert.equal(h.get('btnSubmitExit').disabled,false);
+});
+test('incomplete deduction never opens the confirmation dialog or calls RPC',async()=>{
+ const h=harness();h.get('exDate').value='2026-10-23';h.g.ExitUI.update(true);
+ h.g.ExitUI.submit();assert.equal(h.hasConfirm(),false);assert.equal(h.calls(),0);
+ h.get('xs_outcome').value='pending';h.g.ExitUI.choose();h.get('xs_reason').value='salary_held';h.g.ExitUI.update();
+ h.g.ExitUI.submit();assert.equal(h.hasConfirm(),true);assert.equal(h.calls(),0);
+ await Promise.all([h.confirm(),h.confirm()]);assert.equal(h.calls(),1);
+});

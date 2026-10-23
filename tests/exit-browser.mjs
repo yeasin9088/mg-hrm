@@ -36,12 +36,12 @@ try{
   await page.goto(`http://127.0.0.1:${port}/__exit-test`);
   await page.locator('#exDate').fill('2026-10-23');await page.locator('#exDate').dispatchEvent('change');
   assert(await page.locator('#xs_enabled').isChecked());
-  await page.locator('#xs_reason').selectOption('salary_held');await page.locator('#exReason').fill('Synthetic resignation');
+  await page.locator('#xs_outcome').selectOption('pending');await page.locator('#xs_reason').selectOption('salary_held');await page.locator('#exReason').fill('Synthetic resignation');
   await page.evaluate(()=>{ExitUI.submit();window.confirmCallback();window.confirmCallback();});
   await page.waitForFunction(()=>window.calls===1&&window.messages.some(x=>x.type==='success'));
   await page.locator('#exDate').fill('2026-10-23');await page.locator('#exDate').dispatchEvent('change');
   await page.evaluate(()=>{DATA.employees[0].JoinDate='2025-10-23';exFillEmp();});
-  assert(!(await page.locator('#xs_enabled').isChecked()));assert(!(await page.locator('#xs_fields').isVisible()));
+  assert(!(await page.locator('#xs_enabled').isChecked()));assert(!(await page.locator('#xs_decision_area').isVisible()));
   await page.locator('#xs_enabled').check();assert(await page.locator('#xs_override_wrap').isVisible());
   const hasOverflow=await page.evaluate(()=>document.querySelector('#page-exit').scrollWidth>window.innerWidth);assert(!hasOverflow,'Exit form overflows at '+width);
   await page.evaluate(()=>showReport('exitSettlement'));await page.waitForFunction(()=>!document.getElementById('xs_print').disabled);

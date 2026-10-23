@@ -2,7 +2,7 @@
 (function(root){
  'use strict';
  const reasons=Object.freeze({salary_paid:'Salary already withdrawn',insufficient_salary:'Insufficient salary balance',no_salary_due:'No salary payable',salary_held:'Entire salary held by institution',release_pending:'Held salary not released',payroll_pending:'Final salary calculation pending',special_waiver:'Waived by authorized recommendation',decision_pending:'Authority decision pending',disputed:'Deduction disputed',other:'Other (notes required)'});
- const outcomes=Object.freeze({collected:'Fully deducted',partial:'Partially deducted',pending:'Not deducted / pending',waived:'Authorized waiver',not_applicable:'Not applicable'});
+ const outcomes=Object.freeze({collected:'Full deduction',partial:'Partial deduction',pending:'No deduction — reason required',waived:'Approved waiver — authorized decision',not_applicable:'Not applicable'});
  function date(value){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(value||'')) throw Error('A valid YYYY-MM-DD date is required.');
   const d=new Date(value+'T00:00:00Z');
@@ -35,17 +35,20 @@
   if(exit>today) throw Error('A future exit cannot mark an employee inactive.');
   const s={...input,enabled:!!input.enabled};
   for(const k of ['override_reason','reason','receipt_no','deposited_to','approved_by','notes']) s[k]=String(s[k]||'').trim();
-  if(s.enabled!==t.defaultEnabled&&!s.override_reason) throw Error('Explain the manual applicability override.');
+  if(t.defaultEnabled&&!s.enabled) throw Error('Deduction decision is mandatory before the first service anniversary. Select No deduction or Approved waiver if no money is collected.');
+  if(s.enabled&&!t.defaultEnabled&&!s.override_reason) throw Error('Explain why deduction tracking is manually enabled.');
   if(!s.enabled) return {...s,expected:0,deducted:0,deposited:0,outcome:'not_applicable',reason:'',deducted_on:'',deposited_on:'',receipt_no:'',deposited_to:'',approved_by:'',follow_up_on:''};
   s.expected=money(s.expected,'Expected deduction');s.deducted=money(s.deducted,'Deducted');s.deposited=money(s.deposited,'Deposited');
   if(s.expected<=0||s.deducted>s.expected||s.deposited>s.deducted) throw Error('Expected must be positive; deposited ≤ deducted ≤ expected.');
   if(s.expected!==3000&&!s.notes) throw Error('Explain the adjusted expected amount in notes.');
-  if(!outcomes[s.outcome]||s.outcome==='not_applicable') throw Error('Select a deduction outcome.');
+  if(!outcomes[s.outcome]||s.outcome==='not_applicable') throw Error('Select a deduction decision.');
   if(s.outcome==='collected'&&s.deducted!==s.expected||s.outcome==='partial'&&!(s.deducted>0&&s.deducted<s.expected)||['pending','waived'].includes(s.outcome)&&s.deducted!==0) throw Error('Outcome does not match the deducted amount.');
   if(s.deducted<s.expected&&!reasons[s.reason]) throw Error('Select a reason for missing or partial deduction.');
   if(s.reason==='other'&&!s.notes) throw Error('Other reason requires notes.');
   if(s.outcome==='waived'&&(!s.approved_by||!s.notes||s.reason!=='special_waiver')) throw Error('Waiver requires special waiver reason, authority and decision notes.');
-  if(s.outcome!=='waived'&&s.reason==='special_waiver') throw Error('Select authorized waiver for this reason.');
+  if(s.outcome!=='waived'&&s.reason==='special_waiver') throw Error('Select approved waiver for this reason.');
+  if(s.outcome==='collected')s.reason='';
+  if(['collected','waived'].includes(s.outcome))s.follow_up_on='';
   if(s.deducted>0){date(s.deducted_on);if(s.deducted_on>today)throw Error('Deduction date cannot be in the future.');}else s.deducted_on='';
   if(s.deposited>0){
    date(s.deposited_on);

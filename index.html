@@ -12906,8 +12906,8 @@ function renderExit(){
           <div class="field"><label>${'Exit Date'} *</label><input id="exDate" type="date" onchange="ExitUI.update(true)"></div>
           <div class="field"><label>${'Issue Date'}</label><input id="exIssue" type="date" value="${todayISO()}"></div>
           <div class="field wide"><label>${'Exit Reason'} *</label><textarea id="exReason" rows="3"></textarea></div>
+          ${ExitUI.html()}
         </div>
-        ${ExitUI.html()}
         <div style="margin-top:14px" class="btn-row">
           <button class="btn danger" id="btnSubmitExit" onclick="submitExit()">${'Mark as Inactive'}</button>
           <button class="btn" onclick="previewClearance()">${ico('print')} ${'Clearance Certificate'}</button>

@@ -14,10 +14,6 @@ BEGIN
     (SELECT count(*) FROM public.notification_events)<>0 OR
     (SELECT count(*) FROM notification_private.digest_batches)<>0 THEN
    RAISE EXCEPTION 'Disabled Phase4 must not touch source/event/queue %',v; END IF;
- IF (public.notification_cron_tick()->>'processor'->>'legacy') IS NULL THEN
-   -- Parser-safe compatibility assertion performed via explicit JSON below.
-   NULL;
- END IF;
  v:=public.notification_cron_tick();
  IF v->>'status'<>'Completed' OR v->'processor'->>'legacy'<>'v1_processor' THEN
    RAISE EXCEPTION 'V1 cron must remain unchanged while disabled %',v; END IF;

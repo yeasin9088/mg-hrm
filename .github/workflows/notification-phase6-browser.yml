@@ -1,0 +1,43 @@
+name: Notification Phase 6 Chromium Responsive Acceptance
+on:
+  pull_request:
+    paths:
+      - 'notification-settings.js'
+      - 'notification-ui.css'
+      - 'tests/notification-phase6-browser.mjs'
+      - 'scripts/notification-phase6-release-gate.mjs'
+      - 'docs/notifications/phase6-production-checkpoint.json'
+      - 'docs/notifications/phase6-release-evidence-2026-10-23.md'
+      - 'docs/notifications/phase5-acceptance-evidence.md'
+      - '.github/workflows/notification-phase6-browser.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  chromium-settings:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify release gate accurately blocks unverified live activation
+        run: |
+          node scripts/notification-phase6-release-gate.mjs
+          if node scripts/notification-phase6-release-gate.mjs --assert-ready; then
+            echo "ERROR: Production activation must remain blocked until all ATs pass."
+            exit 1
+          fi
+      - name: Install independent synthetic browser test runner
+        run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright@1.58.0
+      - name: Install Chromium with runner libraries
+        run: npx playwright install chromium --with-deps
+      - name: Verify mobile/desktop policy UI and database-revision mock
+        run: node tests/notification-phase6-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: notification-phase6-responsive-screens
+          path: artifacts/notification-phase6/
+          if-no-files-found: ignore

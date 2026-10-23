@@ -1,0 +1,31 @@
+{
+  "release_id": "notification-v2-phase6-2026-10-23",
+  "evidence_snapshot_date": "2026-10-23",
+  "production_commit": "72504323c0754d84f805ee58c861b6516190ab5f",
+  "governance_enabled": false,
+  "digest_bridge_enabled": false,
+  "phase3_4_5_migrations_applied": true,
+  "staging_policy_readback_verified": true,
+  "current_policy_revision": 1,
+  "source_adapters_complete": false,
+  "atomic_push_rate_cap_enforced": false,
+  "all_rulebook_acceptance_proven": false,
+  "operator_end_to_end_android_push_proven": false,
+  "operator_end_to_end_desktop_push_proven": false,
+  "service_worker_click_on_real_devices_proven": false,
+  "cron_recovery_live_proven": false,
+  "concurrent_worker_provider_quota_proven": false,
+  "verified_calendar_required": false,
+  "verified_calendar_available": false,
+  "owner_final_release_approval": false,
+  "phase6_responsive_ux_verified": false,
+  "known_limitations": [
+    "Read-only staged DB functions installed; V2 gates remain disabled.",
+    "Atomic reservation / concurrent-worker enforced successful-Push cap not fully implemented.",
+    "Complete recipient-version source adapters not verified for every HRM module.",
+    "69 individual Rulebook ATs not end-to-end accepted.",
+    "Real Android and desktop Push receipts, Service Worker click and offline/permissions not yet verified.",
+    "Full responsive Settings Center UX acceptance requires real-browser and authenticated live checks.",
+    "No P0/P1 emergency override, official weekend/holiday or payroll policy approved."
+  ]
+}

@@ -21,6 +21,10 @@ The individual runner includes the operations, inbox, engine settings and source
 
 Remaining partial ATs: 013, 014, 020, 028, 032, 038, 039, 063. Physical Android/Windows UX (043) and the 14–30 day pilot (044) remain blocked on external observation/time. Emergency/calendar policy is not silently enabled.
 
+## Published verification — current correction
+
+Code commit [`08f6fa18caebd9ec745d5be79136a7d5842bd0b6`](https://github.com/yeasin9088/mg-hrm/commit/08f6fa18caebd9ec745d5be79136a7d5842bd0b6). [Acceptance CI](https://github.com/yeasin9088/mg-hrm/actions/runs/39985008274) succeeded: 267 tests, 264 passes, 0 failures, 3 deliberate/pre-existing skips; 67 executable AT scopes pass. Real PostgreSQL source permissions and concurrent operations pass; Chromium six-viewport/reload/conflict checks pass. [Pages deploy](https://github.com/yeasin9088/mg-hrm/actions/runs/39985008298) succeeded. Supabase Preview check `120522112906` succeeded. Live notification-model.js, notification-ui.js, notification-engine-ui.js and sw.js match this commit byte-for-byte. The checkpoint includes their SHA256 hashes. These results do not change the NOT_READY release decision.
+
 ## Individual results
 
 | AT | Controlled acceptance status | Observed result / remaining work |

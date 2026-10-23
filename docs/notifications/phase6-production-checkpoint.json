@@ -1,7 +1,7 @@
 {
   "release_id": "notification-v2-phase6-2026-10-23",
   "evidence_snapshot_date": "2026-10-23",
-  "production_commit": "c555d7618145ac874a13d98cbb9c9b5ee15f9bd2",
+  "production_commit": "08f6fa18caebd9ec745d5be79136a7d5842bd0b6",
   "governance_enabled": false,
   "digest_bridge_enabled": false,
   "phase3_4_5_migrations_applied": true,
@@ -97,5 +97,34 @@
   "service_role_retry_deadletter_synthetic_proven": true,
   "calendar_proposal_only_synthetic_proven": true,
   "operations_health_live": true,
-  "ui_shell_cache": "mghrm-v46"
+  "ui_shell_cache": "mghrm-v46",
+  "operations_acceptance_pages_deployment_run": 39985008298,
+  "operations_acceptance_supabase_preview_check": 120522112906,
+  "operations_acceptance_live_assets": [
+    {
+      "file": "notification-model.js",
+      "exact": true,
+      "sha256": "9f19db324494f976f91ef720fa38ce18b485feab79848402eff1253e25a00329"
+    },
+    {
+      "file": "notification-ui.js",
+      "exact": true,
+      "sha256": "277f28f1c7284a6ca65a604015233c845de11864582337df58b1918760663e25"
+    },
+    {
+      "file": "notification-engine-ui.js",
+      "exact": true,
+      "sha256": "003560d02429972b7666e8978ffb9afcfbd07c6b4ff178c373da8271c4c99810"
+    },
+    {
+      "file": "sw.js",
+      "exact": true,
+      "sha256": "ea7b91969fe2578bd2440457fb6f2ec26842bcb814a247b7fa979cc3c0a78060"
+    }
+  ],
+  "operations_acceptance_ci_run": 39985008274,
+  "operations_acceptance_ci_success": true,
+  "source_permissions_real_postgresql_proven": true,
+  "operations_acceptance_six_viewports_synthetic_proven": true,
+  "operations_acceptance_live_assets_match": true
 }

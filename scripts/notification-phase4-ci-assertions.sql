@@ -6,7 +6,7 @@ DECLARE
  n uuid:='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
  morning timestamptz:='2026-10-23T03:05:00Z';
  wrap timestamptz:='2026-10-23T11:15:00Z';
- v jsonb; v2 jsonb; k text; b bigint; e bigint;
+ v jsonb; v2 jsonb; k text; b bigint; e bigint; event_job bigint;
 BEGIN
  -- V1 remains unchanged with both policy switches initially disabled.
  v:=notification_private.digest_publish_slot(owner,morning);
@@ -37,6 +37,17 @@ BEGIN
  IF (SELECT event_payload::text FROM public.notification_events WHERE id=e)
     LIKE '%Sensitive internal work details%' THEN
     RAISE EXCEPTION 'Digest event leaked source notes'; END IF;
+ -- An already-produced digest must be suppressed if rollback happens
+ -- before the original event processor creates the Inbox notification.
+ INSERT INTO public.notification_jobs(event_id,job_type,job_status,locked_by)
+ VALUES(e,'ProcessEvent','Processing','worker') RETURNING id INTO event_job;
+ UPDATE notification_private.digest_bridge_control SET enabled=false WHERE singleton;
+ PERFORM public.notification_process_event_job(event_job,'worker');
+ IF NOT EXISTS(SELECT 1 FROM public.notification_events
+    WHERE id=e AND processing_status='Ignored'
+      AND processing_error='Digest suppressed after source/policy revalidation') THEN
+   RAISE EXCEPTION 'Rolled back digest event leaked into Inbox'; END IF;
+ UPDATE notification_private.digest_bridge_control SET enabled=true WHERE singleton;
  v2:=notification_private.digest_publish_slot(owner,morning+interval '1 second');
  IF v2->>'published'<>'false' OR
     (v2->>'event_id')::bigint<>e OR

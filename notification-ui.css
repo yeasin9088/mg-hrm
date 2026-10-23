@@ -179,3 +179,33 @@
   .mg-n-inbox .mg-n-row-actions .mg-n-btn{min-height:34px;padding:4px 8px;flex:none!important}
   .mg-n-inbox .mg-n-tools .mg-n-select{max-width:none}
 }
+
+
+/* Phase 6: one Settings Center, mobile-first engine controls. No duplicate inbox. */
+.mg-ns-engine{min-width:0}
+.mg-ns-engine-top{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:9px}
+.mg-ns-engine-top h3{margin:0 0 4px}
+.mg-ns-engine-state{display:inline-flex;align-items:center;border:1px solid var(--border,#cbd5e1);border-radius:999px;padding:5px 10px;font-size:11px;font-weight:750;line-height:1.35;white-space:nowrap;color:var(--text-main,#334155);background:var(--bg-dim,#f8fafc)}
+.mg-ns-engine-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}
+.mg-ns-engine-field{display:flex;flex-direction:column;justify-content:space-between;gap:9px;min-width:0;padding:12px;border:1px solid var(--border,#e2e8f0);border-radius:12px;background:var(--card,#fff)}
+.mg-ns-engine-field>span{display:block;min-width:0}
+.mg-ns-engine-field strong{display:block;font-size:12.5px;line-height:1.35;color:var(--text-main,#0f172a)}
+.mg-ns-engine-field small{display:block;margin-top:4px;font-size:11px;line-height:1.45;color:var(--text-muted,#64748b)}
+.mg-ns-engine-field .mg-ns-input{width:100%;min-width:0;min-height:44px;margin:0;font-size:16px}
+.mg-ns-engine-field input[type="checkbox"]{width:23px;height:23px;min-width:23px;align-self:flex-start;cursor:pointer;accent-color:var(--primary,#4f46e5)}
+.mg-ns-engine-locked{padding:12px;border:1px solid var(--border,#cbd5e1);border-radius:12px;background:var(--bg-dim,#f8fafc)}
+.mg-ns-engine-locked strong{font-size:12px}
+.mg-ns-engine-locked p{margin:6px 0 0;font-size:11.5px;line-height:1.5;color:var(--text-muted,#475569)}
+.mg-ns-engine-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;padding-top:12px}
+.mg-ns-engine-actions .mg-ns-btn{min-height:44px}
+.mg-ns-engine-live{flex:1 1 100%;min-height:19px;font-size:12px;line-height:1.5;color:var(--text-main,#334155)}
+.mg-ns-engine-live.error{color:var(--danger,#b91c1c)}
+.mg-ns-engine-status{padding:12px;border:1px solid var(--border,#cbd5e1);border-radius:10px;line-height:1.5;font-size:12px;overflow-wrap:anywhere}
+#mgNsSmartPolicy :is(button,input):focus-visible{outline:3px solid var(--primary,#4f46e5);outline-offset:2px}
+@media(max-width:600px){
+ .mg-ns-engine-fields{grid-template-columns:minmax(0,1fr)}
+ .mg-ns-engine-field{padding:12px 13px}
+ .mg-ns-engine-actions .mg-ns-btn{flex:1 1 145px}
+}
+@media(max-width:360px){.mg-ns-engine-top{flex-direction:column}.mg-ns-engine-actions .mg-ns-btn{flex-basis:100%}}
+@media(prefers-reduced-motion:reduce){#mgNsSmartPolicy *,#mgNsSmartPolicy *::before,#mgNsSmartPolicy *::after{animation:none!important;transition:none!important}}

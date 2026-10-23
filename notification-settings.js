@@ -62,7 +62,7 @@ function live(msg,type){var e=document.getElementById('mgNsLive');if(e){e.classN
 function dirty(){return !!(S.base&&S.draft&&JSON.stringify(S.base)!==JSON.stringify(S.draft));}
 function syncSave(){var b=document.getElementById('mgNsSave');if(b)b.disabled=S.saving||!dirty();var r=document.getElementById('mgNsReset');if(r)r.disabled=S.saving;}
 function permissionLabel(){if(S.permission==='denied')return 'Blocked by browser';if(S.permission==='default')return 'Permission required';if(S.permission==='granted')return S.currentSubscribed?'Enabled on this device':'Device not registered';return 'Unsupported';}
-function render(){var b=document.getElementById('mgNsBody');if(!b||!S.draft)return;var d=S.draft,active=S.devices.filter(function(x){return x.is_active===true&&!x.revoked_at;}).length;b.innerHTML='<section class="mg-ns-section"><h3>Delivery preferences</h3><p class="mg-ns-help">Backend preferences are separate from this browser’s permission and subscription state.</p>'+toggle('mgNsMaster','Notifications','Receive notifications for your account.',d.master)+toggle('mgNsInApp','In-app notifications','Show notifications in the authenticated Inbox.',d.inApp)+toggle('mgNsPush','Browser / device push','Allow push delivery to your registered devices.',d.systemPush)+toggle('mgNsPreview','Show notification content preview','Show To-Do text on the device; confidential HR updates stay brief. Turn off for generic lock-screen alerts.',d.contentPreview)+toggle('mgNsToast','Foreground toast notifications','Show compact alerts while the app is open.',d.toast)+'</section><section class="mg-ns-section"><h3>Priority and quiet hours</h3><p class="mg-ns-help">Urgent notifications always bypass quiet hours.</p><div class="mg-ns-grid"><div class="mg-ns-field"><label for="mgNsPriority">Minimum priority</label><select class="mg-ns-select" id="mgNsPriority">'+['Low','Normal','High','Urgent'].map(function(x){return '<option'+(x===d.minimumPriority?' selected':'')+'>'+x+'</option>';}).join('')+'</select></div><div class="mg-ns-field"><label for="mgNsTimezone">Timezone</label><input class="mg-ns-input" id="mgNsTimezone" value="'+esc(d.timezone)+'" readonly></div></div>'+toggle('mgNsQuiet','Quiet hours','Supports overnight ranges such as 22:00–07:00.',d.quietOn)+'<div class="mg-ns-grid"><div class="mg-ns-field"><label for="mgNsQuietStart">Start</label><input class="mg-ns-input" type="time" id="mgNsQuietStart" value="'+esc(d.quietStart)+'"'+(d.quietOn?'':' disabled')+'></div><div class="mg-ns-field"><label for="mgNsQuietEnd">End</label><input class="mg-ns-input" type="time" id="mgNsQuietEnd" value="'+esc(d.quietEnd)+'"'+(d.quietOn?'':' disabled')+'></div></div></section><section class="mg-ns-section"><h3>Reminder and foreground behavior</h3><div class="mg-ns-grid"><div class="mg-ns-field"><label for="mgNsSnooze">Default snooze minutes (1–240)</label><input class="mg-ns-input" type="number" min="1" max="240" id="mgNsSnooze" value="'+d.snoozeMin+'"></div><div class="mg-ns-field"><label for="mgNsToastMax">Maximum visible toasts (1–3)</label><input class="mg-ns-input" type="number" min="1" max="3" id="mgNsToastMax" value="'+d.toastMax+'"></div><div class="mg-ns-field"><label for="mgNsToastGap">Minimum toast gap, seconds (10–600)</label><input class="mg-ns-input" type="number" min="10" max="600" id="mgNsToastGap" value="'+d.toastGapSec+'"></div></div></section><section class="mg-ns-section"><h3>Devices</h3><p class="mg-ns-help">Only safe device metadata is displayed. Subscription keys and endpoints are never shown.</p><div class="mg-ns-row"><div class="mg-ns-copy"><strong>Current browser</strong><small>Permission: '+esc(S.permission)+' · Registered devices: '+S.devices.length+' · Active: '+active+'</small></div><span class="mg-ns-status">'+esc(permissionLabel())+'</span></div>'+(S.permission==='denied'?'<p class="mg-ns-help">Notifications are blocked. Enable permission for this site in your browser settings, then reopen this panel.</p>':'')+'<div class="mg-ns-device-actions"><button type="button" class="mg-ns-btn primary" id="mgNsEnableDevice"'+(S.permission==='denied'||S.permission==='unsupported'?' disabled':'')+'>Enable Device Notifications</button><button type="button" class="mg-ns-btn" id="mgNsManageDevices">Manage Devices</button></div></section>';bind();syncSave();}
+function render(){var b=document.getElementById('mgNsBody');if(!b||!S.draft)return;var d=S.draft,active=S.devices.filter(function(x){return x.is_active===true&&!x.revoked_at;}).length;b.innerHTML='<section class="mg-ns-section"><h3>Delivery preferences</h3><p class="mg-ns-help">Backend preferences are separate from this browser’s permission and subscription state.</p>'+toggle('mgNsMaster','Notifications','Receive notifications for your account.',d.master)+toggle('mgNsInApp','In-app notifications','Show notifications in the authenticated Inbox.',d.inApp)+toggle('mgNsPush','Browser / device push','Allow push delivery to your registered devices.',d.systemPush)+toggle('mgNsPreview','Show notification content preview','Show To-Do text on the device; confidential HR updates stay brief. Turn off for generic lock-screen alerts.',d.contentPreview)+toggle('mgNsToast','Foreground toast notifications','Show compact alerts while the app is open.',d.toast)+'</section><section class="mg-ns-section"><h3>Priority and quiet hours</h3><p class="mg-ns-help">In legacy V1, the Urgent preference may bypass quiet hours. Verified P0/P1 emergency overrides remain disabled until approved.</p><div class="mg-ns-grid"><div class="mg-ns-field"><label for="mgNsPriority">Minimum priority</label><select class="mg-ns-select" id="mgNsPriority">'+['Low','Normal','High','Urgent'].map(function(x){return '<option'+(x===d.minimumPriority?' selected':'')+'>'+x+'</option>';}).join('')+'</select></div><div class="mg-ns-field"><label for="mgNsTimezone">Timezone</label><input class="mg-ns-input" id="mgNsTimezone" value="'+esc(d.timezone)+'" readonly></div></div>'+toggle('mgNsQuiet','Quiet hours','Supports overnight ranges such as 22:00–07:00.',d.quietOn)+'<div class="mg-ns-grid"><div class="mg-ns-field"><label for="mgNsQuietStart">Start</label><input class="mg-ns-input" type="time" id="mgNsQuietStart" value="'+esc(d.quietStart)+'"'+(d.quietOn?'':' disabled')+'></div><div class="mg-ns-field"><label for="mgNsQuietEnd">End</label><input class="mg-ns-input" type="time" id="mgNsQuietEnd" value="'+esc(d.quietEnd)+'"'+(d.quietOn?'':' disabled')+'></div></div></section><section class="mg-ns-section"><h3>Reminder and foreground behavior</h3><div class="mg-ns-grid"><div class="mg-ns-field"><label for="mgNsSnooze">Default snooze minutes (1–240)</label><input class="mg-ns-input" type="number" min="1" max="240" id="mgNsSnooze" value="'+d.snoozeMin+'"></div><div class="mg-ns-field"><label for="mgNsToastMax">Maximum visible toasts (1–3)</label><input class="mg-ns-input" type="number" min="1" max="3" id="mgNsToastMax" value="'+d.toastMax+'"></div><div class="mg-ns-field"><label for="mgNsToastGap">Minimum toast gap, seconds (10–600)</label><input class="mg-ns-input" type="number" min="10" max="600" id="mgNsToastGap" value="'+d.toastGapSec+'"></div></div></section><section class="mg-ns-section"><h3>Devices</h3><p class="mg-ns-help">Only safe device metadata is displayed. Subscription keys and endpoints are never shown.</p><div class="mg-ns-row"><div class="mg-ns-copy"><strong>Current browser</strong><small>Permission: '+esc(S.permission)+' · Registered devices: '+S.devices.length+' · Active: '+active+'</small></div><span class="mg-ns-status">'+esc(permissionLabel())+'</span></div>'+(S.permission==='denied'?'<p class="mg-ns-help">Notifications are blocked. Enable permission for this site in your browser settings, then reopen this panel.</p>':'')+'<div class="mg-ns-device-actions"><button type="button" class="mg-ns-btn primary" id="mgNsEnableDevice"'+(S.permission==='denied'||S.permission==='unsupported'?' disabled':'')+'>Enable Device Notifications</button><button type="button" class="mg-ns-btn" id="mgNsManageDevices">Manage Devices</button></div></section>';bind();syncSave();}
 function toggle(id,title,help,checked){return '<label class="mg-ns-row" for="'+id+'"><span class="mg-ns-copy"><strong>'+esc(title)+'</strong><small>'+esc(help)+'</small></span><input class="mg-ns-toggle" type="checkbox" role="switch" aria-checked="'+(checked?'true':'false')+'" id="'+id+'" '+(checked?'checked':'')+'></label>';}
 function bind(){var map={mgNsMaster:'master',mgNsInApp:'inApp',mgNsPush:'systemPush',mgNsPreview:'contentPreview',mgNsToast:'toast',mgNsQuiet:'quietOn',mgNsPriority:'minimumPriority',mgNsQuietStart:'quietStart',mgNsQuietEnd:'quietEnd',mgNsSnooze:'snoozeMin',mgNsToastMax:'toastMax',mgNsToastGap:'toastGapSec'};Object.keys(map).forEach(function(id){var e=document.getElementById(id);if(!e)return;e.addEventListener('change',function(){var k=map[id],v=e.type==='checkbox'?e.checked:e.value;if(['snoozeMin','toastMax','toastGapSec'].indexOf(k)>=0)v=Number(v);S.draft[k]=v;if(e.type==='checkbox')e.setAttribute('aria-checked',v?'true':'false');if(k==='quietOn'){var a=document.getElementById('mgNsQuietStart'),z=document.getElementById('mgNsQuietEnd');if(a)a.disabled=!v;if(z)z.disabled=!v;}syncSave();live('');});});var en=document.getElementById('mgNsEnableDevice');if(en)en.addEventListener('click',async function(){en.disabled=true;await window.mgEnableDeviceNotifications();await loadDevices();render();});var man=document.getElementById('mgNsManageDevices');if(man)man.addEventListener('click',function(){window.mgCloseNotifSettings(false);window.mgOpenDeviceNotifications();});}
 async function loadDevices(){S.permission=('Notification' in window)?Notification.permission:'unsupported';S.currentSubscribed=false;try{S.devices=repo()?await repo().listDevices():[];}catch(e){S.devices=[];}try{if('serviceWorker' in navigator&&'PushManager' in window){var reg=await navigator.serviceWorker.ready;S.currentSubscribed=!!(await reg.pushManager.getSubscription());}}catch(e){S.currentSubscribed=false;}}
@@ -121,7 +121,129 @@ var previousCard=window.mgNotifCardHtml;
 if(previousCard)window.mgNotifCardHtml=function(n,opts){var html=previousCard(n,opts);if(!n||!n.isBackend||opts&&opts.compact)return html;var extra=summary(n)+'<div class="mg-n6-explain">'+(actionRequired(n)?'Open the related HRM item and finish the actual workflow. “Check and complete” only closes this notification when the source item is already resolved.':'This notification currently has no unresolved action requirement.')+'</div><div class="mg-n6-actions"><button type="button" class="mg-n6-btn" onclick="event.stopPropagation();mgOpenSnoozeOptions(\''+esc(n.id)+'\')">Snooze options</button><button type="button" class="mg-n6-btn" onclick="event.stopPropagation();mgOpenNotificationDetails(\''+esc(n.id)+'\')">Reminder details</button></div>';var p=html.lastIndexOf('</div>');return p<0?html+extra:html.slice(0,p)+extra+html.slice(p);};
 window.mgOpenSnoozeOptions=function(id){var n=find(id);if(!n||!n.isBackend)return;var def=Math.max(1,Math.min(240,Number((window.MG_TD_CFG||{}).snoozeMin)||15));var options=[def,15,30,60,240].filter(function(v,i,a){return a.indexOf(v)===i;});var body='<div class="mg-n6-dialog"><p>Choose when this reminder should return. Snoozing does not resolve or dismiss the related HRM item.</p><div class="mg-n6-option-grid">'+options.map(function(m){return '<button type="button" class="mg-n6-option" onclick="mgApplySnoozeOption(\''+esc(id)+'\','+m+')">'+(m<60?m+' minutes':m===60?'1 hour':m===240?'4 hours':m+' minutes')+(m===def?' · Default':'')+'</button>';}).join('')+'</div></div>';if(typeof openModal==='function')openModal('Snooze notification',body,'<button type="button" class="btn ghost sm" onclick="closeModal()">Cancel</button>');};
 window.mgApplySnoozeOption=async function(id,minutes){if(typeof closeModal==='function')closeModal();await window.mgBackendNotifSnooze(id,minutes);};
-window.mgOpenNotificationDetails=function(id){var n=find(id);if(!n)return;var r=raw(n),action=n.actionLabel||r.action_label||'Open related item';var body='<div class="mg-n6-dialog"><dl class="mg-n6-detail-grid"><dt>Status</dt><dd>'+esc(n.status||r.status||'Ready')+'</dd><dt>Priority</dt><dd>'+esc(n.priority||r.priority||'Normal')+'</dd><dt>Category</dt><dd>'+esc(n.category||r.category||'System')+'</dd><dt>Required action</dt><dd>'+esc(action)+'</dd><dt>Scheduled for</dt><dd>'+esc(fmt(n.scheduledFor||r.scheduled_for))+'</dd><dt>Repeated</dt><dd>'+repeat(n)+' time'+(repeat(n)===1?'':'s')+'</dd><dt>Escalation</dt><dd>'+(escalation(n)>0?'Level '+escalation(n):'Not escalated')+'</dd><dt>Snoozed until</dt><dd>'+esc(fmt(n.snoozedUntil||r.snoozed_until))+'</dd></dl><div class="mg-n6-note">Urgent notifications bypass quiet hours. Repeated and escalated reminders remain separate from resolving the underlying HRM workflow.</div></div>';if(typeof openModal==='function')openModal('Reminder details',body,'<button type="button" class="btn ghost sm" onclick="closeModal()">Close</button>');};
+window.mgOpenNotificationDetails=function(id){var n=find(id);if(!n)return;var r=raw(n),action=n.actionLabel||r.action_label||'Open related item';var body='<div class="mg-n6-dialog"><dl class="mg-n6-detail-grid"><dt>Status</dt><dd>'+esc(n.status||r.status||'Ready')+'</dd><dt>Priority</dt><dd>'+esc(n.priority||r.priority||'Normal')+'</dd><dt>Category</dt><dd>'+esc(n.category||r.category||'System')+'</dd><dt>Required action</dt><dd>'+esc(action)+'</dd><dt>Scheduled for</dt><dd>'+esc(fmt(n.scheduledFor||r.scheduled_for))+'</dd><dt>Repeated</dt><dd>'+repeat(n)+' time'+(repeat(n)===1?'':'s')+'</dd><dt>Escalation</dt><dd>'+(escalation(n)>0?'Level '+escalation(n):'Not escalated')+'</dd><dt>Snoozed until</dt><dd>'+esc(fmt(n.snoozedUntil||r.snoozed_until))+'</dd></dl><div class="mg-n6-note">Legacy V1 Urgent alerts may bypass quiet hours; this is not approval for V2 P0/P1 emergencies. Repeats and escalation never resolve the underlying HRM work.</div></div>';if(typeof openModal==='function')openModal('Reminder details',body,'<button type="button" class="btn ghost sm" onclick="closeModal()">Close</button>');};
 var previousComplete=window.mgBackendNotifComplete;
 if(previousComplete)window.mgBackendNotifComplete=async function(id){try{return await previousComplete(id);}catch(e){if(typeof toast==='function')toast('The related HRM item is not resolved yet. Open it and complete the actual workflow first.','warning');throw e;}};
+})();
+
+
+/* Phase 6: a backend-authoritative Smart Policy section INSIDE the existing Settings panel.
+ * All privileged writes go through operator-verified, revision-checked RPCs.
+ * With migrations pending, show Staged/Unavailable; never simulate a live toggle. */
+(function(){
+'use strict';
+if(window.__mgNotificationPolicyPanel)return;
+window.__mgNotificationPolicyPanel=true;
+var P={base:null,draft:null,loading:false,saving:false,unavailable:false,problem:'',opening:0};
+var fields=[
+ ['morning_digest_enabled','Morning digest','toggle','Group outstanding actions at the morning slot.'],
+ ['afternoon_digest_enabled','Afternoon wrap-up','toggle','Review outstanding actions and next-office deadline risks.'],
+ ['morning_digest_time','Morning digest time','time','Asia/Dhaka; within eligible delivery hours.'],
+ ['afternoon_digest_time','Wrap-up digest time','time','Asia/Dhaka; must follow morning time.'],
+ ['push_start','Routine Push start','time','Delivery eligibility clock, not the actual business deadline.'],
+ ['push_end','Routine Push end','time','Office execution remains a different concept.'],
+ ['p3_item_cap_24h','Routine P3 Push / 24h','number','Approved baseline: one successful occurrence per source.'],
+ ['p2_item_cap_24h','Important P2 Push / 24h','number','Approved baseline: two successful occurrences per source.'],
+ ['p3_cooldown_minutes','P3 cooldown, minutes','optional','Blank means no additional configured cooldown.'],
+ ['p2_cooldown_minutes','P2 cooldown, minutes','optional','Blank means no additional configured cooldown.'],
+ ['user_cap_24h','Per-user Push cap / 24h','optional','Blank means no approved global user cap.'],
+ ['category_cap_24h','Per-category Push cap / 24h','optional','Blank means no approved category cap.']
+];
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function copy(v){return JSON.parse(JSON.stringify(v));}
+function client(){return window.MGHRM&&window.MGHRM.client;}
+function rpc(name,args){var c=client();if(!c||!c.rpc)return Promise.reject(Error('Backend unavailable'));return c.rpc(name,args||{}).then(function(x){if(x.error)throw x.error;return x.data;});}
+function section(){var b=document.getElementById('mgNsBody');if(!b)return null;var e=document.getElementById('mgNsSmartPolicy');if(!e){e=document.createElement('section');e.id='mgNsSmartPolicy';e.className='mg-ns-section mg-ns-engine';e.setAttribute('aria-label','Intelligent notification engine policy');b.appendChild(e);}return e;}
+function field(key,title,type,hint){
+ var val=P.draft[key],id='mgNsEng_'+key,disabled=P.saving?' disabled':'';
+ var control=type==='toggle'?'<input id="'+id+'" type="checkbox" role="switch" '+(val?'checked':'')+disabled+'>'
+ :'<input id="'+id+'" type="'+(type==='time'?'time':'number')+'" class="mg-ns-input"'+
+ (type==='time'?'': ' min="1" max="'+(key.includes('cooldown')?'1440':key==='user_cap_24h'||key==='category_cap_24h'?'100':'5')+'" step="1"')+
+ ' value="'+esc(val==null?'':val)+'" placeholder="'+(type==='optional'?'Not configured':'')+'"'+disabled+'>';
+ return '<label class="mg-ns-engine-field" for="'+id+'"><span><strong>'+esc(title)+'</strong><small>'+esc(hint)+'</small></span>'+control+'</label>';
+}
+function live(message,error){var e=document.getElementById('mgNsEngineLive');if(e){e.textContent=message||'';e.className='mg-ns-engine-live'+(error?' error':'');}}
+function valid(){
+ var d=P.draft;if(!d)return 'Settings are not loaded';
+ var pattern=/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/;
+ for(var k of ['push_start','push_end','morning_digest_time','afternoon_digest_time'])if(!pattern.test(d[k]))return 'Please provide valid 24-hour time values.';
+ if(!(d.push_start<d.morning_digest_time&&d.morning_digest_time<d.afternoon_digest_time&&d.afternoon_digest_time<d.push_end))return 'Digest times must be inside routine Push hours, in chronological order.';
+ for(var k of ['p2_item_cap_24h','p3_item_cap_24h'])if(!Number.isInteger(d[k])||d[k]<1||d[k]>5)return 'Priority Push caps must be 1–5.';
+ for(var k of ['p2_cooldown_minutes','p3_cooldown_minutes','user_cap_24h','category_cap_24h']){
+  if(d[k]!==null&&(!Number.isInteger(d[k])||d[k]<1||d[k]>(k.includes('cooldown')?1440:100)))return 'Cooldown or user/category cap is outside the allowed range.';
+ }
+ return '';
+}
+function changes(){var result={};if(!P.base||!P.draft)return result;fields.forEach(function(f){var k=f[0];if(P.base[k]!==P.draft[k])result[k]=P.draft[k];});return result;}
+function ready(){return !P.loading&&!P.saving&&P.base&&P.draft;}
+function render(){
+ var e=section();if(!e)return;
+ if(P.loading){e.innerHTML='<h3>Intelligent Notification Policy</h3><p class="mg-ns-help" role="status">Checking live engine status…</p>';return;}
+ if(!P.base){
+ e.innerHTML='<h3>Intelligent Notification Policy</h3><p class="mg-ns-help">The existing V1 notification settings above remain available.</p><div class="mg-ns-engine-status" role="status">V2 policy controls are staged, not active. '+esc(P.problem||'Required backend migration is not installed.')+'</div><p class="mg-ns-help">No changes to core engine settings are possible until the server supports authenticated policy access.</p>';
+ return;
+ }
+ var d=P.draft;
+ var active=d.governance_enabled===true&&d.digest_bridge_enabled===true;
+ e.innerHTML='<div class="mg-ns-engine-top"><div><h3>Intelligent Notification Policy</h3><p class="mg-ns-help">Authoritative server settings · Asia/Dhaka · '+esc(d.policy_version||'Unknown')+' · Revision '+esc(d.revision)+'</p></div><span class="mg-ns-engine-state">'+(active?'Governance active':'Governance staged')+'</span></div>'+
+ '<p class="mg-ns-help">Core policy is '+(active?'active':'not yet live')+'. These options require a successful backend save; reading a notification never completes a task.</p>'+
+ '<div class="mg-ns-engine-fields">'+fields.map(function(f){return field(f[0],f[1],f[2],f[3]);}).join('')+'</div>'+
+ '<div class="mg-ns-engine-locked"><strong>Safety controls</strong><p>Unverified P0 emergencies, P1 after-hours overrides, statutory holidays and payroll deadlines cannot be enabled without a formally approved policy. Digest times never modify real business deadlines.</p></div>'+
+ '<div class="mg-ns-engine-actions"><div id="mgNsEngineLive" class="mg-ns-engine-live" role="status" aria-live="polite"></div><button type="button" class="mg-ns-btn" id="mgNsEngineReload">Reload server values</button><button type="button" class="mg-ns-btn primary" id="mgNsEngineSave" '+(Object.keys(changes()).length&&!P.saving?'':'disabled')+'>Save engine policy</button></div>';
+ fields.forEach(function(f){var k=f[0],el=document.getElementById('mgNsEng_'+k);if(!el)return;el.addEventListener('change',function(){
+  var value=f[2]==='toggle'?el.checked:f[2]==='time'?el.value:el.value.trim()===''?null:Number(el.value);
+  P.draft[k]=value;
+  var save=document.getElementById('mgNsEngineSave');if(save)save.disabled=!!valid()||!Object.keys(changes()).length||P.saving;
+  live(valid(),!!valid());
+ });});
+ document.getElementById('mgNsEngineReload').addEventListener('click',function(){load();});
+ document.getElementById('mgNsEngineSave').addEventListener('click',save);
+}
+async function load(){
+ var e=section();if(!e)return;
+ var token=++P.opening;P.loading=true;P.problem='';render();
+ try{
+  var data=await rpc('notification_operator_policy_read',{});
+  if(token!==P.opening)return;
+  if(!data||!Number.isInteger(Number(data.revision)))throw Error('Invalid policy server response');
+  P.base=copy(data);P.draft=copy(data);
+ }catch(err){
+  if(token!==P.opening)return;
+  P.base=null;P.draft=null;
+  // Never silently claim a successfully staged UI switch can change live V1 behavior.
+  P.problem=/not found|schema cache|does not exist|404|Backend unavailable/i.test(String(err&&err.message))?
+    'The final policy API is not installed on the connected server.':'Policy status is unavailable. Confirm your authorization and connection.';
+ }finally{if(token===P.opening){P.loading=false;render();}}
+}
+async function save(){
+ if(!ready())return;
+ var msg=valid();if(msg){live(msg,true);return;}
+ var diff=changes();if(!Object.keys(diff).length)return;
+ var expected=P.base.revision;
+ P.saving=true;render();live('Saving and verifying database revision…');
+ try{
+  var saved=await rpc('notification_operator_policy_save',{p_expected_revision:expected,p_changes:diff});
+  if(!saved||saved.saved!==true||Number(saved.readback_revision)!==Number(expected)+1)
+   throw Error('Server did not confirm the policy update');
+  var checked=await rpc('notification_operator_policy_read',{});
+  if(Number(checked.revision)!==Number(saved.readback_revision))
+   throw Error('Server read-back revision mismatch');
+  for(var key of Object.keys(diff))if(checked[key]!==diff[key])
+   throw Error('Server returned a different saved value for '+key);
+  P.base=copy(checked);P.draft=copy(checked);P.saving=false;render();live('Policy saved and verified on server.');
+ }catch(err){
+  P.saving=false;render();
+  var conflict=/40001|revision conflict|concurrent/i.test(String(err&&err.message||''));
+  live(conflict?'Another device changed the policy. Reload server values and review before saving.':
+   'Policy was not confirmed: '+String(err&&err.message||'Connection error'),true);
+ }
+}
+var previous=window.mgOpenNotifSettings;
+if(typeof previous==='function'){
+ window.mgOpenNotifSettings=window.mtOpenNotifSettings=async function(ev){
+  await previous(ev);
+  await load();
+ };
+}
+window.mgReloadEngineSettings=load;
 })();

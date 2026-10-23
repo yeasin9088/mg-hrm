@@ -1,0 +1,29 @@
+name: Notification Phase 6 Settings UI
+on:
+  pull_request:
+    paths:
+      - 'notification-settings.js'
+      - 'notification-ui.css'
+      - 'tests/notification-settings-phase6.test.cjs'
+      - '.github/workflows/notification-phase6-settings-ui.yml'
+      - 'docs/notifications/phase6-final-settings-center-ux-contract.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  frontend-policy-settings:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: JavaScript syntax verification
+        run: node --check notification-settings.js
+      - name: Phase 6 server-bound UI tests (real browser logic in isolated synthetic DOM)
+        run: node --test tests/notification-settings-phase6.test.cjs
+      - name: Existing Notification and UI regressions
+        run: node --test tests/notification.test.cjs tests/notification-inbox-ux.test.cjs tests/todo-ui.test.cjs
+      - name: Code quality
+        run: git diff --check

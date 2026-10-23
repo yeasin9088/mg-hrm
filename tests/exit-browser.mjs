@@ -36,7 +36,7 @@ try{
   await page.goto(`http://127.0.0.1:${port}/__exit-test`);
   await page.locator('#exDate').fill('2026-10-23');await page.locator('#exDate').dispatchEvent('change');
   assert(await page.locator('#xs_enabled').isChecked());
-  await page.locator('#xs_outcome').selectOption('pending');await page.locator('#xs_reason').selectOption('salary_held');await page.locator('#exReason').fill('Synthetic resignation');
+  await page.locator('#xs_outcome').selectOption('pending');await page.locator('#xs_reason').selectOption('salary_held');await page.locator('#exReason').selectOption('Formal Resignation');
   await page.evaluate(()=>{ExitUI.submit();window.confirmCallback();window.confirmCallback();});
   await page.waitForFunction(()=>window.calls===1&&window.messages.some(x=>x.type==='success'));
   await page.locator('#exDate').fill('2026-10-23');await page.locator('#exDate').dispatchEvent('change');

@@ -25,3 +25,42 @@
 .exit-private-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.exit-private-toolbar select,.exit-private-toolbar input,.exit-private-toolbar button{min-height:40px}
 @media(max-width:640px){.exit-confidential{padding-top:13px}.exit-confidential .form-grid{grid-template-columns:1fr}.exit-confidential .field{grid-column:1/-1}.exit-private-toolbar>*{flex:1;min-width:120px}}
 @media print{.exit-private-table{font-size:8px}.exit-private-table td{min-width:0}.exit-private-table tr{break-inside:auto}.exit-private-warning{font-weight:bold}}
+
+/* Unified, compact employee exit form. Scoped; does not restyle other HRM modules. */
+#page-exit .exit-main-card{overflow:visible;border-radius:14px}
+#page-exit .exit-card-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;background:var(--card);border-bottom:1px solid var(--border)}
+#page-exit .exit-card-header h3{margin:0;font-size:15px;letter-spacing:-.01em}
+#page-exit .exit-header-meta{font-size:11px;color:var(--text-muted);font-weight:500}
+#page-exit .exit-card-body{padding:18px 20px 16px}
+#page-exit .exit-main-grid{display:grid;grid-template-columns:minmax(200px,1.4fr) minmax(190px,1fr) minmax(230px,1.3fr) minmax(145px,.8fr) minmax(145px,.8fr);gap:14px 12px;align-items:start}
+#page-exit .exit-main-grid>.field{min-width:0;margin:0}
+#page-exit .exit-main-grid>.field input,#page-exit .exit-main-grid>.field select{min-height:42px;width:100%;max-width:100%;text-overflow:ellipsis}
+#page-exit .exit-main-grid>.field label{font-size:12px;font-weight:650;color:var(--text-2);margin-bottom:6px;display:block}
+#page-exit .exit-main-grid #exEmpBadge{margin-top:4px;min-width:0;font-size:11px}
+#page-exit .exit-reason-other{grid-column:1/-1;max-width:640px}
+#page-exit .exit-reason-other textarea{min-height:62px;max-height:100px;resize:vertical;background:var(--card)}
+#page-exit .exit-confidential{grid-column:1/-1;position:relative;margin-top:2px;padding:13px 0 0;border-top:1px solid var(--border)}
+#page-exit .exit-confidential .exit-section-heading{margin-bottom:5px}
+#page-exit .exit-confidential .exit-service-note{margin-bottom:7px}
+#page-exit .exit-confidential .exit-required-note{margin-bottom:8px}
+#page-exit .exit-confidential .exit-decision-field{margin-top:7px;margin-bottom:8px;max-width:430px}
+#page-exit .exit-confidential .exit-conditional-details{border:1px solid var(--border);border-radius:10px;background:var(--card);padding:12px 14px;margin:9px 0 0}
+#page-exit .exit-confidential .exit-conditional-details .form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 12px}
+#page-exit .exit-confidential .exit-conditional-details .form-grid>.field{min-width:0;margin:0}
+#page-exit .exit-confidential .exit-conditional-details .field.wide{grid-column:1/-1}
+#page-exit .exit-confidential .exit-conditional-details input,#page-exit .exit-confidential .exit-conditional-details select{width:100%;min-width:0;min-height:40px}
+#page-exit .exit-confidential .exit-conditional-details .exit-deposit-group .form-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+#page-exit .exit-confidential .exit-balance{margin-top:8px;background:var(--bg-dim);font-variant-numeric:tabular-nums}
+#page-exit .exit-action-bar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;padding-top:15px;margin-top:10px;border-top:1px solid var(--border)}
+#page-exit .exit-action-bar .btn{min-height:40px}
+#page-exit .exit-action-bar .exit-primary-action{font-weight:700;min-width:160px}
+#page-exit .exit-action-hint{margin-left:auto;font-size:11px;color:var(--text-muted)}
+#page-exit .exit-form-feedback{margin:8px 0 3px!important}
+#page-exit #btnSubmitExit[data-needs-attention="true"]:not([disabled]){box-shadow:0 0 0 2px var(--border)}
+.exit-warning-message{display:flex;gap:13px;align-items:flex-start;line-height:1.5;padding:4px 0 2px;color:var(--text)}
+.exit-warning-message strong{font-size:14px}
+.exit-warning-message p{margin:6px 0 0;color:var(--text-2);font-size:13px}
+.exit-warning-icon{width:30px;height:30px;flex:0 0 30px;border-radius:50%;background:var(--bg-dim);color:var(--primary);display:grid;place-items:center;font-size:18px;font-weight:800}
+@media(max-width:1240px){#page-exit .exit-main-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:780px){#page-exit .exit-main-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#page-exit .exit-confidential .exit-conditional-details .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#page-exit .exit-confidential .exit-conditional-details .exit-deposit-group .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#page-exit .exit-action-hint{display:none}}
+@media(max-width:520px){#page-exit .exit-main-grid{grid-template-columns:minmax(0,1fr);gap:12px}#page-exit .exit-card-body{padding:14px 13px}#page-exit .exit-card-header{padding:12px 14px}#page-exit .exit-confidential .exit-conditional-details{padding:10px}#page-exit .exit-confidential .exit-conditional-details .form-grid,#page-exit .exit-confidential .exit-conditional-details .exit-deposit-group .form-grid{grid-template-columns:minmax(0,1fr)}#page-exit .exit-action-bar .btn{flex:1 1 auto}}

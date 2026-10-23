@@ -6169,7 +6169,7 @@ function openEmpDetail(recordId){
             ...empTransfers.map(x=>({date:x.TransferDate,type:'transfer',title:'Transfer',detail:`${x.CurrentProject||''} → ${x.NewProject||''}`})),
             ...empDisc.map(x=>({date:x.IssueDate,type:'disc',title:x.ActionType||'Disciplinary',detail:x.Description?x.Description.slice(0,150)+'…':''})),
             ...empCareer.map(x=>({date:x.EffectiveDate,type:'career',title:x.ChangeType||'Career change',detail:`${x.CurrentDesignation||''} → ${x.NewDesignation||''}`})),
-            ...empExits.map(x=>({date:x.ExitDate,type:'exit',title:('Exit — ')+(x.ExitType||x.ExitReason||''),detail:x.ExitReason||''})),
+            ...empExits.map(x=>({date:x.ExitDate,type:'exit',title:('Exit — ')+(x.ExitReason||''),detail:x.ExitReason||''})),
             ...empLeaves.map(x=>({date:(x.start||x.startDate||x.appliedDate),type:'leave',title:('Leave — ')+(x.type||''),detail:(x.days?num(x.days)+(' days · '):'')+(x.reason||'')+(x.status?' ['+x.status+']':'')})),
           ].sort((a,b)=>parseDate(b.date)-parseDate(a.date)).map(x=>`
             <div class="tl-item ${x.type==='disc'||x.type==='exit'?'warning':x.type==='career'?'success':''}">
@@ -10456,7 +10456,6 @@ async function doCloseProject(pid, deactivate){
             designation: e.Designation || '',
             current_project: pName,
             join_date: e.JoinDate || null,
-            exit_type: 'Project Closure',
             exit_reason: `Project "${pName}" was closed`,
             exit_date: today,
             issue_date: today,
@@ -12061,7 +12060,7 @@ function dcFilteredRows(){
       if (String(d.EmployeeID || d.employee_id || '').toLowerCase() !== idq
           && String(empId).toLowerCase() !== idq) return false;
     }
-    if (F.type && String(d.ActionType || d.action_type || '') !== F.type) return false;
+    if (F.reason && String(d.ActionType || d.action_type || '') !== F.reason) return false;
 
     const iss = String(d.IssueDate || d.issue_date || '').slice(0, 10);
     if (F.from && (!iss || iss < F.from)) return false;
@@ -12090,7 +12089,7 @@ function dcRenderChips(){
   const chips = [];
   if (F.q)    chips.push(['q',    'Search: ' + F.q]);
   if (F.id)   chips.push(['id',   'ID: ' + F.id]);
-  if (F.type) chips.push(['type', 'Type: ' + F.type]);
+  if (F.reason) chips.push(['type', 'Type: ' + F.reason]);
   if (F.from) chips.push(['from', 'Issue from: ' + F.from]);
   if (F.to)   chips.push(['to',   'Issue to: ' + F.to]);
   if (!chips.length){ el.innerHTML = ''; return; }
@@ -12164,7 +12163,7 @@ function renderDisciplinary(){
         <span class="tt-lab">${'Type'}</span>
         <select id="dcTypeFilter" onchange="dcSetFilter('type', this.value)">
           <option value="">${'All'}</option>
-          ${types.map(t => `<option value="${escapeHtml(t)}"${F.type === t ? ' selected' : ''}>${escapeHtml(t)}</option>`).join('')}
+          ${types.map(t => `<option value="${escapeHtml(t)}"${F.reason === t ? ' selected' : ''}>${escapeHtml(t)}</option>`).join('')}
         </select>
         <span class="tt-lab">${'Issue'}</span>
         <input type="date" id="dcFrom" value="${escapeHtml(F.from)}" onchange="dcSetFilter('from', this.value)">
@@ -12203,7 +12202,7 @@ function renderDisciplinaryTable(){
   if (tbody){
     if (!rows.length){
       const F = window.DC_F;
-      const hasFilter = !!(F.q || F.id || F.type || F.from || F.to);
+      const hasFilter = !!(F.q || F.id || F.reason || F.from || F.to);
       tbody.innerHTML = tblEmptyRow(7, hasFilter
         ? 'No records match the current filters.'
         : 'No disciplinary records yet.');
@@ -12738,10 +12737,10 @@ function deleteLeave(id){
 /* ============ EXIT ============ */
 
 /* ---------- Exit: filter state ---------- */
-window.EX_F = window.EX_F || { q:'', id:'', type:'', project:'', from:'', to:'' };
+window.EX_F = window.EX_F || { q:'', id:'', reason:'', project:'', from:'', to:'' };
 let exFilterTimer = null;
 
-const EX_FIELD_IDS = { q:'exSearch', id:'exIdSearch', type:'exTypeFilter',
+const EX_FIELD_IDS = { q:'exSearch', id:'exIdSearch', reason:'exReasonFilter',
                        project:'exProjectFilter', from:'exFrom', to:'exTo' };
 
 function exSetFilter(k, v, isText){
@@ -12757,7 +12756,7 @@ function exSetFilter(k, v, isText){
 }
 
 function exClearFilters(){
-  window.EX_F = { q:'', id:'', type:'', project:'', from:'', to:'' };
+  window.EX_F = { q:'', id:'', reason:'', project:'', from:'', to:'' };
   Object.keys(EX_FIELD_IDS).forEach(function(k){
     const el = document.getElementById(EX_FIELD_IDS[k]);
     if (el) el.value = '';
@@ -12766,10 +12765,10 @@ function exClearFilters(){
 }
 
 /* Distinct values taken from the data — never hard-coded */
-function exTypeOptions(){
+function exReasonOptions(){
   const set = new Set();
   DATA.exits.forEach(function(x){
-    const t = x.ExitType || x.ExitReason;
+    const t = x.ExitReason;
     if (t) set.add(String(t));
   });
   return Array.from(set).sort();
@@ -12806,7 +12805,7 @@ function exFilteredRows(){
       if (String(x.EmployeeID || '').toLowerCase() !== idq
           && String(empId).toLowerCase() !== idq) return false;
     }
-    if (F.type && String(x.ExitType || x.ExitReason || '') !== F.type) return false;
+    if (F.reason && String(x.ExitReason || '') !== F.reason) return false;
     if (F.project && String(x.CurrentProject || x.ProjectName || '') !== F.project) return false;
 
     const ex = String(x.ExitDate || x.exit_date || '').slice(0, 10);
@@ -12816,7 +12815,7 @@ function exFilteredRows(){
     if (q){
       const hay = (x.FullName || '') + ' ' + (x.EmployeeID || '') + ' ' + empId + ' '
         + (x.Designation || '') + ' ' + (x.CurrentProject || x.ProjectName || '') + ' '
-        + (x.ExitType || '') + ' ' + (x.ExitReason || '');
+        + ('') + ' ' + (x.ExitReason || '');
       if (hay.toLowerCase().indexOf(q) === -1) return false;
     }
     return true;
@@ -12830,7 +12829,7 @@ function exRenderChips(){
   const chips = [];
   if (F.q)       chips.push(['q',       'Search: ' + F.q]);
   if (F.id)      chips.push(['id',      'ID: ' + F.id]);
-  if (F.type)    chips.push(['type',    'Type: ' + F.type]);
+  if (F.reason)    chips.push(['type',    'Type: ' + F.reason]);
   if (F.project) chips.push(['project', 'Project: ' + F.project]);
   if (F.from)    chips.push(['from',    'Exit from: ' + F.from]);
   if (F.to)      chips.push(['to',      'Exit to: ' + F.to]);
@@ -12854,7 +12853,7 @@ function renderExitTable(){
   if (tbody){
     if (!rows.length){
       const F = window.EX_F;
-      const hasFilter = !!(F.q || F.id || F.type || F.project || F.from || F.to);
+      const hasFilter = !!(F.q || F.id || F.reason || F.project || F.from || F.to);
       tbody.innerHTML = tblEmptyRow(7, hasFilter
         ? 'No exit records match the current filters.'
         : 'No exit records');
@@ -12870,7 +12869,7 @@ function renderExitTable(){
           <td>${escapeHtml(desig(x.Designation || ''))}</td>
           <td>${escapeHtml(projName(x.CurrentProject || x.ProjectName || ''))}</td>
           <td>${escapeHtml(fmtDate(x.ExitDate))}</td>
-          <td class="small-mute" style="max-width:280px">${escapeHtml((x.ExitReason || x.ExitType || '').slice(0, 120))}</td>
+          <td class="small-mute" style="max-width:280px">${escapeHtml((x.ExitReason || '').slice(0, 120))}</td>
         </tr>`;
       }).join('');
     }
@@ -12885,37 +12884,26 @@ window.renderExitTable = renderExitTable;
 
 function renderExit(){
   document.getElementById('page-exit').innerHTML = `
-    <div class="card">
-      <div class="card-header"><h3>${'Employee Exit Process'}</h3></div>
-      <div class="card-body">
-        <div class="form-grid">
-          <div class="field"><label>${'Employee'} *</label><select id="exEmp" onchange="exFillEmp()"></select><div id="exEmpBadge"></div></div>
-          <div class="field"><label>${'Current Project'}</label><input id="exProj" type="text" readonly></div>
-          <div class="field"><label>${'Exit Type'}</label><select id="exType">
-            <option>${'Voluntary Resignation'}</option>
-            <option>${'Resignation over Phone (Verbal)'}</option>
-            <option>${'Did Not Return After Leave'}</option>
-            <option>${'Absconded / Deserted'}</option>
-            <option>${'Termination'}</option>
-            <option>${'Dismissal'}</option>
-            <option>${'Retirement'}</option>
-            <option>${'Contract End'}</option>
-            <option>${'Death'}</option>
-            <option>${'Others'}</option>
-          </select></div>
-          <div class="field"><label>${'Exit Date'} *</label><input id="exDate" type="date" onchange="ExitUI.update(true)"></div>
-          <div class="field"><label>${'Issue Date'}</label><input id="exIssue" type="date" value="${todayISO()}"></div>
-          <div class="field wide"><label>${'Exit Reason'} *</label><textarea id="exReason" rows="3"></textarea></div>
+    <div class="card exit-main-card">
+      <div class="card-header exit-card-header"><h3>Employee Exit Process</h3><span class="exit-header-meta">Single reason · Guided deduction</span></div>
+      <div class="card-body exit-card-body">
+        <div class="form-grid exit-main-grid">
+          <div class="field"><label for="exEmp">Employee *</label><select id="exEmp" onchange="exFillEmp()" title="Alt+1"></select><div id="exEmpBadge"></div></div>
+          <div class="field"><label for="exProj">Current Project</label><input id="exProj" type="text" readonly></div>
+          <div class="field"><label for="exReason">Exit Reason *</label>${ExitUI.reasonSelect()}</div>
+          <div class="field"><label for="exDate">Exit Date *</label><input id="exDate" type="date" onchange="ExitUI.update(true)" title="Alt+3"></div>
+          <div class="field"><label for="exIssue">Issue Date</label><input id="exIssue" type="date" value="${todayISO()}"></div>
+          <div class="field exit-reason-other" id="exReasonOtherWrap" hidden><label for="exReasonOther">Specify other Exit Reason *</label><textarea id="exReasonOther" maxlength="500" rows="2" placeholder="State the actual reason clearly" oninput="ExitUI.reasonChanged()"></textarea></div>
           ${ExitUI.html()}
         </div>
-        <div style="margin-top:14px" class="btn-row">
-          <button class="btn danger" id="btnSubmitExit" onclick="submitExit()">${'Mark as Inactive'}</button>
-          <button class="btn" onclick="previewClearance()">${ico('print')} ${'Clearance Certificate'}</button>
-          <button class="btn" onclick="previewExperience()">${ico('print')} ${'Experience Certificate'}</button>
+        <div class="exit-action-bar">
+          <button class="btn danger exit-primary-action" id="btnSubmitExit" onclick="submitExit()">Mark as Inactive</button>
+          <button class="btn" onclick="previewClearance()">${ico('print')} Clearance Certificate</button>
+          <button class="btn" onclick="previewExperience()">${ico('print')} Experience Certificate</button>
+          <span class="exit-action-hint">Shortcuts: Alt+1 Employee · Alt+2 Reason · Alt+3 Date · Alt+4 Deduction</span>
         </div>
       </div>
     </div>
-
     <div class="card" style="padding:0;overflow:hidden">
       <div class="card-header" style="padding:14px 16px 0;border-bottom:0"><h3>${'Recent Exits'}</h3></div>
 
@@ -12927,10 +12915,10 @@ function renderExit(){
           <input type="text" id="exIdSearch" placeholder="${'Exact employee ID'}"
                  value="${escapeHtml(window.EX_F.id)}" oninput="exSetFilter('id', this.value, true)"
                  style="min-width:150px"></span>
-        <span class="tt-lab">${'Exit type'}</span>
-        <select id="exTypeFilter" onchange="exSetFilter('type', this.value)">
+        <span class="tt-lab">${'Exit reason'}</span>
+        <select id="exReasonFilter" onchange="exSetFilter('reason', this.value)">
           <option value="">${'All'}</option>
-          ${exTypeOptions().map(t => `<option value="${escapeHtml(t)}"${window.EX_F.type === t ? ' selected' : ''}>${escapeHtml(t)}</option>`).join('')}
+          ${exReasonOptions().map(t => `<option value="${escapeHtml(t)}"${window.EX_F.reason === t ? ' selected' : ''}>${escapeHtml(t)}</option>`).join('')}
         </select>
         <span class="tt-lab">${'Project'}</span>
         <select id="exProjectFilter" onchange="exSetFilter('project', this.value)">
@@ -12986,7 +12974,7 @@ function openExitPopup(eid){
       <div class="pop-row"><span>Join Date</span><b>${escapeHtml(fmtDate(x.JoinDate))}</b></div>
       <div class="pop-row"><span>Exit Date</span><b>${escapeHtml(fmtDate(x.ExitDate))}</b></div>
       <div class="pop-row"><span>Issue Date</span><b>${escapeHtml(fmtDate(x.IssueDate))}</b></div>
-      <div class="pop-row"><span>Reason</span><b>${escapeHtml(x.ExitReason||x.ExitType||'—').replace(/\n/g, '<br>')}</b></div>
+      <div class="pop-row"><span>Reason</span><b>${escapeHtml(x.ExitReason||'—').replace(/\n/g, '<br>')}</b></div>
       <div class="pop-row"><span>Current Status</span><b>${escapeHtml(emp?emp.Status:'—')}</b></div>
     </div>
     <div class="pop-hint">⚠ Employee current status comes from Employeetbl.Status; use "Reactivate" to restore.</div>`,
@@ -13846,7 +13834,7 @@ function exportReport(kind){
   const result=getMonthlyReportRows(kind), rows=result.rows, ctx=result.ctx;
   const specs={
     newJoins:{headers:['Employee ID','Name','Designation','Project','Join Date'],map:r=>[r.EmployeeID||r.employee_id||'',r.FullName||r.full_name||'',r.Designation||r.designation||'',r.ProjectName||r.project_name||'',r.JoinDate||r.join_date||'']},
-    exits:{headers:['Employee ID','Name','Designation','Project','Exit Date','Exit Type','Reason'],map:r=>[r.EmployeeID||r.employee_id||'',r.FullName||r.full_name||'',r.Designation||r.designation||'',r.CurrentProject||r.current_project||'',r.ExitDate||r.exit_date||'',r.ExitType||r.exit_type||'',r.ExitReason||r.exit_reason||'']},
+    exits:{headers:['Employee ID','Name','Designation','Project','Exit Date','Exit Reason'],map:r=>[r.EmployeeID||r.employee_id||'',r.FullName||r.full_name||'',r.Designation||r.designation||'',r.CurrentProject||r.current_project||'',r.ExitDate||r.exit_date||'',r.ExitReason||r.exit_reason||'']},
     transfers:{headers:['Employee ID','Name','Designation','From','To','Effective Date','Status'],map:r=>[r.EmployeeID||r.employee_id||'',r.FullName||r.full_name||'',r.Designation||r.designation||'',r.CurrentProject||r.current_project||'',r.NewProject||r.new_project||'',r.TransferDate||r.transfer_date||r.effective_date||'',r.status||r.Status||'']},
     disciplinary:{headers:['Reference','Employee ID','Name','Designation','Project','Action Type','Issue Date'],map:r=>[r.RefNo||r.ref_no||'',r.EmployeeID||r.employee_id||'',r.FullName||r.full_name||'',r.Designation||r.designation||'',r.ProjectName||r.project_name||'',r.ActionType||r.action_type||'',r.IssueDate||r.issue_date||'']}
   };
@@ -14371,8 +14359,7 @@ const CSV_SYNONYMS = {
   description: ['description', 'desc', 'allegation', 'details', 'body', 'remarks'],
   exit_id: ['exitid', 'exit_id', 'exit id', 'eid'],
   exit_date: ['exitdate', 'exit_date', 'exit date', 'resignation date', 'release date', 'date of exit'],
-  exit_type: ['exittype', 'exit_type', 'exit type', 'type of exit'],
-  exit_reason: ['exitreason', 'exit_reason', 'exit reason', 'reason'],
+  exit_reason: ['exitreason', 'exit_reason', 'exit reason', 'reason', 'exittype', 'exit_type', 'exit type', 'type of exit'],
   career_id: ['careerid', 'career_id', 'career id', 'cid'],
   change_type: ['changetype', 'change_type', 'change type', 'event type', 'career type'],
   current_designation: ['currentdesignation', 'current_designation', 'current designation', 'prev designation', 'previous designation'],
@@ -23847,43 +23834,19 @@ function startExitFromTransfer(transferId){
   const notJoinedRemarks = (item.dRow && item.dRow.remarks) || (item.qRow && item.qRow.remarks) || '';
   let exitReasonText = notJoinedReason ? ('Transfer Not Joined: ' + notJoinedReason + (notJoinedRemarks && notJoinedRemarks !== notJoinedReason ? ' — ' + notJoinedRemarks : '')) : 'Transfer Not Joined';
 
-  // Determine exit type option
-  let exitTypeVal = 'Others';
-  const rLow = (notJoinedReason || '').toLowerCase();
-  if (rLow.includes('resign')) {
-    exitTypeVal = 'Voluntary Resignation';
-  } else if (rLow.includes('abscond')) {
-    exitTypeVal = 'Absconded / Deserted';
-  } else if (rLow.includes('refuse')) {
-    exitTypeVal = 'Termination';
-  } else if (rLow.includes('leave')) {
-    exitTypeVal = 'Did Not Return After Leave';
-  }
-
+  // Preserve the transfer Not Joined narrative as a single, editable Exit Reason.
   closeModal();
   navigate('exit');
-
-  // Pre-fill the Exit form in the exit page
   setTimeout(function(){
-    if (empKey && typeof setEmpPicker === 'function') {
-      setEmpPicker('exEmp', empKey);
-    }
+    if (empKey && typeof setEmpPicker === 'function') setEmpPicker('exEmp', empKey);
     const exDateEl = document.getElementById('exDate');
     if (exDateEl) exDateEl.value = exitDate;
+    const reasonEl = document.getElementById('exReason');
+    const otherEl = document.getElementById('exReasonOther');
+    if (reasonEl) reasonEl.value = 'Other';
+    if (otherEl) otherEl.value = exitReasonText;
+    ExitUI.reasonChanged();
     ExitUI.update(true);
-
-    const exTypeEl = document.getElementById('exType');
-    if (exTypeEl) {
-      for (let i = 0; i < exTypeEl.options.length; i++) {
-        if (exTypeEl.options[i].value === exitTypeVal) {
-          exTypeEl.selectedIndex = i;
-          break;
-        }
-      }
-    }
-
-    const exReasonEl = document.getElementById('exReason');
-    if (exReasonEl) exReasonEl.value = exitReasonText;
 
     const formCard = document.querySelector('#page-exit .card');
     if (formCard) formCard.scrollIntoView({ behavior: 'smooth', block: 'start' });

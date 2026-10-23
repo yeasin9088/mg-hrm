@@ -5,6 +5,51 @@
  let requestId=null,requestFingerprint='',busy=false,editing=null;
  const textFields=['override_reason','expected','deducted','deposited','outcome','reason','deducted_on','deposited_on','receipt_no','deposited_to','approved_by','notes','follow_up_on'];
  const stamp=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Dhaka',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+ // Shared professional exit-reason catalogue; a single public exit_reason is persisted.
+ const exitReasons=Object.freeze([
+  ['Formal Resignation','Voluntary / formal resignation'],
+  ['Resignation by Verbal or Phone Notice','Resignation communicated verbally or by phone'],
+  ['Failed to Return from Approved Leave','Did not return after approved leave'],
+  ['Absconded Without Notice','Left duty without informing the employer'],
+  ['Unauthorized Absence / Job Abandonment','Unapproved prolonged absence or abandonment'],
+  ['Termination – Unsatisfactory Performance','Termination for documented performance concerns'],
+  ['Termination – Probation Not Confirmed','Employment not continued after probation'],
+  ['Termination – Contractual / Administrative','Termination under employment terms'],
+  ['Termination – Workforce Reduction','Role discontinued or workforce restructuring'],
+  ['Dismissal – Serious Misconduct','Disciplinary dismissal following applicable procedure'],
+  ['Dismissal – Theft, Fraud or Dishonesty','Dismissal for substantiated dishonest conduct'],
+  ['Dismissal – Repeated Policy Violations','Dismissal following repeated policy breaches'],
+  ['End of Fixed-Term Contract','Contract completed or not renewed'],
+  ['End of Project / Assignment','Project or deployment assignment ended'],
+  ['Retirement','Retirement from employment'],
+  ['Separation by Mutual Agreement','Mutually agreed employment separation'],
+  ['Death','Employment ended due to death'],
+  ['Other','Other — specify the reason']
+ ]);
+ function reasonSelect(){return `<select id="exReason" required aria-label="Exit reason" onchange="ExitUI.reasonChanged()">${exitReasons.map(([key,title],i)=>`<option value="${esc(key)}" title="${esc(title)}"${i===0?' selected':''}>${esc(key)}</option>`).join('')}</select>`;}
+ function reasonChanged(){visible('exReasonOtherWrap',value('exReason')==='Other');syncButton();}
+ function reasonText(){
+  const selected=value('exReason');
+  if(!exitReasons.some(x=>x[0]===selected))throw Error('Select a valid Exit Reason.');
+  if(selected!=='Other')return selected;
+  const detail=value('exReasonOther').trim();
+  if(detail.length<5)throw Error('Specify the other Exit Reason (at least 5 characters).');
+  return 'Other: '+detail;
+ }
+ function warning(message){
+  const safe=esc(message||'Complete the required fields.');
+  if(typeof g.openModal==='function'){
+   g.openModal('Complete required exit information',`<div class="exit-warning-message" role="alert"><span class="exit-warning-icon" aria-hidden="true">!</span><div><strong>Action required before marking inactive</strong><p>${safe}</p></div></div>`,
+    '<button type="button" class="btn primary" onclick="closeModal();ExitUI.focusMissing()">OK</button>');
+  }else g.toast(message,'warning');
+ }
+ function focusMissing(){
+  let target='exReason';
+  try{reasonText();target='exDate';if(!value('exDate'))throw Error();target='xs_outcome';collect();target='';}
+  catch(_){if(value('exReason')==='Other'&&!value('exReasonOther').trim())target='exReasonOther';else if(!value('exDate'))target='exDate';else if($('xs_decision_area')&&!$('xs_decision_area').hidden&&!value('xs_outcome'))target='xs_outcome';}
+  if(target&&$(target)){ $(target).focus?.();$(target).scrollIntoView?.({behavior:'smooth',block:'center'}); }
+ }
+
  function field(key,label,type='text',value='',attrs=''){
   return `<div class="field" id="xs_wrap_${key}"><label for="xs_${key}">${label}</label><input id="xs_${key}" type="${type}" value="${esc(value)}" ${type==='number'?'min="0" max="100000000" step="0.01"':''} ${attrs} oninput="ExitUI.update()"></div>`;
  }
@@ -74,10 +119,10 @@
   let message=reason||'';
   if(!message){
    try{if(!g.findEmp(value('exEmp'))?.id)throw Error('Select an employee.');
-    if(!value('exReason').trim())throw Error('Complete the Exit Reason to continue.');collect();}
+    reasonText();collect();}
    catch(err){message=err.message;}
   }
-  button.disabled=!!message||busy;button.title=message||'';
+  button.disabled=busy;button.title=message||'';button.setAttribute?.('aria-describedby','xs_feedback');button.dataset.needsAttention=message?'true':'false';
   const feedback=$('xs_feedback');if(feedback)feedback.textContent=message||'Decision complete. You can confirm the employee exit.';
  }
  function update(reset=false){
@@ -142,10 +187,24 @@
   update();
  }
  function toggleDeposit(){if(!$('xs_deposit_now').checked){for(const k of ['deposited','deposited_on','receipt_no','deposited_to'])$('xs_'+k).value=k==='deposited'?'0':'';}update();}
+ function bindShortcuts(){
+  if(g.__mgExitShortcutsBound)return;
+  g.__mgExitShortcutsBound=true;
+  document.addEventListener('keydown',function(event){
+   const page=$('page-exit');if(!page||!page.getClientRects||!page.getClientRects().length)return;
+   if(event.altKey&&!event.ctrlKey&&!event.metaKey){
+    const key=String(event.key||'');const id=({'1':'exEmp','2':'exReason','3':'exDate','4':'xs_outcome'})[key];
+    if(id&&$(id)&&!$(id).closest?.('[hidden]')){event.preventDefault();$(id).focus();}
+   }else if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){
+    event.preventDefault();submit();
+   }
+  });
+ }
  function reset(clearValues=false){
   requestId=null;requestFingerprint='';editing=null;busy=false;
+  bindShortcuts();
   if(clearValues){textFields.forEach(k=>{const el=$('xs_'+k);if(el)el.value=({expected:'3000',deducted:'0',deposited:'0'})[k]||'';});if($('xs_deposit_now'))$('xs_deposit_now').checked=false;}
-  if($('exReason')&&!$('exReason').dataset.exitDecisionBound){$('exReason').addEventListener('input',()=>update());$('exReason').dataset.exitDecisionBound='yes';}
+  if($('exReason')&&!$('exReason').dataset.exitDecisionBound){$('exReason').addEventListener('change',()=>reasonChanged());$('exReason').dataset.exitDecisionBound='yes';}reasonChanged();
   update(true);
  }
  async function refresh(){
@@ -158,10 +217,10 @@
   let emp,settlement,payload;
   try{
    emp=g.findEmp(value('exEmp'));if(!emp?.id||String(emp.Status||emp.status)!=='Active')throw Error('Select an active employee.');
-   settlement=collect();const reason=value('exReason').trim();if(!reason)throw Error('Complete the Exit Reason.');
+   const reason=reasonText();settlement=collect();
    const tc=g.__exitFromTransferContext;
-   payload={employee_sys_id:emp.id,exit_reason:reason,exit_type:value('exType'),exit_date:value('exDate'),issue_date:value('exIssue')||stamp(),related_transfer_id:tc&&String(tc.employeeSysId)===String(emp.id)?Number(tc.transferId):null};
-  }catch(err){update();return g.toast(err.message,'error');}
+   payload={employee_sys_id:emp.id,exit_reason:reason,exit_date:value('exDate'),issue_date:value('exIssue')||stamp(),related_transfer_id:tc&&String(tc.employeeSysId)===String(emp.id)?Number(tc.transferId):null};
+  }catch(err){update();warning(err.message);return;}
   const fingerprint=JSON.stringify([payload,settlement]);
   if(fingerprint!==requestFingerprint){requestId=null;requestFingerprint=fingerprint;}
   const confirmText=settlement.enabled?'Confirm this exit and save its confidential deduction decision?':'Confirm this exit without deduction tracking (one year completed)?';
@@ -204,5 +263,5 @@
    g.openModal('Confidential — Settlement History',`<div class="exit-private-warning">CONFIDENTIAL — Internal authorized use only</div>${rows.map(r=>`<div class="card" style="padding:12px"><strong>Version ${r.version} · ${esc(r.recorded_at)}</strong><p>${esc(r.change_note)}</p><p>Expected ৳${esc(r.after_data.expected)} · Deducted ৳${esc(r.after_data.deducted)} · Deposited ৳${esc(r.after_data.deposited)}</p><details><summary>Full saved details</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(JSON.stringify(r.after_data,null,2))}</pre></details></div>`).join('')||'<p>No recorded history.</p>'}`,`<button class="btn" onclick="ExitUI.edit(${Number(id)})">Back to record</button><button class="btn" onclick="closeModal()">Close</button>`);
   }catch(err){g.toast(err.message,'error');}
  }
- g.ExitUI=Object.freeze({html,update,reset,collect,submit,edit,saveEdit,history,today:stamp,choose,toggleOptional,toggleDeposit});
+ g.ExitUI=Object.freeze({html,update,reset,collect,submit,edit,saveEdit,history,today:stamp,choose,toggleOptional,toggleDeposit,reasonSelect,reasonText,reasonChanged,focusMissing,exitReasons});
 })(window);

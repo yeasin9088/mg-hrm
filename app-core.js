@@ -173,7 +173,7 @@
       pk: 'id',
       allowed: ['id', 'employee_sys_id', 'employee_id',
         'full_name', 'designation', 'current_project', 'join_date',
-        'exit_reason', 'exit_date', 'issue_date', 'created_at', 'status', 'exit_type', 'effective_exit_date', 'related_transfer_id', 'completed_at', 'completed_by', 'cancelled_at', 'cancelled_by', 'cancellation_reason', 'completion_remarks'
+        'exit_reason', 'exit_date', 'issue_date', 'created_at', 'status', 'effective_exit_date', 'related_transfer_id', 'completed_at', 'completed_by', 'cancelled_at', 'cancelled_by', 'cancellation_reason', 'completion_remarks'
        ],
       map: { 'id': 'id',
         'employee_sys_id': 'employee_sys_id',

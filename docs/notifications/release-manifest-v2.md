@@ -185,3 +185,11 @@ Live: 122 To-Dos, 117 notifications, 8 SWA ledger rows,
 2 active Push subscriptions, 0 Phase 1/2 audit rows;
 Governance V2 `false`, Phase 2 policy `notification-core-v2-phase2-1`.
 These are dated observations, not validation of future production.
+
+## Phase 6 dispatch integrity continuation
+
+`20261023081545_notification_phase6_dispatch_integrity.sql` was installed as
+production version `20261023083720` after existing Phase1–6 dependencies.
+Do not replay it. PR #29 adds atomic reservations, explicit source leases and
+existing-panel diagnostics. See `phase6-dispatch-integrity-2026-10-23.md`.
+All 69 end-to-end scenarios and final activation are still not accepted.

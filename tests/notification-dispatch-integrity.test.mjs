@@ -77,6 +77,12 @@ test('Phase6 source, atomic reservation, read independence, ACK and digest safet
  assert.equal((await reserve(digest)).item_count,21,'device fanout preserves frozen membership');
  await db.exec(`UPDATE public.todos SET status='solved';`);
  assert.equal((await reserve(digest)).allowed,false,'whole resolved digest suppressed');
+ const before=await value("select jsonb_build_object('todos',(select count(*) from public.todos),'notifications',(select count(*) from public.notifications),'quota',(select count(*) from notification_private.push_occurrences)) v");
+ await db.exec(read('supabase/rollout/notification-phase6-integrity-rollback.sql'));
+ assert.deepEqual(await value("select jsonb_build_object('todos',(select count(*) from public.todos),'notifications',(select count(*) from public.notifications),'quota',(select count(*) from notification_private.push_occurrences)) v"),before,'rollback preserves source and audit rows');
+ assert.equal(await value("select enabled v from notification_private.governance_control"),false);
+ assert.equal(await value("select has_function_privilege('authenticated','public.notification_source_interaction(text,text,text,timestamptz,bigint)','execute') v"),false,'rollback disables lease writes when enforcement is restored to V1 baseline');
+
  } finally{await db.close();}
 });
 

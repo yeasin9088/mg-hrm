@@ -78,3 +78,23 @@ cannot be moved by a reminder lease. Conflicting edits require reopening details
   production cron recovery and full final UX acceptance remain unverified.
 - Keep final release gate NOT_READY and both V2 flags OFF. Do not change a false
   acceptance field to true merely to satisfy a deployment request.
+
+## Verified installation checkpoint
+
+- PR #29: https://github.com/yeasin9088/mg-hrm/pull/29
+- All nine workflows on implementation commit `fadeb5d08356de346458d0bbd45be9245f7fc939` passed.
+- Actual PostgreSQL concurrent-session quota assertion passed:
+  https://github.com/yeasin9088/mg-hrm/actions/runs/39925630462
+- Chromium settings + source lease controls passed at all six widths:
+  https://github.com/yeasin9088/mg-hrm/actions/runs/39925630072
+- Local full suite: 177 tests, 176 pass, one pre-existing skipped; subsequent
+  synthetic rollback verification passed without deleting source or audit rows.
+- Production migration applied as `20261023083720 notification_phase6_dispatch_integrity`.
+- Live read-back verified new functions, quota hooks and RLS. Anonymous users
+  cannot call diagnostics or source mutation; authenticated clients cannot
+  access private quota tables or reserve quota directly.
+- Preserved counts: 122 To-Dos, 117 notifications, 8 historical SWA records,
+  2 active registrations. No production test leases/reservations were created.
+- Live source snapshots classified 45 current and 77 resolved/ineligible To-Dos.
+- Both V2 gates remain false. Full final release is still NOT_READY for the
+  remaining blockers above; deployment of these improvements is not activation.

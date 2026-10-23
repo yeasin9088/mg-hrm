@@ -100,14 +100,14 @@ test('synthetic note creation preserves category, pending state and existing rem
 });
 test('star, completion and expansion invoke existing transitions using isolated data',async()=>{
  const f=fixture([note(1)]),writes=[];
- f.c.appData={update:async(bucket,id,patch)=>{writes.push({bucket,id,patch})}};
+ f.c.appData={update:async(bucket,id,patch)=>{writes.push({bucket,id,patch});return [{id}]}};
  f.c.mgTdFlagWrite=async(t,patch)=>{Object.assign(t,patch);f.render();return true};
  vm.runInContext(part('window.mtToggleTodoImportant = function(id)','window.mtQuickAddTodo'),f.c);
  f.c.mtToggleTodoImportant(1);await Promise.resolve();assert.equal(f.c.DATA.todos[0].is_important,true);
- vm.runInContext(part('window.mtSetTodoStatus = function(id','window.delTodo'),f.c);
- f.c.mtToggleTodoStatus(1);assert.equal(f.c.DATA.todos[0].status,'approved');
- f.c.mtToggleTodoStatus(1);assert.equal(f.c.DATA.todos[0].status,'solved_approved');assert(f.c.DATA.todos[0].solved_at);
- f.c.mtToggleTodoStatus(1);assert.equal(f.c.DATA.todos[0].status,'pending');assert.equal(f.c.DATA.todos[0].solved_at,null);
+ vm.runInContext(part('window.mtSetTodoStatus = async function(id','window.delTodo'),f.c);
+ await f.c.mtToggleTodoStatus(1);assert.equal(f.c.DATA.todos[0].status,'approved');
+ await f.c.mtToggleTodoStatus(1);assert.equal(f.c.DATA.todos[0].status,'solved_approved');assert(f.c.DATA.todos[0].solved_at);
+ await f.c.mtToggleTodoStatus(1);assert.equal(f.c.DATA.todos[0].status,'pending');assert.equal(f.c.DATA.todos[0].solved_at,null);
  vm.runInContext(part('window.mtToggleTodoOpen = function(id)','window.MG_TD_MOVE = null;'),f.c);
  f.c.mtToggleTodoOpen(1);assert.match(f.page.innerHTML,/aria-expanded="true"/);assert.equal(writes.length,3);
 });
@@ -117,4 +117,21 @@ test('existing editor preserves completion, reminder metadata and replies while 
  Object.assign(f.c,{MG_TD_EDIT_ID:1,find:id=>f.c.DATA.todos.find(t=>t.id===id),el:id=>f.elements[id],busy(){},translate:async raw=>({ok:true,bn:raw}),nowIso:()=> '2026-10-21',toastSafe(){},mtCloseNote(){},mgTdPush:async()=>true});
  vm.runInContext(part('window.mtSaveNote = async function(){','window.mtAddExtra'),f.c);
  await f.c.mtSaveNote();const row=f.c.DATA.todos[0];assert.equal(row.note_bn,'সংশোধিত নোট');assert.equal(row.status,'solved_approved');assert.equal(row.reminder_type,'custom');assert.equal(row.extra_notes[0].raw,'Past reply');
+});
+test('failed and concurrent status writes never claim a solved To-Do',async()=>{
+ const f=fixture([note(9)]);
+ f.c.console={error(){}};
+ let release;
+ f.c.appData={update:()=>new Promise(resolve=>{release=resolve})};
+ vm.runInContext(part('window.mtSetTodoStatus = async function(id','window.delTodo'),f.c);
+ const first=f.c.mtSetTodoStatus(9,'solved_approved');
+ assert.equal(f.c.DATA.todos[0].status,'pending');
+ assert.equal(await f.c.mtSetTodoStatus(9,'approved'),false);
+ release(null);
+ assert.equal(await first,false);
+ assert.equal(f.c.DATA.todos[0].status,'pending');
+ assert.equal(f.c.DATA.todos[0].solved_at,undefined);
+ f.c.appData.update=async()=>[{id:9}];
+ assert.equal(await f.c.mtSetTodoStatus(9,'solved_approved'),true);
+ assert.equal(f.c.DATA.todos[0].status,'solved_approved');
 });

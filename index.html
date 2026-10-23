@@ -19565,39 +19565,49 @@ window.mtRequestSalaryNotif = async function(event) {
   if (typeof renderTodo === 'function') renderTodo();
 };
 
-window.mtSetTodoStatus = function(id, newStatus) {
+window.mtSetTodoStatus = async function(id, newStatus) {
   DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
   const t = DATA.todos.find(function(x){ return String(x.id) === String(id); });
-  if (!t) return;
-  t.status = newStatus;
+  if (!t) return false;
+  window.MG_TD_STATUS_WRITES = window.MG_TD_STATUS_WRITES || new Set();
+  if (window.MG_TD_STATUS_WRITES.has(String(id))) return false;
+  window.MG_TD_STATUS_WRITES.add(String(id));
   const isSolved = (newStatus === 'solved_approved' || newStatus === 'solved_rejected' || newStatus === 'solved' || newStatus === 'done');
-  if (isSolved && !t.solved_at) {
-    t.solved_at = new Date().toISOString();
-  } else if (!isSolved) {
-    t.solved_at = null;
+  const solvedAt = isSolved ? (t.solved_at || new Date().toISOString()) : null;
+  const statusPayload = { status: newStatus, solved_at: solvedAt };
+  try {
+    let rows;
+    if (window.appData && typeof window.appData.update === 'function') {
+      rows = await window.appData.update('todos', t.id, statusPayload);
+    } else if (window.sb) {
+      const result = await window.sb.from('todos').update(statusPayload).eq('id', t.id).select('id');
+      if (result.error) throw result.error;
+      rows = result.data;
+    } else {
+      throw new Error('Database unavailable');
+    }
+    if (!Array.isArray(rows) || !rows.some(function(row){ return String(row.id) === String(t.id); })) {
+      throw new Error('Database did not confirm the To-Do status');
+    }
+  } catch (err) {
+    window.MG_TD_STATUS_WRITES.delete(String(id));
+    console.error('To-Do status update failed:', err);
+    if (typeof toast === 'function') toast('Status was not saved — retry when connected', 'error');
+    return false;
   }
-  const statusPayload = { status: newStatus, solved_at: t.solved_at };
-
-  // Real-time synchronization to Supabase
-  if (window.appData && typeof window.appData.update === 'function') {
-    window.appData.update('todos', t.id, statusPayload).catch(function(err){
-      console.error('Failed to sync todo status update to Supabase:', err);
-    });
-  } else if (window.sb) {
-    window.sb.from('todos').update(statusPayload).eq('id', t.id).catch(function(err){
-      console.error('Failed to update todo status in Supabase:', err);
-    });
-  }
-
+  t.status = newStatus;
+  t.solved_at = solvedAt;
+  window.MG_TD_STATUS_WRITES.delete(String(id));
   persist();
   renderTodo();
   if (typeof updateTodoBadge === 'function') updateTodoBadge();
+  return true;
 };
 
 window.mtToggleTodoStatus = function(id) {
   DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
   const t = DATA.todos.find(function(x){ return String(x.id) === String(id); });
-  if (!t) return;
+  if (!t) return false;
   
   // Advanced progression: pending -> approved, approved -> solved_approved, rejected -> solved_rejected, solved -> pending
   let nextStatus = 'pending';
@@ -19612,7 +19622,7 @@ window.mtToggleTodoStatus = function(id) {
     nextStatus = 'pending';
   }
 
-  window.mtSetTodoStatus(id, nextStatus);
+  return window.mtSetTodoStatus(id, nextStatus);
 };
 
 window.delTodo = function(id) {
@@ -20586,8 +20596,21 @@ window.cycleTodo = window.mtToggleTodoStatus;
     var payload = {};
     (keys || []).forEach(function(k){ if (k === 'note_in') return; payload[k] = (t[k] === undefined ? null : t[k]); });
     try{
-      if (window.appData && typeof window.appData.update === 'function') await window.appData.update('todos', t.id, payload);
-      else if (window.sb) await window.sb.from('todos').update(payload).eq('id', t.id);
+      var rows;
+      if (window.appData && typeof window.appData.update === 'function') {
+        rows = await window.appData.update('todos', t.id, payload);
+      } else if (window.sb) {
+        var result = await window.sb.from('todos').update(payload).eq('id', t.id).select('id');
+        if (result.error) throw result.error;
+        rows = result.data;
+      } else {
+        throw new Error('Database unavailable');
+      }
+      // A disconnected client may resolve null; an RLS/stale-row update may
+      // succeed with zero rows. Neither confirms a durable business decision.
+      if (!Array.isArray(rows) || !rows.some(function(row){ return String(row.id) === String(t.id); })) {
+        throw new Error('Database did not confirm the To-Do update');
+      }
     }catch(err){
       console.error('To-Do sync failed:', err);
       toastSafe('Not saved to the database — check the internet connection', 'error');
@@ -21106,9 +21129,21 @@ window.cycleTodo = window.mtToggleTodoStatus;
   window.mtSetManagerStatus = async function(id, st){
     var t = find(id);
     if (!t) return;
+    window.MG_TD_MANAGER_WRITES = window.MG_TD_MANAGER_WRITES || new Set();
+    if (window.MG_TD_MANAGER_WRITES.has(String(id))) return;
+    window.MG_TD_MANAGER_WRITES.add(String(id));
+    var previous = t.manager_status;
+    var previousUpdatedAt = t.updated_at;
     t.manager_status = (String(t.manager_status || 'none').toLowerCase() === st) ? 'none' : st;
     t.updated_at = nowIso();
-    await window.mgTdPush(t, ['manager_status','updated_at']);
+    var ok = await window.mgTdPush(t, ['manager_status','updated_at']);
+    window.MG_TD_MANAGER_WRITES.delete(String(id));
+    if (!ok) {
+      t.manager_status = previous;
+      t.updated_at = previousUpdatedAt;
+      if (typeof renderTodo === 'function') renderTodo();
+      return;
+    }
     if (typeof renderTodo === 'function') renderTodo();
     toastSafe('Manager status updated', 'success');
   };

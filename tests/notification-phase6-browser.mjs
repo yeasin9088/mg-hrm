@@ -8,7 +8,7 @@ const css=await fs.readFile('notification-ui.css','utf8');
 const js=await fs.readFile('notification-settings.js','utf8');
 const at=js.indexOf('/* Phase 6: a backend-authoritative Smart Policy');
 assert(at>=0,'Phase6 panel source must exist');
-const source=js.slice(at);
+const source=js.slice(at)+'\n'+await fs.readFile('notification-engine-ui.js','utf8');
 const base={
  revision:9,policy_version:'notification-core-v2-phase2-1',
  governance_enabled:false,digest_bridge_enabled:false,
@@ -33,6 +33,10 @@ try{
   await page.evaluate(({code,record})=>{
     window.__policy={...record};
     window.__saveCalls=[];
+    window.__sourceRevision=0;
+    window.NOTIFICATIONS=[{id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',isBackend:true,entityType:'todo',ref:'101'}];
+    window.openModal=(title,body)=>{let e=document.getElementById('mockDetails');if(!e){e=document.createElement('section');e.id='mockDetails';e.style.cssText='position:fixed;inset:0;z-index:99999;background:white;overflow:auto;padding:12px;box-sizing:border-box';document.body.append(e)}e.innerHTML=body;};
+    window.closeModal=()=>document.getElementById('mockDetails')?.remove();
     window.mgOpenNotifSettings=async()=>{};
     window.MGHRM={client:{rpc:async(name,args)=>{
       if(name==='notification_operator_policy_read')return {data:{...window.__policy},error:null};
@@ -43,6 +47,14 @@ try{
         window.__policy={...window.__policy,...args.p_changes,
           revision:window.__policy.revision+1};
         return {data:{...window.__policy,saved:true,readback_revision:window.__policy.revision},error:null};
+      }
+      if(name==='notification_operator_diagnostics')return {data:{checked_at:new Date().toISOString(),
+        policy:{...window.__policy},health:{healthy:true,jobs:{},web_push_deliveries:{},subscriptions:{active:2}},
+        open_source_count:20,source:{actionable:true,reason:'authoritative_source_current'},
+        interaction:{revision:window.__sourceRevision},decision:{reason_code:'actionable_verified_policy_candidate'}},error:null};
+      if(name==='notification_source_interaction'){
+        if(args.p_expected_revision!==window.__sourceRevision)return {error:{message:'revision conflict'}};
+        window.__sourceRevision++;return {data:{saved:true,revision:window.__sourceRevision},error:null};
       }
       return {data:null,error:{message:'Unknown mock RPC'}};
     }}};
@@ -73,6 +85,13 @@ try{
   await fs.mkdir('artifacts/notification-phase6',{recursive:true});
   await page.screenshot({path:`artifacts/notification-phase6/settings-${width}px.png`,fullPage:true});
   console.log(`PASS Chromium Phase6 viewport ${width}px: responsive, 12 controls, authenticated-CAS mock, readback and 44px target`);
+  await page.locator('#mgEngineHealth').getByText('Open To-Do sources').waitFor();
+  await page.evaluate(()=>window.mgOpenNotificationDetails(window.NOTIFICATIONS[0].id));
+  await page.getByRole('button',{name:'Acknowledge work',exact:true}).click();
+  await page.locator('#mgEngineActionResult').getByText('Source reminder state saved and verified. Business status is unchanged.').waitFor();
+  assert.equal(await page.evaluate(()=>window.__sourceRevision),1);
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));
+  await page.screenshot({path:`artifacts/notification-phase6/source-details-${width}px.png`,fullPage:true});
   await context.close();
  }
 }finally{await browser.close();}

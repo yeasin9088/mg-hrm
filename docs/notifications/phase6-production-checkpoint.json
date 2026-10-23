@@ -17,11 +17,11 @@
   "concurrent_worker_provider_quota_proven": false,
   "verified_calendar_required": false,
   "verified_calendar_available": false,
-  "owner_final_release_approval": false,
+  "owner_final_release_approval": true,
   "phase6_responsive_ux_verified": false,
   "known_limitations": [
     "Read-only staged DB functions installed; V2 gates remain disabled.",
-    "Atomic reservation / concurrent-worker enforced successful-Push cap not fully implemented.",
+    "Atomic reservations are installed and passed real concurrent PostgreSQL tests; live V2 remains disabled and real provider/worker acceptance is unverified.",
     "Complete recipient-version source adapters not verified for every HRM module.",
     "69 individual Rulebook ATs not end-to-end accepted.",
     "Real Android and desktop Push receipts, Service Worker click and offline/permissions not yet verified.",
@@ -29,5 +29,13 @@
     "No P0/P1 emergency override, official weekend/holiday or payroll policy approved."
   ],
   "phase6_configurable_window_applied": true,
-  "phase6_clock_policy_readback_verified": true
+  "phase6_clock_policy_readback_verified": true,
+  "dispatch_integrity_production_migration": "20261023083720 notification_phase6_dispatch_integrity",
+  "dispatch_integrity_installed": true,
+  "postgresql_concurrent_reservation_test_proven": true,
+  "source_ack_snooze_revision_and_dispatch_proven": true,
+  "six_viewport_settings_and_source_lease_synthetic_browser_proven": true,
+  "implementation_merge_deploy_authorized": true,
+  "final_release_status": "NOT_READY",
+  "atomic_push_reservation_implemented_and_tested": true
 }

@@ -76,3 +76,9 @@ itself is a governed production operation; it has **not** been executed.
 **Staged functionality successfully installed; V2 production activation
 BLOCKED / NOT READY.** The live application still uses V1 notifications.
 All remaining work stays inside Phase 6; no Phase 7.
+
+## Dispatch integrity continuation
+See `phase6-dispatch-integrity-2026-10-23.md` for the new source snapshots,
+atomic reservation implementation, explicit source leases and existing-panel
+diagnostics. These improvements do not certify all 69 ATs or authorize V2
+activation. Migration/deployment results are recorded in that continuation.

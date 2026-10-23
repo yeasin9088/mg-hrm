@@ -15,7 +15,8 @@ Production: https://yeasinh.me/mg-hrm/
 | 2 — Priority, risk, quotas | `supabase/migrations/20261023190000_notification_core_policy_phase2.sql` | Already applied to production as `20261023054338 notification_core_policy_phase2` | Read-only preview |
 | 3 — Digest scheduling | `supabase/migrations/20261023200000_notification_digest_scheduler_phase3.sql` | **READY FOR REVIEW; NOT APPLIED** | NO live cron or Push |
 | 4 — Gated digest event/push integration (partial) | `20261023210000_notification_digest_event_bridge_phase4.sql` → `20261023213000_notification_processor_bridge_phase4.sql` → `20261023214500_notification_digest_event_guard_phase4.sql` | STAGED IN REPOSITORY; NOT APPLIED | Both switches OFF |
-| 5 — Release acceptance | Full E2E/device tests and activation | NOT COMPLETED | NO |
+| 5 — Backend settings API + acceptance evidence | `20261023220000_notification_operator_settings_api_phase5.sql` → `20261023221000_notification_digest_settings_enforcement_phase5.sql` | STAGED ONLY; E2E/device acceptance pending | OFF |
+| 6 — FINAL UI/UX + migration + go-live | Controlled activation, existing responsive Settings Center, production smoke and sign-off | NOT EXECUTED | OFF |
 
 **Important:** GitHub migration filename and the Supabase applied migration
 version may have different prefixes. Check the live migration table by
@@ -65,6 +66,36 @@ or infer from timestamps alone.
   supplier/provider delivery E2E and final policy acceptance are still missing.
 - Phase4 SQL must follow the uninstalled Phase3 migration. Never enable
   either feature switch during schema application.
+
+### Phase 5 — Existing Settings API and per-slot enforcement (STAGED)
+- Migration 1: `supabase/migrations/20261023220000_notification_operator_settings_api_phase5.sql`
+- Migration 2: `supabase/migrations/20261023221000_notification_digest_settings_enforcement_phase5.sql`
+- Synthetic isolated tests: `scripts/notification-settings-phase5-assertions.sql`,
+  `scripts/notification-digest-switch-phase5-assertions.sql`
+- CI: `.github/workflows/notification-settings-phase5.yml`
+- Operator policy read/save: `public.notification_operator_policy_read()` and
+  `public.notification_operator_policy_save(expected_revision,changes)`.
+- Whitelist, operator-only, DB-based read-after-write, optimistic CAS revision.
+  The API CANNOT enable P0, P1 interrupts or the Governance feature flags.
+- Morning/afternoon settings are enforced in the staged digest event publisher
+  and the final dispatch source gate. Still no live UI controls before Phase 6.
+- Phase 5 rulebook acceptance matrix: `phase5-acceptance-evidence.md`.
+- **No claims of real Android/desktop/provider Push or all 69 AT accepted**.
+
+### Phase 6 — FINAL operator Settings Center and release
+- Mandatory design and acceptance contract:
+  `docs/notifications/phase6-final-settings-center-ux-contract.md`.
+- Upgrade the EXISTING Notification Settings panel, never create a second UI.
+- All real engine controls must be responsive, accessible and backed by
+  operator-authorized APIs with data-confirmed save/reload/conflict behavior.
+- Fix misleading legacy "Urgent always bypass" UI wording/default relative to
+  unapproved P0/P1 policy; do not accidentally activate night interruption.
+- Final ordered migration Phase3→Phase4A→4B→4C→Phase5A→5B only after
+  required acceptance checks. Keep both gates OFF during migration.
+- Then verify exact delivery/rate quotas, protected source truth, actual browser
+  and Android Push, all 69 individual AT results, rollback and operator sign-off.
+- **There is no Phase 7**. If criteria remain unverified, report NOT READY
+  within Phase 6 rather than invent another phase or falsely claiming Live.
 
 ## Full release gates (DO NOT SKIP)
 1. Read full Rulebook v1.1 and Project Context; re-audit latest `main`,

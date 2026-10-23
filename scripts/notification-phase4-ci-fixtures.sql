@@ -32,12 +32,13 @@ CREATE TABLE public.push_subscriptions(
  permission_state text,revoked_at timestamptz,
  endpoint text,p256dh_key text,auth_key text
 );
-CREATE TABLE public.notification_deliveries(
- id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
- notification_id uuid,subscription_id bigint,channel text,
- delivery_status text,provider_status text,response_metadata jsonb DEFAULT '{}'::jsonb,
- attempt_number integer DEFAULT 1
-);
+-- Phase2 already provides actual-send evidence in notification_deliveries.
+-- Keep it intact and extend to the existing dispatch RPC shape.
+ALTER TABLE public.notification_deliveries
+ ADD COLUMN subscription_id bigint,
+ ADD COLUMN provider_status text,
+ ADD COLUMN response_metadata jsonb DEFAULT '{}'::jsonb,
+ ADD COLUMN attempt_number integer DEFAULT 1;
 CREATE FUNCTION public.notification_reminder_mode()
  RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT false $$;
 CREATE FUNCTION notification_private.has_foreground(uuid)

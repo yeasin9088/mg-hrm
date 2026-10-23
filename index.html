@@ -7109,25 +7109,14 @@ function usageSortedOptions(values, counts){
   return values.slice().sort((a,b)=>((counts[b]||0)-(counts[a]||0)) || a.localeCompare(b));
 }
 
-const PROJECT_FAMILIES = ['Biswas Agro Fisheries', 'M/S Shoinik Traders'];
-function projectFamily(p){ return PROJECT_FAMILIES.find(f=>p.startsWith(f)) || null; }
-function usageSortedProjects(values, counts){
-  const famMax = {};
-  values.forEach(v=>{
-    const f = projectFamily(v);
-    if(f) famMax[f] = Math.max(famMax[f]||0, counts[v]||0);
-  });
-  return values.slice().sort((a,b)=>{
-    const fa=projectFamily(a), fb=projectFamily(b);
-    if(fa && fb && fa===fb) return a.localeCompare(b);                    
-    const ka = fa ? `F:${fa}` : `P:${a}`;
-    const kb = fb ? `F:${fb}` : `P:${b}`;
-    if(ka===kb) return 0;
-    const ca = fa ? famMax[fa] : (counts[a]||0);
-    const cb = fb ? famMax[fb] : (counts[b]||0);
-    return (cb-ca) || ka.localeCompare(kb);
-  });
+// Alphabetical ordering only for organization/project options, never stored rows.
+function projectNameAZ(a,b){
+  return String(a ?? '').trim().localeCompare(String(b ?? '').trim(),'en',{sensitivity:'base',numeric:true})
+      || String(a ?? '').localeCompare(String(b ?? ''),'en');
 }
+function projectNamesAZ(values){ return values.slice().sort(projectNameAZ); }
+// Existing employee filter callers retain their original signature.
+function usageSortedProjects(values, counts){ return projectNamesAZ(values); }
 
 const DESIG_RANK = {
   'Security Officer':0, 'Security Inspector':1,
@@ -7256,7 +7245,7 @@ function openApplicantForm(empKey){
   if(existing && getProj && !projectChoices.includes(getProj)) projectChoices.push(getProj);
   const designationChoices = DESIGNATIONS.slice();
   if(existing && getDesig && !designationChoices.includes(getDesig)) designationChoices.push(getDesig);
-  const projOpts = ['<option value="">Select Project</option>'].concat(usageSortedOptions(projectChoices, projCounts).map(p=>`<option value="${escapeHtml(p)}" ${getProj === p ? 'selected' : ''}>${escapeHtml(p)}</option>`)).join('');
+  const projOpts = ['<option value="">Select Project</option>'].concat(projectNamesAZ(projectChoices).map(p=>`<option value="${escapeHtml(p)}" ${getProj === p ? 'selected' : ''}>${escapeHtml(p)}</option>`)).join('');
   const desigOpts = ['<option value="">Select Designation</option>'].concat(usageSortedOptions(designationChoices, desigCounts).map(d=>`<option value="${escapeHtml(d)}" ${getDesig === d ? 'selected' : ''}>${escapeHtml(d)}</option>`)).join('');
   const relOpts = usageSortedOptions(['Islam','Hindu','Buddhist','Christian'], relCounts).map(r=>`<option ${getRel === r ? 'selected' : ''}>${r}</option>`).join('');
   const selectedEdu = existing ? (existing.Education || existing.education || 'SSC') : (cand ? (cand.education || 'SSC') : 'SSC');
@@ -10647,7 +10636,7 @@ function trProjectOptions(){
   DATA.transfers.forEach(function(t){
     if (t.NewProject) set.add(String(t.NewProject));
   });
-  return Array.from(set).sort();
+  return Array.from(set).sort(projectNameAZ);
 }
 function transferSummaryCounts(transfers, today){
   const rows = (transfers || []).filter(t=>!t.deleted_at);
@@ -11052,7 +11041,7 @@ function editTransferOrder(tid){
   if(!guardEdit()) return;
   const t = DATA.transfers.find(x=>String(x.id)===String(tid)); if(!t) return;
   if (!['Draft','Scheduled','Joining Pending','Not Joined'].includes(String(t.status || t.Status))) return toast('This transfer cannot be edited.', 'error');
-  const opts = DATA.projects.map(p=>'<option value="' + escapeHtml(p.ProjectName) + '"' + (p.ProjectName===t.NewProject?' selected':'') + '>' + escapeHtml(p.ProjectName) + '</option>').join('');
+  const opts = DATA.projects.slice().sort((a,b)=>projectNameAZ(a.ProjectName,b.ProjectName)).map(p=>'<option value="' + escapeHtml(p.ProjectName) + '"' + (p.ProjectName===t.NewProject?' selected':'') + '>' + escapeHtml(p.ProjectName) + '</option>').join('');
   openModal('Edit Transfer Order',
     '<div class="field"><label>New Project</label><select id="_np">' + opts + '</select></div>' +
     '<p class="small-mute">Scheduled date: ' + escapeHtml(fmtDate(transferScheduledDate(t))) + '. Use Reschedule to change this date and record a reason.</p>' +
@@ -11324,8 +11313,9 @@ document.addEventListener('click', ev => {
 
 function fillProjectSelect(id){
   const sel = document.getElementById(id);
+  if(!sel) return;
   sel.innerHTML = `<option value="">— ${'select'} —</option>` +
-    activeProjects().sort((a,b)=>a.ProjectName.localeCompare(b.ProjectName))
+    activeProjects().sort((a,b)=>projectNameAZ(a.ProjectName,b.ProjectName))
       .map(p=>`<option>${p.ProjectName}</option>`).join('');
 }
 
@@ -12780,7 +12770,7 @@ function exProjectOptions(){
     const p = x.CurrentProject || x.ProjectName;
     if (p) set.add(String(p));
   });
-  return Array.from(set).sort();
+  return Array.from(set).sort(projectNameAZ);
 }
 
 function exBaseRows(){
@@ -12992,7 +12982,7 @@ function promptReactivate(empKey, exitId){
   if(curStatus === 'active'){
     return toast('Employee is already Active. Only non-active employees can be reactivated.', 'warning');
   }
-  const activeProjs = activeProjects().sort((a,b)=>a.ProjectName.localeCompare(b.ProjectName));
+  const activeProjs = activeProjects().sort((a,b)=>projectNameAZ(a.ProjectName,b.ProjectName));
   openModal('Select Project for Reactivation', `
     <div class="form-grid">
       <div class="field wide">
@@ -13401,7 +13391,7 @@ function renderReports(){
           <input id="reportDateFrom" type="date" onchange="renderReportSelected()" style="display:none;padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit">
           <input id="reportDateTo" type="date" onchange="renderReportSelected()" style="display:none;padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit">
           <select id="reportProject" onchange="renderReportSelected()" style="padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit">
-            <option value="">All Projects</option>${(DATA.projects||[]).map(p=>`<option value="${escapeHtml(p.ProjectName||p.project_name||'')}">${escapeHtml(p.ProjectName||p.project_name||'')}</option>`).join('')}
+            <option value="">All Projects</option>${(DATA.projects||[]).slice().sort((a,b)=>projectNameAZ(a.ProjectName||a.project_name,b.ProjectName||b.project_name)).map(p=>`<option value="${escapeHtml(p.ProjectName||p.project_name||'')}">${escapeHtml(p.ProjectName||p.project_name||'')}</option>`).join('')}
           </select>
           <select id="reportDesignation" onchange="renderReportSelected()" style="padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit">
             <option value="">All Designations</option>${Array.from(new Set((DATA.employees||[]).map(e=>e.Designation).filter(Boolean))).sort().map(d=>`<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('')}
@@ -15372,7 +15362,7 @@ function mtActiveProjects(){
   return (typeof getMeetingEligibleProjects === 'function' ? getMeetingEligibleProjects() : (DATA.projects||[]).filter(isProjectActive))
     .map(p => p.ProjectName || p.project_name)
     .filter(Boolean)
-    .sort((a,b) => a.localeCompare(b));
+    .sort(projectNameAZ);
 }
 window.mtActiveProjects = mtActiveProjects;
 
@@ -15387,7 +15377,7 @@ window.openMeetingSettingsModal = function(){
   if (typeof guardEdit === 'function' && !guardEdit()) return;
 
   const activeList = (DATA.projects || []).filter(isProjectActive);
-  activeList.sort((a,b) => String(a.ProjectName || a.project_name || '').localeCompare(String(b.ProjectName || b.project_name || '')));
+  activeList.sort((a,b) => projectNameAZ(a.ProjectName || a.project_name,b.ProjectName || b.project_name));
 
   window._mtSettingsStaged = {};
   window._mtSettingsOriginal = {};
@@ -15457,7 +15447,7 @@ window.mtSettingsRenderList = function(){
   if (!container) return;
 
   const activeList = (DATA.projects || []).filter(isProjectActive);
-  activeList.sort((a,b) => String(a.ProjectName || a.project_name || '').localeCompare(String(b.ProjectName || b.project_name || '')));
+  activeList.sort((a,b) => projectNameAZ(a.ProjectName || a.project_name,b.ProjectName || b.project_name));
 
   const q = String(window._mtSettingsQuery || '').toLowerCase().trim();
   const f = window._mtSettingsFilter || 'all';
@@ -18311,7 +18301,7 @@ function metric(label,value,icon,tone){const symbols={refresh:'↻','alert-trian
 function orderRow(o){const a=unifAcct(o.id),s=ub('uniformSuppliers',o.supplier_id),b=unifBills(o.id),total=b.reduce((n,x)=>n+(+x.bill_amount||0),0),paid=b.filter(x=>x.paid).reduce((n,x)=>n+(+x.bill_amount||0),0);return `<tr onclick="openUniformOrder(${o.id})"><td data-label="Order"><strong>${ue(o.order_number)}</strong><small>${ud(o.created_at)}</small></td><td data-label="Project"><strong>${ue(o.project_name_snapshot)}</strong></td><td data-label="Allocation"><div class="uo-allocation"><span><b>${o.approved_sets==null?'—':o.approved_sets}</b> approved</span><span><b>${a.assigned}</b> assigned</span><span><b>${a.postponed}</b> postponed</span></div></td><td data-label="Supplier">${ue(s&&s.supplier_name||'Not assigned')}</td><td data-label="Status"><span class="uo-status ${statusTone(o.status)}">${ue(o.status)}</span></td><td data-label="Billing"><strong>৳ ${um(paid)}</strong><small>of ৳ ${um(total)}</small></td><td><button class="uo-open" onclick="event.stopPropagation();openUniformOrder(${o.id})">Open →</button></td></tr>`;}
 function emptyOrders(){return `<div class="uo-empty"><div>${ico('inbox')}</div><h3>No orders found</h3><p>${UNIF_FILTER.q||UNIF_FILTER.status?'Clear the current filters to see other orders.':'Create the first order to start the uniform workflow.'}</p><button class="btn primary" onclick="openUniformCreate()">New Order</button></div>`;}
 
-function openUniformCreate(){const ps=ur('projects').filter(p=>p.is_active!==false&&(p.Status||p.status||'Active')!=='Inactive');modalForm('Create Uniform Order',`<div class="uo-form-grid"><label><span>Project *</span><select id="uoProject"><option value="">Select project</option>${ps.map(p=>`<option value="${p.id}">${ue(projectName(p))}</option>`).join('')}</select></label><label><span>Requested Sets *</span><input id="uoRequested" type="number" min="1" step="1" placeholder="Enter quantity"></label><label class="wide"><span>Remarks</span><textarea id="uoRemarks" placeholder="Optional notes"></textarea></label></div>`,'Create Draft','saveUniformCreate()');}
+function openUniformCreate(){const ps=ur('projects').filter(p=>p.is_active!==false&&(p.Status||p.status||'Active')!=='Inactive').sort((a,b)=>projectNameAZ(projectName(a),projectName(b)));modalForm('Create Uniform Order',`<div class="uo-form-grid"><label><span>Project *</span><select id="uoProject"><option value="">Select project</option>${ps.map(p=>`<option value="${p.id}">${ue(projectName(p))}</option>`).join('')}</select></label><label><span>Requested Sets *</span><input id="uoRequested" type="number" min="1" step="1" placeholder="Enter quantity"></label><label class="wide"><span>Remarks</span><textarea id="uoRemarks" placeholder="Optional notes"></textarea></label></div>`,'Create Draft','saveUniformCreate()');}
 async function saveUniformCreate(force){force=force||window.__uoForce===true;window.__uoForce=false;const pid=document.getElementById('uoProject').value,q=+document.getElementById('uoRequested').value,p=ub('projects',pid);if(!p)return formError('Please select a project.','uoProject');if(q<1)return formError('Requested sets must be greater than zero.','uoRequested');const ex=ur('uniformSupplyOrders').find(o=>String(o.project_id)===String(pid)&&!UNIF_TERMINAL.includes(o.status));if(ex&&!force)return openDuplicateOrderWarning(pid,q,ex);try{setBusy(true,'Creating...');await uiInsert('uniformSupplyOrders',{project_id:+pid,project_name_snapshot:projectName(p),requested_sets:q,status:'Draft',remarks:document.getElementById('uoRemarks')?document.getElementById('uoRemarks').value||null:null});closeModal();toast('Draft order created.','success');await unifReload();}catch(e){setBusy(false);formError(e.message||'Unable to create the order.');}}
 function openDuplicateOrderWarning(pid,q,ex){openModal('Active Order Found',`<div class="uo-warning-card"><strong>${ue(ex.order_number)}</strong><span>${ue(ex.project_name_snapshot)}</span><span class="uo-status info">${ue(ex.status)}</span></div><p class="uo-help">This project already has an active order. A separate order is allowed if this is a different requirement.</p>`,`<button class="btn" onclick="closeModal();openUniformOrder(${ex.id})">View Existing</button><button class="btn primary" onclick="closeModal();setTimeout(()=>{openUniformCreate();document.getElementById('uoProject').value='${pid}';document.getElementById('uoRequested').value='${q}';window.__uoForce=true;},0)">Continue</button>`);window.__uoForce=true;}
 
@@ -18527,7 +18517,7 @@ async function saveUniformReplacement(orderId){
   }catch(e){setBusy(false);formError(e.message||'Could not replace the employee.');}
 }
 function openUniformDeliveryProject(orderId){
-  const allocations=unifAcct(orderId).allocations,projects=ur('projects').filter(p=>p.is_active!==false);
+  const allocations=unifAcct(orderId).allocations,projects=ur('projects').filter(p=>p.is_active!==false).sort((a,b)=>projectNameAZ(projectName(a),projectName(b)));
   modalForm('Change Delivery Project',`<div class="uo-help">Use this when an employee was transferred after the order was placed.</div><div class="uo-form-grid"><label><span>Employee *</span><select id="uoDeliveryEmployee"><option value="">Select employee</option>${allocations.map(a=>`<option value="${a.id}">${ue(a.employee_name_snapshot)}</option>`).join('')}</select></label><label><span>Delivery Project *</span><select id="uoDeliveryProject"><option value="">Select project</option>${projects.map(p=>`<option value="${p.id}">${ue(projectName(p))}</option>`).join('')}</select></label><label class="wide"><span>Reason *</span><textarea id="uoDeliveryProjectReason" placeholder="Transfer or delivery instruction"></textarea></label></div>`,'Update Destination',`saveUniformDeliveryProject(${orderId})`);
 }
 async function saveUniformDeliveryProject(orderId){const aid=document.getElementById('uoDeliveryEmployee').value,pid=document.getElementById('uoDeliveryProject').value,reason=document.getElementById('uoDeliveryProjectReason').value.trim();if(!aid)return formError('Select an employee.','uoDeliveryEmployee');if(!pid)return formError('Select the delivery project.','uoDeliveryProject');if(!reason)return formError('Enter a reason.','uoDeliveryProjectReason');try{setBusy(true);await uiUpdate('uniformOrderEmployees',aid,{delivery_project_id:+pid,remarks:reason});await unifReload();const order=ub('uniformSupplyOrders',orderId);if(unifNeedsReportRevision(order))await createUniformMainRevision(orderId,`Delivery destination changed for ${ub('uniformOrderEmployees',aid).employee_name_snapshot}. ${reason}`);closeModal();toast('Delivery project updated.','success');await unifReload();openUniformOrder(orderId);}catch(e){setBusy(false);formError(e.message);}}
@@ -20929,7 +20919,7 @@ window.cycleTodo = window.mtToggleTodoStatus;
 
   function projOptions(sel){
     var arr = (typeof activeProjects === 'function' ? activeProjects() : []).slice()
-      .sort(function(a, b){ return String(a && a.ProjectName || '').localeCompare(String(b && b.ProjectName || '')); });
+      .sort(function(a, b){ return projectNameAZ(a && a.ProjectName,b && b.ProjectName); });
     var out = '<option value="">None</option>';
     var found = false;
     arr.forEach(function(p){

@@ -85,5 +85,8 @@
   "acceptance_gaps_pages_deployment_run": 39969876656,
   "acceptance_gaps_live_assets_match": true,
   "concurrent_scheduler_and_digest_slot_postgresql_proven": true,
-  "after_hours_action_and_duplicate_labels_six_viewports_proven": true
+  "after_hours_action_and_duplicate_labels_six_viewports_proven": true,
+  "pages_icon_apt_dependency_removed": true,
+  "approved_icon_bytes_match_existing_production": true,
+  "pages_offline_packaging_tests_passed": 4
 }

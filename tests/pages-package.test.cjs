@@ -49,3 +49,13 @@ test('Pages workflow uploads the allowlisted package rather than the repository'
   assert.match(workflow, /uses: actions\/upload-pages-artifact@v4\s+with:\s+path: _site\s/);
   assert(!/path:\s*\.(?:\/)?\s*$/m.test(workflow));
 });
+
+test('packaged approved icons validate offline and modified branding is rejected',async()=>{
+ const {buildPages}=await builder();
+ const {validateAppIcons}=await import(pathToFileURL(path.join(root,'scripts/validate-app-icons.mjs')).href);
+ const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'mghrm-approved-icons-'));
+ const output=buildPages(path.join(temporary,'site'));
+ validateAppIcons(output);
+ fs.appendFileSync(path.join(output,'icon-192.png'),'changed');
+ assert.throws(()=>validateAppIcons(output),/content mismatch/);
+});

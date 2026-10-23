@@ -35,6 +35,10 @@ Code commit: [`c555d7618145ac874a13d98cbb9c9b5ee15f9bd2`](https://github.com/yea
 - [Pages deployment](https://github.com/yeasin9088/mg-hrm/actions/runs/39969876656) succeeded. Live `notification-workflow-ui.js` and `sw.js` were fetched and compared byte-for-byte with the released files; both matched.
 - All six GitHub checks on the code commit succeeded. No real-device/pilot or full acceptance claims were inferred from these successful checks.
 
+## Deployment reliability follow-up
+
+A later documentation-only deploy exposed an intermittent apt/ImageMagick download stall. The publishing job now uses committed approved PNGs and an offline Node validator for their source hashes and dimensions. Both committed PNGs were compared byte-for-byte with the already deployed approved icons and matched exactly. Four Pages packaging tests pass, including rejection of modified branding. No icon conversion/download is needed during publishing.
+
 ## Individual results
 
 | AT | Controlled acceptance status | Observed result / remaining work |

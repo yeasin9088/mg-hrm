@@ -33,21 +33,8 @@ jobs:
       - name: Package public application assets
         run: node scripts/build-pages.mjs
 
-      - name: Install image converter for approved app icons
-        run: |
-          if command -v convert >/dev/null && command -v identify >/dev/null; then
-            convert -version
-          else
-            timeout 120s sudo apt-get update -qq
-            timeout 120s sudo apt-get install -y -qq imagemagick
-          fi
-      - name: Render approved main app icon in installable PNG sizes
-        run: |
-          convert _site/app-logo-192.webp -filter Lanczos -resize 192x192 -strip _site/icon-192.png
-          convert _site/app-logo-192.webp -filter Lanczos -resize 512x512 -strip _site/icon-512.png
-          test "$(identify -format '%wx%h' _site/icon-192.png)" = "192x192"
-          test "$(identify -format '%wx%h' _site/icon-512.png)" = "512x512"
-          test "$(identify -format '%wx%h' _site/notification-small-m-96.png)" = "96x96"
+      - name: Verify packaged approved icons without external installs
+        run: node scripts/validate-app-icons.mjs _site
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
         with:

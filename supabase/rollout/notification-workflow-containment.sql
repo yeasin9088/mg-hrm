@@ -477,4 +477,48 @@ BEGIN
  SELECT coalesce(jsonb_object_agg(g,c),'{}') INTO groups FROM (SELECT x->>'group_key' g,count(*) c FROM jsonb_array_elements(items) x GROUP BY 1) a;
  RETURN j||jsonb_build_object('items',items,'item_count',jsonb_array_length(items),'groups',groups,'risk_count',(SELECT count(*) FROM jsonb_array_elements(items) x WHERE x->>'group_key' IN ('OVERDUE','BEFORE_NEXT_OPEN_RISK')));
 END $fn$;
+CREATE OR REPLACE FUNCTION notification_private.push_quota_allowed(p_notification uuid,p_recipient uuid,
+ p_type text,p_id text,p_category text,p_tier text,p_at timestamptz)
+RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $fn$
+DECLARE p notification_private.core_policy_limits%rowtype; c int; last_at timestamptz; cool interval; cap int;
+BEGIN
+ SELECT * INTO STRICT p FROM notification_private.core_policy_limits WHERE singleton;
+ cap:=CASE WHEN p_tier='P2' THEN p.p2_item_cap_24h ELSE p.p3_item_cap_24h END;
+ cool:=CASE WHEN p_tier='P2' THEN p.p2_cooldown ELSE p.p3_cooldown END;
+ WITH history AS (
+  SELECT n.id,min(coalesce(d.sent_at,d.delivered_at,d.attempted_at)) at FROM public.notifications n
+  JOIN public.notification_deliveries d ON d.notification_id=n.id
+  WHERE n.recipient_user_id=p_recipient AND n.entity_type=p_type AND n.entity_id=p_id
+   AND d.channel='WebPush' AND d.delivery_status IN ('Sent','Delivered') GROUP BY n.id
+  UNION ALL SELECT o.notification_id,coalesce(o.accepted_at,o.reserved_at) FROM notification_private.push_occurrences o
+  WHERE o.recipient_user_id=p_recipient AND o.entity_type=p_type AND o.entity_id=p_id AND o.state<>'Released'
+ ), occurrences AS (SELECT id,min(at) at FROM history WHERE id<>p_notification GROUP BY id)
+ SELECT count(*),max(at) INTO c,last_at FROM occurrences WHERE at>p_at-interval '24 hours' AND at<=p_at;
+ IF c>=cap OR (cool IS NOT NULL AND last_at+cool>p_at) THEN RETURN false; END IF;
+ -- Global limits count a digest ONCE, not once for each included task.
+ WITH history AS (
+  SELECT n.id,n.category,min(coalesce(d.sent_at,d.delivered_at,d.attempted_at)) at FROM public.notifications n
+  JOIN public.notification_deliveries d ON d.notification_id=n.id WHERE n.recipient_user_id=p_recipient
+   AND d.channel='WebPush' AND d.delivery_status IN ('Sent','Delivered') GROUP BY n.id,n.category
+  UNION ALL SELECT o.notification_id,o.category,coalesce(o.accepted_at,o.reserved_at)
+   FROM notification_private.push_occurrences o WHERE o.recipient_user_id=p_recipient AND o.state<>'Released'
+ ), occurrences AS (SELECT id,min(at) at,bool_or(category=p_category) same_category FROM history WHERE id<>p_notification GROUP BY id)
+ SELECT count(*) INTO c FROM occurrences WHERE at>p_at-interval '24 hours' AND at<=p_at
+   AND (p.category_cap_24h IS NULL OR same_category);
+ IF p.category_cap_24h IS NOT NULL AND c>=p.category_cap_24h THEN RETURN false; END IF;
+ IF p.user_cap_24h IS NOT NULL THEN
+ SELECT count(DISTINCT id) INTO c FROM (
+  SELECT n.id FROM public.notifications n JOIN public.notification_deliveries d ON d.notification_id=n.id
+  WHERE n.recipient_user_id=p_recipient AND n.id<>p_notification AND d.channel='WebPush' AND d.delivery_status IN ('Sent','Delivered')
+   AND coalesce(d.sent_at,d.delivered_at,d.attempted_at)>p_at-interval '24 hours'
+  UNION SELECT notification_id FROM notification_private.push_occurrences WHERE recipient_user_id=p_recipient
+   AND notification_id<>p_notification AND state<>'Released' AND coalesce(accepted_at,reserved_at)>p_at-interval '24 hours'
+ ) z;
+ IF c>=p.user_cap_24h THEN RETURN false; END IF;
+ END IF;
+ RETURN true;
+END $fn$;
+REVOKE ALL ON FUNCTION notification_private.push_quota_allowed(uuid,uuid,text,text,text,text,timestamptz) FROM PUBLIC,anon,authenticated,service_role;
+
+
 COMMIT;

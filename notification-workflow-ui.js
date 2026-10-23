@@ -26,7 +26,7 @@ async function flush(){
   for(var call of rows){if(call.conflict)continue;if(await owner()!==call.owner)break;
    try{var result=await rpc(call.name,call.args);await remove(call.key);var id=call.args.p_todo_id||result.todo_id;
     if(result.work)cache.set(String(id),result);try{await synchronizeSource(id);}catch(e){/* save is durable, source refresh may retry */}
-   }catch(e){if(e.code==='40001'||/conflict/i.test(e.message||'')){call.conflict=true;call.problem='Another device changed this work. Review the current record before retrying.';await store('readwrite',function(s){return s.put(call);});}break;}
+   }catch(e){if(e.code&& !['08000','08006','PGRST000','PGRST001','PGRST002'].includes(e.code)||/conflict/i.test(e.message||'')){call.conflict=true;call.problem=e.code==='40001'?'Another device changed this work. Review the current record before retrying.':String(e.message||'Server rejected this queued change; review it.');await store('readwrite',function(s){return s.put(call);});}break;}
   }
  }catch(e){/* queue remains durable; no success claims */}finally{busy=false;lastLoad=0;await refresh();}
 }
@@ -37,7 +37,7 @@ async function submit(name,args){
  try{if(navigator.onLine===false)throw Error('Offline');if(await owner()!==uid)throw Error('Account changed');var result=await rpc(name,args);await remove(call.key);return {saved:true,data:result};}
  catch(e){if(e.code==='40001'||/conflict/i.test(e.message||'')){call.conflict=true;call.problem='Record changed on another device. Review before retrying.';await store('readwrite',function(s){return s.put(call);});throw e;}
  // Business validation is definitive: do not automatically retry a rejected action.
- if(e.code&& !['08000','08006','PGRST000','PGRST001','PGRST002'].includes(e.code)){await remove(call.key);throw e;}
+ if(e.code&& !['08000','08006','PGRST000','PGRST001','PGRST002'].includes(e.code)){call.conflict=true;call.problem=String(e.message||'Server rejected this change. Review before retrying.');await store('readwrite',function(s){return s.put(call);});throw e;}
  return {saved:false,queued:true};}
 }
 async function refresh(){if(loading)return;loading=true;
@@ -61,6 +61,7 @@ function field(key,label,value,type){return '<label>'+esc(label)+'<input id="mgW
 function draw(){var d=active.data,w=d.work,s=d.summary,body='<p><strong>'+esc(w.subject)+'</strong></p><p>'+esc(s.next_action||w.next_action)+' · '+esc(s.next_party||w.next_party)+'</p>';
  body+='<div class="mg-work-tags">'+(s.active?'<span>'+esc(s.risk)+'</span>':'<span>Resolved source</span>')+'<span>Manager: '+esc(w.manager_decision)+'</span><span>Communication: '+(s.communication_pending?'pending':'recorded / not required')+'</span></div>';
  if(s.steps&&s.steps.length)body+='<ul>'+s.steps.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul>';
+ if(s.source_type)body+='<button type="button" onclick="mgWorkOriginal()">Open original '+esc(s.source_type.replace(/_/g,' '))+' #'+esc(s.source_id)+'</button>';
  body+='<p class="mg-work-help">Office execution 09:00–18:00 · Asia/Dhaka. Manager discussions and manual records are available anytime. Weekly holidays and payroll cutoff are unconfigured.</p>';
  body+='<details><summary>Edit action plan, dates and required steps</summary><div class="mg-work-grid">'+field('next_action','Next action',w.next_action)+field('next_party','Responsible party',w.next_party||'You')+
  field('next_review_at','Next review · Dhaka',localTime(w.next_review_at),'datetime-local')+field('deadline_at','True business deadline · Dhaka',localTime(w.deadline_at),'datetime-local')+
@@ -87,6 +88,13 @@ async function save(action,payload){if(!active||!active.data||busy)return;var id
  if(r.saved){active.data=r.data;cache.set(id,r.data);draw();status('Saved on the server.');try{await synchronizeSource(id);}catch(e){}if(window.renderTodo)window.renderTodo();}
  else status('Queued on this device. The server has not confirmed this change. Use Pending saves to review.',true);
  }catch(e){status(e.code==='40001'?'Another device changed this item. Close and reopen it, then review Pending saves.':e.message||'Could not save.',true);}finally{busy=false;}}
+window.mgWorkOriginal=function(){if(!active||!active.data)return;var s=active.data.summary,id=s.source_id,type=s.source_type;var route=type&&type.startsWith('uniform_')?'uniform':type;if(!['transfer','leave','exit','uniform','recruitment','disciplinary','meeting'].includes(route))return;window.closeModal();if(window.navigate)window.navigate(route);
+ if(type==='transfer'&&window.openDashboardTransfer)window.openDashboardTransfer(id);
+ else if(type==='disciplinary'&&window.mgOpenDisciplinaryRecord)window.mgOpenDisciplinaryRecord(id);
+ else if(type==='uniform_supply_order'&&window.openUniformOrder)window.openUniformOrder(id);
+ // Lists expose the original record reference when a module has no ID deep-link API.
+ else toast('Original '+type.replace(/_/g,' ')+' reference #'+id+'. Review it in this module.');
+};
 window.mgWorkAction=function(action,value){var input=document.getElementById('mgWork_occurred_at');return save(action,{value:value||null,occurred_at:utcTime(input&&input.value)});};
 window.mgWorkComplete=function(){return save('complete',{value:document.getElementById('mgWork_outcome').value});};
 window.mgWorkReopen=function(){var value=window.prompt('New next action and reopening reason');if(value)return save('reopen',{value:value});};
@@ -99,7 +107,7 @@ window.mgWorkQuickCapture=function(){modal('Quick capture','<label>Tab<select id
  if(r.saved){try{await synchronizeSource(r.data.todo_id);}catch(e){}await window.mgWorkOpen(r.data.todo_id);toast('Request saved.');lastLoad=0;}
  else {modal('Request queued','<p>This request is stored on this device. The server has not confirmed it yet.</p><button type="button" onclick="mgWorkPending()">Review pending saves</button>');return;}}
  catch(e){status(e.message,true);}finally{busy=false;if(button.isConnected)button.disabled=false;}};};
-window.mgWorkPending=async function(){try{var rows=await pending();modal('Pending work saves','<p>Queued changes remain on this device until the server confirms them. Conflicts require review; discarding a queued change does not alter the server record.</p>'+rows.map(function(x){return '<article><strong>'+esc(x.name==='notification_work_capture'?x.args.p_payload.subject:'To-Do #'+x.args.p_todo_id+' · '+x.args.p_action)+'</strong><p>'+esc(x.problem||'Waiting for connection / server confirmation')+'</p><button type="button" data-discard="'+esc(x.key)+'">Discard queued change</button></article>';}).join('')+(rows.length?'':'<p>No queued changes.</p>')+'<button type="button" onclick="mgWorkSync()">Retry connected saves</button>');document.querySelectorAll('[data-discard]').forEach(function(b){b.onclick=async function(){if(window.confirm('Discard only this unsaved change?')){await remove(b.dataset.discard);window.mgWorkPending();}};});}catch(e){modal('Pending work saves','<p>'+esc(e.message)+'</p>');}};
+window.mgWorkPending=async function(){try{var rows=await pending();modal('Pending work saves','<p>Queued changes remain on this device until the server confirms them. Conflicts require review; discarding a queued change does not alter the server record.</p>'+rows.map(function(x){return '<article><strong>'+esc(x.name==='notification_work_capture'?x.args.p_payload.subject:'To-Do #'+x.args.p_todo_id+' · '+x.args.p_action)+'</strong><p>'+esc(x.problem||'Waiting for connection / server confirmation')+'</p>'+(x.args.p_todo_id?'<button type="button" onclick="mgWorkOpen(\''+esc(x.args.p_todo_id)+'\')">Review current record</button>':'')+'<button type="button" data-discard="'+esc(x.key)+'">Discard queued change</button></article>';}).join('')+(rows.length?'':'<p>No queued changes.</p>')+'<button type="button" onclick="mgWorkSync()">Retry connected saves</button>');document.querySelectorAll('[data-discard]').forEach(function(b){b.onclick=async function(){if(window.confirm('Discard only this unsaved change?')){await remove(b.dataset.discard);window.mgWorkPending();}};});}catch(e){modal('Pending work saves','<p>'+esc(e.message)+'</p>');}};
 window.mgWorkSync=async function(){await flush();window.mgWorkPending();};
 window.mgWorkBrief=async function(){try{await refresh();if(!sessionId){var s=await rpc('swa_start_briefing',{p_note:'Manager briefing from existing To-Do'});sessionId=(Array.isArray(s)?s[0]:s).id;}
  var rows=Array.from(cache.entries()).filter(function(x){return x[1].summary&&x[1].summary.active&&x[1].summary.group==='BRIEF_MANAGER';});

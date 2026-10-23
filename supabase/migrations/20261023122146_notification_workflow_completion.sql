@@ -295,8 +295,8 @@ BEGIN
  PERFORM pg_advisory_xact_lock(hashtextextended(p_capture_key::text,6317));
  SELECT id INTO tid FROM public.todos WHERE work_capture_key=p_capture_key AND coalesce(assigned_to_user_id,owner_user_id)=auth.uid();
  IF tid IS NULL THEN
-  INSERT INTO public.todos(note,note_bn,category,project,who,status,date,owner_user_id,assigned_to_user_id,work_capture_key,reminder_enabled)
-  VALUES(txt,txt,cat,left(p_payload->>'project',200),left(p_payload->>'requestor',200),'pending',(clock_timestamp() AT TIME ZONE 'Asia/Dhaka')::date,auth.uid(),auth.uid(),p_capture_key,true) RETURNING id INTO tid;
+  INSERT INTO public.todos(note,note_bn,category,project,who,status,date,owner_user_id,assigned_to_user_id,work_capture_key,work_managed,reminder_enabled)
+  VALUES(txt,txt,cat,left(p_payload->>'project',200),left(p_payload->>'requestor',200),'pending',(clock_timestamp() AT TIME ZONE 'Asia/Dhaka')::date,auth.uid(),auth.uid(),p_capture_key,true,true) RETURNING id INTO tid;
  END IF;
  RETURN jsonb_build_object('saved',true,'todo_id',tid,'capture_key',p_capture_key);
 END $$;
@@ -354,6 +354,10 @@ BEGIN
   WHERE source_module='todo' AND source_record_id=tid::text;
  END IF;
  SELECT * INTO w FROM public.swa_work_items WHERE source_module='todo' AND source_record_id=tid::text;
+ IF is_open AND coalesce((w.context->>'adapter_auto_closed')::boolean,false) THEN
+  UPDATE public.todos SET status='pending',solved_at=NULL WHERE id=tid AND deleted_at IS NULL AND NOT notification_private.todo_actionable(todos);
+  UPDATE public.swa_work_items SET context=context||'{"adapter_auto_closed":false}'::jsonb WHERE id=w.id;
+ END IF;
  IF r IS NOT NULL AND w.context->>'adapter_source_version' IS DISTINCT FROM md5(r::text) THEN
   UPDATE public.swa_work_items SET context=context||jsonb_build_object('adapter_source_version',md5(r::text),'source_date',coalesce(r->>'effective_date',r->>'from_date')),row_version=row_version+1,updated_at=clock_timestamp() WHERE id=w.id;
   UPDATE public.todos SET updated_at=clock_timestamp() WHERE id=tid;
@@ -363,6 +367,7 @@ BEGIN
    WHERE id=w.id AND hold_reason IS DISTINCT FROM 'Original source missing or deleted; review before closing';
  ELSIF NOT is_open AND coalesce((notification_private.work_summary(w,clock_timestamp())->>'can_complete')::boolean,false) THEN
   -- No outstanding sidecar obligation; authoritative source closure is enough.
+  UPDATE public.swa_work_items SET context=context||'{"adapter_auto_closed":true}'::jsonb WHERE id=w.id;
   UPDATE public.todos SET status='solved_approved',solved_at=clock_timestamp() WHERE id=tid AND notification_private.todo_actionable(todos);
  END IF;
 END $$;
@@ -420,6 +425,57 @@ END $$;
 DO $$DECLARE tid bigint; BEGIN
  FOR tid IN SELECT id FROM public.todos t WHERE notification_private.todo_actionable(t) LOOP PERFORM swa_private.sync_todo(tid); END LOOP;
 END $$;
+CREATE FUNCTION notification_private.work_source_equivalent(p_type text,p_id text,p_other_type text,p_other_id text)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $$
+ SELECT (p_type=p_other_type AND p_id=p_other_id) OR EXISTS(
+ SELECT 1 FROM public.todos t WHERE t.work_source_id IS NOT NULL AND
+ ((p_type='todo' AND t.id::text=p_id AND t.work_source_type=p_other_type AND t.work_source_id=p_other_id)
+ OR (p_other_type='todo' AND t.id::text=p_other_id AND t.work_source_type=p_type AND t.work_source_id=p_id)))
+$$;
+REVOKE ALL ON FUNCTION notification_private.work_source_equivalent(text,text,text,text) FROM PUBLIC,anon,authenticated,service_role;
+CREATE OR REPLACE FUNCTION notification_private.push_quota_allowed(p_notification uuid,p_recipient uuid,
+ p_type text,p_id text,p_category text,p_tier text,p_at timestamptz)
+RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $fn$
+DECLARE p notification_private.core_policy_limits%rowtype; c int; last_at timestamptz; cool interval; cap int;
+BEGIN
+ SELECT * INTO STRICT p FROM notification_private.core_policy_limits WHERE singleton;
+ cap:=CASE WHEN p_tier='P2' THEN p.p2_item_cap_24h ELSE p.p3_item_cap_24h END;
+ cool:=CASE WHEN p_tier='P2' THEN p.p2_cooldown ELSE p.p3_cooldown END;
+ WITH history AS (
+  SELECT n.id,min(coalesce(d.sent_at,d.delivered_at,d.attempted_at)) at FROM public.notifications n
+  JOIN public.notification_deliveries d ON d.notification_id=n.id
+  WHERE n.recipient_user_id=p_recipient AND notification_private.work_source_equivalent(p_type,p_id,n.entity_type,n.entity_id)
+   AND d.channel='WebPush' AND d.delivery_status IN ('Sent','Delivered') GROUP BY n.id
+  UNION ALL SELECT o.notification_id,coalesce(o.accepted_at,o.reserved_at) FROM notification_private.push_occurrences o
+  WHERE o.recipient_user_id=p_recipient AND notification_private.work_source_equivalent(p_type,p_id,o.entity_type,o.entity_id) AND o.state<>'Released'
+ ), occurrences AS (SELECT id,min(at) at FROM history WHERE id<>p_notification GROUP BY id)
+ SELECT count(*),max(at) INTO c,last_at FROM occurrences WHERE at>p_at-interval '24 hours' AND at<=p_at;
+ IF c>=cap OR (cool IS NOT NULL AND last_at+cool>p_at) THEN RETURN false; END IF;
+ -- Global limits count a digest ONCE, not once for each included task.
+ WITH history AS (
+  SELECT n.id,n.category,min(coalesce(d.sent_at,d.delivered_at,d.attempted_at)) at FROM public.notifications n
+  JOIN public.notification_deliveries d ON d.notification_id=n.id WHERE n.recipient_user_id=p_recipient
+   AND d.channel='WebPush' AND d.delivery_status IN ('Sent','Delivered') GROUP BY n.id,n.category
+  UNION ALL SELECT o.notification_id,o.category,coalesce(o.accepted_at,o.reserved_at)
+   FROM notification_private.push_occurrences o WHERE o.recipient_user_id=p_recipient AND o.state<>'Released'
+ ), occurrences AS (SELECT id,min(at) at,bool_or(category=p_category) same_category FROM history WHERE id<>p_notification GROUP BY id)
+ SELECT count(*) INTO c FROM occurrences WHERE at>p_at-interval '24 hours' AND at<=p_at
+   AND (p.category_cap_24h IS NULL OR same_category);
+ IF p.category_cap_24h IS NOT NULL AND c>=p.category_cap_24h THEN RETURN false; END IF;
+ IF p.user_cap_24h IS NOT NULL THEN
+ SELECT count(DISTINCT id) INTO c FROM (
+  SELECT n.id FROM public.notifications n JOIN public.notification_deliveries d ON d.notification_id=n.id
+  WHERE n.recipient_user_id=p_recipient AND n.id<>p_notification AND d.channel='WebPush' AND d.delivery_status IN ('Sent','Delivered')
+   AND coalesce(d.sent_at,d.delivered_at,d.attempted_at)>p_at-interval '24 hours'
+  UNION SELECT notification_id FROM notification_private.push_occurrences WHERE recipient_user_id=p_recipient
+   AND notification_id<>p_notification AND state<>'Released' AND coalesce(accepted_at,reserved_at)>p_at-interval '24 hours'
+ ) z;
+ IF c>=p.user_cap_24h THEN RETURN false; END IF;
+ END IF;
+ RETURN true;
+END $fn$;
+REVOKE ALL ON FUNCTION notification_private.push_quota_allowed(uuid,uuid,text,text,text,text,timestamptz) FROM PUBLIC,anon,authenticated,service_role;
+
 -- Last-mile dispatcher keeps the existing worker contract.
 CREATE OR REPLACE FUNCTION public.notification_get_web_push_dispatch(p_job_id bigint, p_worker_id text)
  RETURNS jsonb

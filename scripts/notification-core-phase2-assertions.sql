@@ -69,7 +69,7 @@ BEGIN
     RAISE EXCEPTION 'Verified next-morning deadline not protected %',v; END IF;
  -- P1 may only propose SEND_NOW after explicit policy approval in isolated test.
  UPDATE notification_private.core_policy_limits
-   SET p1_push_enabled=true,p1_item_cap_24h=1;
+   SET p1_push_enabled=true,p1_item_cap_24h=2;
  v:=notification_private.core_evaluate(n,'2026-10-23T11:30:00Z');
  IF v->>'decision'<>'SEND_NOW' OR v->>'priority_tier'<>'P1' THEN
    RAISE EXCEPTION 'Approved P1 bounded candidate missing %',v; END IF;

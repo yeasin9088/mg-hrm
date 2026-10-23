@@ -127,3 +127,8 @@ Final V2 acceptance remains **NOT_READY**, both gates remain **OFF**. These
 installed workflow features are usable, but full V2 notification cutover has not
 occurred. This is not a claim that all 69 complete scenarios, actual-device
 Push, production recovery or the longitudinal pilot have passed.
+
+Deployment housekeeping: the report-only follow-up run stalled while updating
+APT for an already available image converter. Pages now uses installed image
+tools first, bounds fallback installation and build time, and lets the latest
+commit supersede obsolete builds. Runtime assets are unchanged by this fix.

@@ -12,11 +12,12 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,8 +35,12 @@ jobs:
 
       - name: Install image converter for approved app icons
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq imagemagick
+          if command -v convert >/dev/null && command -v identify >/dev/null; then
+            convert -version
+          else
+            timeout 120s sudo apt-get update -qq
+            timeout 120s sudo apt-get install -y -qq imagemagick
+          fi
       - name: Render approved main app icon in installable PNG sizes
         run: |
           convert _site/app-logo-192.webp -filter Lanczos -resize 192x192 -strip _site/icon-192.png

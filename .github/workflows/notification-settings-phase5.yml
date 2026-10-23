@@ -8,6 +8,7 @@ on:
       - 'supabase/migrations/*notification_digest_settings_enforcement_phase5.sql'
       - '.github/workflows/notification-settings-phase5.yml'
       - 'docs/notifications/phase6-final-settings-center-ux-contract.md'
+      - 'docs/notifications/phase5-acceptance-evidence.md'
       - 'docs/notifications/release-manifest-v2.md'
   workflow_dispatch:
 permissions:
@@ -55,6 +56,10 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023220000_notification_operator_settings_api_phase5.sql
       - name: Test operator-only persistence, safe switches and revision conflicts
         run: psql -v ON_ERROR_STOP=1 -f scripts/notification-settings-phase5-assertions.sql
+      - name: Verify all 69 Rulebook acceptance IDs indexed
+        run: |
+          test "$(grep -c '^| AT-' docs/notifications/phase5-acceptance-evidence.md)" -eq 69
+          grep -q '0/69 fully accepted' docs/notifications/phase5-acceptance-evidence.md
       - name: Check whitespace
         run: git diff --check
   digest-switch-integration:

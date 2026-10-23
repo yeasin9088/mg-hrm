@@ -133,7 +133,7 @@ BEGIN
 
  local_now:=p_at AT TIME ZONE 'Asia/Dhaka';
  IF local_now::time < c.office_start OR local_now::time >= c.office_end THEN
-   office_next:=(CASE WHEN local_now::time >= c.office_end THEN local_now::date+1 ELSE local_now::date END)::timestamp+c.office_start;
+   office_next:=(CASE WHEN local_now::time >= c.office_end THEN local_now::date+1 ELSE local_now::date END)+c.office_start;
    RETURN jsonb_build_object('emit',false,'reason','deferred_for_office_hours',
      'next_eligible_at',office_next AT TIME ZONE 'Asia/Dhaka',
      'priority_class',priority_class,'business_due_at',business_due);

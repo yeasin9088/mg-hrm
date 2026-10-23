@@ -1,21 +1,21 @@
 import fs from 'node:fs';
 const read=p=>fs.readFileSync(p,'utf8');
-const migration='supabase/migrations/20261023081545_notification_phase6_dispatch_integrity.sql';
+const migration='supabase/migrations/20261023083720_notification_phase6_dispatch_integrity.sql';
 export async function setup(db){
  for(const file of [
  'scripts/notification-core-ci-fixtures.sql',
- 'supabase/migrations/20261023180000_notification_core_decision_contract.sql',
+ 'supabase/migrations/20261023052759_notification_core_decision_contract.sql',
  'scripts/notification-core-phase2-fixtures.sql',
- 'supabase/migrations/20261023190000_notification_core_policy_phase2.sql',
+ 'supabase/migrations/20261023054338_notification_core_policy_phase2.sql',
  'scripts/notification-phase3-ci-fixtures.sql',
- 'supabase/migrations/20261023200000_notification_digest_scheduler_phase3.sql',
+ 'supabase/migrations/20261023071238_notification_digest_scheduler_phase3.sql',
  'scripts/notification-phase4-ci-fixtures.sql',
- 'supabase/migrations/20261023210000_notification_digest_event_bridge_phase4.sql',
- 'supabase/migrations/20261023213000_notification_processor_bridge_phase4.sql',
- 'supabase/migrations/20261023214500_notification_digest_event_guard_phase4.sql',
- 'supabase/migrations/20261023220000_notification_operator_settings_api_phase5.sql',
- 'supabase/migrations/20261023221000_notification_digest_settings_enforcement_phase5.sql',
- 'supabase/migrations/20261023230000_notification_configurable_digest_window_phase6.sql']) await db.exec(read(file));
+ 'supabase/migrations/20261023071309_notification_digest_event_bridge_phase4.sql',
+ 'supabase/migrations/20261023071348_notification_processor_bridge_phase4.sql',
+ 'supabase/migrations/20261023071403_notification_digest_event_guard_phase4.sql',
+ 'supabase/migrations/20261023071437_notification_operator_settings_api_phase5.sql',
+ 'supabase/migrations/20261023071450_notification_digest_settings_enforcement_phase5.sql',
+ 'supabase/migrations/20261023073032_notification_configurable_digest_window_phase6.sql']) await db.exec(read(file));
  await db.exec(`
  ALTER TABLE public.notification_deliveries ADD COLUMN failed_at timestamptz,ADD COLUMN error_code text,
  ADD COLUMN error_message text,ADD COLUMN provider_message_id text;
@@ -43,5 +43,5 @@ export async function setup(db){
  INSERT INTO public.recruitment_archive VALUES('candidate-1','pending',null);
  `);
  await db.exec(read(migration));
- await db.exec(read('supabase/migrations/20261023084013_notification_recruitment_selection_followup.sql'));
+ await db.exec(read('supabase/migrations/20261023084252_notification_recruitment_selection_followup.sql'));
 }

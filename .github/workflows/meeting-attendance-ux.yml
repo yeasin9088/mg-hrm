@@ -7,7 +7,7 @@ on:
       - 'meeting-attendance.js'
       - 'index.html'
       - 'tests/meeting-*.test.cjs'
-      - 'supabase/migrations/20261022110000_meeting_present_representative.sql'
+      - 'supabase/migrations/20261022053305_meeting_present_representative_guard.sql'
       - '.github/workflows/meeting-attendance-ux.yml'
   workflow_dispatch:
 

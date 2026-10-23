@@ -69,15 +69,15 @@ tests; calendar and end-to-end caps are not fully proven.
 ## Ordered installation at final approved release
 1. Inspect current production migration history, backups, auth, RLS, cron,
    pending jobs, source records and selected settings.
-2. Phase1 `20261023180000_notification_core_decision_contract.sql` and
-   Phase2 `20261023190000_notification_core_policy_phase2.sql` are already
+2. Phase1 `20261023052759_notification_core_decision_contract.sql` and
+   Phase2 `20261023054338_notification_core_policy_phase2.sql` are already
    applied; do not replay them. Confirm their logical migration names.
-3. Apply uninstalled Phase3 `20261023200000_notification_digest_scheduler_phase3.sql`
+3. Apply uninstalled Phase3 `20261023071238_notification_digest_scheduler_phase3.sql`
    (and verify source-mode tests, protected preview and grants).
 4. Apply Phase4 in file order:
-   - `20261023210000_notification_digest_event_bridge_phase4.sql`
-   - `20261023213000_notification_processor_bridge_phase4.sql`
-   - `20261023214500_notification_digest_event_guard_phase4.sql`
+   - `20261023071309_notification_digest_event_bridge_phase4.sql`
+   - `20261023071348_notification_processor_bridge_phase4.sql`
+   - `20261023071403_notification_digest_event_guard_phase4.sql`
 5. Verify V1 clone and the updated Dispatch function, keep **both flags
    FALSE** until a separate owner-authorized final activation.
 6. Re-run pre/post row counts, subscriptions, cron and per-device smoke tests.

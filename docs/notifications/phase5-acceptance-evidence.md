@@ -1,5 +1,10 @@
 # MG-HRM Rulebook v1.1 — Phase 5 Acceptance Evidence Ledger
 
+> Historical Phase 5 snapshot. Current individual results and remaining gaps are in
+> [the Phase 6 acceptance audit](phase6-acceptance-audit-2026-10-23.md) and
+> [the executable catalogue](rulebook-acceptance-catalogue.json). The old 69 BLOCKED
+> rows below are retained as history, not the current migration or test status.
+
 **Purpose:** All 69 individual ATs are indexed, with exact source requirements and honest remaining release blockers. This is not an acceptance certificate.
 
 **Environment:** existing production V1 remains active; Stage3/4/5 SQL not applied. Evidence listed as synthetic component coverage does NOT imply full end-to-end Pass.

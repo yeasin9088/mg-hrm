@@ -2,7 +2,6 @@
 -- Never run against production without explicit approval and verified acceptance.
 -- Preserves existing inbox, event, retry and delivery history. No activation changes.
 -- Prerequisite: 20261021152333_reliable_reminder_scheduler.sql
-BEGIN;
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='90s';
 
@@ -687,4 +686,3 @@ BEGIN
  IF to_regprocedure('notification_private.todo_followup_allowed(public.todos,uuid,timestamptz)') IS NULL
  THEN RAISE EXCEPTION 'ToDo follow-up gate is missing'; END IF;
 END $mg$;
-COMMIT;

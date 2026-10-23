@@ -84,13 +84,13 @@ pending, and leaves the item open on a failed/offline write. This does not yet
 solve conflicting writes from two different devices.
 
 An additive **unapplied** migration
-`20261023120000_salary_todo_push_privacy.sql` keeps Salary Note text out of
+`20261023031049_salary_todo_push_privacy.sql` keeps Salary Note text out of
 lock-screen previews even if content preview is enabled. Its isolated PGlite
 test covers salary, ordinary To-Do, and global preview opt-out. This is a
 privacy correction in the existing notification path, not V2 activation.
 
 An additional **unapplied** migration
-`20261023130000_governance_todo_repeat_gate.sql` makes the existing repeat
+`20261023043016_governance_todo_repeat_gate.sql` makes the existing repeat
 trigger consult the V2 To-Do policy only while the feature flag is enabled.
 The isolated synthetic test verifies V1 unread suppression, V2 policy-approved
 unread repeat, V2 suppression and terminal-root suppression. The flag stays off;

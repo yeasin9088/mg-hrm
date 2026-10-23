@@ -40,12 +40,12 @@ jobs:
       - name: Setup isolated Phase 1 and validate the original contract
         run: |
           psql -v ON_ERROR_STOP=1 -f scripts/notification-core-ci-fixtures.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023180000_notification_core_decision_contract.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023052759_notification_core_decision_contract.sql
           psql -v ON_ERROR_STOP=1 -f scripts/notification-core-ci-assertions.sql
       - name: Upgrade isolated schema to Phase 2 with synthetic delivery history
         run: |
           psql -v ON_ERROR_STOP=1 -f scripts/notification-core-phase2-fixtures.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023190000_notification_core_policy_phase2.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023054338_notification_core_policy_phase2.sql
       - name: Verify verified deadline / cap / ACK / source version / role invariants
         run: psql -v ON_ERROR_STOP=1 -f scripts/notification-core-phase2-assertions.sql
       - name: Check diff

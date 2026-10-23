@@ -41,7 +41,7 @@ Local Node/PGlite regression and UI VM checks are recorded in the PR. The
 RPC responses at 320/360/390/768/1024/1440px and cannot prove physical Android
 or Windows Push behavior. A local browser download failed; use CI evidence.
 
-Migration: `20261023081545_notification_phase6_dispatch_integrity.sql`.
+Migration: `20261023083720_notification_phase6_dispatch_integrity.sql`.
 It must run AFTER the already installed Phase 1–6 logical migrations, regardless
 of filename prefixes. Do not replay old migrations or reset the database.
 The migration does not turn either V2 flag on. Production application and

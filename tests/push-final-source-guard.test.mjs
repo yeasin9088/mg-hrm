@@ -62,7 +62,7 @@ test('final Web Push dispatch checks authoritative source state and current reci
   INSERT INTO public.notification_deliveries(notification_id,subscription_id,channel,delivery_status)
     VALUES('${nid}',88,'WebPush','Pending');
   `);
-  const sql=readFileSync(new URL('../supabase/migrations/20261023160000_push_final_source_guard.sql',import.meta.url),'utf8');
+  const sql=readFileSync(new URL('../supabase/migrations/20261023043614_push_final_source_guard.sql',import.meta.url),'utf8');
   await db.exec(sql);
   const source=async(type,id,recipient=alice) =>
     (await db.query('SELECT notification_private.push_source_ineligible($1,$2,$3) AS blocked',[type,id,recipient])).rows[0].blocked;

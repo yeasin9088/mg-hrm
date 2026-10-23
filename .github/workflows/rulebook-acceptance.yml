@@ -1,0 +1,68 @@
+name: Rulebook 69 Acceptance Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'tests/**'
+      - 'scripts/run-rulebook-acceptance.mjs'
+      - 'scripts/test-notification-workflow-concurrency.mjs'
+      - 'docs/notifications/rulebook-acceptance-catalogue.json'
+      - 'docs/notifications/migration-history-manifest.json'
+      - 'notification-workflow-ui.*'
+      - '.github/workflows/rulebook-acceptance.yml'
+  pull_request:
+    paths:
+      - 'tests/rulebook-acceptance.test.mjs'
+      - 'tests/migration-history.test.mjs'
+      - '.github/workflows/rulebook-acceptance.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: notification_workflow_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d notification_workflow_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: notification_workflow_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Complete regression and migration history integrity
+        run: node --test --test-concurrency=1 tests/*.test.cjs tests/*.test.mjs
+      - name: Export individual AT evidence
+        run: node scripts/run-rulebook-acceptance.mjs
+      - name: Real PostgreSQL concurrent capture, decisions, schedulers and digest
+        run: node scripts/test-notification-workflow-concurrency.mjs
+      - run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright@1.58.0
+      - name: Install Chromium
+        timeout-minutes: 4
+        run: npx playwright install chromium --only-shell
+      - name: Six viewports, visible labels, offline reload and conflict
+        run: node tests/notification-workflow-browser.mjs
+      - run: git diff --check
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rulebook-69-acceptance-evidence
+          path: |
+            artifacts/rulebook-acceptance/
+            artifacts/notification-workflow/

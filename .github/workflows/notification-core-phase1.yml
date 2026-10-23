@@ -40,7 +40,7 @@ jobs:
       - name: Create isolated synthetic operator and notifications
         run: psql -v ON_ERROR_STOP=1 -f scripts/notification-core-ci-fixtures.sql
       - name: Apply decision engine migration to isolated PostgreSQL
-        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023180000_notification_core_decision_contract.sql
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023052759_notification_core_decision_contract.sql
       - name: Test all core contract invariants
         run: psql -v ON_ERROR_STOP=1 -f scripts/notification-core-ci-assertions.sql
       - name: Check whitespace

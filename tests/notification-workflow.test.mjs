@@ -3,6 +3,18 @@ import assert from 'node:assert/strict';
 import {PGlite} from '@electric-sql/pglite';
 import {setup,operator} from './notification-workflow-fixture.mjs';
 import {randomUUID} from 'node:crypto';
+import fs from 'node:fs';
+test('acceptance gap rollback restores the guarded read API without changing work or audit',async()=>{
+ const db=new PGlite();try{await setup(db);
+ const q=async(sql)=>(await db.query(sql)).rows[0].v;
+ const counts="select jsonb_build_object('todos',(select count(*) from public.todos),'items',(select count(*) from public.swa_work_items),'events',(select count(*) from public.swa_work_events)) v";
+ const before=await q(counts);
+ await db.exec(fs.readFileSync('supabase/rollout/notification-acceptance-gaps-rollback.sql','utf8'));
+ assert.deepEqual(await q(counts),before);
+ assert((await q('select public.notification_work_get(200) v')).work);
+ assert.equal(await q("select has_function_privilege('anon','public.notification_work_get(bigint)','execute') v"),false);
+ }finally{await db.close();}
+});
 const plan={next_action:'Tell project after decision',next_party:'You',next_review_at:'2026-11-01T04:00:00Z',manager_required:true,approval_required:true,communication_required:true,communication_parties:['Project','Admin'],execution_required:true,verification_required:true,priority:'important',stage:'active'};
 test('existing To-Do workflow: manager decisions, independent handoffs, CAS, idempotency and completion',async()=>{
  const db=new PGlite();try{

@@ -28,7 +28,7 @@ acceptance work and any final cutover belong to **Phase 6**, not a later phase.
   4. `20261023071403 notification_digest_event_guard_phase4`
   5. `20261023071437 notification_operator_settings_api_phase5`
   6. `20261023071450 notification_digest_settings_enforcement_phase5`
-- Phase 6 configurable-clock migration `20261023230000_notification_configurable_digest_window_phase6.sql` was **applied** as production migration `20261023073032 notification_configurable_digest_window_phase6`; final read-back confirmed the publisher and last-mile guard both reference `v_policy.push_end`, with both feature flags disabled.
+- Phase 6 configurable-clock migration `20261023073032_notification_configurable_digest_window_phase6.sql` was **applied** as production migration `20261023073032 notification_configurable_digest_window_phase6`; final read-back confirmed the publisher and last-mile guard both reference `v_policy.push_end`, with both feature flags disabled.
 - After migration, read-only SQL confirms both `governance_control.enabled`
   and `digest_bridge_control.enabled` are **false**.
 - Production read-back: 122 original To-Dos, 117 notifications, 8 historical

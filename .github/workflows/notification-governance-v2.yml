@@ -49,11 +49,11 @@ jobs:
       - name: Prepare disposable operator data and schema
         run: |
           psql -v ON_ERROR_STOP=1 -f scripts/swa-ci-bootstrap.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261022232000_swa_v2_foundation.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261022235000_swa_rejected_approval_followthrough.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261022172217_swa_v2_operator_work_ledger.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261022173115_swa_rejected_approval_followthrough.sql
           psql -v ON_ERROR_STOP=1 -f scripts/notification-governance-ci-fixtures.sql
       - name: Apply governance policy migration in CI only
-        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023090000_notification_governance_v2_preview.sql
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023021912_notification_governance_v2_preview.sql
       - name: Assert reversible V1 and independent V2 policy
         run: psql -v ON_ERROR_STOP=1 -f scripts/notification-governance-ci-assertions.sql
       - name: Verify Salary Note device-preview privacy in isolated PostgreSQL

@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import {setup as integrity} from './notification-integrity-fixture.mjs';
-export const workflowMigration='supabase/migrations/20261023122146_notification_workflow_completion.sql';
+export const workflowMigration='supabase/migrations/20261023130557_notification_workflow_completion.sql';
 export const operator='11111111-1111-4111-8111-111111111111';
 export async function setup(db){
  await integrity(db);
@@ -12,6 +12,6 @@ export async function setup(db){
  AND lower(btrim(coalesce(t.manager_status,''))) NOT IN ('done','complete','completed','closed','resolved','cancelled','canceled','solved','solved_approved','solved_rejected') $$;
  ALTER TABLE public.todos ADD COLUMN note_bn text,ADD COLUMN who text,ADD COLUMN project text,ADD COLUMN date date,ADD COLUMN next_reminder_at timestamptz;
  CREATE SEQUENCE test_todo_ids START 10000; ALTER TABLE public.todos ALTER COLUMN id SET DEFAULT nextval('test_todo_ids');`);
- for(const f of ['supabase/migrations/20261022232000_swa_v2_foundation.sql','supabase/migrations/20261022235000_swa_rejected_approval_followthrough.sql',workflowMigration,'supabase/migrations/20261023130721_notification_source_truth_alignment.sql'])await db.exec(fs.readFileSync(f,'utf8'));
+ for(const f of ['supabase/migrations/20261022172217_swa_v2_operator_work_ledger.sql','supabase/migrations/20261022173115_swa_rejected_approval_followthrough.sql',workflowMigration,'supabase/migrations/20261023130913_notification_source_truth_alignment.sql','supabase/migrations/20261023142411_notification_acceptance_gaps.sql'])await db.exec(fs.readFileSync(f,'utf8'));
  await db.exec(`SELECT set_config('request.jwt.claim.sub','${operator}',false);`);
 }

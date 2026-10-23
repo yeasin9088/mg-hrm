@@ -7,7 +7,7 @@ const operator='11111111-1111-4111-8111-111111111111';
 const other='22222222-2222-4222-8222-222222222222';
 const n1='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const n2='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
-const migration='supabase/migrations/20261023081545_notification_phase6_dispatch_integrity.sql';
+const migration='supabase/migrations/20261023083720_notification_phase6_dispatch_integrity.sql';
 import {setup} from './notification-integrity-fixture.mjs';
 test('Phase6 source, atomic reservation, read independence, ACK and digest safety',async()=>{
  const db=new PGlite();

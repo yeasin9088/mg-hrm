@@ -28,7 +28,7 @@ test('salary To-Do notes stay off device previews while ordinary notes and opt-o
         (42,'11111111-1111-4111-8111-111111111111',NULL,NULL,
          'salary','Private payroll figure',NULL);
     `);
-    await db.exec(readFileSync(new URL('../supabase/migrations/20261023120000_salary_todo_push_privacy.sql', import.meta.url), 'utf8'));
+    await db.exec(readFileSync(new URL('../supabase/migrations/20261023031049_salary_todo_push_privacy.sql', import.meta.url), 'utf8'));
     const preview = async () => (await db.query(
       "SELECT public.notification_web_push_preview(2,'test-worker') AS result"
     )).rows[0].result;

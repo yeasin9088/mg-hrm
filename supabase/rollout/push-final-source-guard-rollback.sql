@@ -1,4 +1,4 @@
--- BREAK-GLASS ONLY: verified inverse of 20261023160000_push_final_source_guard.sql.
+-- BREAK-GLASS ONLY: verified inverse of 20261023043614_push_final_source_guard.sql.
 -- Reverts dispatcher eligibility logic without changing notification rows.
 -- WARNING: this restores the earlier V1 To-Do owner-check gap; use only
 -- if the new source guard causes confirmed delivery failures and no safer hotfix is possible.

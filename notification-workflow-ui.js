@@ -46,6 +46,8 @@ async function refresh(){if(loading)return;loading=true;
  }catch(e){lastLoad=Date.now();}finally{loading=false;if(typeof window.renderTodo==='function')window.renderTodo();}}
 window.mgWorkRow=function(id){var entry=cache.get(String(id)),s=entry&&entry.summary;var badge='';
  if(s&&s.active){badge='<span class="mg-work-badge'+(['overdue','before_office_risk'].includes(s.risk)?' risk':'')+'">'+esc(s.risk==='date_unknown'?'Date unknown':s.risk.replace(/_/g,' '))+'</span>';
+ if(s.after_hours_captured)badge+='<span class="mg-work-badge">After-hours captured</span>';
+ if(s.needs_next_action)badge+='<span class="mg-work-badge risk">Needs next action</span>';
  return '<div class="mg-work-inline">'+badge+'<span>'+esc(s.next_action)+' · '+esc(s.next_party)+'</span><button type="button" class="td-btn b-ghost" onclick="event.stopPropagation();mgWorkOpen(\''+esc(id)+'\')">Work steps</button></div>';}
  return '<button type="button" class="td-btn b-ghost" onclick="event.stopPropagation();mgWorkOpen(\''+esc(id)+'\')">Work steps</button>';
 };
@@ -59,7 +61,8 @@ window.mgWorkFocus=function(){window.MG_WORK_FOCUS=!window.MG_WORK_FOCUS;window.
 window.mgWorkOpen=async function(id){active={id:String(id),data:null};modal('Work steps','<p role="status">Reading current workflow…</p>');try{var d=await rpc('notification_work_get',{p_todo_id:Number(id)});if(!active||active.id!==String(id))return;active.data=d;cache.set(String(id),d);draw();}catch(e){modal('Work steps','<p>'+esc(e.message||'Could not load. Check your connection.')+'</p>');}};
 function field(key,label,value,type){return '<label>'+esc(label)+'<input id="mgWork_'+key+'" type="'+(type||'text')+'" value="'+esc(value==null?'':value)+'"></label>';}
 function draw(){var d=active.data,w=d.work,s=d.summary,body='<p><strong>'+esc(w.subject)+'</strong></p><p>'+esc(s.next_action||w.next_action)+' · '+esc(s.next_party||w.next_party)+'</p>';
- body+='<div class="mg-work-tags">'+(s.active?'<span>'+esc(s.risk)+'</span>':'<span>Resolved source</span>')+'<span>Manager: '+esc(w.manager_decision)+'</span><span>Communication: '+(s.communication_pending?'pending':'recorded / not required')+'</span></div>';
+ body+='<div class="mg-work-tags">'+(s.active?'<span>'+esc(s.risk)+'</span>':'<span>Resolved source</span>')+(s.after_hours_captured?'<span>After-hours captured</span>':'')+(s.needs_next_action?'<span>Needs next action</span>':'')+'<span>Manager: '+esc(w.manager_decision)+'</span><span>Communication: '+(s.communication_pending?'pending':'recorded / not required')+'</span></div>';
+ if(d.duplicate_candidates&&d.duplicate_candidates.length)body+='<details><summary>Possible duplicate · review only</summary><p>Similar open requests in the same project. They remain independent; no automatic merge.</p>'+d.duplicate_candidates.map(function(x){return '<button type="button" onclick="mgWorkOpen(\''+esc(x.todo_id)+'\')">Review #'+esc(x.todo_id)+' · '+esc(x.subject)+'</button>';}).join('')+'</details>';
  if(s.steps&&s.steps.length)body+='<ul>'+s.steps.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul>';
  if(s.source_type)body+='<button type="button" onclick="mgWorkOriginal()">Open original '+esc(s.source_type.replace(/_/g,' '))+' #'+esc(s.source_id)+'</button>';
  body+='<p class="mg-work-help">Office execution 09:00–18:00 · Asia/Dhaka. Manager discussions and manual records are available anytime. Weekly holidays and payroll cutoff are unconfigured.</p>';

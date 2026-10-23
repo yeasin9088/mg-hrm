@@ -10,7 +10,7 @@ const boot=({code})=>{
   window.DATA={todos:[{id:200,note:'Test manager request'}]};window.renderTodo=function(){};
   window.openModal=(title,body)=>{document.getElementById('modal').innerHTML='<h2>'+title+'</h2>'+body;};window.closeModal=()=>{document.getElementById('modal').innerHTML='';};
   window.__revision=1;window.__failure=false;window.__conflict=false;window.__captures=0;
-  window.__work=()=>({work:{id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',row_version:window.__revision,subject:'Manager request',category:'inform_manager',next_action:'Tell manager',next_party:'You',next_review_at:'2026-11-01T04:00:00Z',manager_required:true,approval_required:true,communication_required:true,communication_parties:['Project','Admin'],communicated_parties:{},execution_required:true,verification_required:true,priority:'important',stage:'active',manager_decision:'pending',context:{}},summary:{active:true,steps:['Tell manager','Tell project'],risk:'date_unknown',group:'BRIEF_MANAGER',next_action:'Tell manager',next_party:'You',can_complete:false,communication_pending:true},events:[]});
+  window.__work=()=>({work:{id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',row_version:window.__revision,subject:'Manager request',category:'inform_manager',next_action:'Tell manager',next_party:'You',next_review_at:'2026-11-01T04:00:00Z',manager_required:true,approval_required:true,communication_required:true,communication_parties:['Project','Admin'],communicated_parties:{},execution_required:true,verification_required:true,priority:'important',stage:'active',manager_decision:'pending',context:{}},summary:{active:true,steps:['Tell manager','Tell project'],risk:'date_unknown',after_hours_captured:true,needs_next_action:true,group:'BRIEF_MANAGER',next_action:'Tell manager',next_party:'You',can_complete:false,communication_pending:true},events:[],duplicate_candidates:[{todo_id:201,subject:'Similar independent request'}]});
   window.MGHRM={client:{auth:{getSession:async()=>({data:{session:{user:{id:'11111111-1111-4111-8111-111111111111'}}}})},rpc:async(name,args)=>{
    if(name==='notification_work_get')return {data:args.p_todo_id?window.__work():{items:[{todo_id:200,...window.__work()}]}};
    if(name==='notification_work_save'){if(window.__failure)throw Error('Network failed');if(window.__conflict)return {error:{code:'40001',message:'Conflict'}};window.__revision++;return {data:window.__work()};}
@@ -31,10 +31,14 @@ try{for(const width of [320,360,390,768,1024,1440]){
  await page.goto('http://127.0.0.1:'+server.address().port);await page.addStyleTag({content:css});
  await page.evaluate(boot,{code});
  await page.evaluate(()=>mgWorkOpen(200));
+ assert.match(await page.locator('#modal').innerText(),/After-hours captured/);
+ assert.match(await page.locator('#modal').innerText(),/Needs next action/);
+ assert.match(await page.locator('#modal').innerText(),/Possible duplicate/);
+ assert.match(await page.evaluate(()=>mgWorkRow(200)),/After-hours captured/);
  await page.getByText('Record decision',{exact:true}).click();
  await page.waitForFunction(()=>document.getElementById('mgWorkStatus')?.textContent.includes('Saved on the server'));
  assert.match(await page.locator('#mgWorkStatus').innerText(),/Saved on the server/);
- await page.locator('summary').first().click();
+ await page.getByText('Edit action plan, dates and required steps',{exact:true}).click();
  await page.locator('#mgWork_next_action').fill('Tell the project about the decision');
  await page.getByText('Save action plan',{exact:true}).click();
  await page.waitForFunction(()=>document.getElementById('mgWorkStatus')?.textContent.includes('Saved on the server'));

@@ -2,13 +2,17 @@
 // Refuses to authorize live activation without independently recorded evidence.
 // It NEVER connects to or writes the production database.
 import fs from 'node:fs';
-const ledger=fs.readFileSync('docs/notifications/phase5-acceptance-evidence.md','utf8');
+const ledger=JSON.parse(fs.readFileSync('docs/notifications/rulebook-acceptance-catalogue.json','utf8'));
 const snapshot=JSON.parse(fs.readFileSync('docs/notifications/phase6-production-checkpoint.json','utf8'));
-const rows=ledger.split(/\r?\n/).filter(x=>/^\| AT-\d{3} \|/.test(x));
-const ids=rows.map(x=>x.split('|')[1].trim());
+const rows=ledger.scenarios;
+const ids=rows.map(x=>x.id);
 const unique=new Set(ids);
-if(rows.length!==69||unique.size!==69)throw Error('Rulebook AT inventory corrupted; expected 69 unique acceptance IDs.');
-const blocked=rows.filter(x=>/\*\*BLOCKED\*\*/.test(x)).length;
+if(rows.length!==69||unique.size!==69||Array.from({length:69},(_,i)=>'AT-'+String(i+1).padStart(3,'0')).some(x=>!unique.has(x)))throw Error('Rulebook AT inventory corrupted; expected 69 unique acceptance IDs.');
+const states=new Set(['PASS_SYNTHETIC','PARTIAL','BLOCKED','ACCEPTED']);
+if(rows.some(x=>!states.has(x.acceptance_status)))throw Error('Unknown acceptance status');
+const blocked=rows.filter(x=>x.acceptance_status==='BLOCKED').length;
+const partial=rows.filter(x=>x.acceptance_status==='PARTIAL').length;
+const synthetic=rows.filter(x=>x.acceptance_status==='PASS_SYNTHETIC').length;
 const required=[
  'phase3_4_5_migrations_applied','staging_policy_readback_verified',
  'source_adapters_complete','atomic_push_rate_cap_enforced',
@@ -19,12 +23,12 @@ const required=[
  'owner_final_release_approval','phase6_responsive_ux_verified'
 ];
 const unverified=required.filter(x=>snapshot[x]!==true);
-if(blocked)unverified.push(blocked+' Rulebook acceptance scenarios remain Blocked');
+if(blocked||partial)unverified.push(partial+' Rulebook scenarios remain Partial; '+blocked+' remain Blocked');
 if(snapshot.governance_enabled||snapshot.digest_bridge_enabled)
  unverified.push('Production V2 is already enabled; manual incident review required');
 const ready=unverified.length===0;
 const output={release_id:snapshot.release_id,status:ready?'READY':'NOT_READY',
- rulebook_scenarios:rows.length,blocked_scenarios:blocked,
+ rulebook_scenarios:rows.length,synthetic_pass_scenarios:synthetic,partial_scenarios:partial,blocked_scenarios:blocked,
  production_flags:{governance:snapshot.governance_enabled,bridge:snapshot.digest_bridge_enabled},
  unverified,verified_at:snapshot.evidence_snapshot_date};
 console.log(JSON.stringify(output,null,2));

@@ -1,0 +1,489 @@
+{
+  "rulebook": "MG HRM Smart Work Assistant v1.1",
+  "scope": "PASS_SYNTHETIC means isolated automated scenario coverage, not production/device certification. PARTIAL rows have passing assertions for only the scope described.",
+  "scenarios": [
+    {
+      "id": "AT-001",
+      "requirement": "Quick capture offline/online → exactly one item; after save retried no duplicate।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-001",
+      "observed": "Capture UUID retries return exactly one durable To-Do; browser IndexedDB reload/retry is tested separately in Chromium."
+    },
+    {
+      "id": "AT-002",
+      "requirement": "Item without next action → visible Needs Next Action; scheduler silent loss নয়।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-002",
+      "observed": "A task without an action plan stays in the source queue and reports Needs Next Action; matching UI label is tested in Chromium."
+    },
+    {
+      "id": "AT-003",
+      "requirement": "Mark Read/All Read → same source stage, deadline, promised response ও alert class।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-003",
+      "observed": "Read/All Read leaves stage, deadline, promise, priority and decision unchanged."
+    },
+    {
+      "id": "AT-004",
+      "requirement": "Manager Informed alone → decision not Approved; requestor communication still pending।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-004",
+      "observed": "Informed leaves manager decision pending and party communication open."
+    },
+    {
+      "id": "AT-005",
+      "requirement": "Decision Approved → execution not automatically completed।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-005",
+      "observed": "Approval does not record execution or completion."
+    },
+    {
+      "id": "AT-006",
+      "requirement": "Decision Rejected → external communication required until logged।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-006",
+      "observed": "Rejection retains communication and cannot authorize execution."
+    },
+    {
+      "id": "AT-007",
+      "requirement": "Complete with outstanding required steps → block/explicit policy-governed confirmation।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-007",
+      "observed": "Outstanding steps reject completion and source remains active."
+    },
+    {
+      "id": "AT-008",
+      "requirement": "Reopen → new action plan, audit intact।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-008",
+      "observed": "Explicit reopen retains audit and opens a new work cycle."
+    },
+    {
+      "id": "AT-009",
+      "requirement": "Routine unread ১০ scheduler ticks → one visual thread, no push storm।",
+      "acceptance_status": "PARTIAL",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-009",
+      "observed": "Stable event keys and grouping tested; one visual thread across policy reasons and repeated days is not fully proven."
+    },
+    {
+      "id": "AT-010",
+      "requirement": "Urgent unread deadline approaching → bounded policy re-alert।",
+      "acceptance_status": "PARTIAL",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-010",
+      "observed": "Deadline attention and quota bounds tested; the full urgent policy re-alert transition matrix remains unverified."
+    },
+    {
+      "id": "AT-011",
+      "requirement": "Read urgent unresolved → remaining deadline trigger works, no read-triggered storm।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-011",
+      "observed": "Read does not prevent the actual deadline trigger or create a tick storm."
+    },
+    {
+      "id": "AT-012",
+      "requirement": "ACK unresolved → pause per configured lease, then re-review।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-012",
+      "observed": "ACK suppresses delivery during its lease and eligibility returns after expiry."
+    },
+    {
+      "id": "AT-013",
+      "requirement": "Snoozed beyond deadline → policy warning and explicit exception।",
+      "acceptance_status": "PARTIAL",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-013",
+      "observed": "Cross-deadline snooze is rejected safely; an explicit policy exception workflow is not implemented/approved."
+    },
+    {
+      "id": "AT-014",
+      "requirement": "Quiet hours routine → deferred/digest, critical valid exception।",
+      "acceptance_status": "PARTIAL",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-014",
+      "observed": "Routine quiet-hour deferral tested; no approved emergency exception opt-in exists."
+    },
+    {
+      "id": "AT-015",
+      "requirement": "Deadline moved → old scheduled occurrence suppressed, new slot correct।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-015",
+      "observed": "Moving a true deadline changes the source fingerprint and digest time; existing last-mile tests cover stale-source suppression."
+    },
+    {
+      "id": "AT-016",
+      "requirement": "Work completed between queue and dispatch → stale push suppressed।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-016",
+      "observed": "A resolved source is suppressed after a reservation was made."
+    },
+    {
+      "id": "AT-017",
+      "requirement": "Policy repeats exhausted → persistent Action Center overdue; no silent disappearance।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-017",
+      "observed": "An exhausted Push cap leaves the source active and digest-visible."
+    },
+    {
+      "id": "AT-018",
+      "requirement": "Multiple policies hit same item → one visible notification with reason(s)।",
+      "acceptance_status": "PARTIAL",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-018",
+      "observed": "Overlapping deadlines create one attention event per source version/reason/day; a persistent visual thread combining all reasons is not fully implemented."
+    },
+    {
+      "id": "AT-019",
+      "requirement": "Transfer effective date arrival never changes `employees.project_name`।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-019",
+      "observed": "Reconciliation/attention never mutates current employee project or confirms joining."
+    },
+    {
+      "id": "AT-020",
+      "requirement": "Joining confirmation explicit and audited; reschedule/not-joined respect existing logic।",
+      "acceptance_status": "PARTIAL",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-020",
+      "observed": "Reschedule/not-joined follow-up tested, plus existing transfer regression suite; full explicit joining server/audit acceptance remains unverified."
+    },
+    {
+      "id": "AT-021",
+      "requirement": "Leave starts tomorrow while manager unaware → proper attention।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-021",
+      "observed": "Tomorrow leave remains in Brief Manager with independent communication."
+    },
+    {
+      "id": "AT-022",
+      "requirement": "Manager approved leave but project uninformed → communication required।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-022",
+      "observed": "Source approval retains pending project/requestor communication."
+    },
+    {
+      "id": "AT-023",
+      "requirement": "Salary month split with missing allocation → verification not auto payroll।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-023",
+      "observed": "Missing project allocation days block verification/completion without payroll changes."
+    },
+    {
+      "id": "AT-024",
+      "requirement": "Admin adjustment promised next month → next cycle reminder persists।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-024",
+      "observed": "Next-month promise survives month rollover and remains actionable."
+    },
+    {
+      "id": "AT-025",
+      "requirement": "Candidate terminal status → no automatic obsolete follow-up।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-025",
+      "observed": "Rejected/withdrawn/hired/cancelled candidates suppress obsolete work; selected is not hired."
+    },
+    {
+      "id": "AT-026",
+      "requirement": "Source resolver unsupported → no hazardous auto-repeat; repair visibility।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-026",
+      "observed": "Unsupported resolver fails closed; a missing formerly linked source exposes repair work."
+    },
+    {
+      "id": "AT-027",
+      "requirement": "One employee two independent requests → neither deduped away।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-027",
+      "observed": "Two requests from one employee retain independent source IDs."
+    },
+    {
+      "id": "AT-028",
+      "requirement": "৩–৪ devices same Auth account → one business task, per-device safe delivery।",
+      "acceptance_status": "PARTIAL",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-028",
+      "observed": "Sender fan-out to four synthetic endpoints tested; physical devices and provider receipts are not observed."
+    },
+    {
+      "id": "AT-029",
+      "requirement": "Concurrent schedulers → unique business event and thread stability।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-029",
+      "observed": "Digest replay is unique; real PostgreSQL concurrent scheduler and slot preparation are tested separately."
+    },
+    {
+      "id": "AT-030",
+      "requirement": "Push 503/retry → no new Work Item and traceable bounded retry।",
+      "acceptance_status": "PARTIAL",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-030",
+      "observed": "Mock 503 records failures and bounded retry delays; complete database-to-provider retry/dead-letter lifecycle remains unverified."
+    },
+    {
+      "id": "AT-031",
+      "requirement": "Browser Push permission denied → Action Center still accurate।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-031",
+      "observed": "Push-disabled preference suppresses dispatch while source and morning queue stay accurate; existing denied-permission UI tests cover no re-subscription."
+    },
+    {
+      "id": "AT-032",
+      "requirement": "Open deep link → correct source, server-side authorization।",
+      "acceptance_status": "PARTIAL",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-032",
+      "observed": "Operator/anonymous authorization tested; several module links open a list/reference rather than the exact record, and real Service Worker clicks remain unobserved."
+    },
+    {
+      "id": "AT-033",
+      "requirement": "Salary/disciplinary sensitive data absent from locked-screen Push।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-033",
+      "observed": "Actual sender payload and digest omit salary/disciplinary content."
+    },
+    {
+      "id": "AT-034",
+      "requirement": "Stale app cache/offline conflict → no silent lost update।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-034",
+      "observed": "Stale revisions reject writes; Chromium exercises IndexedDB reload, retry and visible conflict."
+    },
+    {
+      "id": "AT-035",
+      "requirement": "Timestamps UTC persisted, Asia/Dhaka date labels correct।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-035",
+      "observed": "UTC instants round-trip while Dhaka dates cross midnight correctly."
+    },
+    {
+      "id": "AT-036",
+      "requirement": "Late delivery after relevant event expired → no misleading stale alert।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-036",
+      "observed": "Expired occurrences return no eligible deliveries."
+    },
+    {
+      "id": "AT-037",
+      "requirement": "Device tray dismissed → not equal work completed/acknowledged।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-037",
+      "observed": "Dismissed notification leaves source active and unacknowledged."
+    },
+    {
+      "id": "AT-038",
+      "requirement": "Security: anon/non-owner denied, service workers narrowly privileged।",
+      "acceptance_status": "PARTIAL",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-038",
+      "observed": "New RPC ownership, private ACLs and anonymous denial tested; a complete service-role/RLS authorization matrix across all source modules remains unverified."
+    },
+    {
+      "id": "AT-039",
+      "requirement": "Cron fail/stop → health warning and backlog reconciliation after recovery।",
+      "acceptance_status": "PARTIAL",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-039",
+      "observed": "Synthetic cron stale/failure health and latest-slot catch-up tested; actual live V2 cron failure/recovery is unobserved."
+    },
+    {
+      "id": "AT-040",
+      "requirement": "Dead-letter failure → admin diagnostics and action center intact।",
+      "acceptance_status": "PARTIAL",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-040",
+      "observed": "Dead-letter record retains its actionable source and diagnostic resolver; complete failure-to-health-warning integration remains unverified."
+    },
+    {
+      "id": "AT-041",
+      "requirement": "Existing historical To-Do statuses migrate without unintended reset।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-041",
+      "observed": "Canonical historical terminal statuses survive source synchronization."
+    },
+    {
+      "id": "AT-042",
+      "requirement": "Feature flag rollback does not delete notifications/tasks।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-042",
+      "observed": "Flag containment and the existing rollback regression retain tasks, notifications and audit."
+    },
+    {
+      "id": "AT-043",
+      "requirement": "UI mobile (Android) & desktop action timings and accessibility।",
+      "acceptance_status": "BLOCKED",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-043",
+      "observed": "Physical Android/Windows action timing and accessibility observations are required; synthetic six-viewport Chromium checks are separate evidence."
+    },
+    {
+      "id": "AT-044",
+      "requirement": "১৪–৩০ দিন pilot: duplicate rate, missed follow-up, overdue rate, useful alerts evaluated।",
+      "acceptance_status": "BLOCKED",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-044",
+      "observed": "An observed 14–30 day pilot and measured duplicate/missed/overdue/usefulness results require elapsed time."
+    },
+    {
+      "id": "AT-045",
+      "requirement": "Backup/restore drill using synthetic data verified।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-045",
+      "observed": "Full isolated PGlite fixture is exported, loaded into a second database and compared, including RPC ACLs; no production restore or managed backup claim."
+    },
+    {
+      "id": "AT-046",
+      "requirement": "No auto external sending/approval/employee transfer happens from notification engine।",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-046",
+      "observed": "Reconciliation neither changes HR source rows nor executes work."
+    },
+    {
+      "id": "AT-047",
+      "requirement": "১৮:০১-এ new request capture → server saves it; office-task push deferred; `After-hours Captured` remains visible.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-047",
+      "observed": "18:01 capture is durable and classified after-hours; office attention is deferred and Chromium checks the visible label."
+    },
+    {
+      "id": "AT-048",
+      "requirement": "২২:৩০-এ `Brief Manager Now` opens; manager-pending notes available; saving `Informed` does not auto-approve.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-048",
+      "observed": "Night briefing/manual informed records are accepted without approval."
+    },
+    {
+      "id": "AT-049",
+      "requirement": "Manager grants verbal approval at ২১:০০ → `Manually Recorded Verbal Decision`; execution and tell-project still pending till actual completion.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-049",
+      "observed": "A manually recorded 21:00 approval leaves execution and communication open, with audit."
+    },
+    {
+      "id": "AT-050",
+      "requirement": "Night manager session ১৫ notes → each item independently recorded, no bulk approval, summary shows unrecorded decision.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-050",
+      "observed": "15 separate notes produce 10 recorded decisions and 5 pending decisions."
+    },
+    {
+      "id": "AT-051",
+      "requirement": "Salary Note received ২৩:০০ → inbox persists; no sensitive nighttime push; morning action present.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-051",
+      "observed": "Night salary capture survives into morning queue without sensitive Push content."
+    },
+    {
+      "id": "AT-052",
+      "requirement": "Leave starts tomorrow ০৮:০০; request captured tonight → `Before-Office Risk`, not silently shifted to tomorrow ০৯:০০.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-052",
+      "observed": "08:00 actual deadline remains Before Office Risk at night."
+    },
+    {
+      "id": "AT-053",
+      "requirement": "Joining tomorrow ০৮:০০, info arrives at ১৭:৩০ → preclose risk visible before ১৮:০০; no auto employee project mutation.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-053",
+      "observed": "Tomorrow 08:00 joining is Before Office Risk at 17:30 and never auto-confirms joining."
+    },
+    {
+      "id": "AT-054",
+      "requirement": "At ১৭:৫৯ due office reminder may deliver once; at ১৮:০০ routine office push deferred, not dropped.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-054",
+      "observed": "17:59 attention is eligible once; 18:00 is deferred without losing the source."
+    },
+    {
+      "id": "AT-055",
+      "requirement": "At ০৮:৫৯ overnight pending items queued; at ০৯:০৫ one digest groups eligible overnight items; no ২০-push burst.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-055",
+      "observed": "08:59 is not due; overnight tasks are one durable 09:05 batch."
+    },
+    {
+      "id": "AT-056",
+      "requirement": "Mark all as read at ০০:৩০ → unchanged work stages, actual deadlines, morning digest eligibility.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-056",
+      "observed": "00:30 All Read does not change morning eligibility or work state."
+    },
+    {
+      "id": "AT-057",
+      "requirement": "On phone after hours user voluntarily marks `Manager Informed`; tomorrow morning item shows only outstanding next steps.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-057",
+      "observed": "After-hours informed removes only that completed step; decision/handoff remain."
+    },
+    {
+      "id": "AT-058",
+      "requirement": "`Deadline before next office open` → conflict badge, no fake on-time/automatic deadline extension.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-058",
+      "observed": "A before-opening deadline keeps its real instant and conflict."
+    },
+    {
+      "id": "AT-059",
+      "requirement": "Weekly holiday unknown → no invented weekend official policy; calendar warning and configurable proposal shown.",
+      "acceptance_status": "PARTIAL",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-059",
+      "observed": "Unknown calendar remains explicitly unconfigured; a configurable calendar proposal workflow has not been provided."
+    },
+    {
+      "id": "AT-060",
+      "requirement": "Exactly ০৯:০০/১৮:০০ Bangladesh-local calculation correct; UTC storage and midnight rollover.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-060",
+      "observed": "Exactly 09:00/18:00, UTC instants and Dhaka midnight are verified."
+    },
+    {
+      "id": "AT-061",
+      "requirement": "Two devices record manager decision concurrently → no lost data; optimistic conflict visibly resolved.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-061",
+      "observed": "Stale concurrent decisions reject overwrite; real PostgreSQL lock test and browser conflict are separate evidence."
+    },
+    {
+      "id": "AT-062",
+      "requirement": "Night offline save failure → UI never claims durable server save; queued item reconciles after connection.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-062",
+      "observed": "Browser suite verifies durable IndexedDB, honest unconfirmed status, reload and reconnect retry."
+    },
+    {
+      "id": "AT-063",
+      "requirement": "P0 after-hours exception disabled → no routine night disturbance; opt-in verified exception allows awareness only, not automatic office execution.",
+      "acceptance_status": "PARTIAL",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-063",
+      "observed": "After-hours Push remains disabled and no business execution is automatic; approved opt-in awareness-only emergency path is absent."
+    },
+    {
+      "id": "AT-064",
+      "requirement": "Snooze beyond real deadline → deadline conflict remains visible, cannot hide as completed.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-064",
+      "observed": "Cross-deadline snooze cannot hide a true overdue source."
+    },
+    {
+      "id": "AT-065",
+      "requirement": "User voluntarily phones manager at ২১:০০, logs communication → audited true time, separate captured time and logged time.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-065",
+      "observed": "Actual 21:00 occurrence, capture time and later recorded time remain distinct."
+    },
+    {
+      "id": "AT-066",
+      "requirement": "Deadline occurred at ০৬:০০ but office starts ০৯:০০ → true overdue preserved, business-effort availability separately shown.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-066",
+      "observed": "06:00 true overdue remains separate from next office availability."
+    },
+    {
+      "id": "AT-067",
+      "requirement": "After-hours duplicate intake ২ projects / ২ different leave requests → no false dedup; same request twice only suggestion to merge.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-067",
+      "observed": "Different projects/requests remain independent; same-text same-project matches are review-only suggestions, never automatic merges."
+    },
+    {
+      "id": "AT-068",
+      "requirement": "Morning digest fails/Web Push blocked → all actionable overnight tasks present in `Needs Attention`; health warning visible.",
+      "acceptance_status": "PARTIAL",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-068",
+      "observed": "Denied Push/failed jobs retain actionable morning tasks; full failure-to-visible-health-warning integration remains unverified."
+    },
+    {
+      "id": "AT-069",
+      "requirement": "Last office-day ১৭:১৫ wrap-up flags actionable task due before next ০৯:০০ and unsent manager decisions, even when notification was already read.",
+      "acceptance_status": "PASS_SYNTHETIC",
+      "evidence": "tests/rulebook-acceptance.test.mjs: AT-069",
+      "observed": "17:15 digest retains before-opening risk and pending communication even after Read."
+    }
+  ]
+}

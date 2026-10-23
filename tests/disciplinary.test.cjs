@@ -7,7 +7,7 @@ const model = require('../disciplinary-model.js');
 
 const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-const migration = fs.readFileSync(path.join(root, 'supabase/migrations/20261022170000_disciplinary_actions_notifications.sql'), 'utf8');
+const migration = fs.readFileSync(path.join(root, 'supabase/migrations/20261022104530_disciplinary_actions_notifications.sql'), 'utf8');
 
 test('disciplinary creation retries use the same ID after a lost response', async () => {
   const start=html.indexOf('let dcCreateSaving = false;');

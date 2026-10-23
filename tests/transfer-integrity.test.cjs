@@ -6,7 +6,7 @@ const path = require('node:path');
 
 const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root,'index.html'),'utf8');
-const migration = fs.readFileSync(path.join(root,'supabase/migrations/20261022134500_transfer_due_notifications.sql'),'utf8');
+const migration = fs.readFileSync(path.join(root,'supabase/migrations/20261022071149_transfer_due_notifications.sql'),'utf8');
 
 function fn(name){
   const start = html.indexOf('function '+name+'(');

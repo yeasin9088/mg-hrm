@@ -11,12 +11,12 @@ Production: https://yeasinh.me/mg-hrm/
 
 | Phase | Migration | Baseline status | Feature enabled? |
 |---|---|---|---|
-| 1 — Decision contract | `supabase/migrations/20261023180000_notification_core_decision_contract.sql` | Already applied to production as `20261023052759 notification_core_decision_contract` | Read-only preview |
-| 2 — Priority, risk, quotas | `supabase/migrations/20261023190000_notification_core_policy_phase2.sql` | Already applied to production as `20261023054338 notification_core_policy_phase2` | Read-only preview |
-| 3 — Digest scheduling | `supabase/migrations/20261023200000_notification_digest_scheduler_phase3.sql` | **APPLIED** production `20261023071238`; feature inactive | NO live cron or Push |
-| 4 — Gated digest event/push integration (partial) | `20261023210000_notification_digest_event_bridge_phase4.sql` → `20261023213000_notification_processor_bridge_phase4.sql` → `20261023214500_notification_digest_event_guard_phase4.sql` | **APPLIED** production `20261023071309` → `20261023071348` → `20261023071403` | Both switches OFF |
-| 5 — Backend settings API + acceptance evidence | `20261023220000_notification_operator_settings_api_phase5.sql` → `20261023221000_notification_digest_settings_enforcement_phase5.sql` | **APPLIED** production `20261023071437` → `20261023071450`; no V2 activation | OFF |
-| 6 — FINAL UI/UX + migration + go-live | Existing responsive Settings Center + `20261023230000_notification_configurable_digest_window_phase6.sql` | UI PR #26 merged; phase6 clock migration applied `20261023073032`; real-device activation **BLOCKED** | OFF |
+| 1 — Decision contract | `supabase/migrations/20261023052759_notification_core_decision_contract.sql` | Already applied to production as `20261023052759 notification_core_decision_contract` | Read-only preview |
+| 2 — Priority, risk, quotas | `supabase/migrations/20261023054338_notification_core_policy_phase2.sql` | Already applied to production as `20261023054338 notification_core_policy_phase2` | Read-only preview |
+| 3 — Digest scheduling | `supabase/migrations/20261023071238_notification_digest_scheduler_phase3.sql` | **APPLIED** production `20261023071238`; feature inactive | NO live cron or Push |
+| 4 — Gated digest event/push integration (partial) | `20261023071309_notification_digest_event_bridge_phase4.sql` → `20261023071348_notification_processor_bridge_phase4.sql` → `20261023071403_notification_digest_event_guard_phase4.sql` | **APPLIED** production `20261023071309` → `20261023071348` → `20261023071403` | Both switches OFF |
+| 5 — Backend settings API + acceptance evidence | `20261023071437_notification_operator_settings_api_phase5.sql` → `20261023071450_notification_digest_settings_enforcement_phase5.sql` | **APPLIED** production `20261023071437` → `20261023071450`; no V2 activation | OFF |
+| 6 — FINAL UI/UX + migration + go-live | Existing responsive Settings Center + `20261023073032_notification_configurable_digest_window_phase6.sql` | UI PR #26 merged; phase6 clock migration applied `20261023073032`; real-device activation **BLOCKED** | OFF |
 
 **Important:** GitHub migration filename and the Supabase applied migration
 version may have different prefixes. Check the live migration table by
@@ -26,21 +26,21 @@ or infer from timestamps alone.
 ## Phase inventory: code/test/doc kept together
 
 ### Phase 1
-- Migration: `20261023180000_notification_core_decision_contract.sql`
+- Migration: `20261023052759_notification_core_decision_contract.sql`
 - Fixtures/assertions: `scripts/notification-core-ci-fixtures.sql`,
   `scripts/notification-core-ci-assertions.sql`
 - Workflow: `.github/workflows/notification-core-phase1.yml`
 - Docs: `docs/notifications/core-decision-engine-phase1.md`
 
 ### Phase 2
-- Migration: `20261023190000_notification_core_policy_phase2.sql`
+- Migration: `20261023054338_notification_core_policy_phase2.sql`
 - Fixtures/assertions: `scripts/notification-core-phase2-fixtures.sql`,
   `scripts/notification-core-phase2-assertions.sql`
 - Workflow: `.github/workflows/notification-core-phase2.yml`
 - Docs: `docs/notifications/core-policy-phase2.md`
 
 ### Phase 3
-- Migration: `20261023200000_notification_digest_scheduler_phase3.sql`
+- Migration: `20261023071238_notification_digest_scheduler_phase3.sql`
 - Fixtures/assertions: `scripts/notification-phase3-ci-fixtures.sql`,
   `scripts/notification-phase3-ci-assertions.sql`
 - Workflow: `.github/workflows/notification-core-phase3.yml`
@@ -50,9 +50,9 @@ or infer from timestamps alone.
 - Containment: `supabase/rollout/notification-phase3-containment.sql`
 
 ### Phase 4 (gated existing-pipeline bridge, NOT live)
-- SQL: `supabase/migrations/20261023210000_notification_digest_event_bridge_phase4.sql`
-- SQL: `supabase/migrations/20261023213000_notification_processor_bridge_phase4.sql`
-- SQL: `supabase/migrations/20261023214500_notification_digest_event_guard_phase4.sql`
+- SQL: `supabase/migrations/20261023071309_notification_digest_event_bridge_phase4.sql`
+- SQL: `supabase/migrations/20261023071348_notification_processor_bridge_phase4.sql`
+- SQL: `supabase/migrations/20261023071403_notification_digest_event_guard_phase4.sql`
 - Synthetic DB: `scripts/notification-phase4-ci-fixtures.sql`
   and `scripts/notification-phase4-ci-assertions.sql`
 - Device privacy: `tests/notification-phase4-push.test.mjs`
@@ -68,8 +68,8 @@ or infer from timestamps alone.
   **do not replay them**. Both feature switches remain OFF.
 
 ### Phase 5 — Existing Settings API and per-slot enforcement (installed; V2 not active)
-- Migration 1: `supabase/migrations/20261023220000_notification_operator_settings_api_phase5.sql`
-- Migration 2: `supabase/migrations/20261023221000_notification_digest_settings_enforcement_phase5.sql`
+- Migration 1: `supabase/migrations/20261023071437_notification_operator_settings_api_phase5.sql`
+- Migration 2: `supabase/migrations/20261023071450_notification_digest_settings_enforcement_phase5.sql`
 - Synthetic isolated tests: `scripts/notification-settings-phase5-assertions.sql`,
   `scripts/notification-digest-switch-phase5-assertions.sql`
 - CI: `.github/workflows/notification-settings-phase5.yml`
@@ -188,7 +188,7 @@ These are dated observations, not validation of future production.
 
 ## Phase 6 dispatch integrity continuation
 
-`20261023081545_notification_phase6_dispatch_integrity.sql` was installed as
+`20261023083720_notification_phase6_dispatch_integrity.sql` was installed as
 production version `20261023083720` after existing Phase1–6 dependencies.
 Do not replay it. PR #29 adds atomic reservations, explicit source leases and
 existing-panel diagnostics. See `phase6-dispatch-integrity-2026-10-23.md`.

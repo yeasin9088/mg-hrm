@@ -6,7 +6,7 @@ const uiSource = fs.readFileSync('meeting-ui.js','utf8');
 const engineSource = fs.readFileSync('meeting-attendance.js','utf8');
 const html = fs.readFileSync('index.html','utf8');
 const css = fs.readFileSync('meeting-ui.css','utf8');
-const migration = fs.readFileSync('supabase/migrations/20261022110000_meeting_present_representative.sql','utf8');
+const migration = fs.readFileSync('supabase/migrations/20261022053305_meeting_present_representative_guard.sql','utf8');
 
 const store = (()=>{const c=vm.createContext({});vm.runInContext(engineSource,c);return c.MeetingAttendanceStore;})();
 function board() {const c=vm.createContext({});vm.runInContext(uiSource,c);return c.MeetingAttendanceUI;}

@@ -14,3 +14,5 @@ node_modules/
 /docs/database/security-audit.md
 /docs/database/security-remediation-plan.md
 /docs/database/reconciliation-plan.md
+/artifacts/
+/supabase/.temp/

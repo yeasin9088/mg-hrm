@@ -91,9 +91,9 @@ def main():
             f'BR-{n:03}', body, module(body), kind(body), policy(body),
             'Partially Implemented' if preview or privacy else 'Not Implemented',
             'Complete pipeline compatibility and test exact behavior' if preview or privacy else 'Determine exact source semantics; implement or document scoped mapping',
-            ('`20261023090000_notification_governance_v2_preview.sql` (inactive); '
-             '`20261023130000_governance_todo_repeat_gate.sql` (unapplied)') if preview else
-            ('`20261023120000_salary_todo_push_privacy.sql` (unapplied)' if privacy else 'TBD in existing modules'),
+            ('`20261023021912_notification_governance_v2_preview.sql` (inactive); '
+             '`20261023043016_governance_todo_repeat_gate.sql` (unapplied)') if preview else
+            ('`20261023031049_salary_todo_push_privacy.sql` (unapplied)' if privacy else 'TBD in existing modules'),
             'tests/governance-repeat-gate.test.mjs' if n in (32, 115, 116) else
             ('tests/salary-push-privacy.test.mjs' if privacy else 'TBD'),
             'Isolated synthetic test passed; full rule remains unverified' if n in (32, 115, 116) or privacy else

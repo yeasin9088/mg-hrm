@@ -39,7 +39,7 @@ test('V1 unread suppression remains reversible and V2 repeat uses the source pol
         (id,recipient_user_id,entity_type,entity_id,event_id,status)
       VALUES (1,'11111111-1111-4111-8111-111111111111','todo','42',1,'Delivered');
     `);
-    await db.exec(readFileSync(new URL('../supabase/migrations/20261023130000_governance_todo_repeat_gate.sql', import.meta.url), 'utf8'));
+    await db.exec(readFileSync(new URL('../supabase/migrations/20261023043016_governance_todo_repeat_gate.sql', import.meta.url), 'utf8'));
     await db.exec(`CREATE TRIGGER gate BEFORE INSERT ON public.notifications
       FOR EACH ROW EXECUTE FUNCTION notification_private.prevent_unseen_repeat()`);
     const insert = async () => (await db.query(`

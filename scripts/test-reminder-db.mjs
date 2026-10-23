@@ -40,9 +40,9 @@ try {
  for(const statement of triggers.split(';')) if(/EXECUTE FUNCTION notification_/.test(statement)&&tables.some(t=>new RegExp(`ON (public\\.)?${t}\\b`).test(statement))) await db.exec(statement+';');
  const grants=(await read('supabase/schema-baseline/09-privileges.sql')).replace(/^--.*$/gm,'');
  for(const statement of grants.split(';')) if(/^(?:\s*)(?:GRANT|REVOKE)[\s\S]*ON FUNCTION public\.(?:notification_|push_subscription_)/.test(statement)) await db.exec(statement+';');
- const migration=await read('supabase/migrations/20261021152333_reliable_reminder_scheduler.sql');
+ const migration=await read('supabase/migrations/20261021175841_reliable_reminder_scheduler.sql');
  await db.exec(migration);await db.exec(migration); // Replay must preserve configuration and rows.
- const previewMigration=await read('supabase/migrations/20261022120000_rich_push_previews.sql');
+ const previewMigration=await read('supabase/migrations/20261022050603_rich_push_previews.sql');
  await db.exec(previewMigration);await db.exec(previewMigration);
  const followupMigration=await read('supabase/migrations/20261022135600_read_aware_notification_followups.sql');
  await db.exec(followupMigration);await db.exec(followupMigration); // Idempotent replay.

@@ -55,7 +55,7 @@ P0/P1 emergencies and after-hours overrides remain disabled.
 
 ## Rollout and recovery
 
-Migration: `20261023122146_notification_workflow_completion.sql`, after the
+Migration: `20261023130557_notification_workflow_completion.sql`, after the
 installed dispatch integrity and recruitment-selection fixes. It adds workflow
 metadata without resetting original To-Do statuses, schedules or HR data.
 It does not activate the V2 gates. Production installation and deployment

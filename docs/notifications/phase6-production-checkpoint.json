@@ -23,7 +23,7 @@
     "V2 gates remain disabled; final acceptance is not complete.",
     "Atomic reservations and integrated workflow are installed and tested; live V2/provider/device acceptance remains unverified.",
     "Supported source adapters and canonical terminal-state alignment are implemented; complete live acceptance for every Rulebook module transition remains unverified.",
-    "69 complete Rulebook AT scenarios are not all end-to-end accepted; component tests do not substitute for that catalogue.",
+    "All 69 ATs audited: 52 synthetic passes, 15 partial, 2 blocked. 67 passing automated scopes are not 67 complete acceptance passes.",
     "Real Android/Windows Push display, Service Worker click, offline/permission walkthrough and 14-30 day pilot remain unobserved.",
     "Final responsive UX acceptance needs authenticated live and physical-device evidence beyond the synthetic Chromium checks.",
     "No P0/P1 emergency override, official weekend/holiday or payroll cutoff policy approved."
@@ -41,9 +41,9 @@
   "dispatch_integrity_pages_deployment_verified": true,
   "selection_followup_production_migration": "20261023084252 notification_recruitment_selection_followup",
   "latest_complete_local_regression": {
-    "total": 187,
-    "passed": 186,
-    "skipped": 1,
+    "total": 259,
+    "passed": 256,
+    "skipped": 3,
     "failed": 0
   },
   "workflow_completion_production_migration": "20261023130557 notification_workflow_completion",
@@ -63,5 +63,20 @@
   "integrated_workflow_postgresql_concurrency_proven": true,
   "integrated_workflow_six_viewport_reload_recovery_proven": true,
   "canonical_terminal_state_alignment_live_proven": true,
-  "workflow_completion_deployment_run": 39959453663
+  "workflow_completion_deployment_run": 39959453663,
+  "rulebook_acceptance_audited": 69,
+  "rulebook_synthetic_pass": 52,
+  "rulebook_partial": 15,
+  "rulebook_blocked": 2,
+  "rulebook_automated_scope_pass": 67,
+  "rulebook_automated_scope_skipped": 2,
+  "rulebook_acceptance_evidence": "docs/notifications/phase6-acceptance-audit-2026-10-23.md",
+  "acceptance_gaps_production_migration": "20261023142411 notification_acceptance_gaps",
+  "migration_history_versions_reconciled": 31,
+  "supabase_preview_error_cause": "Remote migration versions not found in local migrations directory",
+  "supabase_preview_fix_live_verified": false,
+  "preclose_risk_classification_test_proven": true,
+  "duplicate_suggestion_only_test_proven": true,
+  "synthetic_fixture_export_restore_test_proven": true,
+  "acceptance_gaps_rollback_test_proven": true
 }

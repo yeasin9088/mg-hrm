@@ -1,0 +1,163 @@
+{
+  "captured_at": "2026-10-23",
+  "project_ref": "enkggoozsvvkgbjeghbf",
+  "migrations": [
+    {
+      "version": "20260916135500",
+      "name": "init",
+      "sha256": "c0ccb11109b4b2276083739ebbb63ddbeb04051b9cd3bb9457f91beaec864e0d"
+    },
+    {
+      "version": "20260916140800",
+      "name": "fix_schema",
+      "sha256": "40439ac786d1f0d96ebe5e41d26697bb5ec355e487a336af4d3e4f1fe42f236c"
+    },
+    {
+      "version": "20261021175841",
+      "name": "reliable_reminder_scheduler",
+      "sha256": "1f67beeb3f7105eced3b3995237c1ecdf528100a4e77a6a99953dc455c441868"
+    },
+    {
+      "version": "20261021175952",
+      "name": "secure_paused_reminder_sender_cron",
+      "sha256": "8307951b5063472c2dc868945db372341e1756ff4e9bbd0666fa6d35cd2bd278"
+    },
+    {
+      "version": "20261022050603",
+      "name": "rich_push_previews",
+      "sha256": "0a7c851661c141f1fe308586670d10b3f76e115a3b99d956bdf59dad6293f6f3"
+    },
+    {
+      "version": "20261022053305",
+      "name": "meeting_present_representative_guard",
+      "sha256": "90db08fef3ff5a6e9e1952085aded558b6ff40d4882336b41ac4b004b38eadc4"
+    },
+    {
+      "version": "20261022071149",
+      "name": "transfer_due_notifications",
+      "sha256": "7e1494d27fbd1cae97e530fc727a5285883e59cc1ef7c962c27a487d2622f3a5"
+    },
+    {
+      "version": "20261022071529",
+      "name": "transfer_due_operator_uuid_fix",
+      "sha256": "8440039ad098accaac727761fa0c7277ccede8876beba2f105d89bf0ad5f1050",
+      "applied_sql_sha256": "f6598dc7b7dec2cbc314a55962e9d59f26940b5351787430c5d2adbfda228350",
+      "normalization": "One trailing blank line removed; SQL statements unchanged."
+    },
+    {
+      "version": "20261022071834",
+      "name": "transfer_not_joined_null_date_guard",
+      "sha256": "47e3d875aa8ac2794d583ee36bab3f79a6af79ee7f24349f14bffa00365d7cf0"
+    },
+    {
+      "version": "20261022104530",
+      "name": "disciplinary_actions_notifications",
+      "sha256": "cc40c9173a0dc0f104a6f6ff11b2c90a9e7688fa626b263786b7424649ed86bd"
+    },
+    {
+      "version": "20261022135600",
+      "name": "read_aware_notification_followups",
+      "sha256": "8cf62c41a4300b0c2a843d867dfa2fbf14cc25dbf61d301aaaef88e1632cfc79"
+    },
+    {
+      "version": "20261022172217",
+      "name": "swa_v2_operator_work_ledger",
+      "sha256": "720460f1c9fdfc14d11f4ed15ac491c3783392b58ed5b27b17380792cc3f1f74"
+    },
+    {
+      "version": "20261022173115",
+      "name": "swa_rejected_approval_followthrough",
+      "sha256": "cea6bc007318d07812d6c810122654a60158115f5631668e2f5837d9f6f26258"
+    },
+    {
+      "version": "20261023021912",
+      "name": "notification_governance_v2_preview",
+      "sha256": "3db296c697cb7b4b9726069843932c617e24e649e8c2977b5d70933b9ba79f50"
+    },
+    {
+      "version": "20261023031049",
+      "name": "salary_todo_push_privacy",
+      "sha256": "1dcb24aeccf3283f8b511a785f50d9ce6f788030c5e02594cf03f0401515ffae"
+    },
+    {
+      "version": "20261023043016",
+      "name": "governance_todo_repeat_gate",
+      "sha256": "b56b8bc3e39bd4a4f2dfa620c32a5703d55ecb368d6fc5168f2004f62e06198a"
+    },
+    {
+      "version": "20261023043614",
+      "name": "push_final_source_guard",
+      "sha256": "678eafe3b6a2c306cb2932a8303a355838d7992e0b0427f18f08265d10272381"
+    },
+    {
+      "version": "20261023052759",
+      "name": "notification_core_decision_contract",
+      "sha256": "cb667caef1b19a4ed2bf7c7a7168353aefeb4fcd59b9316a038bb895a12d9afb"
+    },
+    {
+      "version": "20261023054338",
+      "name": "notification_core_policy_phase2",
+      "sha256": "5e92b2bd26744b4973e9d0f45d1f0b94ade7f3f00dd0567826569353031edce2"
+    },
+    {
+      "version": "20261023071238",
+      "name": "notification_digest_scheduler_phase3",
+      "sha256": "0603349684a465fd65a6c910adc2e661f95725542a3ecb7023269fb7a80977dd"
+    },
+    {
+      "version": "20261023071309",
+      "name": "notification_digest_event_bridge_phase4",
+      "sha256": "6dc3c0e1c2efe87882244ef1951ee061bd159c206c820f59aae069050e3e1da2"
+    },
+    {
+      "version": "20261023071348",
+      "name": "notification_processor_bridge_phase4",
+      "sha256": "db164f84cc774f40c24004173de46a9ccc8a9bf5adb11e6746af200a550e18b6"
+    },
+    {
+      "version": "20261023071403",
+      "name": "notification_digest_event_guard_phase4",
+      "sha256": "2a2634d11206e5bbdd3df72db1442ebd9de8cd0c3a3f59b9543a81a0d1aa1d81"
+    },
+    {
+      "version": "20261023071437",
+      "name": "notification_operator_settings_api_phase5",
+      "sha256": "e616d580c020e1089f81de3e5f49fbbd62ef8578127d2f88ebe3022a6289d208"
+    },
+    {
+      "version": "20261023071450",
+      "name": "notification_digest_settings_enforcement_phase5",
+      "sha256": "0096a7b8d2e915afc78b8128d8bf2163be9eaa2c4d3c07bb405ef0d8a242c869"
+    },
+    {
+      "version": "20261023073032",
+      "name": "notification_configurable_digest_window_phase6",
+      "sha256": "ca298043e1635816658133c060e7d67e52cdaddad1a9bbe3d4161108b2b08b90"
+    },
+    {
+      "version": "20261023083720",
+      "name": "notification_phase6_dispatch_integrity",
+      "sha256": "07d0fcf84e119bc67a2c8861c3496851e5a8915a3fdccf985571eb10bb41c84a"
+    },
+    {
+      "version": "20261023084252",
+      "name": "notification_recruitment_selection_followup",
+      "sha256": "4e5e701d634a3b74f9833ae66c5c08bf1c76b8c1f66eca5b063a2e69a9cc43c6"
+    },
+    {
+      "version": "20261023130557",
+      "name": "notification_workflow_completion",
+      "sha256": "291b6caa72b2fa55046ea140d482ee4cee7c4274d488a059418268f7db703e70"
+    },
+    {
+      "version": "20261023130913",
+      "name": "notification_source_truth_alignment",
+      "sha256": "9a7f360e2e6326ec0507eb0d0c791f0bf1bca99578dbcdb3676e4a28eb086df8"
+    },
+    {
+      "version": "20261023142411",
+      "name": "notification_acceptance_gaps",
+      "sha256": "0f59967c32c3813653e9c4357aa3ff9da1f4f19933199f958020450b6911828f"
+    }
+  ]
+}

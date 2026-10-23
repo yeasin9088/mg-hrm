@@ -2,11 +2,11 @@
    MG Security HRM — Service Worker
    Role: Offline application cache + safe notification display/click flow
    ===================================================================== */
-const CACHE = 'mghrm-v46';
+const CACHE = 'mghrm-v47';
 const LOGO_URL = new URL('icon-192.png?notification-icon=v39', self.registration.scope).href;
 const BADGE_URL = new URL('notification-small-m-96.png?notification-badge=v39', self.registration.scope).href;
 const BRAND_IMAGES = [LOGO_URL, BADGE_URL];
-const SHELL = ['./', './index.html', './manifest.json', './app-logo-192.webp', './icon-192.png', './icon-512.png', './bd-geo.json', './config.js', './app-core.js', './disciplinary-model.js', './meeting-attendance.js', './meeting-ui.js', './meeting-ui.css', './notification-model.js', './notification-center.js', './notification-presence.js', './notification-ui.js', './notification-ui.css', './notification-settings.js', './notification-engine-ui.js', './notification-workflow-ui.js', './notification-workflow-ui.css'];
+const SHELL = ['./', './index.html', './manifest.json', './app-logo-192.webp', './icon-192.png', './icon-512.png', './bd-geo.json', './config.js', './app-core.js', './exit-model.js', './exit-service.js', './exit-ui.js', './exit-reports.js', './exit-ui.css', './disciplinary-model.js', './meeting-attendance.js', './meeting-ui.js', './meeting-ui.css', './notification-model.js', './notification-center.js', './notification-presence.js', './notification-ui.js', './notification-ui.css', './notification-settings.js', './notification-engine-ui.js', './notification-workflow-ui.js', './notification-workflow-ui.css'];
 
 async function cacheVerifiedBrandImage(cache, url) {
   const response = await fetch(new Request(url, { cache: 'reload' }));
@@ -51,6 +51,7 @@ self.addEventListener('fetch', (e) => {
   if (url.pathname.endsWith('.png')) return;
   const isCoreAsset = url.pathname.endsWith('/index.html') ||
     url.pathname.endsWith('/app-core.js') ||
+    /\/exit-(model|service|ui|reports)\.(js|css)$/.test(url.pathname) ||
     url.pathname.endsWith('/meeting-attendance.js') ||
     url.pathname.endsWith('/config.js') ||
     e.request.mode === 'navigate';

@@ -1,0 +1,8 @@
+.exit-confidential{margin-top:16px;border:1px solid var(--border);border-radius:10px;padding:16px;background:var(--bg-dim)}
+.exit-confidential h4{margin:0 0 10px}.exit-confidential input[type=checkbox]{width:20px;height:20px;vertical-align:middle;margin-right:8px}
+.exit-confidential .exit-balance{padding:10px;margin-top:12px;border-radius:8px;background:var(--bg);font-weight:600}
+.exit-private-warning{padding:10px;border-left:3px solid #b45309;background:#fffbeb;color:#92400e;margin-bottom:12px}
+.exit-private-table{font-size:12px}.exit-private-table td{vertical-align:top;white-space:normal;min-width:75px;overflow-wrap:anywhere}.exit-private-table th{white-space:normal}
+.exit-private-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.exit-private-toolbar select,.exit-private-toolbar input,.exit-private-toolbar button{min-height:40px}
+@media(max-width:640px){.exit-confidential{padding:12px}.exit-confidential .form-grid{grid-template-columns:1fr}.exit-confidential .field{grid-column:1/-1}.exit-private-toolbar>*{flex:1;min-width:120px}}
+@media print{.exit-private-table{font-size:8px}.exit-private-table td{min-width:0}.exit-private-table tr{break-inside:auto}.exit-private-warning{font-weight:bold}}

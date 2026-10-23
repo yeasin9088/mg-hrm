@@ -3383,6 +3383,11 @@ input:focus, select:focus, textarea:focus {
 <script src="./meeting-ui.js"></script>
 <link rel="stylesheet" href="./meeting-ui.css">
 <script src="./app-core.js"></script>
+<script src="./exit-model.js"></script>
+<script src="./exit-service.js"></script>
+<script src="./exit-ui.js"></script>
+<script src="./exit-reports.js"></script>
+<link rel="stylesheet" href="./exit-ui.css">
 <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script><script>
 /* MGHRM Data Layer now loaded from app-core.js */
 
@@ -4575,6 +4580,7 @@ document.querySelectorAll('.nav-item').forEach(el=>{
   });
 });
 function navigate(p){
+  if(p!=='reports' && window.ExitReports) ExitReports.clear();
   if (typeof window.mtCloseSidebarMobile === 'function') {
     window.mtCloseSidebarMobile();
   }
@@ -12897,10 +12903,11 @@ function renderExit(){
             <option>${'Death'}</option>
             <option>${'Others'}</option>
           </select></div>
-          <div class="field"><label>${'Exit Date'} *</label><input id="exDate" type="date"></div>
+          <div class="field"><label>${'Exit Date'} *</label><input id="exDate" type="date" onchange="ExitUI.update(true)"></div>
           <div class="field"><label>${'Issue Date'}</label><input id="exIssue" type="date" value="${todayISO()}"></div>
           <div class="field wide"><label>${'Exit Reason'} *</label><textarea id="exReason" rows="3"></textarea></div>
         </div>
+        ${ExitUI.html()}
         <div style="margin-top:14px" class="btn-row">
           <button class="btn danger" id="btnSubmitExit" onclick="submitExit()">${'Mark as Inactive'}</button>
           <button class="btn" onclick="previewClearance()">${ico('print')} ${'Clearance Certificate'}</button>
@@ -12951,6 +12958,7 @@ function renderExit(){
     </div>
   `;
   fillEmpSelect('exEmp');
+  ExitUI.reset();
   renderExitTable();
 }
 function exFillEmp(){
@@ -12962,6 +12970,7 @@ function exFillEmp(){
     const empDisplayId = e ? (e.EmployeeID || e.id ) : '';
     badgeEl.innerHTML = e ? `<span class="emp-fetch-badge success">✓ ${escapeHtml(e.FullName)} (ID #${escapeHtml(empDisplayId)})</span>` : '';
   }
+  ExitUI.reset(true);
 }
 
 function openExitPopup(eid){
@@ -12981,7 +12990,8 @@ function openExitPopup(eid){
       <div class="pop-row"><span>Current Status</span><b>${escapeHtml(emp?emp.Status:'—')}</b></div>
     </div>
     <div class="pop-hint">⚠ Employee current status comes from Employeetbl.Status; use "Reactivate" to restore.</div>`,
-    `${emp && String(emp.Status||'').trim().toLowerCase() !== 'active' ? `<button class="btn primary" onclick="promptReactivate(${jsQ(empKey)}, ${jsQ(x.ExitID)})">Reactivate</button>` : ''}
+    `<button class="btn" onclick="ExitUI.edit(${Number(x.ExitID||x.id)})">Confidential settlement</button>
+     ${emp && String(emp.Status||'').trim().toLowerCase() !== 'active' ? `<button class="btn primary" onclick="promptReactivate(${jsQ(empKey)}, ${jsQ(x.ExitID)})">Reactivate</button>` : ''}
      ${emp?`<button class="btn" onclick="closeModal();openEmpDetail(${jsQ(empKey)})">Edit</button>`:''}
      <button class="btn" style="background:var(--danger);color:#fff" onclick="deleteExit(${jsQ(x.ExitID)})">Delete</button>
      <button class="btn" onclick="closeModal()">Close</button>`);
@@ -13063,14 +13073,13 @@ async function confirmReactivate(empId, exitId){
     if(typeof renderDashboard==='function') renderDashboard();
   }catch(err){ console.error('[Reactivation] failed:',err); toast('Reactivation failed: '+(err.message||err),'error'); }
 }
-function deleteExit(eid){
-  if(!guardEdit()) return;
-  if(!confirm('Delete this exit record?')) return;
-  DATA.exits = DATA.exits.filter(x=>String(x.ExitID || x.id)!==String(eid));
-  if(window.MGHRM && typeof MGHRM.remove==='function') MGHRM.remove('exits', eid);
-  logActivity('delete','exits',eid,'exit deleted');
-  toast('Deleted','success');
-  persist(); closeModal(); renderExit();
+async function deleteExit(eid){
+  if(!guardEdit() || !confirm('Delete this exit record?')) return;
+  try {
+    await ExitService.archive(eid);
+    DATA.exits=DATA.exits.filter(x=>String(x.ExitID||x.id)!==String(eid));
+    closeModal();renderExit();toast('Exit record deleted.','success');
+  } catch(err){ toast('Delete failed: '+err.message,'error'); }
 }
 
 window.openEmpDetail = openEmpDetail;
@@ -13079,50 +13088,7 @@ window.openEmployeePopup = openExitPopup;
 window.promptReactivate = promptReactivate;
 window.confirmReactivate = confirmReactivate;
 window.deleteExit = deleteExit;
-async function submitExit(){
-  if(typeof guardEdit === 'function' && !guardEdit()) return;
-  const rid=document.getElementById('exEmp')?.value;
-  const exitDate=document.getElementById('exDate')?.value;
-  const exitReason=document.getElementById('exReason')?.value;
-  const exitType=document.getElementById('exType')?.value || 'Other';
-  if(!rid||!exitDate||!exitReason){ toast('Fill all required fields','error'); return; }
-  const employee=findEmp(rid);
-  if(!employee || employee.id==null){ toast('Active employee with a System ID was not found.','error'); return; }
-  const button=document.getElementById('btnSubmitExit');
-  window.mtCustomConfirm('Employee Exit','Complete this exit and set the employee status to Inactive?','danger',async function(){
-    if(button){ button.disabled=true; button.innerHTML='Saving...'; }
-    try{
-      const transferContext = window.__exitFromTransferContext;
-      const relatedTransferId = transferContext && String(transferContext.employeeSysId) === String(employee.id)
-        ? Number(transferContext.transferId)
-        : null;
-      const payload={ employee_sys_id: employee.id, employee_id: employee.EmployeeID||'', full_name: employee.FullName||'', designation: employee.Designation||'', current_project: employee.ProjectName||'', join_date: employee.JoinDate||'', exit_reason: exitReason, exit_type: exitType, exit_date: exitDate, effective_exit_date: exitDate, issue_date: document.getElementById('exIssue')?.value||todayISO(), related_transfer_id: relatedTransferId };
-      const result=await window.MGHRM.createExitDraft(payload);
-      const exitId=Number(result?.exit?.id);
-      if(!exitId) throw new Error('Exit draft was not returned by the server.');
-      await window.MGHRM.completeExit(exitId,exitDate,exitType,exitReason,'Completed from Employee Exit form');
-      if (relatedTransferId && window.MGHRM && typeof window.MGHRM.cancelTransfer === 'function') {
-        try {
-          await window.MGHRM.cancelTransfer(relatedTransferId, 'Employee Inactivated through Exit: ' + exitReason);
-        } catch (cancelErr) {
-          // complete_exit may already have cancelled the linked transfer atomically.
-          if (window.MGHRM.reloadTransfers) DATA.transfers = await window.MGHRM.reloadTransfers();
-          const linked = Array.isArray(DATA.transfers) ? DATA.transfers.find(t => String(t.id) === String(relatedTransferId)) : null;
-          const linkedStatus = linked && (linked.status || linked.Status);
-          if (linkedStatus !== 'Cancelled') throw new Error('Employee was exited, but the related transfer could not be resolved: ' + (cancelErr.message || cancelErr));
-        }
-      }
-      window.__exitFromTransferContext = null;
-      if(window.MGHRM.reloadExits) DATA.exits=await window.MGHRM.reloadExits();
-      if(typeof fetchEmployeesDirectly==='function') await fetchEmployeesDirectly();
-      if (typeof phase2RefreshTransferState === 'function') await phase2RefreshTransferState();
-      closeModal(); toast(`${employee.FullName} marked as Inactive`,'success');
-      if(typeof renderExit==='function') renderExit();
-      if(typeof renderEmpTable==='function') renderEmpTable();
-    }catch(err){ console.error('[Exit] completion failed:',err); toast('Exit failed: '+(err.message||err),'error'); }
-    finally{ if(button){ button.disabled=false; button.innerHTML='Mark as Inactive'; } }
-  });
-}
+async function submitExit(){ return ExitUI.submit(); }
 window.submitExit = submitExit;
 function previewClearance(){
   const rid = document.getElementById('exEmp').value;
@@ -13417,6 +13383,7 @@ function renderReports(){
   const reports = [
     {key:'workforceSummary', icon:'trend', color:'p', title:'Workforce Movement Summary', desc:'Executive workforce movement and transfer performance'},
     {key:'newJoins',    icon:'trend',    color:'g', title:'Monthly New Joins',      desc:'All new employees who joined this month'},
+    {key:'exitSettlement', icon:'lock', color:'y', title:'Exit Deduction & Deposit', desc:'Confidential · separate financial report'},
     {key:'exits',       icon:'x',        color:'r', title:'Monthly Exits',          desc:'All exits during selected month'},
     {key:'transfers',   icon:'refresh',  color:'b', title:'Monthly Transfers',      desc:'All transfers during selected month'},
     {key:'disciplinary',icon:'warn',     color:'y', title:'Monthly Disciplinary',   desc:'All disciplinary actions this month'},
@@ -13612,11 +13579,13 @@ let currentReport = 'workforceSummary';
 function renderReportSelected(){ showReport(currentReport); }
 function showReport(kind){
   currentReport = kind;
+  if(kind!=='exitSettlement') ExitReports.clear();
   document.querySelectorAll('#page-reports .qa[data-report]').forEach(card=>card.classList.toggle('report-selected',card.dataset.report===kind));
   const reportFilter = getReportFilterContext();
   const monthVal = document.getElementById('reportMonth')?.value || todayISO().slice(0,7);
   const inMonth = v=>reportInRange(v,reportFilter);
   let out='';
+  if(kind==='exitSettlement'){ ExitReports.show(reportFilter); return; }
   if(kind==='workforceSummary'){
     out=workforceSummaryHtml(getWorkforceSummaryData(),false);
   } else if(kind==='managementAnalytics'){
@@ -13873,6 +13842,7 @@ function showReport(kind){
   document.getElementById('reportOutput').innerHTML = out;
 }
 function exportReport(kind){
+  if(kind==='exitSettlement') return ExitReports.exportCSV();
   const result=getMonthlyReportRows(kind), rows=result.rows, ctx=result.ctx;
   const specs={
     newJoins:{headers:['Employee ID','Name','Designation','Project','Join Date'],map:r=>[r.EmployeeID||r.employee_id||'',r.FullName||r.full_name||'',r.Designation||r.designation||'',r.ProjectName||r.project_name||'',r.JoinDate||r.join_date||'']},
@@ -13988,6 +13958,7 @@ function mrepShell2({title, subtitle, meta, body, landscape}){
   </div>`;
 }
 function printReport(){
+  if(currentReport==='exitSettlement') return ExitReports.print();
   const reportFilter=getReportFilterContext();
   const monthVal = document.getElementById('reportMonth')?.value || todayISO().slice(0,7);
   const inMonth=v=>reportInRange(v,reportFilter);
@@ -23899,6 +23870,7 @@ function startExitFromTransfer(transferId){
     }
     const exDateEl = document.getElementById('exDate');
     if (exDateEl) exDateEl.value = exitDate;
+    ExitUI.update(true);
 
     const exTypeEl = document.getElementById('exType');
     if (exTypeEl) {

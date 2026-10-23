@@ -1551,43 +1551,12 @@
   }
   function cancelExit(exitId, reason) { return rpcCall('cancel_exit', { p_exit_id: exitId, p_reason: reason }); }
   function reactivateEmployee(employeeSystemId, joinDate, project, remarks) {
-    if (!ready || !sb) return Promise.reject(new Error('Supabase client is not connected.'));
-
-    // Check employee current status first. Only non-active employees can be reactivated.
-    return sb.from('employees').select('id, status, employee_id, full_name, join_date, project_name').eq('id', employeeSystemId).single().then(function(res) {
-      var currentStatus = (res.data && res.data.status) ? String(res.data.status).trim() : '';
-      if (currentStatus.toLowerCase() === 'active') {
-        throw new Error('Employee is already Active. Only non-active employees can be reactivated.');
-      }
-
-      // Unified lifecycle model: every non-active employee is operationally Inactive.
-      return rpcCall('reactivate_employee', {
-        p_employee_sys_id: employeeSystemId,
-        p_new_join_date: joinDate,
-        p_new_project: project,
-        p_remarks: remarks || null
-      });
-    }).catch(function(err) {
-      if (err && err.message && (err.message.indexOf('already Active') !== -1 || err.message.indexOf('Active employee') !== -1)) {
-        throw err;
-      }
-      console.warn('[reactivateEmployee] RPC encountered error, executing direct table reactivation fallback:', err);
-      // Fallback: direct update on employees table
-      return sb.from('employees').update({
-        status: 'Active',
-        project_name: project,
-        join_date: joinDate,
-        exit_date: null,
-        exit_reason: null
-      }).eq('id', employeeSystemId).then(function(r) {
-        if (r.error) throw new Error(r.error.message || (err && err.message) || 'Failed to reactivate employee');
-        // If there is an associated exit record, update status to Reactivated
-        return sb.from('exits').update({ status: 'Reactivated' }).eq('employee_sys_id', employeeSystemId).then(function() {
-          return true;
-        }).catch(function() {
-          return true;
-        });
-      });
+    // Fail visibly if the transactional server workflow fails; never bypass it.
+    return rpcCall('reactivate_employee', {
+      p_employee_sys_id: employeeSystemId,
+      p_new_join_date: joinDate,
+      p_new_project: project,
+      p_remarks: remarks || null
     });
   }
 

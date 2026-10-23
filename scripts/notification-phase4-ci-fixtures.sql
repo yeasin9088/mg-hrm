@@ -24,7 +24,7 @@ ALTER TABLE public.notifications
  ADD COLUMN action_params jsonb NOT NULL DEFAULT '{}'::jsonb;
 CREATE TABLE public.notification_jobs(
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
- notification_id uuid,job_type text,job_status text,locked_by text,
+ notification_id uuid,event_id bigint,job_type text,job_status text,locked_by text,
  attempt_count integer DEFAULT 1,maximum_attempts integer DEFAULT 5,
  run_at timestamptz,locked_at timestamptz
 );

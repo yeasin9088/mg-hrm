@@ -1,0 +1,50 @@
+name: Notification governance V2 compatibility
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/*notification_governance*.sql'
+      - 'scripts/notification-governance*.sql'
+      - '.github/workflows/notification-governance-v2.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sql-isolated-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: governance_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d governance_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: governance_ci
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: Prepare disposable operator data and schema
+        run: |
+          psql -v ON_ERROR_STOP=1 -f scripts/swa-ci-bootstrap.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261022232000_swa_v2_foundation.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261022235000_swa_rejected_approval_followthrough.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/notification-governance-ci-fixtures.sql
+      - name: Apply governance policy migration in CI only
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023090000_notification_governance_v2_preview.sql
+      - name: Assert reversible V1 and independent V2 policy
+        run: psql -v ON_ERROR_STOP=1 -f scripts/notification-governance-ci-assertions.sql
+      - name: Assert clean diff
+        run: git diff --check

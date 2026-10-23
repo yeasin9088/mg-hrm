@@ -2,11 +2,11 @@
    MG Security HRM — Service Worker
    Role: Offline application cache + safe notification display/click flow
    ===================================================================== */
-const CACHE = 'mghrm-v41';
+const CACHE = 'mghrm-v42';
 const LOGO_URL = new URL('icon-192.png?notification-icon=v39', self.registration.scope).href;
 const BADGE_URL = new URL('notification-small-m-96.png?notification-badge=v39', self.registration.scope).href;
 const BRAND_IMAGES = [LOGO_URL, BADGE_URL];
-const SHELL = ['./', './index.html', './manifest.json', './app-logo-192.webp', './icon-192.png', './icon-512.png', './bd-geo.json', './config.js', './app-core.js', './disciplinary-model.js', './meeting-attendance.js', './meeting-ui.js', './meeting-ui.css', './notification-model.js', './notification-center.js', './notification-presence.js', './notification-ui.js', './notification-ui.css', './notification-settings.js', './swa-model.js', './swa-ui.js', './swa-ui.css'];
+const SHELL = ['./', './index.html', './manifest.json', './app-logo-192.webp', './icon-192.png', './icon-512.png', './bd-geo.json', './config.js', './app-core.js', './disciplinary-model.js', './meeting-attendance.js', './meeting-ui.js', './meeting-ui.css', './notification-model.js', './notification-center.js', './notification-presence.js', './notification-ui.js', './notification-ui.css', './notification-settings.js'];
 
 async function cacheVerifiedBrandImage(cache, url) {
   const response = await fetch(new Request(url, { cache: 'reload' }));

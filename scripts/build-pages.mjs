@@ -1,17 +1,18 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {injectPwaEnhancements} from './pwa-inject.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 // Explicit browser assets only. Never copy the repository recursively.
 export const publicAssets = Object.freeze([
   'index.html', 'app-core.js', 'exit-model.js', 'exit-service.js', 'exit-ui.js', 'exit-reports.js', 'exit-ui.css', 'disciplinary-model.js', 'meeting-attendance.js', 'meeting-ui.js', 'meeting-ui.css', 'notification-model.js', 'notification-center.js', 'notification-presence.js', 'notification-ui.js', 'notification-ui.css', 'notification-settings.js', 'notification-engine-ui.js', 'notification-workflow-ui.js', 'notification-workflow-ui.css', 'config.js', 'sw.js',
-  'manifest.json', 'icon-192.png', 'icon-512.png', 'app-logo-192.webp', 'notification-badge-96.png', 'notification-small-m-96.png', 'bd-geo.json'
+  'manifest.json', 'icon-192.png', 'icon-512.png', 'app-logo-192.webp', 'notification-badge-96.png', 'notification-small-m-96.png', 'bd-geo.json',
+  'offline.html', 'pwa-experience.js', 'pwa-experience.css'
 ]);
 
 export function buildPages(destination = path.join(root, '_site')) {
   const output = path.resolve(destination);
-  // Refuse existing output, including stale SQL/docs. No files are deleted.
   if (fs.existsSync(output)) throw new Error('Output already exists; use a new directory: ' + output);
   for (const asset of publicAssets) {
     const stat = fs.lstatSync(path.join(root, asset));
@@ -21,6 +22,10 @@ export function buildPages(destination = path.join(root, '_site')) {
   for (const asset of publicAssets) {
     fs.copyFileSync(path.join(root, asset), path.join(output, asset), fs.constants.COPYFILE_EXCL);
   }
+  // Production uses the exact same old SPA plus an isolated PWA App Center layer.
+  // Keep index.html in source unchanged to minimize risk to existing HR workflows.
+  const index = path.join(output,'index.html');
+  fs.writeFileSync(index, injectPwaEnhancements(fs.readFileSync(index,'utf8')));
   return output;
 }
 

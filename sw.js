@@ -1,12 +1,28 @@
-/* =====================================================================
-   MG Security HRM — Service Worker
-   Role: Offline application cache + safe notification display/click flow
-   ===================================================================== */
-const CACHE = 'mghrm-v50';
+/* MG-HRM PWA v51: public app-shell caching, safe update lifecycle, Web Push.
+ * Cache Storage must NEVER contain HR employee records, Supabase responses,
+ * credentials, authenticated API responses, POST bodies or pending writes.
+ */
+'use strict';
+const CACHE = 'mghrm-v51';
+const CACHE_PREFIX = 'mghrm-v';
 const LOGO_URL = new URL('icon-192.png?notification-icon=v39', self.registration.scope).href;
 const BADGE_URL = new URL('notification-small-m-96.png?notification-badge=v39', self.registration.scope).href;
 const BRAND_IMAGES = [LOGO_URL, BADGE_URL];
-const SHELL = ['./', './index.html', './manifest.json', './app-logo-192.webp', './icon-192.png', './icon-512.png', './bd-geo.json', './config.js', './app-core.js', './exit-model.js', './exit-service.js', './exit-ui.js', './exit-reports.js', './exit-ui.css', './disciplinary-model.js', './meeting-attendance.js', './meeting-ui.js', './meeting-ui.css', './notification-model.js', './notification-center.js', './notification-presence.js', './notification-ui.js', './notification-ui.css', './notification-settings.js', './notification-engine-ui.js', './notification-workflow-ui.js', './notification-workflow-ui.css'];
+const SHELL = [
+  './', './index.html', './offline.html', './manifest.json',
+  './app-logo-192.webp', './icon-192.png', './icon-512.png', './bd-geo.json',
+  './config.js', './app-core.js', './disciplinary-model.js',
+  './exit-model.js', './exit-service.js', './exit-ui.js', './exit-reports.js', './exit-ui.css',
+  './meeting-attendance.js', './meeting-ui.js', './meeting-ui.css',
+  './notification-model.js', './notification-center.js', './notification-presence.js',
+  './notification-ui.js', './notification-ui.css', './notification-settings.js',
+  './notification-engine-ui.js', './notification-workflow-ui.js', './notification-workflow-ui.css',
+  './pwa-experience.js', './pwa-experience.css'
+];
+const SCOPE = new URL(self.registration.scope);
+const SCOPE_PATH = SCOPE.pathname;
+// A deliberate allowlist. No generic .json or /api caching.
+const STATIC_PATHS = new Set(SHELL.filter(x => x !== './').map(x => new URL(x, self.registration.scope).pathname));
 
 async function cacheVerifiedBrandImage(cache, url) {
   const response = await fetch(new Request(url, { cache: 'reload' }));
@@ -16,57 +32,98 @@ async function cacheVerifiedBrandImage(cache, url) {
   await cache.put(url, response);
 }
 
-self.addEventListener('install', (e) => {
-  self.skipWaiting();
-  e.waitUntil(caches.open(CACHE).then(async (c) => {
-    // Only activate this worker if both branded notification assets were
-    // fetched successfully as real PNG images (never an offline HTML fallback).
-    for (const url of BRAND_IMAGES) await cacheVerifiedBrandImage(c, url);
-    await c.addAll(SHELL).catch(() => {});
-  }));
+self.addEventListener('install', (event) => {
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    // Branded push assets are a hard requirement, independently of app shell.
+    for (const url of BRAND_IMAGES) await cacheVerifiedBrandImage(cache, url);
+    // Optional shell warm-up; a transient failure must not disable Web Push.
+    // Fail closed: never cache alternate HTML responses for JS/CSS/icon URLs.
+    try { await cache.addAll(SHELL); }
+    catch (err) { console.warn('[MG-HRM PWA] Shell pre-cache incomplete:', err); }
+    // Deliberately NO automatic skipWaiting on upgrades: open forms remain safe.
+  })());
 });
 
-self.addEventListener('activate', (e) => {
-  e.waitUntil(
-    caches.keys()
-      .then((ks) => Promise.all(ks.filter((k) => k.startsWith('mghrm-v') && k !== CACHE).map((k) => caches.delete(k))))
-      .then(() => self.clients.claim())
-  );
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(k => k.startsWith(CACHE_PREFIX) && k !== CACHE).map(k => caches.delete(k)));
+    await self.clients.claim();
+  })());
 });
 
-self.addEventListener('fetch', (e) => {
-  const url = new URL(e.request.url);
-  // Supabase / auth / CDN -> bypass cache, always use network
-  if (url.hostname.includes('supabase') ||
-      url.hostname.includes('jsdelivr') ||
-      url.hostname.includes('cloudflareinsights')) {
+self.addEventListener('message', event => {
+  const kind = event.data && event.data.type;
+  if (kind === 'MG_PWA_SKIP_WAITING') {
+    // Only after the app UI explicitly asks the operator to apply an update.
+    event.waitUntil(self.skipWaiting());
+  } else if (kind === 'MG_PWA_GET_VERSION' && event.source && event.source.postMessage) {
+    event.source.postMessage({ type: 'MG_PWA_VERSION', version: CACHE });
+  }
+});
+
+function isEligibleStaticRequest(request, url) {
+  if (request.method !== 'GET' || url.origin !== SCOPE.origin || !url.pathname.startsWith(SCOPE_PATH)) return false;
+  if (request.headers && request.headers.has && (request.headers.has('Authorization') || request.headers.has('authorization'))) return false;
+  if (url.search && !BRAND_IMAGES.includes(url.href)) return false; // avoid unknown dynamic query cache keys
+  return STATIC_PATHS.has(url.pathname);
+}
+function expectedAssetType(path) {
+  if (/\.js$/i.test(path)) return /(?:javascript|ecmascript)/i;
+  if (/\.css$/i.test(path)) return /text\/css/i;
+  if (/\.png$/i.test(path)) return /^image\/png(?:;|$)/i;
+  if (/\.webp$/i.test(path)) return /^image\/webp(?:;|$)/i;
+  if (/\.json$/i.test(path)) return /(?:application|text)\/json/i;
+  if (/\.html$/i.test(path)) return /text\/html/i;
+  return null;
+}
+function validCacheResponse(response, url) {
+  if (!response || !response.ok || (response.type && !['basic', 'default'].includes(response.type))) return false;
+  const expected = expectedAssetType(url.pathname);
+  return Boolean(expected && expected.test(response.headers && response.headers.get('content-type') || ''));
+}
+async function networkFirstStatic(request, url) {
+  try {
+    const response = await fetch(new Request(request, { cache: 'reload' }));
+    if (validCacheResponse(response, url)) {
+      // No background writes whose failure can affect the actual response.
+      try { const cache = await caches.open(CACHE); await cache.put(url.pathname, response.clone()); } catch (_) {}
+    }
+    return response;
+  } catch (_) {
+    const cached = await caches.match(url.pathname);
+    return validCacheResponse(cached, url) ? cached : Response.error(); // Never serve cached HTML as JS/CSS/PNG.
+  }
+}
+async function navigationResponse(request) {
+  try {
+    // Navigation always checks the network, so logout/login is not simulated
+    // offline and stale HR data is never presented as a fresh session.
+    return await fetch(new Request(request, { cache: 'reload' }));
+  } catch (_) {
+    const cached = await caches.match(new URL('./offline.html', self.registration.scope).pathname);
+    if (cached && validCacheResponse(cached, new URL('./offline.html', self.registration.scope))) return cached;
+    return new Response('<!doctype html><title>MG-HRM Offline</title><h1>You are offline</h1><p>Reconnect to open MG-HRM.</p>', {
+      status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }
+    });
+  }
+}
+self.addEventListener('fetch', event => {
+  const request = event.request;
+  if (!request || request.method !== 'GET') return;
+  const url = new URL(request.url);
+  if (url.origin !== SCOPE.origin || !url.pathname.startsWith(SCOPE_PATH)) return; // Supabase/CDN bypass.
+  if (request.mode === 'navigate') {
+    event.respondWith(navigationResponse(request));
     return;
   }
-  if (e.request.method !== 'GET') return;
   if (BRAND_IMAGES.includes(url.href)) {
-    e.respondWith(caches.match(url.href).then((cached) => cached || fetch(e.request)));
+    event.respondWith(caches.match(url.href).then(cached => cached || fetch(request)));
     return;
   }
-  // Never return an HTML application shell to PNG requests.
-  if (url.pathname.endsWith('.png')) return;
-  const isCoreAsset = url.pathname.endsWith('/index.html') ||
-    url.pathname.endsWith('/app-core.js') ||
-    /\/exit-(model|service|ui|reports)\.(js|css)$/.test(url.pathname) ||
-    url.pathname.endsWith('/meeting-attendance.js') ||
-    url.pathname.endsWith('/config.js') ||
-    e.request.mode === 'navigate';
-  const networkRequest = isCoreAsset
-    ? new Request(e.request, { cache: 'reload' })
-    : e.request;
-  e.respondWith(
-    fetch(networkRequest)
-      .then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
-        return res;
-      })
-      .catch(() => caches.match(e.request).then((r) => r || caches.match('./index.html')))
-  );
+  if (!isEligibleStaticRequest(request, url)) return; // Dynamic data: browser/network only.
+  event.respondWith(networkFirstStatic(request, url));
 });
 
 function safePushPayload(event) {
@@ -79,42 +136,37 @@ function safePushPayload(event) {
   }
 }
 function pushText(value, max, fallback) {
-  if(typeof value!=='string') return fallback;
-  const plain=value.replace(/<[^>]*>/g,' ').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e]/g,' ').replace(/\s+/gu,' ').trim();
-  if(!plain) return fallback;
-  const chars=typeof Intl.Segmenter==='function'
-    ? Array.from(new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(plain),part=>part.segment)
+  if (typeof value !== 'string') return fallback;
+  const plain = value.replace(/<[^>]*>/g, ' ').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e]/g, ' ').replace(/\s+/gu, ' ').trim();
+  if (!plain) return fallback;
+  const chars = typeof Intl.Segmenter === 'function'
+    ? Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(plain), part => part.segment)
     : Array.from(plain);
-  return chars.length>max?chars.slice(0,max-1).join('').trimEnd()+'…':plain;
+  return chars.length > max ? chars.slice(0, max - 1).join('').trimEnd() + '…' : plain;
 }
-
 function safeRoute(value) {
   let route = String(value || '').replace(/^#?\/?/, '').split('?')[0];
   if (route === 'meetings') route = 'meeting';
   const allowed = ['dashboard', 'notifications', 'todo', 'transfer', 'employees', 'recruitment', 'disciplinary', 'leave', 'uniform', 'meeting', 'reports'];
   return allowed.includes(route) ? route : 'notifications';
 }
-
 self.addEventListener('push', (event) => {
   const payload = safePushPayload(event);
-  const notificationId = /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(String(payload.notification_id||payload.id||''))
-    ? String(payload.notification_id||payload.id) : '';
+  const notificationId = /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(String(payload.notification_id || payload.id || ''))
+    ? String(payload.notification_id || payload.id) : '';
   const title = pushText(payload.title, 90, 'MG-HRM');
   const body = pushText(payload.body, 200, 'You have a new notification. Open MG-HRM to review it.');
   const route = safeRoute(payload.action_route || payload.route);
   const priority = String(payload.priority || 'Normal');
   const options = {
-    body,
-    icon: LOGO_URL,
-    badge: BADGE_URL,
+    body, icon: LOGO_URL, badge: BADGE_URL,
     tag: 'mghrm-' + (notificationId || 'notification'),
     renotify: false,
     requireInteraction: priority === 'Urgent' || payload.require_interaction === true,
     data: {
-      notificationId,
-      route,
+      notificationId, route,
       entityType: payload.entity_type === 'todo' ? 'todo' : '',
-      entityId: route === 'todo' && payload.entity_type === 'todo' && /^\d{1,18}$/.test(String(payload.entity_id||''))
+      entityId: route === 'todo' && payload.entity_type === 'todo' && /^\d{1,18}$/.test(String(payload.entity_id || ''))
         ? String(payload.entity_id) : null
     }
   };
@@ -127,29 +179,22 @@ self.addEventListener('notificationclick', (event) => {
   const route = safeRoute(data.route);
   const targetUrl = new URL('./index.html?notification_route=' + encodeURIComponent(route) + '&notification_id=' + encodeURIComponent(data.notificationId || '') + (data.entityId ? '&notification_entity=' + encodeURIComponent(data.entityId) : ''), self.registration.scope).href;
   const message = {
-    type: 'MG_NOTIFICATION_CLICK',
-    notificationId: data.notificationId || '',
-    route,
-    entityType: data.entityType || '',
-    entityId: data.entityId == null ? null : data.entityId
+    type: 'MG_NOTIFICATION_CLICK', notificationId: data.notificationId || '',
+    route, entityType: data.entityType || '', entityId: data.entityId == null ? null : data.entityId
   };
-
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      for (const client of clientList) {
-        if (client.url.indexOf(self.registration.scope) === 0) {
-          client.postMessage(message);
-          return 'focus' in client ? client.focus() : client;
-        }
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+    for (const client of clientList) {
+      if (client.url.indexOf(self.registration.scope) === 0) {
+        client.postMessage(message);
+        return 'focus' in client ? client.focus() : client;
       }
-      if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
-      return undefined;
-    })
-  );
+    }
+    if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
+    return undefined;
+  }));
 });
-
 self.addEventListener('pushsubscriptionchange', event => {
-  event.waitUntil(self.clients.matchAll({type:'window',includeUncontrolled:true}).then(clients => {
-    clients.forEach(client => client.postMessage({type:'MG_PUSH_SUBSCRIPTION_CHANGED'}));
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
+    clients.forEach(client => client.postMessage({ type: 'MG_PUSH_SUBSCRIPTION_CHANGED' }));
   }));
 });

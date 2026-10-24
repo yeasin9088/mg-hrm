@@ -1,11 +1,11 @@
 {
+  "id": "./index.html",
   "name": "MG Security HRM",
   "short_name": "MG HRM",
   "description": "MG Security এর মানবসম্পদ ব্যবস্থাপনা সিস্টেম — কর্মী, প্যারেড স্টেট, ইউনিফর্ম, বদলি ও ছুটি।",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait-primary",
   "background_color": "#f4f6fb",
   "theme_color": "#4f46e5",
   "lang": "bn",
@@ -13,8 +13,7 @@
   "categories": ["business", "productivity"],
   "icons": [
     { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
   ],
   "shortcuts": [
     { "name": "প্যারেড স্টেট", "short_name": "Parade", "url": "./index.html?page=parade" },

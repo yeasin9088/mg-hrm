@@ -1,0 +1,44 @@
+/* Non-invasive, responsive MG-HRM PWA App Center */
+.mg-pwa-root { position:relative; z-index:1200; font-family:system-ui,-apple-system,"Noto Sans Bengali",sans-serif; }
+.mg-pwa-root * { box-sizing:border-box; }
+.mg-pwa-root [hidden] { display:none!important; }
+.mg-pwa-banner {
+  position:fixed; top:calc(10px + env(safe-area-inset-top,0px)); left:50%; transform:translateX(-50%);
+  width:max-content;max-width:min(94vw,700px);padding:10px 14px;display:flex;align-items:center;
+  justify-content:space-between;gap:12px;background:#1f2937;color:#fff;border-radius:13px;
+  box-shadow:0 10px 35px #11182733;font-size:13px;line-height:1.5;
+}
+.mg-pwa-fab { position:fixed; right:calc(14px + env(safe-area-inset-right,0px));
+  bottom:calc(78px + env(safe-area-inset-bottom,0px)); z-index:2; min-width:52px;min-height:42px;
+  background:#fff;border:1px solid #c7d2fe;border-radius:50px;color:#3730a3;
+  box-shadow:0 5px 20px #1e1b4b21; font:600 13px system-ui,-apple-system,sans-serif;
+  padding:9px 13px;cursor:pointer;
+}
+.mg-pwa-fab:hover, .mg-pwa-fab[aria-expanded="true"] {background:#eef2ff;}
+.mg-pwa-panel { position:fixed;right:calc(14px + env(safe-area-inset-right,0px));
+  bottom:calc(130px + env(safe-area-inset-bottom,0px));z-index:3;
+  width:min(360px,calc(100vw - 28px));max-height:min(560px,calc(100dvh - 150px));
+  overflow:auto;overscroll-behavior:contain;border:1px solid #e5e7eb;border-radius:20px;
+  background:#fff;color:#111827;box-shadow:0 16px 60px #11182736;padding:20px;
+  text-align:start;
+}
+.mg-pwa-panel-head { display:flex;align-items:flex-start;justify-content:space-between;gap:10px; }
+.mg-pwa-panel-head strong {font-size:17px;font-weight:750;display:block;}
+.mg-pwa-panel-head small {font-size:12px;color:#6b7280;display:block;margin-top:2px;}
+.mg-pwa-close {border:1px solid #e5e7eb;border-radius:10px;background:#fff;color:#374151;
+  padding:7px 10px;min-height:36px;cursor:pointer;}
+.mg-pwa-summary {margin:16px 0 14px;padding:14px;border-radius:12px;background:#f8fafc;color:#374151;
+  font-size:12px;line-height:1.9;word-break:break-word;}
+.mg-pwa-actions {display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.mg-pwa-action {padding:10px 12px;min-height:44px;border:1px solid #c7d2fe;border-radius:11px;
+  font:600 12px system-ui,-apple-system,"Noto Sans Bengali",sans-serif;cursor:pointer;
+  color:#312e81;background:#eef2ff;}
+.mg-pwa-action:hover {background:#e0e7ff;}
+.mg-pwa-help {font-size:12px;color:#6b7280;line-height:1.6;margin:14px 0 0;}
+.mg-pwa-root button:focus-visible {outline:3px solid #6366f1;outline-offset:3px;}
+@media(max-width:520px) {
+  .mg-pwa-banner {top:calc(6px + env(safe-area-inset-top,0px));width:calc(100vw - 24px);font-size:12px;}
+  .mg-pwa-fab {bottom:calc(80px + env(safe-area-inset-bottom,0px));}
+  .mg-pwa-panel {bottom:calc(128px + env(safe-area-inset-bottom,0px));}
+}
+@media(prefers-reduced-motion:reduce) {.mg-pwa-root * {scroll-behavior:auto!important;transition:none!important;}}

@@ -30,7 +30,10 @@ export function privatePayload(n, preview = {}) {
   const category=String(n.category||'').toLowerCase();
   const enabled=preview.enabled===true;
   let title='MG-HRM', body=GENERIC, route='notifications', entityId=null;
-  if(enabled && category==='todo' && preview.todo_id != null) {
+  if(n.entity_type==='device_test' && category==='system') {
+    title='MG-HRM · Device push test';
+    body='Device notifications and content preview are working.';
+  } else if(enabled && category==='todo' && preview.todo_id != null) {
     const note=clean(preview.todo_note,180);
     if(note) { title='MG-HRM · To-Do Reminder'; body=note; route='todo'; entityId=String(preview.todo_id); }
   } else if(n.entity_type==='digest' && category==='system') {

@@ -20,6 +20,8 @@ before(async()=>{
  SELECT set_config('request.jwt.claims','{"sub":"${operator}"}',false);`);
  await engine.exec(await read('supabase/migrations/20261024111642_simple_read_aware_reminders.sql'));
  await engine.exec(await read('supabase/migrations/20261024113123_rebase_reminders_after_hours_change.sql'));
+ await engine.exec(await read('supabase/migrations/20261024120948_repair_device_push_registration.sql'));
+ await engine.exec(await read('supabase/migrations/20261024121149_isolate_manual_device_push_test.sql'));
 });
 after(()=>engine.close());
 async function fixture(){
@@ -93,4 +95,35 @@ test('switching to 24-hour delivery rebases old office-clamped timers without ac
  const revision=(await one('select public.notification_simple_settings_read() p')).p.revision;
  await q('select public.notification_simple_settings_save($1,$2)',[revision,{office_start:'00:00',office_end:'00:00'}]);
  assert(Math.abs(new Date((await one('select next_reminder_at from public.todos where id=900')).next_reminder_at)-Date.now()-3600000)<5000);
+}));
+
+test('re-registering a device delivers existing unread work once without changing the source',()=>scenario(async()=>{
+ const id=await notice();
+ const device=(await one("select public.push_subscription_register('https://fcm.googleapis.com/synthetic-device','key','auth','Synthetic device') result")).result;
+ await q("select public.push_subscription_register('https://fcm.googleapis.com/synthetic-device','key','auth','Synthetic device')");
+ assert.equal(Number((await one("select count(*) n from public.notification_deliveries where notification_id=$1 and subscription_id=$2",[id,device.subscription_id])).n),1);
+ assert.equal((await one('select read_at from public.notifications where id=$1',[id])).read_at,null);
+ assert.equal((await one('select status from public.todos where id=900')).status,'pending');
+}));
+test('device push test queues only the owned active device and does not wait for office hours',()=>scenario(async()=>{
+ const device=(await one("select public.push_subscription_register('https://fcm.googleapis.com/synthetic-test','key','auth') result")).result;
+ await q("update notification_private.simple_reminder_policy set office_start='00:01',office_end='00:02'");
+ const result=(await one('select public.notification_test_device_push($1) result',[device.subscription_id])).result;
+ assert.equal(result.queued,true);
+ await q("select public.push_subscription_register('https://fcm.googleapis.com/other-device','key','auth')");
+ await q('select public.notification_prepare_deliveries(25)');
+ assert.equal(Number((await one("select count(*) n from public.notification_deliveries where notification_id=$1 and channel='WebPush'",[result.notification_id])).n),1);
+ const job=await one("update public.notification_jobs set job_status='Processing',locked_by='synthetic-device',locked_at=now() where notification_id=$1 returning id",[result.notification_id]);
+ const dispatch=(await one("select public.notification_get_web_push_dispatch($1,'synthetic-device') result",[job.id])).result;
+ assert.equal(dispatch.deliveries.length,1);
+ assert.equal(String(dispatch.deliveries[0].subscription_id),String(device.subscription_id));
+ await engine.exec('SAVEPOINT rate_limit');await assert.rejects(q('select public.notification_test_device_push($1)',[device.subscription_id]),/one minute/);await engine.exec('ROLLBACK TO SAVEPOINT rate_limit');
+ assert.equal((await one("select has_function_privilege('anon','public.notification_test_device_push(bigint)','execute') allowed")).allowed,false);
+}));
+
+test('content previews include the real note and action capability for every To-Do category',()=>scenario(async()=>{
+ await q("update public.todos set category='salary' where id=900");const id=await notice();
+ const job=await one("insert into public.notification_jobs(notification_id,job_type,job_status,locked_by,locked_at,run_at) values($1,'DeliverWebPush','Processing','preview-test',now(),now()) returning id",[id]);
+ const preview=(await one("select public.notification_web_push_preview($1,'preview-test') result",[job.id])).result;
+ assert.equal(preview.todo_note,'Synthetic task');assert.match(preview.action_token,/^[0-9a-f]{64}$/);
 }));

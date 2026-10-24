@@ -13,7 +13,7 @@
   try{
    const s=await rpc('notification_simple_settings_read');if(request!==opening)return;settings=s;cfg(s);const p=s.preferences||{};
    const allDay=s.office_start===s.office_end;
-   const body='<div id="mgSimpleSettings"><section class="mg-ns-section">'+toggle('mgSimpleMaster','Notifications',p.notification_enabled!==false)+toggle('mgSimplePush','Device notifications',p.system_push_enabled!==false)+toggle('mgSimpleToast','Pop-up while using the app',p.toast_enabled!==false)+toggle('mgSimplePreview','Show note preview',p.show_content_preview!==false)+'</section><section class="mg-ns-section"><h3>Notification hours · Bangladesh</h3>'+toggle('mgSimpleAllDay','24 hours',allDay)+'<div class="mg-ns-grid"><label>From<input class="inp" type="time" id="mgSimpleStart" value="'+esc(s.office_start)+'" '+(allDay?'disabled':'')+'></label><label>Until<input class="inp" type="time" id="mgSimpleEnd" value="'+esc(s.office_end)+'" '+(allDay?'disabled':'')+'></label></div></section><p class="mg-ns-help">Each To-Do uses its own reminder interval. An unread notification will not repeat. Read or Remind next time starts the next interval.</p><div class="mg-ns-device-actions"><button class="btn ghost sm" type="button" onclick="mgEnableDeviceNotifications()">Enable this device</button><button class="btn ghost sm" type="button" onclick="closeModal();mgOpenDeviceNotifications()">Devices</button></div><p id="mgSimpleResult" role="status" aria-live="polite"></p></div>';
+   const body='<div id="mgSimpleSettings"><section class="mg-ns-section">'+toggle('mgSimpleMaster','Notifications',p.notification_enabled!==false)+toggle('mgSimplePush','Device notifications',p.system_push_enabled!==false)+toggle('mgSimpleToast','Pop-up while using the app',p.toast_enabled!==false)+toggle('mgSimplePreview','Show note preview',p.show_content_preview!==false)+'</section><section class="mg-ns-section"><h3>Notification hours · Bangladesh</h3>'+toggle('mgSimpleAllDay','24 hours',allDay)+'<div class="mg-ns-grid"><label>From<input class="inp" type="time" id="mgSimpleStart" value="'+esc(s.office_start)+'" '+(allDay?'disabled':'')+'></label><label>Until<input class="inp" type="time" id="mgSimpleEnd" value="'+esc(s.office_end)+'" '+(allDay?'disabled':'')+'></label></div></section><p class="mg-ns-help">Each To-Do uses its own reminder interval. An unread notification will not repeat. Read or Remind next time starts the next interval.</p><div class="mg-ns-device-actions"><button class="btn ghost sm" type="button" onclick="mgEnableDeviceNotifications()">Enable this device</button><button class="btn ghost sm" type="button" onclick="mgTestDevicePush(this)">Test device push</button><button class="btn ghost sm" type="button" onclick="closeModal();mgOpenDeviceNotifications()">Devices</button></div><p id="mgSimpleResult" role="status" aria-live="polite"></p></div>';
    window.openModal('Notification settings',body,'<button type="button" class="btn ghost sm" onclick="closeModal()">Cancel</button><button type="button" class="btn primary sm" id="mgSimpleSave" onclick="mgSaveNotifSettings()">Save changes</button>');
    document.getElementById('mgSimpleAllDay').onchange=function(){const a=document.getElementById('mgSimpleStart'),b=document.getElementById('mgSimpleEnd');a.disabled=b.disabled=this.checked;if(!this.checked&&a.value===b.value){a.value='09:00';b.value='18:00';}};
   }catch(e){if(request===opening)window.openModal('Notification settings','<p role="alert">'+esc(e.message)+'</p>','<button type="button" class="btn ghost sm" onclick="closeModal()">Close</button>');}
@@ -29,6 +29,16 @@
    if(Number(saved.revision)!==Number(settings.revision)+1)throw Error('Save was not confirmed');
    settings=saved;cfg(saved);output.textContent='Saved.';
   }catch(e){output.textContent='Not saved: '+e.message;}finally{button.disabled=false;}
+ };
+ window.mgTestDevicePush=async function(button){
+  const output=document.getElementById('mgSimpleResult');button.disabled=true;
+  try{
+   const device=await window.mgEnableDeviceNotifications({silent:typeof Notification!=='undefined'&&Notification.permission==='granted'});
+   if(!device?.subscription_id)throw Error('Enable this device first.');
+   const result=await rpc('notification_test_device_push',{p_subscription_id:device.subscription_id});
+   if(result?.queued!==true)throw Error('Push was not queued.');
+   output.textContent='Test queued for this device. Check the notification tray within one minute.';
+  }catch(e){output.textContent='Test not sent: '+e.message;}finally{button.disabled=false;}
  };
  async function act(id,action){
   if(busy.has(String(id)))return false;busy.add(String(id));

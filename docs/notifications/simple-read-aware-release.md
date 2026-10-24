@@ -16,3 +16,13 @@ Deployed migrations: `20261024111642_simple_read_aware_reminders.sql` and `20261
 Edge functions: `web-push-sender` v9 and `notification-device-action` v1.
 
 Validation includes isolated PostgreSQL scheduling/action/authorization tests, browser checks at six widths, action-limit and cold-start tests, and a rollback-only verification of read and background completion against the live schema. Existing source records were not completed by these verification checks. Provider acceptance is checked independently of physical device display.
+
+## Device delivery repair — 24 October 2026
+
+The Android registrations were revoked after their FCM endpoints expired; only two Windows Edge registrations remained active. Provider acceptance on Windows did not establish that the phone could receive a push.
+
+Granted browsers now reconcile their subscription on sign-in, app resume and reconnect. Provider-expired endpoints are replaced, including when local device storage was lost. Explicit manual revocations are respected during automatic repair. A newly registered device receives each existing unread actionable To-Do occurrence once, without acknowledging it or creating another reminder. Note previews include all To-Do categories when enabled. Background task actions remain unchanged.
+
+Settings include **Test device push**, which queues a fixed, non-sensitive test for the current registered device. This explicit diagnostic works outside reminder hours and in the foreground, with ownership checks and a one-minute rate limit. Queued/provider-accepted status does not claim that the OS displayed it. Browser/OS permission still requires the device owner's interaction when blocked.
+
+Migrations: `20261024120948_repair_device_push_registration.sql` and `20261024121149_isolate_manual_device_push_test.sql`; sender v10; service worker v56. Validation covers expired endpoint renewal, permission and manual-revocation behavior, one-time unread backfill, preview content and capabilities, per-device test authorization, office-hour bypass for diagnostics, and six responsive browser widths.

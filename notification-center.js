@@ -174,7 +174,8 @@
     if(/Safari\//.test(ua))return 'Safari';
     return 'Browser';
   }
-  window.mgEnableDeviceNotifications=async function(){
+  window.mgEnableDeviceNotifications=async function(options){
+    options=options||{};
     if(!repo())throw new Error('Notification repository is unavailable.');
     if(!window.isSecureContext||!('Notification' in window)||!('serviceWorker' in navigator)||!('PushManager' in window)){
       if(typeof toast==='function')toast('Device notifications are unsupported in this browser or connection.','warning');
@@ -182,17 +183,28 @@
     }
     try{
       var permission=Notification.permission;
+      if(options.silent&&permission!=='granted')return permission;
       if(permission==='default')permission=await Notification.requestPermission();
       if(permission!=='granted'){
         if(typeof toast==='function')toast('Device notification permission is blocked. Enable it in browser site settings.','warning');
         return 'blocked';
       }
-      var registration=await navigator.serviceWorker.ready;
+      var session=await window.MGHRM.getSession();
+      if(!session?.user)return 'signed-out';
+      var registration=await Promise.race([navigator.serviceWorker.ready,new Promise((_,reject)=>setTimeout(()=>reject(Error('Service worker is not ready. Reload the app.')),8000))]);
       var config=await repo().getWebPushConfig();
       var subscription=await registration.pushManager.getSubscription();
+      var savedId=localStorage.getItem('mghrm-push-device-'+session.user.id);
+      var devices=await repo().listDevices();
+      var saved=(devices||[]).find(d=>String(d.id||d.subscription_id)===String(savedId));
+      // A provider-expired endpoint must be replaced, not simply marked active again.
+      if(saved&&saved.revoked_at){
+        if(options.silent&&(!saved.last_failure_at||new Date(saved.last_failure_at)<new Date(saved.revoked_at)-1000))return 'revoked';
+        if(subscription){await subscription.unsubscribe();subscription=null;}
+      }
       if(subscription){
-        var options=subscription.options||{};
-        var existingKey=options.applicationServerKey?new Uint8Array(options.applicationServerKey):null;
+        var subscriptionOptions=subscription.options||{};
+        var existingKey=subscriptionOptions.applicationServerKey?new Uint8Array(subscriptionOptions.applicationServerKey):null;
         var expectedKey=mgUrlBase64ToUint8Array(config.publicKey);
         var same=existingKey&&existingKey.length===expectedKey.length&&existingKey.every(function(v,i){return v===expectedKey[i];});
         if(!same){await subscription.unsubscribe();subscription=null;}
@@ -203,25 +215,42 @@
           applicationServerKey:mgUrlBase64ToUint8Array(config.publicKey)
         });
       }
-      var result=await repo().registerDevice({
+      const registerCurrent=()=>repo().registerDevice({
         endpoint:subscription.endpoint,
         p256dh_key:mgPushKey(subscription,'p256dh'),
         auth_key:mgPushKey(subscription,'auth'),
-        device_label:mgBrowserName()+' on '+(navigator.platform||'device'),
+        device_label:saved?.device_label||mgBrowserName()+' on '+(navigator.platform||'device'),
         browser_name:mgBrowserName(),
         platform_name:navigator.platform||null,
         user_agent:navigator.userAgent
       });
-      const session = await window.MGHRM.getSession();
+      var result;
+      try{result=await registerCurrent();}
+      catch(error){
+        if(!String(error?.message||'').includes('PUSH_ENDPOINT_EXPIRED'))throw error;
+        await subscription.unsubscribe();
+        subscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:mgUrlBase64ToUint8Array(config.publicKey)});
+        result=await registerCurrent();
+      }
       if (session?.user && result?.subscription_id) localStorage.setItem('mghrm-push-device-'+session.user.id,String(result.subscription_id));
-      if(typeof toast==='function')toast('Device notifications enabled successfully.','success');
+      window.MG_PUSH_DEVICE_STATE={state:'registered',subscriptionId:result?.subscription_id};
+      if(!options.silent&&typeof toast==='function')toast('Device notifications enabled successfully.','success');
       await window.mgLoadNotificationDevices();
       return result||'enabled';
     }catch(e){
-      console.error('[Device Notifications]',e);
-      if(typeof toast==='function')toast('Could not enable device notifications: '+((e&&e.message)||String(e)),'error');
+      window.MG_PUSH_DEVICE_STATE={state:'needs-attention'};
+      if(!options.silent&&typeof toast==='function')toast('Could not enable device notifications: '+((e&&e.message)||String(e)),'error');
       throw e;
     }
+  };
+  let pushSyncing=null,lastPushSync=0;
+  window.mgSyncDevicePush=function(force){
+    if(pushSyncing)return pushSyncing;
+    if(!window.isSecureContext||typeof Notification==='undefined'||Notification.permission!=='granted'||!('PushManager' in window))return Promise.resolve(false);
+    if(!force&&Date.now()-lastPushSync<120000)return Promise.resolve(false);
+    lastPushSync=Date.now();
+    pushSyncing=window.mgEnableDeviceNotifications({silent:true}).catch(()=>false).finally(()=>{pushSyncing=null;});
+    return pushSyncing;
   };
   window.mgOpenDeviceNotifications=async function(){
     var supported=('Notification' in window)&&('serviceWorker' in navigator);
@@ -271,7 +300,7 @@
   if('serviceWorker' in navigator){
     navigator.serviceWorker.addEventListener('message',function(event){
       var data=event.data||{};
-      if(data.type==='MG_PUSH_SUBSCRIPTION_CHANGED'){window.MG_NOTIFICATION_STATE.error='Device registration changed. Re-enable this browser in notification settings.';window.mgRebuildNotificationView();}
+      if(data.type==='MG_PUSH_SUBSCRIPTION_CHANGED')window.mgSyncDevicePush(true);
       if(data.type==='MG_NOTIFICATION_CLICK')window.mgHandleSystemNotificationClick(data);
     });
     if(new URLSearchParams(location.search).has('notification_id'))setTimeout(async function(){await window.mgLoadBackendNotifications();window.mgTryPendingPushOpen();},900);
@@ -303,6 +332,7 @@
     const session=await window.MGHRM.getSession();
     if(version!==generation||!session?.user) return;
     refreshPresence(session).catch(()=>{});
+    window.mgSyncDevicePush();
     await window.mgLoadBackendNotifications();
     window.mgNotifCfgLoad();
     if (repo()?.subscribe) {
@@ -326,7 +356,8 @@
       window.mgRebuildNotificationView();
     }
   });
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) window.mgHandleNotificationRealtime(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) {window.mgHandleNotificationRealtime();window.mgSyncDevicePush();} });
   window.addEventListener('online', window.mgHandleNotificationRealtime);
+  window.addEventListener('online', () => window.mgSyncDevicePush(true));
   setInterval(() => { if (!document.hidden) { window.mgHandleNotificationRealtime(); window.MGHRM?.getSession?.().then(refreshPresence).catch(()=>{}); } }, 60000);
 })();

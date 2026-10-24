@@ -42,6 +42,19 @@ try {
    (0,eval)(render+'\n'+status+'\n'+move+'\n'+menu);renderTodo();
   },{render,status,move,menu});
   const row=page.locator('#td-row-203');
+  assert.equal(await page.locator('.td-tab').count(),4);
+  for(const card of await page.locator('.td-tab').all()){
+   assert((await card.boundingBox()).height>=80,'Original category card height');
+   assert(await card.locator('.ic').isVisible(),'Original category icon');
+   assert(await card.locator('.ts').isVisible(),'Original category description');
+   assert(await card.locator('.ts-done').isVisible(),'Original completed count');
+  }
+  const font=await row.locator('.td-note').evaluate(el=>({size:getComputedStyle(el).fontSize,weight:getComputedStyle(el).fontWeight}));
+  assert.deepEqual(font,{size:'14px',weight:'700'});
+  const order=()=>page.locator('.td-row').evaluateAll(rows=>rows.map(el=>el.id));
+  const initialOrder=await order();
+  await row.getByRole('button',{name:'Mark as important',exact:true}).click();
+  assert.deepEqual(await order(),initialOrder,'Important must not move the note');
   await row.locator('.td-note').click();
   assert.equal(await row.locator('.td-more').getAttribute('open'),null);
   assert.equal(await row.locator('.td-note').innerText(),'Joining confirmation #203');
@@ -49,6 +62,7 @@ try {
   assert.equal(await page.locator('.mg-work-inline,.td-chev,.td-details').count(),0);
   await row.getByRole('button',{name:'Approve',exact:true}).click();
   await row.getByRole('button',{name:'Solve with Approve',exact:true}).waitFor();
+  assert.deepEqual(await order(),initialOrder,'Approve must not move the note');
   await row.getByRole('button',{name:'Undo',exact:true}).click();
   // Failed server writes must leave status and controls unchanged.
   await page.evaluate(()=>{__fail=true;});

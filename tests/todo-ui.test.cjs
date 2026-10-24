@@ -24,9 +24,9 @@ test('all four categories retain their open/solved counts and historical records
  const rows=[note(1),note(2,{status:'solved_approved'}),note(3,{category:'task'}),note(4,{category:'permission',manager_status:'asked'}),note(5,{category:'salary',status:'done'}),note(6,{deleted_at:'2026-10-21'})];
  const before=JSON.stringify(rows),f=fixture(rows);
  for(const text of ['General','My Task','Inform to Manager','Salary Notes'])assert(f.page.innerHTML.includes(text));
- assert.deepEqual(f.rows(),[1,2]);assert.match(f.page.innerHTML,/Solved 1/);
+ assert.deepEqual(f.rows(),[2,1]);assert.match(f.page.innerHTML,/Solved 1/);
  f.c.tdMainFilter='salary';f.render();assert.deepEqual(f.rows(),[5]);assert.match(f.page.innerHTML,/Cleared 1/);
- f.c.tdMainFilter='mgr';f.render();assert.deepEqual(f.rows(),[4]);assert.match(f.page.innerHTML,/Awaiting reply/);
+ f.c.tdMainFilter='mgr';f.render();assert.deepEqual(f.rows(),[4]);assert.match(f.page.innerHTML,/Inform to Manager/);
  assert.equal(JSON.stringify(rows),before);
 });
 test('Open is the default status for General, My Task, Inform to Manager and Salary Notes',()=>{
@@ -50,7 +50,7 @@ test('Open is the default status for General, My Task, Inform to Manager and Sal
  f.c.MG_TD_SUB='all';
  f.c.tdMainFilter='general';
  f.render();
- assert.deepEqual(f.rows(),[1,2]);
+ assert.deepEqual(f.rows(),[2,1]);
  // Changing tabs explicitly resets the status to Open as requested.
  f.c.tdSec=(k)=>({key:k,cat:({general:'note',task:'task',mgr:'permission',salary:'salary'})[k],label:({general:'General',task:'My Task',mgr:'Inform to Manager',salary:'Salary Notes'})[k],sub:'',icon:'list'});
  f.c.mtSetTodoSub=(k)=>{f.c.MG_TD_SUB=k;};
@@ -86,7 +86,7 @@ test('reminder metadata uses the saved timestamp in Dhaka and hides disabled or 
 test('all/open/pending/approved/solved/important filters and Bengali/history search keep existing ordering',()=>{
  const f=fixture([note(1),note(2,{status:'approved',is_important:true}),note(3,{status:'solved_rejected',is_important:true,extra_notes:[{raw:'Unique history'}]})]);
  assert.match(f.page.innerHTML,/Important 2<\/button>/);
- for(const [filter,expected] of [['all',[2,1,3]],['unsolved',[2,1]],['pending',[1]],['approved',[2]],['solved',[3]],['important',[2,3]]]){
+ for(const [filter,expected] of [['all',[3,2,1]],['unsolved',[2,1]],['pending',[1]],['approved',[2]],['solved',[3]],['important',[3,2]]]){
   f.c.MG_TD_SUB=filter;f.render();assert.deepEqual(f.rows(),expected,filter);
  }
  f.c.MG_TD_SUB='all';f.c.MG_TD_Q='unique history';f.render();assert.deepEqual(f.rows(),[3]);
@@ -99,6 +99,23 @@ test('composer text and schedule survive list refreshes and note previews escape
  f.c.MG_TD_SUB='all';f.render();assert.match(f.page.innerHTML,/&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
  assert(!f.page.innerHTML.includes('<script>alert(1)'));
  for(const option of ['30m','1h','2h','today','custom'])assert(f.page.innerHTML.includes('value="'+option+'"'));
+});
+test('every tab keeps creation-time order through decisions, stars, manager state and edits',()=>{
+ for(const [tab,category] of [['general','note'],['task','task'],['mgr','permission'],['salary','salary']]){
+  const data=[note(90,{category,created_at:'2026-10-20T09:00:00Z'}),note(10,{category,created_at:'2026-10-20T11:00:00Z'}),note(50,{category,created_at:'2026-10-20T10:00:00Z'})];
+  const f=fixture(data,'unsolved');f.c.tdMainFilter=tab;f.render();
+  assert.deepEqual(f.rows(),[10,50,90],tab);
+  Object.assign(data[2],{status:'approved',is_important:true,manager_status:'approved',updated_at:'2099-01-01T00:00:00Z'});
+  f.render();assert.deepEqual(f.rows(),[10,50,90],tab+' approved/starred');
+  data[2].status='rejected';f.render();assert.deepEqual(f.rows(),[10,50,90],tab+' rejected');
+  data[2].status='approved';data[0].status='approved';f.c.MG_TD_SUB='approved';f.render();assert.deepEqual(f.rows(),[50,90]);
+  data[2].status='solved_approved';f.render();assert.deepEqual(f.rows(),[90]);
+  f.c.MG_TD_SUB='all';f.render();assert.deepEqual(f.rows(),[10,50,90],tab+' solved does not reorder All');
+ }
+});
+test('creation-date fallback ignores updated_at and equal times have stable ID order',()=>{
+ const f=fixture([note(1,{created_at:null,date:'2026-10-20',updated_at:'2099-01-01'}),note(2,{created_at:'invalid',date:'2026-10-21'}),note(3,{created_at:null,date:'2026-10-20'})]);
+ assert.deepEqual(f.rows(),[2,3,1]);
 });
 test('synthetic note creation preserves category, pending state and existing reminder options',async()=>{
  const f=fixture([]);const writes=[];f.c.mgTdPush=async(t,keys)=>{writes.push({t,keys});return true};

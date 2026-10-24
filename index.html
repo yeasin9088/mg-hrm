@@ -18802,93 +18802,29 @@ function renderTodo(){
     return true;
   });
 
-  const wt = function(s){
-    s = (s || 'pending').toLowerCase();
-    if(s === 'pending') return 1;
-    if(s === 'approved') return 2;
-    if(s === 'rejected') return 3;
-    if(s === 'solved_approved') return 4;
-    if(s === 'solved_rejected') return 5;
-    if(s === 'solved' || s === 'done') return 6;
-    return 1;
+  // Creation time alone owns list order. Status, importance and edits never move a note.
+  const createdMs = function(t){
+    const stamp = Date.parse(t.created_at || '');
+    if (Number.isFinite(stamp)) return stamp;
+    const day = String(t.date || '').slice(0,10);
+    const fallback = /^\d{4}-\d{2}-\d{2}$/.test(day) ? Date.parse(day + 'T00:00:00+06:00') : NaN;
+    return Number.isFinite(fallback) ? fallback : 0;
   };
-  const MGRW = { asked:1, rejected:2, verbal:3, approved:4, none:5 };
   const ordered = filtered.slice().sort(function(a, b){
-    const sa = isSolvedT(a) ? 1 : 0, sb = isSolvedT(b) ? 1 : 0;
-    if(sa !== sb) return sa - sb;
-    const ia = a.is_important ? 0 : 1, ib = b.is_important ? 0 : 1;
-    if(ia !== ib) return ia - ib;
-    if(mainF === 'reminder'){
-      const ta = (a.reminder_enabled === true && a.next_reminder_at) ? Date.parse(a.next_reminder_at) : Infinity;
-      const tb = (b.reminder_enabled === true && b.next_reminder_at) ? Date.parse(b.next_reminder_at) : Infinity;
-      const tva = isNaN(ta) ? Infinity : ta;
-      const tvb = isNaN(tb) ? Infinity : tb;
-      if(tva !== tvb) return tva - tvb;
-    }
-    if(mainF === 'manager' || mainF === 'mgr'){
-      const ma = MGRW[String(a.manager_status || 'none').toLowerCase()] || 5;
-      const mb = MGRW[String(b.manager_status || 'none').toLowerCase()] || 5;
-      if(ma !== mb) return ma - mb;
-    }
-    if(wt(a.status) !== wt(b.status)) return wt(a.status) - wt(b.status);
-    return String(b.date || '').localeCompare(String(a.date || '')) || (Number(b.id) || 0) - (Number(a.id) || 0);
+    return createdMs(b) - createdMs(a) || String(b.id).localeCompare(String(a.id), 'en', {numeric:true});
   });
-
-  let groups = [];
-  if(mainF === 'reminder'){
-    const RK = ['over','today','tomorrow','week','later','none'];
-    const RL = { over:'Overdue', today:'Today', tomorrow:'Tomorrow', week:'This week', later:'Later', none:'No reminder' };
-    const map = {};
-    const nowMs = Date.now();
-    ordered.forEach(function(t){
-      let k = 'none';
-      if (t.reminder_enabled === true && t.next_reminder_at){
-        const nx = Date.parse(t.next_reminder_at);
-        if (!isNaN(nx)){
-          const diffDays = Math.floor((nx - nowMs) / 86400000);
-          if (nx < nowMs) k = 'over';
-          else if (diffDays <= 0) k = 'today';
-          else if (diffDays === 1) k = 'tomorrow';
-          else if (diffDays <= 7) k = 'week';
-          else k = 'later';
-        }
-      }
-      if(!map[k]) map[k] = [];
-      map[k].push(t);
-    });
-    RK.forEach(function(k){ if(map[k] && map[k].length) groups.push({ label: RL[k], items: map[k] }); });
-  } else if(mainF === 'manager' || mainF === 'mgr'){
-    const MK = ['asked','rejected','verbal','approved','none'];
-    const ML = { asked:'Awaiting reply', rejected:'Manager declined', verbal:'Verbal consent', approved:'Approved', none:'Not informed yet' };
-    const map = {};
-    ordered.forEach(function(t){
-      const k = String(t.manager_status || 'none').toLowerCase();
-      const key = MK.indexOf(k) === -1 ? 'none' : k;
-      if(!map[key]) map[key] = [];
-      map[key].push(t);
-    });
-    MK.forEach(function(k){ if(map[k] && map[k].length) groups.push({ label: ML[k], items: map[k] }); });
-  } else if(mainF === 'salary'){
-    const SK = ['pending','approved','rejected','solved'];
-    const SL = { pending:'Pending salary notes', approved:'Approved salary notes', rejected:'Rejected salary notes', solved:'Completed / Solved' };
-    const map = { pending:[], approved:[], rejected:[], solved:[] };
-    ordered.forEach(function(t){
-      const s = stOf(t);
-      if(isSolvedT(t)) map.solved.push(t);
-      else if(s === 'approved') map.approved.push(t);
-      else if(s === 'rejected') map.rejected.push(t);
-      else map.pending.push(t);
-    });
-    SK.forEach(function(k){ if(map[k].length) groups.push({ label: SL[k], items: map[k] }); });
-  } else {
-    const GL = { today:'Today', yesterday:'Yesterday', week:'This week', earlier:'Earlier' };
-    const map = { today:[], yesterday:[], week:[], earlier:[] };
-    ordered.forEach(function(t){
-      const k = dayDiff(t.date);
-      map[k <= 0 ? 'today' : (k === 1 ? 'yesterday' : (k <= 7 ? 'week' : 'earlier'))].push(t);
-    });
-    ['today','yesterday','week','earlier'].forEach(function(k){ if(map[k].length) groups.push({ label: GL[k], items: map[k] }); });
-  }
+  const groups = [];
+  const GL = { today:'Today', yesterday:'Yesterday', week:'This week', earlier:'Earlier' };
+  const grouped = { today:[], yesterday:[], week:[], earlier:[] };
+  ordered.forEach(function(t){
+    const stamp = createdMs(t);
+    const day = stamp ? new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Dhaka',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(stamp)) : '';
+    const diff = dayDiff(day);
+    grouped[diff <= 0 ? 'today' : diff === 1 ? 'yesterday' : diff <= 7 ? 'week' : 'earlier'].push(t);
+  });
+  ['today','yesterday','week','earlier'].forEach(function(key){
+    if (grouped[key].length) groups.push({label:GL[key],items:grouped[key]});
+  });
 
   const ICON = {
     ok:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
@@ -19013,11 +18949,7 @@ function renderTodo(){
   const loadingHtml = loadingItems.map(loadingRowHtml).join('');
 
   const groupsHtml = groups.map(function(g){
-    const groupItems = (g.items || []).slice().sort(function(a, b){
-      const sa = isSolvedT(a) ? 1 : 0, sb = isSolvedT(b) ? 1 : 0;
-      if (sa !== sb) return sa - sb;
-      return 0;
-    });
+    const groupItems = g.items || [];
     return '<div class="td-group">' +
       (g.label ? '<div class="td-group-h"><span class="td-group-t">' + g.label + '</span><span class="td-group-n">' + bn(groupItems.length) + '</span></div>' : '') +
       '<div class="td-list">' + groupItems.map(rowHtml).join('') + '</div>' +

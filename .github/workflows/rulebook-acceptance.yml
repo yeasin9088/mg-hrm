@@ -10,7 +10,7 @@ on:
       - 'scripts/test-notification-source-security.mjs'
       - 'docs/notifications/rulebook-acceptance-catalogue.json'
       - 'docs/notifications/migration-history-manifest.json'
-      - 'notification-workflow-ui.*'
+      - 'todo-compact.css'
       - '.github/workflows/rulebook-acceptance.yml'
   pull_request:
     paths:

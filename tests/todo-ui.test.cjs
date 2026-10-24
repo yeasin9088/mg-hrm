@@ -16,7 +16,7 @@ function fixture(rows=[note(1)],initialSub='all'){
   mgRmSummary:()=> 'Every 1 hour',updateTodoBadge(){},persist:async()=>{},toast(){},checkSalaryReminder(){},
   MG_RM_TYPES:{'1h':{interval:60}},MG_TD_SUB:initialSub});
  c.window=c;
- vm.runInContext(part('function renderTodo(){','window.mtRowClick'),c);
+ vm.runInContext(part('function renderTodo(){','// Close secondary menus'),c);
  c.renderTodo();
  return {c,page,get elements(){return elements},render(){c.renderTodo();return markup},rows(){return [...markup.matchAll(/class="td-row[^\"]*" id="td-row-([^\"]+)"/g)].map(m=>Number(m[1]))}};
 }
@@ -62,17 +62,26 @@ test('Open is the default status for General, My Task, Inform to Manager and Sal
    assert.deepEqual(f.rows(),[expected]);
  }
 });
-test('each collapsed and expanded note has one accessible right-side star and retains full detail/actions',()=>{
+test('notes stay fully visible with compact direct actions and a secondary More menu',()=>{
  const f=fixture([note(1,{is_important:true,reminder_enabled:true,extra_notes:[{raw:'Historical reply'}]})]);
- for(const expanded of [false,true]){
-  f.c.MG_TD_OPEN={'1':expanded};const html=f.render();
-  assert.equal((html.match(/onclick="event.stopPropagation\(\);mtToggleTodoImportant/g)||[]).length,1);
-  assert.match(html,/id="td-important-1" aria-label="Remove important" aria-pressed="true"/);
-  assert(!html.includes('★ Important'));assert(!html.includes('td-meta-imp'));
-  assert.match(html,new RegExp('id="td-expand-1"[^>]*aria-expanded="'+expanded+'"'));
-  assert.match(html,/Every 1 hour/);
-  if(expanded)for(const action of ['Historical reply','Edit note','Extra note / reply','Move note','Delete note','mtOpenRemPicker'])assert(html.includes(action),action);
- }
+ const html=f.render();
+ assert.equal((html.match(/mtToggleTodoImportant/g)||[]).length,1);
+ assert.match(html,/id="td-important-1" aria-label="Remove important" aria-pressed="true"/);
+ assert.match(html,/<div id="td-preview-1" class="td-note">/);
+ assert(!html.includes('td-expand'));assert(!html.includes('td-details'));assert(!html.includes('mtToggleTodoOpen'));
+ assert.match(html,/Approve<\/button>/);assert.match(html,/Reject<\/button>/);
+ assert.match(html,/<details class="td-more"><summary>More ···<\/summary>/);
+ for(const action of ['Edit','Extra note','Move','Delete','mtOpenRemPicker'])assert(html.includes(action),action);
+ assert(!html.includes('Historical reply')); // Still available in the existing Extra note editor.
+ assert.match(html,/Every 1 hour/);assert.match(html,/Next: not scheduled/);
+});
+test('reminder metadata uses the saved timestamp in Dhaka and hides disabled or solved schedules',()=>{
+ const f=fixture([note(1,{reminder_enabled:true,next_reminder_at:'2099-10-24T11:30:00Z'}),note(2,{reminder_enabled:false,next_reminder_at:'2099-10-24T11:30:00Z'}),note(3,{reminder_enabled:true,status:'solved_approved',next_reminder_at:'2099-10-24T11:30:00Z'})]);
+ const html=f.render();
+ assert.equal((html.match(/td-next-reminder/g)||[]).length,1);
+ assert.match(html,/Next: 24 Oct 2099, 5:30 pm/);
+ f.c.DATA.todos[0].next_reminder_at='invalid';assert.match(f.render(),/Next: not scheduled/);
+ f.c.DATA.todos[0].next_reminder_at='2000-01-01T00:00:00Z';assert.match(f.render(),/Due:/);
 });
 test('all/open/pending/approved/solved/important filters and Bengali/history search keep existing ordering',()=>{
  const f=fixture([note(1),note(2,{status:'approved',is_important:true}),note(3,{status:'solved_rejected',is_important:true,extra_notes:[{raw:'Unique history'}]})]);
@@ -98,7 +107,7 @@ test('synthetic note creation preserves category, pending state and existing rem
  const result=await f.c.mtQuickAddTodo();assert.equal(result.status,'pending');assert.equal(result.category,'permission');assert.equal(result.manager_status,'asked');assert.equal(result.reminder_interval,60);assert.equal(writes.length,1);assert.equal(f.elements.tdQuickNote.value,'');
  f.elements.tdQuickNote.value='  ';assert.equal(await f.c.mtQuickAddTodo(),null);assert.equal(writes.length,1);
 });
-test('star, completion and expansion invoke existing transitions using isolated data',async()=>{
+test('star and completion invoke existing transitions using isolated data',async()=>{
  const f=fixture([note(1)]),writes=[];
  f.c.appData={update:async(bucket,id,patch)=>{writes.push({bucket,id,patch});return [{id}]}};
  f.c.mgTdFlagWrite=async(t,patch)=>{Object.assign(t,patch);f.render();return true};
@@ -108,8 +117,7 @@ test('star, completion and expansion invoke existing transitions using isolated 
  await f.c.mtToggleTodoStatus(1);assert.equal(f.c.DATA.todos[0].status,'approved');
  await f.c.mtToggleTodoStatus(1);assert.equal(f.c.DATA.todos[0].status,'solved_approved');assert(f.c.DATA.todos[0].solved_at);
  await f.c.mtToggleTodoStatus(1);assert.equal(f.c.DATA.todos[0].status,'pending');assert.equal(f.c.DATA.todos[0].solved_at,null);
- vm.runInContext(part('window.mtToggleTodoOpen = function(id)','window.MG_TD_MOVE = null;'),f.c);
- f.c.mtToggleTodoOpen(1);assert.match(f.page.innerHTML,/aria-expanded="true"/);assert.equal(writes.length,3);
+ assert.equal(writes.length,3);
 });
 test('existing editor preserves completion, reminder metadata and replies while updating note text',async()=>{
  const f=fixture([note(1,{status:'solved_approved',solved_at:'2026-10-20',reminder_type:'custom',extra_notes:[{raw:'Past reply'}]})]);

@@ -1,11 +1,12 @@
-name: Notification Phase 6 Integrated Workflow
+name: Compact To-Do and workflow regression
 on:
   pull_request:
     paths:
       - 'supabase/migrations/*notification_workflow_completion.sql'
       - 'supabase/migrations/*notification_source_truth_alignment.sql'
-      - 'notification-workflow-ui.*'
+      - 'todo-compact.css'
       - 'tests/notification-workflow*'
+      - 'tests/todo-*'
       - 'scripts/test-notification-workflow-concurrency.mjs'
       - '.github/workflows/notification-workflow.yml'
       - 'index.html'
@@ -46,10 +47,10 @@ jobs:
       - name: Install Chromium headless shell
         timeout-minutes: 4
         run: npx playwright install chromium --only-shell
-      - run: node tests/notification-workflow-browser.mjs
+      - run: node tests/todo-compact-browser.mjs
       - run: git diff --check
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: notification-workflow-six-viewports
-          path: artifacts/notification-workflow/
+          name: todo-compact-six-viewports
+          path: artifacts/todo-compact/

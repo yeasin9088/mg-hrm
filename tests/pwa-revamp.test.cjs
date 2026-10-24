@@ -10,6 +10,7 @@ const scope = 'https://yeasinh.me/mg-hrm/';
 const logo = scope + 'icon-192.png?notification-icon=v39';
 const badge = scope + 'notification-small-m-96.png?notification-badge=v39';
 const script = fs.readFileSync(path.join(root,'sw.js'),'utf8');
+const currentCache = script.match(/const CACHE = '([^']+)'/)[1];
 function factory(fetcher = async () => { throw Error('offline'); }) {
   const listeners={},stored=new Map(),shown=[],windows=[],calls=[];
   let skipCalls=0;
@@ -21,7 +22,7 @@ function factory(fetcher = async () => { throw Error('offline'); }) {
   const caches = {
     open:async()=>cache,
     match:async item=>stored.get(normalize(item)),
-    keys:async()=>['unrelated-app-cache','mghrm-v50','mghrm-v51'],
+    keys:async()=>['unrelated-app-cache','mghrm-v50',currentCache],
     delete:async key=>{calls.push(['delete',key]);return true;}
   };
   const self={

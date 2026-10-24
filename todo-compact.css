@@ -1,0 +1,47 @@
+/* Approved compact To-Do. Source notes and existing mutation handlers stay authoritative. */
+#page-todo .td-tabs{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:12px;border-bottom:1px solid var(--border)}
+#page-todo .td-tab{flex:0 1 auto;min-height:36px;padding:6px 0;gap:7px;border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;box-shadow:none}
+#page-todo .td-tab.is-on{background:transparent;border-color:var(--primary);box-shadow:none}
+#page-todo .td-tab .ic,#page-todo .td-tab .ts,#page-todo .td-tab .ts-done{display:none}
+#page-todo .td-tab .tt{font-size:12px;font-weight:400}
+#page-todo .td-tab .n{font-size:11px;font-weight:400;letter-spacing:0}
+#page-todo .td-compose{padding:12px 14px;margin-bottom:12px}
+#page-todo .td-list{gap:0;border:1px solid var(--border);border-radius:8px;background:var(--card)}
+#page-todo .td-row{display:block;padding:9px 12px;border:0;border-bottom:1px solid var(--border);border-radius:0;background:transparent;cursor:default;box-shadow:none;overflow:visible}
+#page-todo .td-row:last-child{border-bottom:0}
+#page-todo .td-row:hover{background:transparent;box-shadow:none}
+#page-todo .td-item-line{display:flex;align-items:flex-start;flex-wrap:wrap;gap:6px 14px}
+#page-todo .td-row .td-note,#page-todo .td-row:not(.is-open) .td-note{display:block;flex:1 1 180px;min-width:0;width:auto;margin:0;padding:2px 0;white-space:pre-wrap;overflow:visible;text-overflow:clip;-webkit-line-clamp:unset;font-size:13px;line-height:1.5;font-weight:400;cursor:text}
+#page-todo .td-row.is-important .td-note{font-weight:400}
+#page-todo .td-inline-actions{display:flex;align-items:center;flex-wrap:wrap;gap:2px 12px;max-width:100%;margin-left:auto}
+#page-todo .td-inline-actions .td-btn,#page-todo .td-more>summary{display:inline-flex;align-items:center;gap:4px;min-height:26px;height:auto;max-width:100%;padding:3px 0;border:0;border-radius:3px;background:transparent;box-shadow:none;color:var(--text-2);font-size:11px;line-height:1.4;font-weight:400;white-space:normal;cursor:pointer}
+#page-todo .td-inline-actions .td-btn:hover,#page-todo .td-more>summary:hover{color:var(--primary);text-decoration:underline;background:transparent}
+#page-todo .td-inline-actions .td-approve{color:var(--success)}
+#page-todo .td-inline-actions .td-reject{color:var(--bad,#b9434b)}
+#page-todo .td-star{width:26px;height:26px;min-width:26px;margin:0;padding:4px;border:0;border-radius:3px;background:transparent}
+#page-todo .td-star.on{background:transparent}
+#page-todo .td-star svg{width:14px;height:14px}
+#page-todo .td-row .td-meta{gap:3px 5px;margin-top:2px;font-size:11px;line-height:1.45;color:var(--text-muted)}
+#page-todo .td-meta .td-state,#page-todo .td-meta .td-meta-cat{font-size:inherit;font-weight:400;color:inherit}
+#page-todo .td-meta span{max-width:100%;overflow-wrap:anywhere}
+#page-todo .td-more{position:relative}
+#page-todo .td-more>summary{list-style:none;color:var(--text-muted)}
+#page-todo .td-more>summary::-webkit-details-marker{display:none}
+#page-todo .td-more[open]{z-index:5}
+#page-todo .td-more-menu{position:absolute;right:0;top:100%;z-index:5;width:160px;max-width:calc(100vw - 48px);padding:4px;background:var(--card);border:1px solid var(--border);border-radius:6px;box-shadow:var(--shadow-sm)}
+#page-todo .td-more-menu .td-btn{display:flex;width:100%;justify-content:flex-start;padding:8px 10px;text-align:left;min-height:30px}
+#page-todo .td-more-menu .td-btn:hover{background:var(--primary-soft);text-decoration:none}
+.td-move-options{display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:600px){
+ #page-todo .td-tab{min-height:36px;padding:6px 0}
+ #page-todo .td-item-line>.td-note{flex-basis:100%}
+ #page-todo .td-inline-actions{width:100%;margin:0}
+ #page-todo .td-more{margin-left:auto}
+ #page-todo .td-row{padding:8px 10px}
+ #page-todo .td-meta{font-size:11px}
+}
+@media(pointer:coarse){
+ #page-todo .td-inline-actions .td-btn,#page-todo .td-more>summary,#page-todo .td-star,#page-todo .td-tab{min-height:44px;min-width:44px}
+ #page-todo .td-star{width:44px;height:44px}
+ #page-todo .td-more-menu .td-btn{min-height:44px}
+}

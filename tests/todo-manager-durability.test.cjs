@@ -7,7 +7,7 @@ const source = fs.readFileSync('index.html', 'utf8');
 const begin = source.indexOf('(function(){\n  if (window.__mgTd3) return;');
 const firstEnd = source.indexOf('  /* ===== C2. Pending Queue State', begin);
 const managerStart = source.indexOf('  window.mtSetManagerStatus = async function', firstEnd);
-const managerEnd = source.indexOf('  window.mtToggleExtras', managerStart);
+const managerEnd = source.indexOf("  document.addEventListener('keydown'", managerStart);
 assert(begin >= 0 && firstEnd > begin && managerStart > firstEnd && managerEnd > managerStart);
 const selected = source.slice(begin, firstEnd) + source.slice(managerStart, managerEnd) + '})();';
 

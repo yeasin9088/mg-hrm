@@ -18799,7 +18799,6 @@ function renderTodo(){
   const filtered = all.filter(function(t){
     if(getCat(t) !== activeCat) return false;
     if(!matchQ(t) || !passSub(t)) return false;
-    if(window.mgWorkPass && !window.mgWorkPass(t.id)) return false;
     return true;
   });
 
@@ -18923,167 +18922,46 @@ function renderTodo(){
 
   const rowHtml = function(t){
     const id = esc(String(t.id));
-    const s = stOf(t);
-    const solved = isSolvedT(t);
-    const isOpen = !!((window.MG_TD_X && window.MG_TD_X[String(t.id)]) || (window.MG_TD_OPEN && window.MG_TD_OPEN[String(t.id)]));
-    const isMoveOpen = (window.MG_TD_MOVE === String(t.id));
-    const ck = tdCatOf(t);
-
-    let tcls = 't-idle', tsvg = ICON.idle, ttip = 'Pending — click to approve';
-    if(s === 'solved_approved' || s === 'solved' || s === 'done'){ tcls = 't-ok';   tsvg = ICON.ok;   ttip = 'Solved (approved) — click to reopen'; }
-    else if(s === 'solved_rejected'){ tcls = 't-bad';  tsvg = ICON.bad;  ttip = 'Solved (rejected) — click to reopen'; }
-    else if(s === 'approved'){ tcls = 't-info'; tsvg = ICON.info; ttip = 'Approved — click to mark solved'; }
-    else if(s === 'rejected'){ tcls = 't-bad';  tsvg = ICON.bad;  ttip = 'Rejected — click to mark solved'; }
-
-    let act = '';
-    if(s === 'pending'){
-      act = '<button type="button" class="td-btn b-primary" title="Approve this note" onclick="event.stopPropagation();mtSetTodoStatus(\'' + id + '\',\'approved\')">' + ICON.tick + ' Approve</button>' +
-            '<button type="button" class="td-btn b-ghost" title="Reject this note" onclick="event.stopPropagation();mtSetTodoStatus(\'' + id + '\',\'rejected\')">' + ICON.cross + ' Reject</button>';
-    } else if(s === 'approved'){
-      act = '<button type="button" class="td-btn b-primary" title="Close this note as approved" onclick="event.stopPropagation();mtSetTodoStatus(\'' + id + '\',\'solved_approved\')">' + ICON.tick + ' Solve with Approve</button>' +
-            '<button type="button" class="td-btn b-ghost" title="Back to pending" onclick="event.stopPropagation();mtSetTodoStatus(\'' + id + '\',\'pending\')">Undo</button>';
-    } else if(s === 'rejected'){
-      act = '<button type="button" class="td-btn b-primary" title="Close this note as rejected" onclick="event.stopPropagation();mtSetTodoStatus(\'' + id + '\',\'solved_rejected\')">' + ICON.tick + ' Solve with Reject</button>' +
-            '<button type="button" class="td-btn b-ghost" title="Back to pending" onclick="event.stopPropagation();mtSetTodoStatus(\'' + id + '\',\'pending\')">Reopen</button>';
-    } else {
-      act = '<button type="button" class="td-btn b-ghost" title="Back to pending" onclick="event.stopPropagation();mtSetTodoStatus(\'' + id + '\',\'pending\')">Reopen</button>';
-    }
-
-    const w = agoOf(tsOf(t));
-    let stWord = 'Pending';
-    if(s === 'approved') stWord = 'Approved';
-    else if(s === 'rejected') stWord = 'Rejected';
-    else if(s === 'solved_approved') stWord = 'Solved (Approved)';
-    else if(s === 'solved_rejected') stWord = 'Solved (Rejected)';
-    else if(solved) stWord = 'Solved';
-
-    const orgName = esc(PN(t.project) || t.source || '');
+    const s = stOf(t), solved = isSolvedT(t), ck = getCat(t);
     const showText = t.note_bn || t.note || t.note_in || '';
-    const workHtml = window.mgWorkRow ? window.mgWorkRow(t.id) : '';
-
-    const remChip = (t.reminder_enabled === true) ? ('<span class="td-chip td-due" title="' + esc(window.mgRmSummary(t)) + '">' + ICON.bell + ' ' + esc(window.mgRmSummary(t)) + '</span>') : '';
-
-    // Compact metadata: status, time, reminder and category. Importance is shown only by the side star.
-    let thinMeta = '<span class="td-state' + (solved ? ' solved' : '') + '">' + stWord + '</span><span>·</span><span title="' + esc(w.full) + '">' + esc(w.txt || 'just now') + '</span>';
-    if(remChip) thinMeta += '<span>·</span>' + remChip;
-    if(mainF !== 'general'){
-      thinMeta += '<span>·</span><span class="td-meta-cat">' + esc(CAT[ck] || ck) + '</span>';
+    const labels = {pending:'Pending',approved:'Approved',rejected:'Rejected',solved_approved:'Solved (Approved)',solved_rejected:'Solved (Rejected)'};
+    const stWord = labels[s] || (solved ? 'Solved' : 'Pending');
+    const action = function(label,status,kind){
+      return '<button type="button" class="td-btn td-status-action '+(kind || '')+'" onclick="mtSetTodoStatus(\''+id+'\',\''+status+'\')">'+label+'</button>';
+    };
+    let actions = '';
+    if(s === 'pending') actions = action('Approve','approved','td-approve') + action('Reject','rejected','td-reject');
+    else if(s === 'approved') actions = action('Solve with Approve','solved_approved','td-approve') + action('Undo','pending');
+    else if(s === 'rejected') actions = action('Solve with Reject','solved_rejected','td-reject') + action('Undo','pending');
+    else actions = action('Undo','pending');
+    const stampValue = t.created_at || t.updated_at;
+    const stamp = stampValue ? new Date(stampValue) : null;
+    const dateTime = function(d){
+      return new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Dhaka',day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit',hour12:true}).format(d);
+    };
+    const meta = ['<span class="td-state'+(solved?' solved':'')+'">'+stWord+'</span>',
+      '<span>'+esc(stamp && Number.isFinite(stamp.getTime()) ? dateTime(stamp) : (t.date ? TZ(t.date) : 'Date unavailable'))+'</span>',
+      '<span class="td-meta-cat">'+esc(CAT[ck] || ck)+'</span>'];
+    if(t.reminder_enabled === true && !solved){
+      meta.push('<span>'+esc(window.mgRmSummary(t))+'</span>');
+      const due = t.next_reminder_at ? new Date(t.next_reminder_at) : null;
+      const valid = due && Number.isFinite(due.getTime());
+      meta.push('<span class="td-next-reminder" title="Saved reminder schedule · Asia/Dhaka">'+
+        (valid ? (due.getTime() <= Date.now() ? 'Due: ' : 'Next: ') + esc(dateTime(due)) : 'Next: not scheduled')+'</span>');
     }
-
-    const isRemOn  = (t.reminder_enabled === true);
-    const remTitle = isRemOn ? ('Reminder: ' + window.mgRmSummary(t)) : 'Set a reminder';
-
-
-    let expandedHtml = '';
-    if(isOpen){
-      // 2: existing extras block
-      const xs = xsOf(t);
-      let extras = '';
-      if(xs.length){
-        extras = '<div class="td-extras" onclick="event.stopPropagation()">' + xs.map(function(x){
-          const d = x.t ? new Date(x.t) : null;
-          const a = (d && !isNaN(d.getTime())) ? agoOf(d) : { txt:'', cls:'', full:'' };
-          return '<div class="td-extra"><div class="x">' + esc(x.bn || x.raw || '') + '</div>' + (a.txt ? '<div class="w">' + a.txt + '</div>' : '') + '</div>';
-        }).join('') + '</div>';
-      }
-
-      // 3: complete meta row
-      const details = [];
-      details.push('<span>' + stWord + '</span>');
-      details.push('<span title="' + esc(w.full) + '">' + esc(w.txt || 'just now') + '</span>');
-      if(orgName) details.push('<span>' + orgName + '</span>');
-      if(t.who) details.push('By: <b>' + esc(t.who) + '</b>');
-      if(ck) details.push('Type: <b>' + esc(CAT[ck] || ck) + '</b>');
-      if(remChip) details.push(remChip);
-      if(t.manager_status && t.manager_status !== 'none'){
-        const mLabels = { asked:'Waiting reply', approved:'Approved', rejected:'Declined', verbal:'Verbal consent' };
-        details.push('Manager: <b>' + esc(mLabels[t.manager_status] || t.manager_status) + '</b>');
-      }
-      if(t.updated_at && t.created_at && (new Date(t.updated_at).getTime() - new Date(t.created_at).getTime()) > 60000){
-        details.push('Edited: <b>' + esc(enDate(new Date(t.updated_at)) + ', ' + enTime(new Date(t.updated_at))) + '</b>');
-      }
-      if(t.solved_at){
-        details.push('Solved: <b>' + esc(agoOf(new Date(t.solved_at)).txt || '') + '</b>');
-      }
-      const fullMetaHtml = '<div class="td-meta" style="margin-top:9px;padding-top:8px;border-top:1px dashed var(--border);">' + details.join('<span>·</span>') + '</div>';
-
-      // 4: status action row
-      let statusActsHtml = '';
-      if(act){
-        statusActsHtml = '<div class="td-status-row" onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px;">' + act + '</div>';
-      }
-
-      // 5: manager bar — ONLY when the active section is 'mgr'
-      let mgrBarHtml = '';
-      if(mainF === 'mgr'){
-        const curM = String(t.manager_status || 'none').toLowerCase();
-        const mBtns = [
-          { key: 'asked',    lbl: 'Informed' },
-          { key: 'approved', lbl: 'Approve' },
-          { key: 'rejected', lbl: 'Decline' },
-          { key: 'verbal',   lbl: 'Verbal' }
-        ];
-        mgrBarHtml = '<div class="td-mgr-acts" onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);">' +
-          '<span style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Manager:</span>' +
-          mBtns.map(function(b){
-            const isSel = (curM === b.key);
-            const cls = isSel ? 'td-btn b-primary' : 'td-btn b-ghost';
-            return '<button type="button" class="' + cls + '" title="' + esc(b.lbl) + '" onclick="event.stopPropagation();mtSetManagerStatus(\'' + id + '\',\'' + b.key + '\')">' + b.lbl + '</button>';
-          }).join('') +
-        '</div>';
-      }
-
-      // Existing note actions stay inside the expanded details.
-      const remBtnAct = '<button type="button" class="td-btn b-ghost' + (isRemOn ? ' is-imp-on' : '') +
-        '" title="' + esc(remTitle) + '" onclick="event.stopPropagation();mtOpenRemPicker(\'' + id + '\')">' +
-        ICON.bell + ' ' + (isRemOn ? esc(window.mgRmSummary(t)) : 'Remind') + '</button>';
-      const delBtn  = '<button type="button" class="td-btn b-ghost td-del-btn" title="Delete note" style="color:var(--bad, #dc2626);" onclick="event.stopPropagation();delTodo(\'' + id + '\')">' + ICON.trash + ' Delete</button>';
-      const moveBtn = '<button type="button" class="td-btn b-ghost' + (isMoveOpen ? ' b-primary' : '') + '" title="Move note" onclick="event.stopPropagation();mtOpenMove(\'' + id + '\')">' + ICON.move + ' Move</button>';
-
-      const actionRowHtml = '<div class="td-acts" onclick="event.stopPropagation()">' +
-        '<button type="button" class="td-btn b-ghost" title="Edit note" onclick="event.stopPropagation();mtOpenNote(\'' + id + '\',\'edit\')">' + ICON.pencil + ' Edit</button>' +
-        '<button type="button" class="td-btn b-ghost" title="Extra note / reply" onclick="event.stopPropagation();mtOpenNote(\'' + id + '\',\'extra\')">' + ICON.plusbox + ' Extra note</button>' +
-        moveBtn +
-        remBtnAct +
-        delBtn +
-      '</div>';
-
-      // Inline Move Panel (Task 2)
-      let movePanelHtml = '';
-      if(isMoveOpen){
-        const destSecs = secList.filter(function(s){ return s.cat !== ck; });
-        const destBtns = destSecs.map(function(s){
-          const sIcon = (ICON[s.key] || (s.key === 'general' ? ICON.list : (s.key === 'mgr' ? ICON.user : (s.key === 'salary' ? ICON.salary : (ICON.task || ICON.list)))));
-          return '<button type="button" class="td-mvbtn" onclick="event.stopPropagation();mtMoveTodo(\'' + id + '\',\'' + s.cat + '\')">' +
-            sIcon + ' ' + esc(s.label) +
-          '</button>';
-        }).join('');
-
-        movePanelHtml = '<div class="td-mvpanel" onclick="event.stopPropagation()">' +
-          '<span class="td-mvlabel">Move to:</span>' +
-          destBtns +
-          '<button type="button" class="td-mvbtn cancel" onclick="event.stopPropagation();mtOpenMove(\'' + id + '\')">Cancel</button>' +
-        '</div>';
-      }
-
-      expandedHtml = extras + fullMetaHtml + statusActsHtml + mgrBarHtml + actionRowHtml + movePanelHtml;
-    }
-
-    const starBtnSide = '<button type="button" id="td-important-' + id + '" aria-label="' + (t.is_important ? 'Remove important' : 'Mark as important') + '" aria-pressed="' + !!t.is_important + '" class="td-star' + (t.is_important ? ' on' : '') + '" title="' + (t.is_important ? 'Remove important' : 'Mark as important') + '" onclick="event.stopPropagation();mtToggleTodoImportant(\'' + id + '\')">' + (t.is_important ? ICON.starOn : ICON.star) + '</button>';
-
-    return '<div class="td-row' + (isOpen ? ' is-open' : '') + (solved ? ' is-solved' : '') + (t.is_important ? ' is-important' : '') + '" id="td-row-' + id + '" data-id="' + id + '">' +
-      '<button type="button" class="td-toggle ' + tcls + '" aria-label="' + ttip + '" title="' + ttip + '" onclick="event.stopPropagation();mtToggleTodoStatus(\'' + id + '\')">' + tsvg + '</button>' +
-      '<div class="td-body">' +
-        '<button type="button" id="td-preview-' + id + '" class="td-note" aria-expanded="' + isOpen + '" aria-controls="td-details-' + id + '" onclick="mtToggleTodoOpen(\'' + id + '\')" title="' + esc(showText) + '">' + esc(showText) + '</button>' +
-        (!isOpen ? ('<div class="td-meta">' + thinMeta + '</div>') : '') +
-        workHtml +
-        '<div class="td-details" id="td-details-' + id + '"' + (isOpen ? '' : ' hidden') + '>' + expandedHtml + '</div>' +
-      '</div>' +
-      '<div class="td-side" onclick="event.stopPropagation()">' +
-        starBtnSide +
-        '<button type="button" id="td-expand-' + id + '" class="td-chev" aria-label="' + (isOpen ? 'Collapse note details' : 'Expand note details') + '" aria-expanded="' + isOpen + '" aria-controls="td-details-' + id + '" onclick="mtToggleTodoOpen(\'' + id + '\')">' + ICON.chev + '</button>' +
-      '</div>' +
-    '</div>';
+    const menuButton = function(label,call,kind){
+      return '<button type="button" class="td-btn '+(kind||'')+'" onclick="this.closest(\'details\').open=false;'+call+'">'+label+'</button>';
+    };
+    const menu = menuButton('Edit',"mtOpenNote('"+id+"','edit')") +
+      menuButton('Extra note',"mtOpenNote('"+id+"','extra')") +
+      menuButton('Move',"mtOpenMove('"+id+"')") +
+      menuButton('Reminder',"mtOpenRemPicker('"+id+"')") +
+      menuButton('Delete',"delTodo('"+id+"')",'td-reject');
+    const star = '<button type="button" id="td-important-'+id+'" aria-label="'+(t.is_important?'Remove important':'Mark as important')+'" aria-pressed="'+!!t.is_important+'" class="td-star'+(t.is_important?' on':'')+'" onclick="event.stopPropagation();mtToggleTodoImportant(\''+id+'\')">'+(t.is_important?ICON.starOn:ICON.star)+'</button>';
+    return '<div class="td-row'+(solved?' is-solved':'')+(t.is_important?' is-important':'')+'" id="td-row-'+id+'" data-id="'+id+'">'+
+      '<div class="td-body"><div class="td-item-line"><div id="td-preview-'+id+'" class="td-note">'+esc(showText)+'</div>'+
+      '<div class="td-inline-actions">'+actions+star+'<details class="td-more"><summary>More ···</summary><div class="td-more-menu">'+menu+'</div></details></div></div>'+
+      '<div class="td-meta">'+meta.join('<span aria-hidden="true">·</span>')+'</div></div></div>';
   };
 
   const loadingItems = (window.MG_TD_LOADING || []).filter(function(x){
@@ -19326,12 +19204,19 @@ function renderTodo(){
   }
 }
 
-window.mtRowClick = function(e, id){
-  if (e && e.target && e.target.closest('button, input, select, textarea, a, .td-icb, .td-star, .td-toggle, .td-acts, .td-side')) {
-    return;
-  }
-  if (typeof window.mtToggleTodoOpen === 'function') window.mtToggleTodoOpen(id);
-};
+// Close secondary menus on outside click or Escape; notes have no expand action.
+document.addEventListener('click', function(event){
+  document.querySelectorAll('#page-todo details.td-more[open]').forEach(function(menu){
+    if (!menu.contains(event.target)) menu.open = false;
+  });
+});
+document.addEventListener('keydown', function(event){
+  if (event.key !== 'Escape') return;
+  document.querySelectorAll('#page-todo details.td-more[open]').forEach(function(menu){
+    menu.open = false;
+    menu.querySelector('summary').focus();
+  });
+});
 
 window.mtSetTodoSub = function(sub) {
   window.MG_TD_SUB = sub;
@@ -20348,8 +20233,6 @@ window.mgTodoNotifOpen = function(ref){
   window.MG_TD_FOCUS = '';
   var sInp = document.getElementById('tdSearch');
   if (sInp) sInp.value = '';
-  window.MG_TD_X = window.MG_TD_X || {};
-  window.MG_TD_X[String(t.id)] = true;
   if (typeof renderTodo === 'function') renderTodo();
   setTimeout(function(){
     var row = document.getElementById('td-row-' + t.id) ||
@@ -20814,25 +20697,16 @@ window.cycleTodo = window.mtToggleTodoStatus;
     }
   };
 
-  /* ===== Phase 4: Card Expand & Move ===== */
-  var MG_TD_OPEN = {};
-  window.MG_TD_OPEN = MG_TD_OPEN;
-
-  window.mtToggleTodoOpen = function(id){
-    var k = String(id);
-    window.MG_TD_OPEN = window.MG_TD_OPEN || {};
-    window.MG_TD_X = window.MG_TD_X || {};
-    var next = !(window.MG_TD_OPEN[k] || window.MG_TD_X[k]);
-    window.MG_TD_OPEN[k] = next;
-    window.MG_TD_X[k] = next;
-    if (typeof renderTodo === 'function') renderTodo();
-  };
-
-  window.MG_TD_MOVE = null;
-
+  /* Secondary Move action uses the existing note dialog. */
   window.mtOpenMove = function(id){
-    window.MG_TD_MOVE = (window.MG_TD_MOVE === String(id) ? null : String(id));
-    renderTodo();
+    var note = find(id);
+    if (!note) return;
+    var current = typeof tdCatOf === 'function' ? tdCatOf(note) : (note.category || 'note');
+    var choices = [['note','General'],['task','My Task'],['permission','Inform to Manager'],['salary','Salary Notes']];
+    var body = '<div class="td-move-options">' + choices.filter(function(x){return x[0] !== current;}).map(function(x){
+      return '<button type="button" class="mbtn gho" onclick="mtMoveTodo(\''+esc(String(note.id))+'\',\''+x[0]+'\')">'+x[1]+'</button>';
+    }).join('') + '</div>';
+    window.mtOpenShell('Move note','',body,'<button type="button" class="mbtn gho" onclick="mtCloseNote()">Cancel</button>');
   };
 
   window.mtMoveTodo = async function(id, cat){
@@ -20845,7 +20719,7 @@ window.cycleTodo = window.mtToggleTodoStatus;
 
     var from = (typeof tdCatOf === 'function' ? tdCatOf(note) : (note.category || 'note'));
     if (from === cat) {
-      window.MG_TD_MOVE = null;
+      if (typeof window.mtCloseNote === 'function') window.mtCloseNote();
       renderTodo();
       return;
     }
@@ -20871,7 +20745,7 @@ window.cycleTodo = window.mtToggleTodoStatus;
     }
 
     if (ok) {
-      window.MG_TD_MOVE = null;
+      if (typeof window.mtCloseNote === 'function') window.mtCloseNote();
       renderTodo();
       if (typeof updateTodoBadge === 'function') updateTodoBadge();
       toastSafe('Moved to ' + targetLabel, 'success');
@@ -21067,8 +20941,6 @@ window.cycleTodo = window.mtToggleTodoStatus;
     arr.push({ t: Date.now(), raw: raw, bn: tr.ok ? tr.bn : '' });
     t.extra_notes = arr;
     t.updated_at = nowIso();
-    window.MG_TD_X = window.MG_TD_X || {};
-    window.MG_TD_X[String(t.id)] = true;
     var ok = await window.mgTdPush(t, ['extra_notes','updated_at']);
     busy(btn, false);
     if (typeof renderTodo === 'function') renderTodo();
@@ -21097,13 +20969,6 @@ window.cycleTodo = window.mtToggleTodoStatus;
     }
     if (typeof renderTodo === 'function') renderTodo();
     toastSafe('Manager status updated', 'success');
-  };
-
-  window.mtToggleExtras = function(id){
-    window.MG_TD_X = window.MG_TD_X || {};
-    var k = String(id);
-    window.MG_TD_X[k] = !window.MG_TD_X[k];
-    if (typeof renderTodo === 'function') renderTodo();
   };
 
   document.addEventListener('keydown', function(e){
@@ -24537,7 +24402,6 @@ setInterval(()=>checkPendingToast(true), 180000);
 <script src="./notification-ui.js"></script>
 <script src="./notification-settings.js"></script>
 <script src="./notification-engine-ui.js"></script>
-<link rel="stylesheet" href="./notification-workflow-ui.css">
-<script src="./notification-workflow-ui.js"></script>
+<link rel="stylesheet" href="./todo-compact.css">
 </body>
 </html>

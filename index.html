@@ -18882,8 +18882,9 @@ function renderTodo(){
       meta.push('<span>'+esc(window.mgRmSummary(t))+'</span>');
       const due = t.next_reminder_at ? new Date(t.next_reminder_at) : null;
       const valid = due && Number.isFinite(due.getTime());
+      const awaitingRead = (window.NOTIFICATIONS || []).some(function(n){return n.isBackend && n.entityType === 'todo' && String(n.ref) === String(t.id) && !n.isRead && !window.NotificationModel?.terminal(n);});
       meta.push('<span class="td-next-reminder" title="Saved reminder schedule · Asia/Dhaka">'+
-        (valid ? (due.getTime() <= Date.now() ? 'Due: ' : 'Next: ') + esc(dateTime(due)) : 'Next: not scheduled')+'</span>');
+        (valid ? (due.getTime() <= Date.now() ? 'Due: ' : 'Next: ') + esc(dateTime(due)) : (awaitingRead ? 'Next: after read' : 'Next: not scheduled'))+'</span>');
     }
     const menuButton = function(label,call,kind){
       return '<button type="button" class="td-btn '+(kind||'')+'" onclick="this.closest(\'details\').open=false;'+call+'">'+label+'</button>';
@@ -19080,7 +19081,7 @@ function renderTodo(){
       '<label class="td-cf">Reminder<select id="tdQuickRemindType">' +
         '<option value="">Off</option><option value="30m">30 min</option>' +
         '<option value="1h">1 hour</option><option value="2h">2 hours</option>' +
-        '<option value="once">Once now</option><option value="today">Daily (legacy)</option>' +
+        '<option value="once">Once now</option><option value="today">Every day</option>' +
         '<option value="custom">Custom (choose dates on the card)</option>' +
       '</select></label>' +
       '<button type="button" id="tdQuickSend" class="td-fb-send" onclick="mtQuickAddTodo()">Save Note</button>' +
@@ -19697,7 +19698,7 @@ window.MG_RM_TYPES = {
   '1h':     { label: 'Every 1 hour',     interval: 60,   hint: 'Repeats all day, every day' },
   '2h':     { label: 'Every 2 hours',    interval: 120,  hint: 'Repeats all day, every day' },
   'once':   { label: 'Once now', interval: 1440, hint: 'One reminder only; no automatic repeat' },
-  'today':  { label: 'Daily (legacy)',       interval: 1440, hint: 'Shows once now, then once a day at the same time' },
+  'today':  { label: 'Every day',       interval: 1440, hint: 'Shows once now, then once a day at the same time' },
   'custom': { label: 'Custom dates',     interval: 60,   hint: 'Pick dates and an interval for each date' }
 };
 
@@ -20062,7 +20063,7 @@ window.mgRmRenderPicker = function(){
 
   html += '<div style="font-size:11.5px;color:var(--text-mute);line-height:1.5;">' +
     'The schedule is stored in the database with this note, so it survives refresh, browser restart and logout. ' +
-    'A solved or deleted note stops reminding automatically. To-Do reminders respect your To-Do category preferences and quiet hours; they resume after quiet hours. Device permission is always required for push.</div></div>';
+    'A solved or deleted note stops reminding automatically. To-Do reminders respect your notification hours. An unread reminder does not repeat; Read or Remind next time starts the next interval. Device permission is required for push.</div></div>';
 
   var actions = ((t && t.reminder_enabled === true)
       ? '<button type="button" class="btn ghost sm" onclick="mtRemOff()">Turn off reminder</button>' : '') +
@@ -20158,10 +20159,11 @@ window.mgTodoNotifOpen = function(ref){
   if (typeof navigate === 'function') navigate('todo');
   if (!t){ if (typeof renderTodo === 'function') renderTodo(); return; }
   var cat = (typeof tdCatOf === 'function') ? tdCatOf(t) : (t.category || 'note');
-  window.MG_TD_CAT_PICK = cat;                    /* section tab picker reads this */
-  window.MT_TODO_FILTER = 'all';                  /* status filter reads this */
+  var tab = ({note:'general',task:'task',permission:'mgr',salary:'salary'})[cat] || 'general';
+  if (typeof window.mtSetTodoFilter === 'function') window.mtSetTodoFilter(tab);
+  window.MG_TD_CAT_PICK = cat;
   window.MG_TD_Q = '';
-  window.MG_TD_SUB = 'unsolved';
+  window.MG_TD_SUB = (typeof window.mgRmIsClosed === 'function' && window.mgRmIsClosed(t)) ? 'solved' : 'unsolved';
   window.MG_TD_FOCUS = '';
   var sInp = document.getElementById('tdSearch');
   if (sInp) sInp.value = '';
@@ -24333,7 +24335,7 @@ setInterval(()=>checkPendingToast(true), 180000);
 <link rel="stylesheet" href="./notification-ui.css">
 <script src="./notification-ui.js"></script>
 <script src="./notification-settings.js"></script>
-<script src="./notification-engine-ui.js"></script>
+<script src="./notification-simple.js"></script>
 <link rel="stylesheet" href="./todo-compact.css">
 </body>
 </html>

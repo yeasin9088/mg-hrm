@@ -51,9 +51,10 @@ export function privatePayload(n, preview = {}) {
     route=['recruitment','transfer','leave','disciplinary','uniform','meeting'].includes(category)?category:'notifications';
   }
   return JSON.stringify({notification_id:n.id,title,body,action_route:route,
-    priority:n.priority||'Normal',entity_type:entityId?'todo':null,entity_id:entityId});
+    priority:n.priority||'Normal',entity_type:entityId?'todo':null,entity_id:entityId,
+    ...(/^[0-9a-f]{64}$/.test(preview.action_token||'')?{action_token:preview.action_token,task_actions:true}:{})});
 }
-export async function runSender({rpc, send, workerId, batchSize = 2, now = Date.now, random = Math.random}) {
+export async function runSender({rpc, send, workerId, batchSize = 5, now = Date.now, random = Math.random}) {
   const call = async (name, params) => { const {data,error} = await rpc(name,params); if(error) throw Error('RPC_FAILURE'); return data; };
   const jobs = await call('notification_claim_web_push_jobs',{p_worker_id:workerId,p_batch_size:Math.max(1,Math.min(5,Math.floor(batchSize)||2))});
   const summary = {claimed:jobs.length, finalized:0, providerAccepted:0, failed:0, revoked:0, jobErrors:0};

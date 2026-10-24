@@ -45,11 +45,12 @@
     }
     const expanded = view.expandedId === String(item.id);
     const actionsId = 'mg-n-actions-'+id;
+    const isTodo=item.isBackend&&item.entityType==='todo';
     const controls = button('open','Open details',item.id) +
-      (unread ? button('read','Mark read',item.id) : '')+
-      (!model.terminal(item) ? button('snooze','Snooze',item.id)+button('dismiss','Dismiss',item.id) : '')+
+      (unread ? button('read','Mark as read',item.id) : '')+
+      (!model.terminal(item) ? (isTodo?button('remind','Remind next time',item.id):button('snooze','Snooze',item.id)+button('dismiss','Dismiss',item.id)) : '')+
       (item.isBackend && model.actionable(item) && ['todo','transfer','exit','leave','uniform_supply_order','uniform_delivery_issue','uniform_delivery_bill'].includes(item.entityType)
-        ? button('complete','Check resolution',item.id) : '');
+        ? button('complete',isTodo?'Complete':'Check resolution',item.id) : '');
     return '<article class="mg-n-card '+(unread?'unread':'read')+(expanded?' is-expanded':'')+
       '" data-notification-id="'+id+'" data-notification-expand-row="'+id+'">'+
       '<div class="mg-n-content"><div class="mg-n-top"><button class="mg-n-open" type="button" data-notification-action="toggle" data-id="'+id+
@@ -128,11 +129,16 @@
     const key = {notificationCategory:'category',notificationPriority:'priority'}[event.target.id];
     if (key) {view[key]=event.target.value;view.visible=50;view.expandedId=null;global.renderNotifications();}
   });
+  async function toggleRow(id){
+    const opening=view.expandedId!==String(id);
+    if(opening&&global.MG_SIMPLE_NOTIFICATIONS&&await global.markNotifAsRead(id)===false)return;
+    view.expandedId=opening?String(id):null;global.renderNotifications();
+  }
   document.addEventListener('click', async event => {
     const target = event.target.closest?.('[data-notification-action]');
     if (!target) {
       const row = event.target.closest?.('.mg-n-page .mg-n-card[data-notification-expand-row]');
-      if (row) {view.expandedId=view.expandedId===row.dataset.notificationExpandRow?null:row.dataset.notificationExpandRow;global.renderNotifications();}
+      if (row) await toggleRow(row.dataset.notificationExpandRow);
       return;
     }
     if (target.disabled) return;
@@ -149,9 +155,9 @@
       return true;
     };
     const actions = {read:()=>applyThread('read'),open:async()=>{if(await applyThread('read'))return global.handleNotifClick(id);},bulk:()=>global.markAllNotifsAsRead(),
-      snooze:()=>applyThread('snooze'),dismiss:()=>applyThread('dismiss'),complete:()=>applyThread('complete'),refresh:()=>global.mgLoadBackendNotifications()};
+      remind:()=>global.mgBackendNotifRemind(id),snooze:()=>applyThread('snooze'),dismiss:()=>applyThread('dismiss'),complete:()=>applyThread('complete'),refresh:()=>global.mgLoadBackendNotifications()};
     if (actions[action]) {target.disabled=true;target.setAttribute('aria-busy','true');try{await actions[action]();}finally{target.disabled=false;target.removeAttribute('aria-busy');}return;}
-    if (action==='toggle') {view.expandedId=view.expandedId===String(id)?null:String(id);global.renderNotifications();return;}
+    if (action==='toggle') {await toggleRow(id);return;}
     if (action==='filter-toggle') {view.filtersOpen=!view.filtersOpen;global.renderNotifications();return;}
     if (action==='tab') {view[where==='panel'?'panelTab':'pageTab']=id;view.visible=50;view.expandedId=null;(where==='panel'?global.renderNotifDropdown:global.renderNotifications)();}
     if (action==='more') {view.visible+=50;global.renderNotifications();}

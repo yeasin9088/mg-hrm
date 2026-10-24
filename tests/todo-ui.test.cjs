@@ -160,3 +160,11 @@ test('failed and concurrent status writes never claim a solved To-Do',async()=>{
  assert.equal(await f.c.mtSetTodoStatus(9,'solved_approved'),true);
  assert.equal(f.c.DATA.todos[0].status,'solved_approved');
 });
+test('notification deep link selects the source category and keeps a closed source visible',()=>{
+ const f=fixture([note(1,{category:'salary',status:'solved'})]);
+ f.c.mgTdFindTodo=()=>f.c.DATA.todos[0];f.c.navigate=()=>{};f.c.mgRmIsClosed=()=>true;f.c.setTimeout=()=>{};
+ f.c.mtSetTodoFilter=tab=>{f.c.tdMainFilter=tab;};
+ vm.runInContext(part('window.mgTodoNotifOpen = function(ref)','window.mgTodoNotifSolved'),f.c);
+ f.c.mgTodoNotifOpen(1);
+ assert.equal(f.c.tdMainFilter,'salary');assert.equal(f.c.MG_TD_SUB,'solved');assert.deepEqual(f.rows(),[1]);
+});

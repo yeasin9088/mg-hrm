@@ -6,7 +6,7 @@ import {injectPwaEnhancements} from './pwa-inject.mjs';
 const root = fileURLToPath(new URL('../', import.meta.url));
 // Explicit browser assets only. Never copy the repository recursively.
 export const publicAssets = Object.freeze([
-  'index.html', 'app-core.js', 'exit-model.js', 'exit-service.js', 'exit-ui.js', 'exit-reports.js', 'exit-ui.css', 'disciplinary-model.js', 'meeting-attendance.js', 'meeting-ui.js', 'meeting-ui.css', 'notification-model.js', 'notification-center.js', 'notification-presence.js', 'notification-ui.js', 'notification-ui.css', 'notification-settings.js', 'notification-engine-ui.js', 'todo-compact.css', 'config.js', 'sw.js',
+  'index.html', 'app-core.js', 'exit-model.js', 'exit-service.js', 'exit-ui.js', 'exit-reports.js', 'exit-ui.css', 'disciplinary-model.js', 'meeting-attendance.js', 'meeting-ui.js', 'meeting-ui.css', 'notification-model.js', 'notification-center.js', 'notification-presence.js', 'notification-ui.js', 'notification-ui.css', 'notification-settings.js', 'notification-simple.js', 'todo-compact.css', 'config.js', 'sw.js',
   'manifest.json', 'icon-192.png', 'icon-512.png', 'app-logo-192.webp', 'notification-badge-96.png', 'notification-small-m-96.png', 'bd-geo.json',
   'offline.html', 'pwa-experience.js', 'pwa-experience.css'
 ]);

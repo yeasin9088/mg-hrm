@@ -83,8 +83,8 @@ test('Selecting a notification expands only that row and leaves persisted unread
   assert.match(page.innerHTML,/aria-expanded="true"/);
   assert.match(page.innerHTML,/data-notification-action="open"/);
   assert.match(page.innerHTML,/data-notification-action="read"/);
-  assert.match(page.innerHTML,/data-notification-action="snooze"/);
-  assert.match(page.innerHTML,/data-notification-action="dismiss"/);
+  assert.match(page.innerHTML,/data-notification-action="remind"/);
+  assert.match(page.innerHTML,/data-notification-action="complete"/);
   assert.match(page.innerHTML,/mg-n-row-detail/);
   assert.equal(c.NOTIFICATIONS[0].isRead,before);
   await click('toggle','n1');

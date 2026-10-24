@@ -1,9 +1,9 @@
-/* MG-HRM PWA v53: public app-shell caching, safe update lifecycle, Web Push.
+/* MG-HRM PWA v54: public app-shell caching, safe update lifecycle, Web Push.
  * Cache Storage must NEVER contain HR employee records, Supabase responses,
  * credentials, authenticated API responses, POST bodies or pending writes.
  */
 'use strict';
-const CACHE = 'mghrm-v53';
+const CACHE = 'mghrm-v54';
 const CACHE_PREFIX = 'mghrm-v';
 const LOGO_URL = new URL('icon-192.png?notification-icon=v39', self.registration.scope).href;
 const BADGE_URL = new URL('notification-small-m-96.png?notification-badge=v39', self.registration.scope).href;
@@ -16,7 +16,7 @@ const SHELL = [
   './meeting-attendance.js', './meeting-ui.js', './meeting-ui.css',
   './notification-model.js', './notification-center.js', './notification-presence.js',
   './notification-ui.js', './notification-ui.css', './notification-settings.js',
-  './notification-engine-ui.js', './todo-compact.css',
+  './notification-simple.js', './todo-compact.css',
   './pwa-experience.js', './pwa-experience.css'
 ];
 const SCOPE = new URL(self.registration.scope);
@@ -164,12 +164,23 @@ self.addEventListener('push', (event) => {
     renotify: false,
     requireInteraction: priority === 'Urgent' || payload.require_interaction === true,
     data: {
+      actionToken: /^[0-9a-f]{64}$/.test(payload.action_token || '') ? payload.action_token : null,
       notificationId, route,
       entityType: payload.entity_type === 'todo' ? 'todo' : '',
       entityId: route === 'todo' && payload.entity_type === 'todo' && /^\d{1,18}$/.test(String(payload.entity_id || ''))
         ? String(payload.entity_id) : null
     }
   };
+  if (options.data.actionToken && payload.task_actions === true) {
+    const limit = typeof Notification !== 'undefined' && Number.isInteger(Notification.maxActions) ? Notification.maxActions : 2;
+    const actions = [
+      {action:'read',title:'Mark as read'},
+      {action:'remind',title:'Remind next time'},
+      {action:'complete',title:'Complete'}
+    ];
+    // With two slots, tapping the notification itself supplies the Read action.
+    options.actions = limit >= 3 ? actions : limit === 2 ? [actions[2],actions[1]] : limit === 1 ? [actions[2]] : [];
+  }
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
@@ -177,21 +188,39 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const data = event.notification.data || {};
   const route = safeRoute(data.route);
-  const targetUrl = new URL('./index.html?notification_route=' + encodeURIComponent(route) + '&notification_id=' + encodeURIComponent(data.notificationId || '') + (data.entityId ? '&notification_entity=' + encodeURIComponent(data.entityId) : ''), self.registration.scope).href;
+  const action = ['read','remind','complete'].includes(event.action) ? event.action : '';
+  const targetUrl = new URL('./index.html?notification_route=' + encodeURIComponent(route) + '&notification_id=' + encodeURIComponent(data.notificationId || '') + (data.entityId ? '&notification_entity=' + encodeURIComponent(data.entityId) : '') + (action ? '&notification_action='+action : ''), self.registration.scope).href;
   const message = {
     type: 'MG_NOTIFICATION_CLICK', notificationId: data.notificationId || '',
+    action,
     route, entityType: data.entityType || '', entityId: data.entityId == null ? null : data.entityId
   };
-  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+  event.waitUntil((async () => {
+    if (action && /^[0-9a-f]{64}$/.test(data.actionToken || '')) {
+      try {
+        const response = await fetch('https://enkggoozsvvkgbjeghbf.supabase.co/functions/v1/notification-device-action', {
+          method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:data.actionToken,action}),
+          ...(typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? {signal:AbortSignal.timeout(12000)} : {})
+        });
+        if (response.ok && (await response.json()).ok === true) {
+          const clients = await self.clients.matchAll({type:'window',includeUncontrolled:true});
+          clients.filter(client=>client.url.startsWith(self.registration.scope)).forEach(client=>client.postMessage({type:'MG_NOTIFICATION_ACTION_CONFIRMED',notificationId:data.notificationId,action}));
+          return;
+        }
+      } catch (_) { /* Open the authenticated app to finish an unconfirmed action. */ }
+    }
+    return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
     for (const client of clientList) {
       if (client.url.indexOf(self.registration.scope) === 0) {
+        if (action && 'navigate' in client) return client.navigate(targetUrl).then(()=>client.focus());
         client.postMessage(message);
         return 'focus' in client ? client.focus() : client;
       }
     }
     if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
     return undefined;
-  }));
+    });
+  })());
 });
 self.addEventListener('pushsubscriptionchange', event => {
   event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {

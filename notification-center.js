@@ -3,6 +3,7 @@
   'use strict';
   if (window.__mgNotificationPhase2C) return;
   window.__mgNotificationPhase2C = true;
+  window.MG_SIMPLE_NOTIFICATIONS = true;
 
   window.MG_NOTIFICATION_ENGINE_MODE = window.MG_NOTIFICATION_ENGINE_MODE || 'hybrid';
   window.MG_BACKEND_NOTIFICATIONS = window.MG_BACKEND_NOTIFICATIONS || [];
@@ -236,6 +237,11 @@
 
   window.mgHandleSystemNotificationClick=function(data){
     data=data||{};
+    if(['read','remind','complete'].includes(data.action)&&data.notificationId){
+      var intent=new URLSearchParams(location.search);intent.set('notification_id',data.notificationId);intent.set('notification_route','todo');intent.set('notification_action',data.action);
+      history.replaceState(null,'',location.pathname+'?'+intent+location.hash);
+      window.mgTryPendingPushOpen?.();return;
+    }
     var route=model.route(data.route);
     var allowed=['dashboard','notifications','todo','transfer','employees','recruitment','disciplinary','leave','uniform','meeting','reports'];
     if(allowed.indexOf(route)===-1)route='notifications';

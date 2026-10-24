@@ -107,6 +107,7 @@ document.addEventListener('keydown',function(e){var x=document.getElementById('m
 
 (function(){
 'use strict';
+if(window.MG_SIMPLE_NOTIFICATIONS)return;
 if(window.__mgNotificationUxPhase6)return;window.__mgNotificationUxPhase6=true;
 function esc(v){return typeof escapeHtml==='function'?escapeHtml(v):String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function find(id){return (window.NOTIFICATIONS||[]).find(function(x){return String(x.id)===String(id);});}
@@ -132,6 +133,7 @@ if(previousComplete)window.mgBackendNotifComplete=async function(id){try{return 
  * With migrations pending, show Staged/Unavailable; never simulate a live toggle. */
 (function(){
 'use strict';
+if(window.MG_SIMPLE_NOTIFICATIONS)return;
 if(window.__mgNotificationPolicyPanel)return;
 window.__mgNotificationPolicyPanel=true;
 var P={base:null,draft:null,loading:false,saving:false,unavailable:false,problem:'',opening:0};

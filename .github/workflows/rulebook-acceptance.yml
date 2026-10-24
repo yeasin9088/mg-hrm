@@ -61,6 +61,8 @@ jobs:
         run: npx playwright install chromium --only-shell
       - name: Compact To-Do at six viewports with confirmed-save actions
         run: node tests/todo-compact-browser.mjs
+      - name: Simple notification settings and interactive actions at six viewports
+        run: node tests/notification-simple-browser.mjs
       - run: git diff --check
       - uses: actions/upload-artifact@v4
         if: always()
@@ -69,3 +71,4 @@ jobs:
           path: |
             artifacts/rulebook-acceptance/
             artifacts/todo-compact/
+            artifacts/notification-simple/

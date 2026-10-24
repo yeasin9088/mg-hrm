@@ -188,6 +188,11 @@
       "version": "20261024111642",
       "name": "simple_read_aware_reminders",
       "sha256": "c8a027ecdfb9fa9097c96456f3f31193546c2610468faaac17eab2e505b0e611"
+    },
+    {
+      "version": "20261024113123",
+      "name": "rebase_reminders_after_hours_change",
+      "sha256": "8388d0347cb934c99d68b0688c27c9c9f961096e73c49916798f94d9557cc4bb"
     }
   ]
 }

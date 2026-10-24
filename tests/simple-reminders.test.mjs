@@ -19,6 +19,7 @@ before(async()=>{
  INSERT INTO auth.users(id) VALUES('${operator}'); INSERT INTO public.profiles(id,role,is_active) VALUES('${operator}','admin',true);
  SELECT set_config('request.jwt.claims','{"sub":"${operator}"}',false);`);
  await engine.exec(await read('supabase/migrations/20261024111642_simple_read_aware_reminders.sql'));
+ await engine.exec(await read('supabase/migrations/20261024113123_rebase_reminders_after_hours_change.sql'));
 });
 after(()=>engine.close());
 async function fixture(){
@@ -83,4 +84,13 @@ test('settings save has revision protection and keeps only approved simple contr
  const saved=(await one('select public.notification_simple_settings_save($1,$2) p',[revision,{office_start:'00:00',office_end:'00:00',notification_enabled:true}])).p;
  assert.equal(saved.revision,Number(revision)+1);
  await engine.exec('SAVEPOINT stale');await assert.rejects(q('select public.notification_simple_settings_save($1,$2)',[revision,{office_start:'01:00'}]),/another device/);await engine.exec('ROLLBACK TO SAVEPOINT stale');
+}));
+
+test('switching to 24-hour delivery rebases old office-clamped timers without acknowledging unread work',()=>scenario(async()=>{
+ await q("update notification_private.simple_reminder_policy set office_start='09:00',office_end='18:00'");
+ const id=await notice();await q("select public.notification_todo_action($1,'read')",[id]);
+ await q("update public.todos set next_reminder_at=now()+interval '7 days' where id=900");
+ const revision=(await one('select public.notification_simple_settings_read() p')).p.revision;
+ await q('select public.notification_simple_settings_save($1,$2)',[revision,{office_start:'00:00',office_end:'00:00'}]);
+ assert(Math.abs(new Date((await one('select next_reminder_at from public.todos where id=900')).next_reminder_at)-Date.now()-3600000)<5000);
 }));

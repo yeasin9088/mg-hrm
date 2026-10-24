@@ -6,4 +6,3 @@ DO $$ DECLARE body text; BEGIN
  EXECUTE body;
 END $$;
 COMMIT;
-

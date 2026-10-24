@@ -78,4 +78,3 @@ REVOKE ALL ON FUNCTION public.notification_test_device_push(bigint) FROM PUBLIC,
 GRANT EXECUTE ON FUNCTION public.notification_test_device_push(bigint) TO authenticated;
 NOTIFY pgrst,'reload schema';
 COMMIT;
-

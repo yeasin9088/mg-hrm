@@ -197,12 +197,12 @@
     {
       "version": "20261024120948",
       "name": "repair_device_push_registration",
-      "sha256": "4f1e8cca90015ecb0251df8fe2bb5974304d6f1874619ffa1de3e17f9a57431a"
+      "sha256": "bc184c7f1e7d31df6475d655ae1022e812c57a89d09f79add5c9361843774804"
     },
     {
       "version": "20261024121149",
       "name": "isolate_manual_device_push_test",
-      "sha256": "6f835c23f48ac8e877c0e673381f6047ac7a0a3aa2f6c49e9f849e4c5db8f128"
+      "sha256": "535e7508fb516a9b4a8ce1e1a865fe97682800bb2a6a710ade2d01b1925a3011"
     }
   ]
 }

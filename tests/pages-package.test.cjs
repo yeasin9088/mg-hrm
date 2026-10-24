@@ -7,14 +7,20 @@ const {pathToFileURL} = require('node:url');
 const root = path.resolve(__dirname, '..');
 const builder = () => import(pathToFileURL(path.join(root, 'scripts/build-pages.mjs')).href);
 
-test('Pages package contains only unchanged runtime assets and preserves relative references', async () => {
+test('Pages package preserves runtime assets and adds only the declared PWA HTML overlay', async () => {
   const {buildPages, publicAssets} = await builder();
   // Leave temporary artifacts intact: this preparation must not delete files.
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'mghrm-pages-'));
   const output = buildPages(path.join(temporary, 'site'));
   assert.deepEqual(fs.readdirSync(output).sort(), [...publicAssets].sort());
+  const {injectPwaEnhancements} = await import(pathToFileURL(path.join(root, 'scripts/pwa-inject.mjs')).href);
   for (const name of publicAssets) {
-    assert.deepEqual(fs.readFileSync(path.join(output, name)), fs.readFileSync(path.join(root, name)));
+    const original = fs.readFileSync(path.join(root, name));
+    // Only published index.html is intentionally enhanced with two static PWA assets.
+    const expected = name === 'index.html'
+      ? Buffer.from(injectPwaEnhancements(original.toString('utf8')))
+      : original;
+    assert.deepEqual(fs.readFileSync(path.join(output, name)), expected);
     assert(!/\.(sql|md|cjs|mjs)$/.test(name));
   }
   const checkReference = reference => {

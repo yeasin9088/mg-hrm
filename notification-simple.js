@@ -27,7 +27,11 @@
   button.disabled=true;output.textContent='Saving…';
   try{const saved=await rpc('notification_simple_settings_save',{p_expected_revision:settings.revision,p_changes:changes});
    if(Number(saved.revision)!==Number(settings.revision)+1)throw Error('Save was not confirmed');
-   settings=saved;cfg(saved);await window.mgRefreshReminderState?.();await window.mgLoadBackendNotifications?.();output.textContent='Saved.';
+   settings=saved;cfg(saved);
+   const savedAllDay=saved.office_start===saved.office_end;
+   document.getElementById('mgSimpleAllDay').checked=savedAllDay;
+   for(const [id,key] of [['mgSimpleStart','office_start'],['mgSimpleEnd','office_end']]){const input=document.getElementById(id);input.value=saved[key];input.disabled=savedAllDay;}
+   await window.mgRefreshReminderState?.();await window.mgLoadBackendNotifications?.();output.textContent='Saved.';
   }catch(e){output.textContent='Not saved: '+e.message;}finally{button.disabled=false;}
  };
  // The server supplies the same schedule used for delivery; no browser clock writes.

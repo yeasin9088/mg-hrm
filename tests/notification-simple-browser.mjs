@@ -49,6 +49,10 @@ try{for(const width of [320,360,390,768,1024,1440]){
  assert.equal(await page.locator('#modal').getByText(/quota|P3|Intelligent Notification|lease/i).count(),0);
  await page.locator('#mgSimpleAllDay').check();await page.locator('#mgSimpleSave').click();
  await page.getByText('Saved.',{exact:true}).waitFor();assert.equal(await page.evaluate(()=>__revision),2);
+ await page.locator('#mgSimpleAllDay').uncheck();await page.locator('#mgSimpleStart').fill('06:00');await page.locator('#mgSimpleEnd').fill('06:00');await page.locator('#mgSimpleSave').click();
+ await page.waitForFunction(()=>__revision===3&&document.getElementById('mgSimpleAllDay').checked);
+ assert(await page.locator('#mgSimpleStart').isDisabled());
+
  await page.evaluate(()=>{closeModal();__notice.status='Ready';__notice.read_at=null;MG_BACKEND_NOTIFICATIONS=[{...__notice}];document.getElementById('page-notifications').classList.add('active');mgRebuildNotificationView();});
  await page.waitForFunction(()=>__notice.status==='Read'&&__seenCalls===1);
  const nextAfterVisit=await page.evaluate(()=>__task.next_reminder_at);

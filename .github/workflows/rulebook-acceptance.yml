@@ -59,8 +59,8 @@ jobs:
       - name: Install Chromium
         timeout-minutes: 4
         run: npx playwright install chromium --only-shell
-      - name: Six viewports, visible labels, offline reload and conflict
-        run: node tests/notification-workflow-browser.mjs
+      - name: Compact To-Do at six viewports with confirmed-save actions
+        run: node tests/todo-compact-browser.mjs
       - run: git diff --check
       - uses: actions/upload-artifact@v4
         if: always()
@@ -68,4 +68,4 @@ jobs:
           name: rulebook-69-acceptance-evidence
           path: |
             artifacts/rulebook-acceptance/
-            artifacts/notification-workflow/
+            artifacts/todo-compact/

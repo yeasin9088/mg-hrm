@@ -27,9 +27,61 @@
   button.disabled=true;output.textContent='Saving…';
   try{const saved=await rpc('notification_simple_settings_save',{p_expected_revision:settings.revision,p_changes:changes});
    if(Number(saved.revision)!==Number(settings.revision)+1)throw Error('Save was not confirmed');
-   settings=saved;cfg(saved);output.textContent='Saved.';
+   settings=saved;cfg(saved);await window.mgRefreshReminderState?.();await window.mgLoadBackendNotifications?.();output.textContent='Saved.';
   }catch(e){output.textContent='Not saved: '+e.message;}finally{button.disabled=false;}
  };
+ // The server supplies the same schedule used for delivery; no browser clock writes.
+ let refreshing=null,seenBusy=false,seenTimer=null,seenRetryAt=0;
+ window.MG_REMINDER_STATES={};
+ function inboxVisible(){
+  return !document.hidden&&!document.querySelector('.modal-back.open,.mg-ns-backdrop.open')&&
+   (document.getElementById('page-notifications')?.classList.contains('active')||document.getElementById('notifDropdown')?.classList.contains('open'));
+ }
+ window.mgRefreshReminderState=function(){
+  if(refreshing)return refreshing;
+  refreshing=(async()=>{
+   try{
+    const result=await rpc('notification_reminder_state');if(!result?.settings||!Array.isArray(result.todos))return false;
+    cfg(result.settings);window.MG_REMINDER_STATES={};
+    for(const row of result.todos){
+     window.MG_REMINDER_STATES[String(row.id)]=row.state;
+     const task=window.DATA?.todos?.find(t=>String(t.id)===String(row.id));
+     if(task){task.next_reminder_at=row.next_reminder_at;task.reminder_enabled=row.reminder_enabled;}
+    }
+    if(typeof renderTodo==='function')renderTodo();return true;
+   }catch{return false;}finally{refreshing=null;}
+  })();return refreshing;
+ };
+ window.mgReminderTimeText=function(t){
+  const state=window.MG_REMINDER_STATES[String(t.id)];
+  if(window.MG_TD_CFG?.master===false||state==='paused')return 'Notifications off';
+  if(state==='unseen')return 'Next: after seen';
+  const due=t.next_reminder_at&&new Date(t.next_reminder_at);
+  if(due&&Number.isFinite(due.getTime())){
+   if(due.getTime()<=Date.now())return 'Reminder due';
+   return 'Next: '+new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Dhaka',day:'numeric',month:'short',hour:'numeric',minute:'2-digit',hour12:true}).format(due);
+  }
+  return state==='off'?'Reminder off':state==='queued'?'Reminder queued':'Checking reminder time…';
+ };
+ window.mgAutoSeenNotifications=function(){
+  clearTimeout(seenTimer);
+  if(!inboxVisible()||seenBusy||Date.now()<seenRetryAt)return;
+  if(!(window.NOTIFICATIONS||[]).some(n=>window.NotificationModel?.unread(n)))return;
+  seenTimer=setTimeout(async()=>{
+   if(!inboxVisible()||seenBusy)return;seenBusy=true;
+   try{if(await window.markAllNotifsAsRead?.()===false)throw Error('Seen was not saved');await window.mgRefreshReminderState();}
+   catch{seenRetryAt=Date.now()+5000;}finally{seenBusy=false;}
+  },150);
+ };
+ const loadInbox=window.mgLoadBackendNotifications;
+ window.mgLoadBackendNotifications=async function(){const rows=await loadInbox?.();await window.mgRefreshReminderState();window.mgAutoSeenNotifications();return rows;};
+ for(const name of ['renderNotifications','renderNotifDropdown']){
+  const render=window[name];window[name]=function(){const result=render?.apply(this,arguments);window.mgAutoSeenNotifications();return result;};
+ }
+ if(typeof MutationObserver!=='undefined'){
+  const observer=new MutationObserver(()=>window.mgAutoSeenNotifications());
+  for(const id of ['page-notifications','notifDropdown']){const el=document.getElementById(id);if(el)observer.observe(el,{attributes:true,attributeFilter:['class']});}
+ }
  window.mgTestDevicePush=async function(button){
   const output=document.getElementById('mgSimpleResult');button.disabled=true;
   try{
@@ -84,7 +136,8 @@
  const displayed=new Set();
  try{for(const id of JSON.parse(sessionStorage.getItem('mg-simple-displayed')||'[]'))displayed.add(id);}catch{}
  function popups(){
-  if(document.hidden||window.MG_TD_CFG?.master===false||window.MG_TD_CFG?.toast===false)return;
+  if(inboxVisible()||window.MG_TD_CFG?.master===false||window.MG_TD_CFG?.toast===false){document.getElementById('mgSimplePopups')?.replaceChildren();return;}
+  if(document.hidden)return;
   const rows=(window.NOTIFICATIONS||[]).filter(n=>n.isBackend&&n.entityType==='todo'&&window.NotificationModel?.unread(n));
   let host=document.getElementById('mgSimplePopups');
   if(!host){host=document.createElement('section');host.id='mgSimplePopups';host.className='mg-simple-popups';host.setAttribute('aria-label','Reminders');document.body.appendChild(host);}
@@ -101,6 +154,6 @@
   }
  }
  const rebuild=window.mgRebuildNotificationView;
- window.mgRebuildNotificationView=function(){const result=rebuild?.();popups();return result;};
- document.addEventListener('visibilitychange',()=>{if(!document.hidden)popups();});
+ window.mgRebuildNotificationView=function(){const result=rebuild?.();popups();window.mgAutoSeenNotifications();return result;};
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden){popups();window.mgAutoSeenNotifications();}});
 })();

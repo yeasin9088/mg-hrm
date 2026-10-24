@@ -26,3 +26,15 @@ Granted browsers now reconcile their subscription on sign-in, app resume and rec
 Settings include **Test device push**, which queues a fixed, non-sensitive test for the current registered device. This explicit diagnostic works outside reminder hours and in the foreground, with ownership checks and a one-minute rate limit. Queued/provider-accepted status does not claim that the OS displayed it. Browser/OS permission still requires the device owner's interaction when blocked.
 
 Migrations: `20261024120948_repair_device_push_registration.sql` and `20261024121149_isolate_manual_device_push_test.sql`; sender v10; service worker v56. Validation covers expired endpoint renewal, permission and manual-revocation behavior, one-time unread backfill, preview content and capabilities, per-device test authorization, office-hour bypass for diagnostics, and six responsive browser widths.
+
+## Authoritative timing and automatic Seen — 25 October 2026
+
+The reported 18:20/18:22 times came from client-computed reminder edits outside the configured 09:00–18:00 window. The scheduler correctly stopped outside that window, but those writes were not clamped and the cards did not refresh server scheduling state.
+
+A server-owned natural due time now preserves the interval separately from the effective delivery time. Database guards normalize edits and reject stale browser clock writes. Settings immediately reconcile every owned actionable reminder, including first reminders without read history; equal endpoints mean 24 hours, overnight and limited windows work, and master Off pauses without losing the natural clock. Re-enabling releases due work once. The visible global settings are authoritative over obsolete category and quiet-hour overrides. Pending delivery is deferred while disabled instead of discarded.
+
+Opening the notification page or bell panel automatically persists Seen for the inbox. Refresh acknowledges newly arrived items without resetting already-seen intervals. Remaining on an actually visible inbox also acknowledges newly rendered notifications; background polling elsewhere does not. Cadence edits preserve an outstanding unseen occurrence. Existing Complete and background device actions remain supported.
+
+To-Do cards refresh server times after saves, inbox refreshes and device actions. Labels distinguish the next scheduled time, waiting for Seen, queued/due reminders and notifications Off. Reminder saves merge the returned database row rather than keeping an optimistic client-computed time.
+
+Applied migration: `20261024201313_authoritative_reminder_timing.sql`. Service worker v57. Validation includes a scheduling matrix for windows, Off/On, first occurrence, repeat suppression, Seen idempotence, cadence changes and deferred delivery; six viewport browser coverage for panel visit/refresh, actions and settings; live transaction-rollback checks; and the repository regression suite. Routine scheduling uses the existing one-minute cron. Provider acceptance still does not establish physical OS display.

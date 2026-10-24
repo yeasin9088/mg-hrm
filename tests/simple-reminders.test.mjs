@@ -22,6 +22,7 @@ before(async()=>{
  await engine.exec(await read('supabase/migrations/20261024113123_rebase_reminders_after_hours_change.sql'));
  await engine.exec(await read('supabase/migrations/20261024120948_repair_device_push_registration.sql'));
  await engine.exec(await read('supabase/migrations/20261024121149_isolate_manual_device_push_test.sql'));
+ await engine.exec(await read('supabase/migrations/20261024201313_authoritative_reminder_timing.sql'));
 });
 after(()=>engine.close());
 async function fixture(){
@@ -126,4 +127,81 @@ test('content previews include the real note and action capability for every To-
  const job=await one("insert into public.notification_jobs(notification_id,job_type,job_status,locked_by,locked_at,run_at) values($1,'DeliverWebPush','Processing','preview-test',now(),now()) returning id",[id]);
  const preview=(await one("select public.notification_web_push_preview($1,'preview-test') result",[job.id])).result;
  assert.equal(preview.todo_note,'Synthetic task');assert.match(preview.action_token,/^[0-9a-f]{64}$/);
+}));
+
+async function saveSettings(changes){const rev=(await one('select public.notification_simple_settings_read() p')).p.revision;return (await one('select public.notification_simple_settings_save($1,$2) p',[rev,changes])).p;}
+test('client reminder edits are clamped to the window and stale next-time writes cannot override the server',()=>scenario(async()=>{
+ await q("update notification_private.simple_reminder_policy set office_start='01:00',office_end='01:01'");
+ await q("update public.todos set reminder_type='30m',reminder_interval=30,next_reminder_at=now()+interval '30 minutes' where id=900");
+ const t=await one('select reminder_due_at,next_reminder_at from public.todos where id=900');
+ assert(Math.abs(new Date(t.reminder_due_at)-Date.now()-1800000)<5000);
+ const expected=(await one('select notification_private.reminder_window($1) due',[t.reminder_due_at])).due;
+ assert.equal(String(t.next_reminder_at),String(expected));
+ await q("update public.todos set next_reminder_at=now()-interval '8 hours',status='approved' where id=900");
+ assert.equal(String((await one('select next_reminder_at from public.todos where id=900')).next_reminder_at),String(t.next_reminder_at));
+}));
+test('24-hour change releases overdue first reminders without prior read history, once only',()=>scenario(async()=>{
+ await q("update notification_private.simple_reminder_policy set office_start='01:00',office_end='01:01'");
+ await q('select notification_private.reconcile_reminder_clocks($1,clock_timestamp())',[operator]);
+ await saveSettings({office_start:'06:00',office_end:'06:00'});
+ assert.equal(Number((await one("select count(*) n from public.notification_events where entity_id='900' and event_type='TodoReminderDue'")).n),1);
+ await saveSettings({office_start:'00:00',office_end:'00:00'});
+ assert.equal(Number((await one("select count(*) n from public.notification_events where entity_id='900' and event_type='TodoReminderDue'")).n),1);
+}));
+test('off retains the natural schedule and on resumes overdue work without requiring a browser timer',()=>scenario(async()=>{
+ const before=(await one('select reminder_due_at from public.todos where id=900')).reminder_due_at;
+ await saveSettings({notification_enabled:false});
+ assert.equal((await one('select next_reminder_at from public.todos where id=900')).next_reminder_at,null);
+ assert.equal(String((await one('select reminder_due_at from public.todos where id=900')).reminder_due_at),String(before));
+ await q('select public.notification_schedule_todos(100)');
+ assert.equal((await one('select next_reminder_at from public.todos where id=900')).next_reminder_at,null);
+ assert.equal((await one('select public.notification_reminder_state() p')).p.todos[0].state,'paused');
+ await saveSettings({notification_enabled:true});
+ assert.equal(Number((await one("select count(*) n from public.notification_events where entity_id='900' and event_type='TodoReminderDue'")).n),1);
+}));
+test('eight-hour, overnight and equal-endpoint windows honor exact boundary times',()=>scenario(async()=>{
+ await q("update notification_private.simple_reminder_policy set office_start='06:00',office_end='14:00'");
+ assert.equal(new Date((await one("select notification_private.reminder_window('2026-10-25T08:00Z') due")).due).toISOString(),'2026-10-26T00:00:00.000Z');
+ await q("update notification_private.simple_reminder_policy set office_start='22:00',office_end='06:00'");
+ assert.equal(new Date((await one("select notification_private.reminder_window('2026-10-25T00:00Z') due")).due).toISOString(),'2026-10-25T16:00:00.000Z');
+ await q("update notification_private.simple_reminder_policy set office_start='06:00',office_end='06:00'");
+ assert.equal(new Date((await one("select notification_private.reminder_window('2026-10-25T00:00Z') due")).due).toISOString(),'2026-10-25T00:00:00.000Z');
+}));
+test('viewing the inbox acknowledges all once and starts each source interval without later refresh postponing it',()=>scenario(async()=>{
+ const id=await notice();await q('select public.notification_mark_all_read()');
+ const first=await one('select next_reminder_at from public.todos where id=900');
+ assert(Math.abs(new Date(first.next_reminder_at)-Date.now()-3600000)<5000);
+ await q('select public.notification_mark_all_read()');
+ assert.equal(String((await one('select next_reminder_at from public.todos where id=900')).next_reminder_at),String(first.next_reminder_at));
+ assert((await one('select read_at from public.notifications where id=$1',[id])).read_at);
+}));
+test('master off defers queued push without cancelling or consuming the unseen notification',()=>scenario(async()=>{
+ const id=await notice();await q("update public.notifications set status='Ready' where id=$1",[id]);
+ const device=(await one("select public.push_subscription_register('https://fcm.googleapis.com/off-test','key','auth') result")).result;
+ await saveSettings({notification_enabled:false});await q('select public.notification_prepare_deliveries(25)');
+ assert.equal((await one('select status from public.notifications where id=$1',[id])).status,'Ready');
+ const job=await one("update public.notification_jobs set job_status='Processing',locked_by='off-worker',locked_at=now() where notification_id=$1 returning id",[id]);
+ assert.equal((await one("select public.notification_get_web_push_dispatch($1,'off-worker') p",[job.id])).p.deferred,true);
+ assert.equal((await one('select read_at from public.notifications where id=$1',[id])).read_at,null);
+ await saveSettings({notification_enabled:true});
+ assert.equal((await one('select public.notification_reminder_state() p')).p.todos[0].state,'unseen');
+}));
+
+test('changing an interval preserves the outstanding unseen occurrence instead of cancelling and duplicating it',()=>scenario(async()=>{
+ const id=await notice();await q("update public.notifications set status='Ready' where id=$1",[id]);
+ await q("update public.todos set reminder_type='30m',reminder_interval=30 where id=900");
+ assert.equal((await one('select status from public.notifications where id=$1',[id])).status,'Ready');
+ assert.equal((await one('select next_reminder_at from public.todos where id=900')).next_reminder_at,null);
+ assert.equal((await one('select public.notification_schedule_todos(100) p')).p.events_created,0);
+ await q('select public.notification_mark_all_read()');
+ assert(Math.abs(new Date((await one('select next_reminder_at from public.todos where id=900')).next_reminder_at)-Date.now()-1800000)<5000);
+}));
+
+test('master settings override obsolete category switches and no second quiet window delays 24-hour mode',()=>scenario(async()=>{
+ await q("insert into public.notification_preferences(user_id,category,notification_enabled,quiet_hours_enabled) values($1,'ToDo',true,true)",[operator]);
+ await saveSettings({notification_enabled:false,show_content_preview:false});
+ const pref=(await one("select public.notification_effective_preference($1,'ToDo') p",[operator])).p;
+ assert.equal(pref.notification_enabled,false);assert.equal(pref.quiet_hours_enabled,false);assert.equal(pref.show_content_preview,false);
+ await saveSettings({notification_enabled:true,office_start:'06:00',office_end:'06:00'});
+ assert.equal((await one("select public.notification_effective_preference($1,'ToDo') p",[operator])).p.notification_enabled,true);
 }));

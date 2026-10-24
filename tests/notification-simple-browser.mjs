@@ -23,6 +23,7 @@ try{for(const width of [320,360,390,768,1024,1440]){
    const preferences={notification_enabled:true,system_push_enabled:true,toast_enabled:true,show_content_preview:true};
    if(name==='notification_simple_settings_read')return {data:{revision:__revision,office_start:'09:00',office_end:'18:00',preferences}};
    if(name==='notification_simple_settings_save'){if(args.p_expected_revision!==__revision)return {error:{message:'Conflict'}};__revision++;return {data:{revision:__revision,...args.p_changes,preferences}};}
+   if(name==='notification_reminder_state')return {data:{settings:{revision:__revision,office_start:'00:00',office_end:'00:00',preferences},todos:[{id:900,next_reminder_at:__task.next_reminder_at||null,reminder_enabled:__task.reminder_enabled,state:__notice.read_at?'scheduled':'unseen'}]}};
    if(name==='notification_todo_action'){
     if(args.p_action==='complete'){__task.status='solved';__task.reminder_enabled=false;__notice.status='Completed';}
     else{__notice.status='Read';__notice.read_at=new Date().toISOString();__task.next_reminder_at=new Date(Date.now()+3600000).toISOString();}
@@ -33,6 +34,7 @@ try{for(const width of [320,360,390,768,1024,1440]){
   (0,eval)(model);
   window.mgRebuildNotificationView=()=>{window.NOTIFICATIONS=MG_BACKEND_NOTIFICATIONS.map(NotificationModel.normalize);window.renderNotifications?.();};
   window.mgLoadBackendNotifications=async()=>mgRebuildNotificationView();
+  window.__seenCalls=0;window.markAllNotifsAsRead=async()=>{if(__fail)return false;__seenCalls++;if(!__notice.read_at){__notice.read_at=new Date().toISOString();__notice.status='Read';__task.next_reminder_at=new Date(Date.now()+3600000).toISOString();}MG_BACKEND_NOTIFICATIONS=[{...__notice}];await mgLoadBackendNotifications();return true;};
   window.markNotifAsRead=async()=>true;window.mgBackendNotifComplete=async()=>false;window.handleNotifClick=async()=>{};
   window.mgTryPendingPushOpen=()=>{};
   (0,eval)(ui);(0,eval)(simple);mgRebuildNotificationView();renderTodo();
@@ -47,7 +49,13 @@ try{for(const width of [320,360,390,768,1024,1440]){
  assert.equal(await page.locator('#modal').getByText(/quota|P3|Intelligent Notification|lease/i).count(),0);
  await page.locator('#mgSimpleAllDay').check();await page.locator('#mgSimpleSave').click();
  await page.getByText('Saved.',{exact:true}).waitFor();assert.equal(await page.evaluate(()=>__revision),2);
- await page.evaluate(()=>{closeModal();__notice.status='Ready';__notice.read_at=null;MG_BACKEND_NOTIFICATIONS=[{...__notice}];mgRebuildNotificationView();});
+ await page.evaluate(()=>{closeModal();__notice.status='Ready';__notice.read_at=null;MG_BACKEND_NOTIFICATIONS=[{...__notice}];document.getElementById('page-notifications').classList.add('active');mgRebuildNotificationView();});
+ await page.waitForFunction(()=>__notice.status==='Read'&&__seenCalls===1);
+ const nextAfterVisit=await page.evaluate(()=>__task.next_reminder_at);
+ await page.evaluate(()=>mgLoadBackendNotifications());
+ assert.equal(await page.evaluate(()=>__task.next_reminder_at),nextAfterVisit,'Refresh must not postpone an already-seen reminder');
+ await page.evaluate(()=>{document.getElementById('page-notifications').classList.remove('active');__notice.status='Ready';__notice.read_at=null;MG_BACKEND_NOTIFICATIONS=[{...__notice}];mgRebuildNotificationView();});
+
  await page.locator('[data-notification-action="toggle"]').click();
  assert.equal(await page.evaluate(()=>__notice.status),'Read');
  await page.evaluate(()=>{__fail=true;});

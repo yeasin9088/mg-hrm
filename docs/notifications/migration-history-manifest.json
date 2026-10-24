@@ -1,5 +1,5 @@
 {
-  "captured_at": "2026-10-24",
+  "captured_at": "2026-10-25",
   "project_ref": "enkggoozsvvkgbjeghbf",
   "migrations": [
     {
@@ -203,6 +203,11 @@
       "version": "20261024121149",
       "name": "isolate_manual_device_push_test",
       "sha256": "535e7508fb516a9b4a8ce1e1a865fe97682800bb2a6a710ade2d01b1925a3011"
+    },
+    {
+      "version": "20261024201313",
+      "name": "authoritative_reminder_timing",
+      "sha256": "bb43980c50dc52d557cda647f7929195f852a4f325bbab21b1f1b6de4d9d64f2"
     }
   ]
 }

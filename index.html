@@ -18884,7 +18884,7 @@ function renderTodo(){
       const valid = due && Number.isFinite(due.getTime());
       const awaitingRead = (window.NOTIFICATIONS || []).some(function(n){return n.isBackend && n.entityType === 'todo' && String(n.ref) === String(t.id) && !n.isRead && !window.NotificationModel?.terminal(n);});
       meta.push('<span class="td-next-reminder" title="Saved reminder schedule · Asia/Dhaka">'+
-        (valid ? (due.getTime() <= Date.now() ? 'Due: ' : 'Next: ') + esc(dateTime(due)) : (awaitingRead ? 'Next: after read' : 'Next: not scheduled'))+'</span>');
+        (window.mgReminderTimeText ? esc(window.mgReminderTimeText(t)) : (valid ? (due.getTime() <= Date.now() ? 'Due: ' : 'Next: ') + esc(dateTime(due)) : (awaitingRead ? 'Next: after read' : 'Next: not scheduled')))+'</span>');
     }
     const menuButton = function(label,call,kind){
       return '<button type="button" class="td-btn '+(kind||'')+'" onclick="this.closest(\'details\').open=false;'+call+'">'+label+'</button>';
@@ -19838,10 +19838,12 @@ window.mgRmApply = function(t, patch){
     if (typeof toast === 'function') toast('Saved on this device — not synced', 'warning');
     return Promise.resolve(true);
   }
-  return window.sb.from('todos').update(patch).eq('id', t.id).select('id')
+  return window.sb.from('todos').update(patch).eq('id', t.id).select('*')
     .then(function(res){
       if (res && res.error) throw res.error;
       if (!res || !res.data || !res.data.length) throw new Error('0 rows updated');
+      Object.assign(t,res.data[0]);
+      if(window.mgRefreshReminderState)window.mgRefreshReminderState();
       return true;
     })
     .catch(function(err){

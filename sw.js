@@ -1,9 +1,9 @@
-/* MG-HRM PWA v56: public app-shell caching, safe update lifecycle, Web Push.
+/* MG-HRM PWA v57: public app-shell caching, safe update lifecycle, Web Push.
  * Cache Storage must NEVER contain HR employee records, Supabase responses,
  * credentials, authenticated API responses, POST bodies or pending writes.
  */
 'use strict';
-const CACHE = 'mghrm-v56';
+const CACHE = 'mghrm-v57';
 const CACHE_PREFIX = 'mghrm-v';
 const LOGO_URL = new URL('icon-192.png?notification-icon=v39', self.registration.scope).href;
 const BADGE_URL = new URL('notification-small-m-96.png?notification-badge=v39', self.registration.scope).href;

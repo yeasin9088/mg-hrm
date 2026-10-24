@@ -220,3 +220,6 @@
 .mg-simple-popup .mg-n-btn{font-size:11px;min-height:32px;padding:4px 7px}
 .mg-simple-popup-close{position:absolute;right:6px;top:6px;border:0;background:transparent;color:var(--text-muted);width:26px;height:26px}
 @media(pointer:coarse){.mg-simple-popup .mg-n-btn,.mg-simple-popup-close{min-height:44px;min-width:44px}}
+
+body:has(.modal-back.open,.mg-ns-backdrop.open,#mgTdModal.open) .mg-simple-popups{visibility:hidden;pointer-events:none}
+@media(pointer:coarse){.mg-simple-popup p{margin-right:44px}}

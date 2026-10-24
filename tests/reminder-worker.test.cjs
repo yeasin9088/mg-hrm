@@ -85,13 +85,13 @@ test('unsupported and permission-denied browsers do not subscribe or call push r
  assert.equal(await c.mgEnableDeviceNotifications(),'blocked');assert.equal(writes,0);
 });
 
-test('UI distinguishes one-shot, legacy daily and actual saved interval; server mode prevents browser claims',async()=>{
+test('UI distinguishes one-shot, daily and actual saved interval; server mode prevents browser claims',async()=>{
  const fs=require('node:fs'),vm=require('node:vm');const source=fs.readFileSync('index.html','utf8');
  const c=vm.createContext({Date,Intl,Promise,console});c.window=c;
  vm.runInContext(source.slice(source.indexOf('window.MG_RM_TYPE_ORDER ='),source.indexOf('window.mgRmApply =')),c);
  const now=Date.now(),t={reminder_enabled:true,status:'pending',reminder_type:'once',next_reminder_at:new Date(now-1000).toISOString()};
  assert.equal(c.mgRmNextAt(t,now),null);assert.equal(c.mgRmSummary(t),'Once now');
- assert.equal(c.mgRmSummary({...t,reminder_type:'today'}),'Daily (legacy)');
+ assert.equal(c.mgRmSummary({...t,reminder_type:'today'}),'Every day');
  assert.equal(c.mgRmSummary({...t,reminder_type:'1h',reminder_interval:30}),'every 30 min');
  let claims=0;c.MGHRM={notifications:{reminderMode:async()=>true,claimTodoReminder:async()=>{claims++;}}};
  c.MG_TD_CFG={master:true};c.DATA={todos:[t]};

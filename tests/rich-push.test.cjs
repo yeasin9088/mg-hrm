@@ -99,8 +99,8 @@ test('both branded push images are independently cached and survive an unrelated
   assert.deepEqual(requests,[logo,badge]);
   listeners.push({data:{json:()=>({title:'MG-HRM · To-Do Reminder',body:'বাংলা'})},waitUntil:p=>{pending=p;}});
   await pending;
-  assert.equal(self.shown.options.icon,logo);
-  assert.equal(self.shown.options.badge,badge);
+  assert.equal(self.shown.options.icon,'data:image/png;base64,'+fs.readFileSync('icon-192.png').toString('base64'));
+  assert.equal(self.shown.options.badge,'data:image/png;base64,'+fs.readFileSync('notification-small-m-96.png').toString('base64'));
   for(const url of [logo,badge]){
     let cached;
     listeners.fetch({request:{url,method:'GET'},respondWith:p=>{cached=p;}});
@@ -126,8 +126,8 @@ test('Android/Windows Service Worker displays safe payload and opens a cold To-D
   const sw=serviceWorker(),id='11111111-1111-4111-8111-111111111111';
   let shown=await sw.push({notification_id:id,title:'MG-HRM · To-Do Reminder',body:'বাংলা নোট',entity_type:'todo',entity_id:'42',action_route:'todo',priority:'Urgent'});
   assert.equal(shown.options.body,'বাংলা নোট');assert.equal(shown.options.requireInteraction,true);
-  assert.equal(shown.options.icon,'https://yeasinh.me/mg-hrm/icon-192.png?notification-icon=v39');
-  assert.equal(shown.options.badge,'https://yeasinh.me/mg-hrm/notification-small-m-96.png?notification-badge=v39');
+  assert.equal(shown.options.icon,'data:image/png;base64,'+fs.readFileSync('icon-192.png').toString('base64'));
+  assert.equal(shown.options.badge,'data:image/png;base64,'+fs.readFileSync('notification-small-m-96.png').toString('base64'));
   const url=new URL(await sw.click(shown));assert.equal(url.searchParams.get('notification_id'),id);
   assert.equal(url.searchParams.get('notification_route'),'todo');assert.equal(url.searchParams.get('notification_entity'),'42');
   shown=await sw.push({notification_id:'22222222-2222-4222-8222-222222222222',title:'MG-HRM · To-Do Reminder',body:'Next occurrence'});
@@ -163,4 +163,16 @@ test('cold-start click waits for the authenticated Inbox and ignores foreign rec
   context.mgTodoNotifOpen=ref=>opened.push(ref);
   context.handleNotifClick=ref=>opened.push(ref);
   context.mgTryPendingPushOpen();assert.deepEqual(opened,[id]);assert(!location.search.includes(id));
+});
+
+test('cold background reminders and manual tests retain identical brand bytes without network or cache',async()=>{
+  const sw=serviceWorker(); // fetch throws and CacheStorage has no methods
+  for(const title of ['MG-HRM · Device push test','MG-HRM · To-Do Reminder']) {
+    const shown=await sw.push({title,body:'Test',task_actions:true,action_token:'a'.repeat(64)});
+    for(const [key,file] of [['icon','icon-192.png'],['badge','notification-small-m-96.png']]) {
+      assert.match(shown.options[key],/^data:image\/png;base64,/);
+      assert.deepEqual(Buffer.from(shown.options[key].split(',')[1],'base64'),fs.readFileSync(file));
+    }
+    assert.equal(shown.options.actions.length,2);
+  }
 });

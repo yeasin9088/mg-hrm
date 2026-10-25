@@ -38,3 +38,9 @@ Opening the notification page or bell panel automatically persists Seen for the 
 To-Do cards refresh server times after saves, inbox refreshes and device actions. Labels distinguish the next scheduled time, waiting for Seen, queued/due reminders and notifications Off. Reminder saves merge the returned database row rather than keeping an optimistic client-computed time.
 
 Applied migration: `20261024201313_authoritative_reminder_timing.sql`. Service worker v58. Validation includes a scheduling matrix for windows, Off/On, first occurrence, repeat suppression, Seen idempotence, cadence changes and deferred delivery; six viewport browser coverage for panel visit/refresh, actions and settings; live transaction-rollback checks; and the repository regression suite. Routine scheduling uses the existing one-minute cron. Provider acceptance still does not establish physical OS display.
+
+## 2026-10-25 — Background notification branding
+
+The operator confirmed scheduled reminders and tray actions arrive, but Android sometimes substitutes its default bell and site initial for the logo and badge. Test and scheduled pushes share the same service-worker renderer; image URL fetching was still an external dependency despite CacheStorage precaching. Exact approved PNG bytes are now embedded in service worker v59 as data URLs, so native notification image loading needs no network/cache lookup. Payloads cannot override these assets. Existing image caching and safe update behavior remain compatible.
+
+Validation: offline/no-cache push-handler tests assert both test and scheduled paths retain exact source bytes and action buttons; Chromium offline image decoding validates 192px logo and 96px badge; CI covers these regressions. Physical Samsung tray appearance after the v59 update remains a device verification, not a claimed automated result. No database or reminder timing change.

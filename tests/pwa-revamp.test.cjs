@@ -120,7 +120,7 @@ test('skipWaiting occurs only after explicit App Center message',async()=>{
 test('Web Push notification opens precise authenticated To-Do route',async()=>{
   const sw=factory();
   await sw.event('push',{data:{json:()=>({notification_id:'11111111-1111-4111-8111-111111111111',title:'MG-HRM · To-Do Reminder',body:'বাংলা নোট',entity_type:'todo',entity_id:'42',action_route:'todo',priority:'Urgent'})}});
-  const n=sw.shown[0];assert.equal(n.options.icon,logo);assert.equal(n.options.badge,badge);
+  const n=sw.shown[0];assert.equal(n.options.icon,'data:image/png;base64,'+fs.readFileSync(path.join(root,'icon-192.png')).toString('base64'));assert.equal(n.options.badge,'data:image/png;base64,'+fs.readFileSync(path.join(root,'notification-small-m-96.png')).toString('base64'));
   assert.equal(n.options.body,'বাংলা নোট');assert.equal(n.options.requireInteraction,true);
   await sw.event('notificationclick',{notification:{data:n.options.data,close(){}}});
   const url=new URL(sw.windows[0]);assert.equal(url.searchParams.get('notification_entity'),'42');

@@ -118,7 +118,9 @@ test('creation-date fallback ignores updated_at and equal times have stable ID o
  assert.deepEqual(f.rows(),[2,3,1]);
 });
 test('synthetic note creation preserves category, pending state and existing reminder options',async()=>{
- const f=fixture([]);const writes=[];f.c.mgTdPush=async(t,keys)=>{writes.push({t,keys});return true};
+ const f=fixture([]);const writes=[];f.c.appData={insert:async(bucket,t)=>{writes.push({t});return [t]}};
+ f.c.toastSafe=()=>{};f.c.setTimeout=()=>{};
+ vm.runInContext(part('  var MG_TD_LOADING = [];', '\n  tdLoadRestore();'),f.c);
  vm.runInContext(part('window.mtQuickAddTodo = async function(event)', 'window.mtRequestSalaryNotif'),f.c);
  f.elements.tdQuickNote.value='নতুন নোট';f.elements.tdQuickCat.value='permission';f.elements.tdQuickRemindType.value='1h';
  const result=await f.c.mtQuickAddTodo();assert.equal(result.status,'pending');assert.equal(result.category,'permission');assert.equal(result.manager_status,'asked');assert.equal(result.reminder_interval,60);assert.equal(writes.length,1);assert.equal(f.elements.tdQuickNote.value,'');

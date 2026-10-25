@@ -18906,18 +18906,18 @@ function renderTodo(){
   });
 
   const loadingRowHtml = function(item){
-    if (item.phase === 'error') {
+    if (item.phase === 'error' || item.phase === 'save-error') {
       return '<div class="td-row td-loading-row is-error" style="border-left:3px solid var(--bad, #dc2626);background:var(--card);">' +
         '<button type="button" class="td-toggle t-bad" title="Translation failed">' + ICON.bad + '</button>' +
         '<div class="td-body">' +
           '<div class="td-note" style="color:var(--text);">' + esc(item.raw) + '</div>' +
           '<div class="td-meta">' +
-            '<span style="color:var(--bad, #dc2626);font-weight:700;">Translation failed</span>' +
-            '<span>·</span><span class="small-mute">Check Gemini API key in gear icon</span>' +
+            '<span style="color:var(--bad, #dc2626);font-weight:700;">' + (item.phase === 'save-error' ? 'Not saved' : 'Translation failed') + '</span>' +
+            '<span>·</span><span class="small-mute">Your text is kept here. Retry to save.</span>' +
           '</div>' +
           '<div class="td-acts" onclick="event.stopPropagation()" style="display:flex;gap:8px;margin-top:8px;">' +
             '<button type="button" class="td-btn b-primary" onclick="mtRetryLoading(\'' + esc(item.id) + '\')">' + ICON.gear + ' Retry</button>' +
-            '<button type="button" class="td-btn b-ghost" onclick="mtSaveLoadingRaw(\'' + esc(item.id) + '\')">Save original</button>' +
+            (item.task ? '' : '<button type="button" class="td-btn b-ghost" onclick="mtSaveLoadingRaw(\'' + esc(item.id) + '\')">Save original</button>') +
             '<button type="button" class="td-btn b-ghost" style="color:var(--text-muted);" onclick="mtDiscardLoading(\'' + esc(item.id) + '\')">Discard</button>' +
           '</div>' +
         '</div>' +
@@ -19234,84 +19234,17 @@ window.mtQuickAddTodo = async function(event) {
   input.style.height = 'auto';
   input.focus();
 
-  if (typeof hasBn === 'function' ? hasBn(raw) : /[\u0980-\u09FF]/.test(raw)) {
-    const d = (typeof todayISO === 'function') ? todayISO() : new Date().toISOString().slice(0, 10);
-    const nowIso = new Date().toISOString();
-
-    let uName = 'Admin';
-    try {
-      const u = (window.appData && typeof window.appData.currentUser === 'function' ? window.appData.currentUser() : null)
-             || (window.MGHRM && typeof window.MGHRM.currentUser === 'function' ? window.MGHRM.currentUser() : null);
-      if (u && (u.name || u.full_name || u.email)) uName = u.name || u.full_name || u.email;
-    } catch (e) {}
-
-    const task = {
-      id: Date.now(),
-      note_in: raw,
-      note: null,
-      note_bn: raw,
-      date: d,
-      who: uName,
-      status: 'pending',
-      source: 'direct',
-      sourceDate: d,
-      category: catVal,
-      manager_status: (catVal === 'permission' ? 'asked' : 'none'),
-      reminder_enabled: false,
-      reminder_type: null,
-      reminder_interval: null,
-      reminder_dates: [],
-      next_reminder_at: null,
-      created_at: nowIso,
-      updated_at: nowIso
-    };
-
-    DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
-    DATA.todos.unshift(task);
-
-    var remChoice = remTypeEl ? String(remTypeEl.value || '') : '';
-    if (remChoice && remChoice !== 'custom' && window.MG_RM_TYPES[remChoice]){
-      task.reminder_enabled  = true;
-      task.reminder_type     = remChoice;
-      task.reminder_interval = window.MG_RM_TYPES[remChoice].interval;
-      task.next_reminder_at  = (remChoice === 'once' || remChoice === 'today') ? nowIso : null;
-    } else if (remChoice === 'custom'){
-      if (typeof toast === 'function') toast('Open the bell on the card to pick custom dates', 'info');
-    }
-    if (remTypeEl) remTypeEl.value = '';
-
-    renderTodo();
-    if (typeof updateTodoBadge === 'function') updateTodoBadge();
-
-    try {
-      if (typeof window.mgTdPush === 'function') {
-        await window.mgTdPush(task, ['note', 'note_bn', 'date', 'who', 'status', 'source', 'sourceDate', 'category', 'manager_status', 'reminder_enabled', 'reminder_type', 'reminder_interval', 'reminder_dates', 'next_reminder_at', 'created_at', 'updated_at']);
-      } else if (typeof persist === 'function') {
-        await persist();
-      }
-      toast('Note added', 'success');
-    } catch (err) {
-      console.error('Error persisting todo:', err);
-    }
-    return task;
-  }
-
-  // Not Bengali: Translate First! Show placeholder loading card in the target section
   var qItem = {
     id: 'td_ld_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-    cat: catVal,
-    raw: raw,
-    phase: 'busy'
+    cat: catVal, raw: raw, phase: 'busy',
+    translated: /[\u0980-\u09FF]/.test(raw) ? raw : null,
+    reminder: remTypeEl ? String(remTypeEl.value || '') : ''
   };
-  window.MG_TD_LOADING = Array.isArray(window.MG_TD_LOADING) ? window.MG_TD_LOADING : [];
   window.MG_TD_LOADING.unshift(qItem);
-  if (typeof window.tdLoadSave === 'function') window.tdLoadSave();
+  window.tdLoadSave();
+  if (remTypeEl) remTypeEl.value = '';
   renderTodo();
-
-  if (typeof window.tdProcessItem === 'function') {
-    window.tdProcessItem(qItem);
-  }
-  return null;
+  return await window.tdProcessItem(qItem);
 };
 
 window.mtRequestSalaryNotif = async function(event) {
@@ -20383,7 +20316,7 @@ window.cycleTodo = window.mtToggleTodoStatus;
       }
     }catch(err){
       console.error('To-Do sync failed:', err);
-      toastSafe('Not saved to the database — check the internet connection', 'error');
+      toastSafe('Save was not confirmed by the server. Please retry; if this continues, sign in again.', 'error');
       return false;
     }
     try{ if (typeof window.persist === 'function') await window.persist(); }catch(e){}
@@ -20419,151 +20352,106 @@ window.cycleTodo = window.mtToggleTodoStatus;
   window.tdLoadSave = tdLoadSave;
   window.tdLoadRestore = tdLoadRestore;
 
+  var tdInFlight = new Set();
+  var tdLastId = Date.now();
+  async function tdInsertConfirmed(task){
+    var payload = Object.assign({}, task); delete payload.note_in;
+    var client = window.sb || (window.MGHRM && window.MGHRM.client);
+    var rows;
+    try {
+      if (window.appData && typeof window.appData.insert === 'function') {
+        rows = await window.appData.insert('todos', payload);
+      } else if (client) {
+        var result = await client.from('todos').insert([payload]).select();
+        if (result.error) throw result.error;
+        rows = result.data;
+      } else { throw new Error('Database unavailable'); }
+    } catch(err) {
+      // Retry the same ID after an uncertain response. Never overwrite an
+      // existing task: recover only our matching insert after a duplicate key.
+      if (String(err.code) !== '23505' || !client) throw err;
+      var existing = await client.from('todos').select('*').eq('id', task.id);
+      if (existing.error) throw existing.error;
+      rows = existing.data;
+      if (!Array.isArray(rows) || !rows.some(function(r){
+        return String(r.id) === String(task.id) && r.note === task.note &&
+          r.note_bn === task.note_bn && r.category === task.category;
+      })) throw new Error('Existing note could not be confirmed');
+    }
+    var row = Array.isArray(rows) && rows.find(function(r){ return String(r.id) === String(task.id); });
+    if (!row) throw new Error('Server did not confirm the new note');
+    return row;
+  }
+
   window.tdProcessItem = async function(item){
-    if (!item || !item.raw) return;
-    item.phase = 'busy';
-    tdLoadSave();
+    if (!item || !item.raw || tdInFlight.has(item.id)) return;
+    tdInFlight.add(item.id);
+    item.phase = 'busy'; tdLoadSave();
     if (typeof renderTodo === 'function') renderTodo();
-
     try {
-      var bnText = null;
-      if (typeof window.mgAITranslate === 'function') {
-        bnText = await window.mgAITranslate(item.raw);
-      }
-      if (bnText && String(bnText).trim()) {
-        bnText = String(bnText).trim();
-        var idx = MG_TD_LOADING.findIndex(function(x){ return x.id === item.id; });
-        if (idx !== -1) MG_TD_LOADING.splice(idx, 1);
-        tdLoadSave();
-
-        var d = (typeof todayISO === 'function') ? todayISO() : new Date().toISOString().slice(0, 10);
-        var nowIso = new Date().toISOString();
-        var uName = 'Admin';
-        try {
-          var u = (window.appData && typeof window.appData.currentUser === 'function' ? window.appData.currentUser() : null)
-                 || (window.MGHRM && typeof window.MGHRM.currentUser === 'function' ? window.MGHRM.currentUser() : null);
-          if (u && (u.name || u.full_name || u.email)) uName = u.name || u.full_name || u.email;
-        } catch(e) {}
-
-        var catVal = item.cat || 'note';
-        var task = {
-          id: Date.now(),
-          note_in: item.raw,
-          note: null,
-          note_bn: bnText,
-          date: d,
-          who: uName,
-          status: 'pending',
-          source: 'direct',
-          sourceDate: d,
-          category: catVal,
-          manager_status: (catVal === 'permission' ? 'asked' : 'none'),
-          created_at: nowIso,
-          updated_at: nowIso
-        };
-
-        if (window.DATA && Array.isArray(window.DATA.todos)) {
-          window.DATA.todos.unshift(task);
+      if (!item.task) {
+        if (!item.saveOriginal && !item.translated) {
+          var translated = typeof window.mgAITranslate === 'function' ? await window.mgAITranslate(item.raw) : null;
+          if (!translated || !String(translated).trim()) throw new Error('Translation unavailable');
+          item.translated = String(translated).trim(); tdLoadSave();
         }
-        if (typeof renderTodo === 'function') renderTodo();
-        if (typeof updateTodoBadge === 'function') updateTodoBadge();
-
-        try {
-          if (typeof window.mgTdPush === 'function') {
-            await window.mgTdPush(task, ['note', 'note_bn', 'date', 'who', 'status', 'source', 'sourceDate', 'category', 'manager_status', 'created_at', 'updated_at']);
-          } else if (typeof persist === 'function') {
-            await persist();
-          }
-          toastSafe('Note translated to Bengali and saved', 'success');
-        } catch(err) {
-          console.error('Error persisting todo:', err);
-        }
-      } else {
-        item.phase = 'error';
-        tdLoadSave();
-        if (typeof renderTodo === 'function') renderTodo();
-        toastSafe('Translation failed — please check Gemini API settings from the gear icon', 'error');
+        if (!MG_TD_LOADING.includes(item)) return; // discarded while translating
+        var date = (typeof todayISO === 'function') ? todayISO() : new Date().toISOString().slice(0,10);
+        var stamp = new Date().toISOString();
+        var user = window.appData && typeof window.appData.currentUser === 'function' ? window.appData.currentUser() : null;
+        var category = item.cat || 'note';
+        tdLastId = Math.max(Date.now(), tdLastId + 1);
+        item.task = {id:tdLastId, note:item.saveOriginal ? item.raw : null, note_bn:item.saveOriginal ? null : item.translated,
+          date:date, who:user && (user.name || user.full_name || user.email) || 'Admin', status:'pending',
+          source:'direct', sourceDate:date, category:category, manager_status:category === 'permission' ? 'asked' : 'none',
+          reminder_enabled:false, reminder_type:null, reminder_interval:null, reminder_dates:[], next_reminder_at:null,
+          created_at:stamp, updated_at:stamp};
+        var reminder = window.MG_RM_TYPES && window.MG_RM_TYPES[item.reminder];
+        if (reminder) Object.assign(item.task,{reminder_enabled:true,reminder_type:item.reminder,reminder_interval:reminder.interval});
+        tdLoadSave(); // preserve insert ID and translated text before network I/O
       }
-    } catch(err) {
-      console.error('Translation error:', err);
-      item.phase = 'error';
+      item.phase = 'saving'; tdLoadSave();
+      var saved = await tdInsertConfirmed(item.task);
+      window.DATA.todos = Array.isArray(window.DATA.todos) ? window.DATA.todos : [];
+      var existing = window.DATA.todos.findIndex(function(t){return String(t.id) === String(saved.id);});
+      if (existing < 0) window.DATA.todos.unshift(saved); else window.DATA.todos[existing] = saved;
+      var idx = MG_TD_LOADING.indexOf(item); if (idx >= 0) MG_TD_LOADING.splice(idx,1);
       tdLoadSave();
+      if (typeof updateTodoBadge === 'function') updateTodoBadge();
+      toastSafe(item.saveOriginal ? 'Note saved without translation' : 'Note saved', 'success');
+      if (item.reminder === 'custom') toastSafe('Use More → Reminder to choose custom dates', 'info');
+      return saved;
+    } catch(err) {
+      console.error('To-Do creation failed:', err);
+      item.phase = item.task ? 'save-error' : 'error'; tdLoadSave();
+      toastSafe(item.task ? 'Save was not confirmed. Your note is kept here — use Retry to save it.' : 'Translation failed. Retry or save the original text.', 'error');
+    } finally {
+      tdInFlight.delete(item.id);
       if (typeof renderTodo === 'function') renderTodo();
-      toastSafe('Translation failed — please check Gemini API settings from the gear icon', 'error');
     }
   };
-
   window.mtRetryLoading = function(id){
-    var item = MG_TD_LOADING.find(function(x){ return String(x.id) === String(id); });
-    if (!item) return;
-    window.tdProcessItem(item);
+    var item = MG_TD_LOADING.find(function(x){return String(x.id) === String(id);});
+    if (item) return window.tdProcessItem(item);
   };
-
   window.mtDiscardLoading = function(id){
-    var idx = MG_TD_LOADING.findIndex(function(x){ return String(x.id) === String(id); });
-    if (idx !== -1) {
-      MG_TD_LOADING.splice(idx, 1);
-      tdLoadSave();
-      if (typeof renderTodo === 'function') renderTodo();
-      toastSafe('Note discarded', 'info');
-    }
-  };
-
-  window.mtSaveLoadingRaw = async function(id){
-    var idx = MG_TD_LOADING.findIndex(function(x){ return String(x.id) === String(id); });
-    if (idx === -1) return;
-    var item = MG_TD_LOADING.splice(idx, 1)[0];
-    tdLoadSave();
-
-    var d = (typeof todayISO === 'function') ? todayISO() : new Date().toISOString().slice(0, 10);
-    var nowIso = new Date().toISOString();
-    var uName = 'Admin';
-    try {
-      var u = (window.appData && typeof window.appData.currentUser === 'function' ? window.appData.currentUser() : null)
-             || (window.MGHRM && typeof window.MGHRM.currentUser === 'function' ? window.MGHRM.currentUser() : null);
-      if (u && (u.name || u.full_name || u.email)) uName = u.name || u.full_name || u.email;
-    } catch(e) {}
-
-    var catVal = item.cat || 'note';
-    var task = {
-      id: Date.now(),
-      note_in: item.raw,
-      note: item.raw,
-      note_bn: null,
-      date: d,
-      who: uName,
-      status: 'pending',
-      source: 'direct',
-      sourceDate: d,
-      category: catVal,
-      manager_status: (catVal === 'permission' ? 'asked' : 'none'),
-      created_at: nowIso,
-      updated_at: nowIso
-    };
-
-    if (window.DATA && Array.isArray(window.DATA.todos)) {
-      window.DATA.todos.unshift(task);
-    }
+    var idx = MG_TD_LOADING.findIndex(function(x){return String(x.id) === String(id);});
+    if (idx < 0 || tdInFlight.has(MG_TD_LOADING[idx].id)) return;
+    MG_TD_LOADING.splice(idx,1); tdLoadSave();
     if (typeof renderTodo === 'function') renderTodo();
-    if (typeof updateTodoBadge === 'function') updateTodoBadge();
-
-    try {
-      if (typeof window.mgTdPush === 'function') {
-        await window.mgTdPush(task, ['note', 'note_bn', 'date', 'who', 'status', 'source', 'sourceDate', 'category', 'manager_status', 'created_at', 'updated_at']);
-      } else if (typeof persist === 'function') {
-        await persist();
-      }
-      toastSafe('Note saved without translation', 'success');
-    } catch(err) {
-      console.error('Error persisting todo:', err);
-    }
+  };
+  window.mtSaveLoadingRaw = function(id){
+    var item = MG_TD_LOADING.find(function(x){return String(x.id) === String(id);});
+    if (!item || tdInFlight.has(item.id) || item.task) return;
+    item.saveOriginal = true;
+    return window.tdProcessItem(item);
   };
 
   tdLoadRestore();
   setTimeout(function(){
     if (Array.isArray(MG_TD_LOADING) && MG_TD_LOADING.length) {
       MG_TD_LOADING.forEach(function(item){
-        if (item && item.phase === 'busy' && typeof window.tdProcessItem === 'function') {
+        if (item && (item.phase === 'busy' || item.phase === 'saving') && typeof window.tdProcessItem === 'function') {
           window.tdProcessItem(item);
         }
       });

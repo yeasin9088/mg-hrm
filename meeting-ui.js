@@ -242,5 +242,38 @@
       openTile(tile, !hasRepresentative(current.day, tile.dataset.proj));
     }
   }
-  global.MeetingAttendanceUI = {status, summarize, matches, validation, hasRepresentative, mount, refresh, setFilter, search, reviewPending, reset, requestRepresentative, representativeSaved, toggleDetails};
+  // Capture immediately before DOM replacement, not when the tab is hidden.
+  // This also preserves manual scrolling performed after returning to the app.
+  function captureViewport(iso) {
+    const page = byId('page-meeting');
+    if (!current || current.iso !== iso || !current.board.isConnected || !page || page.getClientRects().length === 0) return null;
+    const scrollers = [];
+    for (let node = page; node; node = node.parentElement) {
+      if (node.scrollHeight > node.clientHeight) scrollers.push({node, top:node.scrollTop, left:node.scrollLeft});
+    }
+    const tiles = [...current.board.querySelectorAll('.mt-tile')];
+    const anchor = tiles.find(tile => !tile.hidden && tile.getBoundingClientRect().bottom > 0 && tile.getBoundingClientRect().top < global.innerHeight);
+    return {iso, scrollers, x:global.scrollX, y:global.scrollY,
+      project:anchor?.dataset.proj, top:anchor?.getBoundingClientRect().top,
+      expanded:tiles.filter(tile=>tile.classList.contains('expanded')).map(tile=>tile.dataset.proj)};
+  }
+  function restoreViewport(snapshot) {
+    if (!snapshot || !current || current.iso !== snapshot.iso) return;
+    const tiles = [...current.board.querySelectorAll('.mt-tile')];
+    tiles.filter(tile=>snapshot.expanded.includes(tile.dataset.proj)).forEach(tile=>{
+      tile.classList.add('expanded');
+      const body=tile.querySelector('.mt-tile-body'); if(body) body.hidden=false;
+      tile.querySelector('.mt-details-toggle')?.setAttribute('aria-expanded','true');
+    });
+    snapshot.scrollers.forEach(({node,top,left})=>node.scrollTo({top,left,behavior:'instant'}));
+    global.scrollTo({top:snapshot.y,left:snapshot.x,behavior:'instant'});
+    const anchor=tiles.find(tile=>tile.dataset.proj===snapshot.project && !tile.hidden);
+    if (!anchor) return;
+    const delta=anchor.getBoundingClientRect().top-snapshot.top;
+    // Prefer the nearest actual scrolling container; otherwise scroll the window.
+    const inner=snapshot.scrollers.find(({node})=>node!==document.scrollingElement && node!==document.body);
+    if(inner) inner.node.scrollTop+=delta;
+    else global.scrollTo({top:global.scrollY+delta,left:snapshot.x,behavior:'instant'});
+  }
+  global.MeetingAttendanceUI = {captureViewport, restoreViewport, status, summarize, matches, validation, hasRepresentative, mount, refresh, setFilter, search, reviewPending, reset, requestRepresentative, representativeSaved, toggleDetails};
 })(typeof window !== 'undefined' ? window : globalThis);

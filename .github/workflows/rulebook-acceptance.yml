@@ -63,6 +63,8 @@ jobs:
         run: node tests/todo-compact-browser.mjs
       - name: Simple notification settings and interactive actions at six viewports
         run: node tests/notification-simple-browser.mjs
+      - name: Attendance refresh preserves scroll position
+        run: node tests/meeting-scroll-browser.mjs
       - name: Decode notification brand images offline
         run: node tests/notification-brand-browser.mjs
       - run: git diff --check

@@ -17206,6 +17206,7 @@ window.mtToggleCalendar = function() {
 };
 
 function renderMeeting(){
+  const meetingViewport = MeetingAttendanceUI.captureViewport(MT_SELECTED_DATE);
   const page = document.getElementById('page-meeting');
   const today = MT_SELECTED_DATE;
   const realToday = todayISO();
@@ -17585,6 +17586,7 @@ function renderMeeting(){
     </div>
   `;
   MeetingAttendanceUI.mount(today, rec || d, projNames, !!window.mtAttendanceEdits[today]?.original);
+  MeetingAttendanceUI.restoreViewport(meetingViewport);
   updateMeetingBadge();
   if (isCountdownState) {
     mtInitCountdownTimer(today);

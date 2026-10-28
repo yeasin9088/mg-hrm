@@ -10017,8 +10017,37 @@ function projStaffCount(name){
   }).length;
 }
 
+window.PROJECT_VIEW_SCOPE = window.PROJECT_VIEW_SCOPE || 'active';
+function projectManagementRows(projects, scope){
+  return (projects || []).filter(p => !p.deleted_at && (scope === 'all' || (scope === 'closed' ? !isProjectActive(p) : isProjectActive(p))));
+}
+function setProjectViewScope(scope){
+  window.PROJECT_VIEW_SCOPE = ['active','closed','all'].includes(scope) ? scope : 'active';
+  updateProjectsTableUI();
+}
+function projectCsv(scope){
+  const rows = projectManagementRows(DATA.projects, scope === 'all' ? 'all' : 'active');
+  const escape = value => {
+    let text = String(value == null ? '' : value);
+    if (/^[\s]*[=+@-]/.test(text)) text = "'" + text;
+    return '"' + text.replace(/"/g, '""') + '"';
+  };
+  const header = ['ID','Project','Project (Bangla)','Status','Admin','Phone','Address','Active staff'];
+  const body = rows.map(p => [p['Project ID'] ?? p.id, p.ProjectName || p.project_name, p.ProjectNameBangla || p.project_name_bn,
+    isProjectActive(p) ? 'Active' : 'Closed', p['Admin Name'] || p.admin_name, p['Admin Phone Num'] || p.admin_phone,
+    p.Address || p.address || p.AddressBangla || p.address_bn, projStaffCount(p.ProjectName || p.project_name)]);
+  return '\uFEFF' + [header,...body].map(row=>row.map(escape).join(',')).join('\r\n');
+}
+function exportProjectsCsv(scope){
+  const url = URL.createObjectURL(new Blob([projectCsv(scope)], {type:'text/csv;charset=utf-8'}));
+  const link = document.createElement('a'); link.href = url;
+  link.download = 'projects_' + (scope === 'all' ? 'with_closed' : 'active') + '.csv';
+  document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  const menu=document.getElementById('projectCsvMenu');if(menu)menu.open=false;
+}
 function renderProjectsTableRows(projects) {
-  projects = projects.filter(isProjectActive);
+  projects = projectManagementRows(projects, window.PROJECT_VIEW_SCOPE);
   if (!projects || projects.length === 0) {
     return `<tr>
       <td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">
@@ -10171,13 +10200,26 @@ async function renderProjects(){
   const closed = total - active;
 
   page.innerHTML = `
-    <div class="card">
+    <div class="card" style="overflow:visible">
       <div class="card-header">
         <h3>Client Projects / Duty Points
           <span class="chip" id="projActiveCountChip" style="margin-left:8px">Active: ${num(active)}</span>
           <span class="chip" id="projClosedCountChip" style="background:#fee2e2;color:#991b1b;margin-left:4px;${closed ? '' : 'display:none'}">Closed: ${num(closed)}</span>
         </h3>
-        <button class="btn primary sm" onclick="openProjectForm()">${ico('plus')} Add New Project</button>
+        <div class="btn-row" style="flex-wrap:wrap;gap:8px">
+          <label class="small-mute">Show <select aria-label="Project status filter" onchange="setProjectViewScope(this.value)">
+            <option value="active" ${window.PROJECT_VIEW_SCOPE === 'active' ? 'selected' : ''}>Active projects</option>
+            <option value="closed" ${window.PROJECT_VIEW_SCOPE === 'closed' ? 'selected' : ''}>Closed / inactive projects</option>
+            <option value="all" ${window.PROJECT_VIEW_SCOPE === 'all' ? 'selected' : ''}>All projects</option>
+          </select></label>
+          <details id="projectCsvMenu" style="position:relative"><summary class="btn sm">Export CSV ▾</summary>
+            <div class="card" style="position:absolute;right:0;top:100%;z-index:20;min-width:210px;padding:8px;display:grid;gap:6px">
+              <button type="button" class="btn ghost sm" onclick="exportProjectsCsv('active')">Only active projects</button>
+              <button type="button" class="btn ghost sm" onclick="exportProjectsCsv('all')">With closed projects</button>
+            </div>
+          </details>
+          <button class="btn primary sm" onclick="openProjectForm()">${ico('plus')} Add New Project</button>
+        </div>
       </div>
       <div class="table-wrap">
         <table>
@@ -10526,8 +10568,9 @@ async function reopenProject(pid){
       if(!sbClient) throw new Error('Database not connected');
       const targetId = p.id || p['Project ID'];
       
-      const { error: projErr } = await sbClient.from('projects').update({ status: 'Active', is_active: true }).eq('id', targetId);
+      const { data: reopened, error: projErr } = await sbClient.from('projects').update({ status: 'Active', is_active: true }).eq('id', targetId).select('id');
       if(projErr) throw projErr;
+      if (!Array.isArray(reopened) || !reopened.some(row=>String(row.id)===String(targetId))) throw new Error('Server did not confirm reopening');
       
       // Update local project object immediately
       p.Status = 'Active';

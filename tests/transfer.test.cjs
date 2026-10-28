@@ -79,6 +79,7 @@ test('transfer filters use rescheduled date and retain searchable history', () =
       {id:2,FullName:'Rahim',CurrentProject:'B',NewProject:'C',TransferDate:'2026-10-01',effective_date:'2026-11-01',status:'Completed'},
       {id:3,FullName:'Karim',CurrentProject:'A',NewProject:'B',effective_date:'2026-10-22',status:'Cancelled'}
     ]},
+    projectRecordVisible:()=>true,
     findEmpByAction:()=>null
   };
   vm.createContext(context);
@@ -112,6 +113,7 @@ test('joining confirmation changes no local project before verified server compl
     logActivity:()=>{}
   };
   vm.createContext(context);
+  context.projectVisibilityData=x=>x;if(!context.window)context.window=context;
   vm.runInContext(html.slice(start,end),context);
   await context.confirmTransferJoined(1,'2026-10-21','');
   assert.equal(employee.ProjectName,'Source');
@@ -139,6 +141,7 @@ test('project movement counts only confirmed actual joins, never scheduled desti
     reportInRange:()=>true
   };
   vm.createContext(context);
+  context.projectVisibilityData=x=>x;if(!context.window)context.window=context;
   vm.runInContext(html.slice(start,end),context);
   const summary=context.getWorkforceSummaryData();
   assert.equal(summary.completed,2);

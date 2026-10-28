@@ -8,6 +8,7 @@
  function clear(){generation++;visible=false;records=[];context=null;}
  function day(ms){const d=new Date(ms);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
  function matches(r){
+  if(g.projectRecordVisible && !g.projectRecordVisible(r))return false;
   const s=r.settlement,b=M.balances(s);
   if(outcome==='unrecorded'&&s||outcome==='deposit_pending'&&(!b||b.depositPending<=0)||outcome==='outstanding'&&(!b||b.outstanding<=0))return false;
   if(outcome&&!['unrecorded','deposit_pending','outstanding'].includes(outcome)&&s?.outcome!==outcome)return false;

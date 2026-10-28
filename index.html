@@ -5925,6 +5925,7 @@ function renderEmpTable(){
   const deSel   = mgEmpFiltGet('desig');
   const st   = document.getElementById('empStatusFilter')?.value;
   const rows = senioritySort(DATA.employees.filter(e=>{
+    if (!projectRecordVisible(e)) return false;
     if(projSel.length && projSel.indexOf(e.ProjectName) === -1) return false;
     if(deSel.length && deSel.indexOf(e.Designation) === -1) return false;
     if(st && st !== 'All'){
@@ -7116,7 +7117,7 @@ function projectNameAZ(a,b){
 }
 function projectNamesAZ(values){ return values.slice().sort(projectNameAZ); }
 // Existing employee filter callers retain their original signature.
-function usageSortedProjects(values, counts){ return projectNamesAZ(values); }
+function usageSortedProjects(values, counts){ return projectNamesAZ(values.filter(isProjectNameActive)); }
 
 const DESIG_RANK = {
   'Security Officer':0, 'Security Inspector':1,
@@ -9451,17 +9452,24 @@ function isProjectNameActive(name){
 window.isProjectNameActive = isProjectNameActive;
 
 function computeParade(source = DATA){
-  const projectActive = source === DATA ? isProjectNameActive : name => {
-    const match = source.projects.find(p => [p.project_name,p.project_name_bn,String(p.id)].includes(name));
-    return !!match && isProjectActive(match);
-  };
+  const normalize = value => String(value == null ? '' : value).trim().toLowerCase().replace(/\s+/g, ' ');
+  const projects = (source.projects || []).filter(p => !p.deleted_at && isProjectActive(p));
+  const aliases = new Map();
+  projects.forEach(p => {
+    const name = p.ProjectName || p.project_name;
+    if (!name) return;
+    [name, p.ProjectNameBangla, p.project_name_bn, p['Project ID'], p.id].forEach(alias => {
+      if (alias != null && normalize(alias)) aliases.set(normalize(alias), name);
+    });
+  });
+  const canonical = name => aliases.get(normalize(name));
   const activeByProj = {};
   (source.employees || []).filter(e => {
     const st = String(e.Status || e.status || '').trim().toLowerCase();
-    return st === 'active' || !st;
+    return !e.deleted_at && (st === 'active' || !st);
   }).forEach(e => {
-    const p = e.ProjectName || e.project_name || '(Unassigned)';
-    if (!projectActive(p)) return; // Exclude employees of closed/inactive projects from parade state
+    const p = canonical(e.ProjectName || e.project_name);
+    if (!p) return; // Exclude employees of closed/inactive projects from parade state
     activeByProj[p] = activeByProj[p] || {Incharge:0,Supervisor:0,AsstSup:0,Guard:0,Lady:0};
     const des = e.Designation || e.designation || '';
     if(des==='Security Incharge') activeByProj[p].Incharge++;
@@ -9471,16 +9479,17 @@ function computeParade(source = DATA){
     else if(des==='Lady Guard') activeByProj[p].Lady++;
   });
 
-  const validDemand = (source.demand || []).filter(d => {
-    if (d.is_active === false || d.is_active === 'false' || d.is_active === 0) return false;
-    const st = String(d.Status || d.status || '').trim().toLowerCase();
-    if (st === 'closed' || st === 'inactive') return false;
-    const p = d.ProjectName || d.project_name;
-    return projectActive(p);
+  const demandByProject = new Map();
+  (source.demand || []).forEach(d => {
+    if (d.deleted_at || d.is_active === false || d.is_active === 'false' || d.is_active === 0) return;
+    if (['closed','inactive'].includes(normalize(d.Status || d.status))) return;
+    const name = canonical(d.ProjectName || d.project_name);
+    if (name && !demandByProject.has(name)) demandByProject.set(name, d);
   });
-
-  return validDemand.map(d => {
-    const p = d.ProjectName || d.project_name;
+  // Project membership belongs to the active project register, independently
+  // of meeting scope and whether manpower demand has been configured.
+  return [...new Set(projects.map(p => p.ProjectName || p.project_name).filter(Boolean))].map(p => {
+    const d = demandByProject.get(p) || {};
     const a = activeByProj[p] || {Incharge:0,Supervisor:0,AsstSup:0,Guard:0,Lady:0};
 
     const originalSupervisorDemand = +(d.DemandSecuritySupervisor || d.demand_supervisor || 0);
@@ -9502,8 +9511,8 @@ function computeParade(source = DATA){
     };
     const demandTotal = demand.Incharge + demand.Supervisor + demand.AsstSup + demand.Guard + demand.Lady;
     const actualTotal = a.Incharge + a.Supervisor + a.AsstSup + a.Guard + a.Lady;
-    return {project: p, demand, actual: a, demandTotal, actualTotal};
-  }).filter(r => r.demandTotal > 0)
+    return {project: p, demand, actual: a, demandTotal, actualTotal, demandConfigured: demandByProject.has(p)};
+  })
     .map((r, i) => Object.assign(r, {idx: i + 1}));
 }
 window.computeParade = computeParade;
@@ -9710,6 +9719,12 @@ function psRenderTable(){
 
   const statsEl = document.getElementById('psStats');
   if (statsEl) statsEl.innerHTML = psStatsHtml(all, rows, totD, totA);
+  const missingDemand = all.filter(r => !r.demandConfigured);
+  const demandNotice = document.getElementById('psDemandNotice');
+  if (demandNotice) {
+    demandNotice.hidden = !missingDemand.length;
+    demandNotice.textContent = missingDemand.length + ' active project(s) have no manpower demand configured: ' + missingDemand.map(r => r.project).join(', ') + '. Actual staff are included; demand is shown as 0 until configured.';
+  }
 
   const area = document.getElementById('psTableArea');
   if (area) area.innerHTML = (window.PS_VIEW === 'detail')
@@ -9733,6 +9748,7 @@ function renderParade(){
     + '</div>'
 
     + '<div class="ps-stats" id="psStats"></div>'
+    + '<p id="psDemandNotice" class="ps-note" role="status" hidden></p>'
 
     + '<div class="ps-card">'
     +   '<div class="ps-card-top">'
@@ -9953,7 +9969,7 @@ window.normProject = normProject;
 
 /* Helper: is project active? (missing Status = Active for legacy data) */
 function isProjectActive(p){
-  if (!p) return false;
+  if (!p || p.deleted_at) return false;
   if (p.is_active === false || p.is_active === 'false' || p.is_active === 0) return false;
   var st = String(p.Status || p.status || '').trim().toLowerCase();
   return !st || (st !== 'closed' && st !== 'inactive');
@@ -9961,6 +9977,23 @@ function isProjectActive(p){
 window.isProjectActive = isProjectActive;
 function activeProjects(){ return (DATA.projects || []).filter(isProjectActive); }
 window.activeProjects = activeProjects;
+// Presentation-only project scope: retain original records for persistence/history.
+function projectRecordVisible(record){
+  const fields = ['ProjectName','project_name','CurrentProject','current_project','NewProject','new_project','project_name_snapshot','project'];
+  const values = fields.map(k=>record && record[k]).filter(v=>v != null && String(v).trim());
+  if (!values.length) return true;
+  return values.every(value=>isProjectNameActive(value));
+}
+window.projectRecordVisible = projectRecordVisible;
+function projectVisibilityData(source){
+  const view = Object.assign({}, source);
+  Object.keys(view).forEach(key=>{
+    if (!Array.isArray(view[key])) return;
+    view[key] = key === 'projects' ? view[key].filter(p=>!p.deleted_at && isProjectActive(p)) : view[key].filter(projectRecordVisible);
+  });
+  return view;
+}
+
 
 /* Central resolver for Meeting Attendance Project Scope */
 function isMeetingAttendanceEligible(p){
@@ -9985,6 +10018,7 @@ function projStaffCount(name){
 }
 
 function renderProjectsTableRows(projects) {
+  projects = projects.filter(isProjectActive);
   if (!projects || projects.length === 0) {
     return `<tr>
       <td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">
@@ -10636,7 +10670,7 @@ function trProjectOptions(){
   DATA.transfers.forEach(function(t){
     if (t.NewProject) set.add(String(t.NewProject));
   });
-  return Array.from(set).sort(projectNameAZ);
+  return Array.from(set).filter(isProjectNameActive).sort(projectNameAZ);
 }
 function transferSummaryCounts(transfers, today){
   const rows = (transfers || []).filter(t=>!t.deleted_at);
@@ -10664,6 +10698,7 @@ function trFilteredRows(){
   const idq = (F.id || '').toLowerCase();
 
   return DATA.transfers.filter(function(t){
+    if (!projectRecordVisible(t)) return false;
     const e = findEmpByAction(t);
     const empId = e ? (e.id || e.EmployeeID || '') : (t.EmployeeID || '');
 
@@ -11041,7 +11076,7 @@ function editTransferOrder(tid){
   if(!guardEdit()) return;
   const t = DATA.transfers.find(x=>String(x.id)===String(tid)); if(!t) return;
   if (!['Draft','Scheduled','Joining Pending','Not Joined'].includes(String(t.status || t.Status))) return toast('This transfer cannot be edited.', 'error');
-  const opts = DATA.projects.slice().sort((a,b)=>projectNameAZ(a.ProjectName,b.ProjectName)).map(p=>'<option value="' + escapeHtml(p.ProjectName) + '"' + (p.ProjectName===t.NewProject?' selected':'') + '>' + escapeHtml(p.ProjectName) + '</option>').join('');
+  const opts = activeProjects().slice().sort((a,b)=>projectNameAZ(a.ProjectName,b.ProjectName)).map(p=>'<option value="' + escapeHtml(p.ProjectName) + '"' + (p.ProjectName===t.NewProject?' selected':'') + '>' + escapeHtml(p.ProjectName) + '</option>').join('');
   openModal('Edit Transfer Order',
     '<div class="field"><label>New Project</label><select id="_np">' + opts + '</select></div>' +
     '<p class="small-mute">Scheduled date: ' + escapeHtml(fmtDate(transferScheduledDate(t))) + '. Use Reschedule to change this date and record a reason.</p>' +
@@ -11058,7 +11093,7 @@ function saveTransferOrderEdit(tid){
   const idEl = document.getElementById('_id');
   const np = npEl ? npEl.value : '';
   const id = idEl ? idEl.value : '';
-  if(!np || !DATA.projects.some(p=>p.ProjectName===np)){ toast('Select a valid destination project','error'); return; }
+  if(!np || !activeProjects().some(p=>p.ProjectName===np)){ toast('Select a valid destination project','error'); return; }
 
   window.mtCustomConfirm('Save Transfer Order',
     'Apply these changes to this transfer record?', 'primary', async function(){
@@ -11364,7 +11399,7 @@ async function submitTransfer(){
   const iss = document.getElementById('trIssue')?.value;
   const notes = document.getElementById('trNotes')?.value;
   if(!rid||!np||!td){ toast('Fill Employee, New Project, and Date', 'error'); return; }
-  if (!DATA.projects.some(p=>p.ProjectName===np)) return toast('Select a valid destination project.', 'error');
+  if (!activeProjects().some(p=>p.ProjectName===np)) return toast('Select a valid destination project.', 'error');
 
   const btn = document.getElementById('btnSubmitTransfer') || (typeof event !== 'undefined' && event && event.target ? event.target : null);
   window.mtCustomConfirm("Confirm Transfer", "Are you sure you want to save this transfer record?", "primary", async function() {
@@ -12043,6 +12078,7 @@ function dcFilteredRows(){
   const idq = (F.id || '').toLowerCase();
 
   return DATA.disciplinary.filter(function(d){
+    if (!projectRecordVisible(d)) return false;
     const e = findEmpByAction(d);
     const empId = e ? (e.id || e.EmployeeID || '') : (d.EmployeeID || d.employee_id || '');
 
@@ -12516,6 +12552,7 @@ function banglaDisciplinaryLetter({emp, templateKey, ref, incident, issue, desc}
 DATA.leaves = Array.isArray(DATA.leaves) ? DATA.leaves : [];
 const SAMPLE_LEAVES = DATA.leaves; 
 function renderLeave(){
+  const DATA = projectVisibilityData(window.DATA);
   document.getElementById('page-leave').innerHTML = `
     <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
       ${LEAVE_TYPES.map(lt=>{
@@ -12581,6 +12618,7 @@ function renderLeave(){
   fillEmpSelect('lvEmp');
 }
 function renderLeaveCalendar(){
+  const DATA = projectVisibilityData(window.DATA);
   const now = new Date();
   const first = new Date(now.getFullYear(),now.getMonth(),1);
   const startDay = first.getDay();
@@ -12770,11 +12808,11 @@ function exProjectOptions(){
     const p = x.CurrentProject || x.ProjectName;
     if (p) set.add(String(p));
   });
-  return Array.from(set).sort(projectNameAZ);
+  return Array.from(set).filter(isProjectNameActive).sort(projectNameAZ);
 }
 
 function exBaseRows(){
-  return DATA.exits.slice().sort(function(a, b){
+  return DATA.exits.filter(projectRecordVisible).sort(function(a, b){
     const ta = new Date(a.created_at || a.IssueDate || a.issue_date || a.ExitDate || a.exit_date || 0).getTime();
     const tb = new Date(b.created_at || b.IssueDate || b.issue_date || b.ExitDate || b.exit_date || 0).getTime();
     if (ta !== tb) return tb - ta;
@@ -13138,6 +13176,7 @@ function banglaExperience(e,exitDate){
 
 /* ============ INCREMENT / PROMOTION ============ */
 function renderIncrement(){
+  const DATA = projectVisibilityData(window.DATA);
   document.getElementById('page-increment').innerHTML = `
     <div class="card">
       <div class="card-header"><h3>${'Increment / Promotion'}</h3></div>
@@ -13317,6 +13356,7 @@ function deleteCareer(cid){
 
 /* ============ SALARY (Placeholder with structure) ============ */
 function renderSalary(){
+  const DATA = projectVisibilityData(window.DATA);
   document.getElementById('page-salary').innerHTML = `
     <div class="card">
       <div class="card-header">
@@ -13391,13 +13431,13 @@ function renderReports(){
           <input id="reportDateFrom" type="date" onchange="renderReportSelected()" style="display:none;padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit">
           <input id="reportDateTo" type="date" onchange="renderReportSelected()" style="display:none;padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit">
           <select id="reportProject" onchange="renderReportSelected()" style="padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit">
-            <option value="">All Projects</option>${(DATA.projects||[]).slice().sort((a,b)=>projectNameAZ(a.ProjectName||a.project_name,b.ProjectName||b.project_name)).map(p=>`<option value="${escapeHtml(p.ProjectName||p.project_name||'')}">${escapeHtml(p.ProjectName||p.project_name||'')}</option>`).join('')}
+            <option value="">All Projects</option>${activeProjects().slice().sort((a,b)=>projectNameAZ(a.ProjectName||a.project_name,b.ProjectName||b.project_name)).map(p=>`<option value="${escapeHtml(p.ProjectName||p.project_name||'')}">${escapeHtml(p.ProjectName||p.project_name||'')}</option>`).join('')}
           </select>
           <select id="reportDesignation" onchange="renderReportSelected()" style="padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit">
             <option value="">All Designations</option>${Array.from(new Set((DATA.employees||[]).map(e=>e.Designation).filter(Boolean))).sort().map(d=>`<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('')}
           </select>
           <select id="reportEmployeeStatus" onchange="renderReportSelected()" style="padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit"><option value="">All Employee Statuses</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
-          <select id="reportProjectScope" onchange="renderReportSelected()" style="padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit"><option value="all">All Projects</option><option value="active">Active Projects</option><option value="inactive">Inactive / Closed Projects</option></select>
+          <select id="reportProjectScope" onchange="renderReportSelected()" style="padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit"><option value="active">Active Projects</option></select>
         </div>
       </div>
       <div class="card-body">
@@ -13472,6 +13512,7 @@ function getReportFilterContext(){
 }
 function reportInRange(value,ctx){ const x=parseDate(value)?.getTime(); return !!x&&x>=ctx.start&&x<ctx.end; }
 function reportMatches(record,ctx,projectFields,designationFields){
+  if (!projectRecordVisible(record)) return false;
   if(ctx.project){ const v=projectFields.map(k=>record?.[k]).find(Boolean)||''; if(String(v)!==String(ctx.project)) return false; }
   if(ctx.designation){ const v=designationFields.map(k=>record?.[k]).find(Boolean)||''; if(String(v)!==String(ctx.designation)) return false; }
   if(ctx.employeeStatus){ const st=String(record?.Status||record?.status||''); if(ctx.employeeStatus==='Inactive' ? !['Inactive','Exited'].includes(st) : st!==ctx.employeeStatus) return false; }
@@ -13485,6 +13526,7 @@ function reportMatches(record,ctx,projectFields,designationFields){
   return true;
 }
 function getMonthlyReportRows(kind){
+  const DATA = projectVisibilityData(window.DATA);
   const ctx=getReportFilterContext(); let rows=[];
   if(kind==='newJoins') rows=(DATA.employees||[]).filter(r=>reportInRange(r.JoinDate||r.join_date,ctx)&&reportMatches(r,ctx,['ProjectName','project_name'],['Designation','designation']));
   else if(kind==='exits') rows=(DATA.exits||[]).filter(r=>reportInRange(r.ExitDate||r.exit_date,ctx)&&reportMatches(r,ctx,['CurrentProject','current_project'],['Designation','designation']));
@@ -13493,6 +13535,7 @@ function getMonthlyReportRows(kind){
   return {rows,ctx};
 }
 function getManagementAnalyticsData(){
+  const DATA = projectVisibilityData(window.DATA);
   const ctx=getReportFilterContext(), ms=30*24*60*60*1000, buckets=[];
   for(let i=5;i>=0;i--){ const d=new Date(ctx.end-1); d.setMonth(d.getMonth()-i); const y=d.getFullYear(),m=d.getMonth(); const a=new Date(y,m,1).getTime(),b=new Date(y,m+1,1).getTime(); buckets.push({label:d.toLocaleString('en-US',{month:'short',year:'2-digit'}),joins:(DATA.employees||[]).filter(e=>{const x=parseDate(e.JoinDate||e.join_date)?.getTime();return x&&x>=a&&x<b;}).length,exits:(DATA.exits||[]).filter(e=>{const x=parseDate(e.ExitDate||e.exit_date)?.getTime();return x&&x>=a&&x<b;}).length}); }
   const summary=getWorkforceSummaryData();
@@ -13518,6 +13561,7 @@ function getWorkflowDataQuality(){
 }
 function dataQualityHtml(){const issues=getWorkflowDataQuality();const rows=issues.map((x,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(x[0])}</td><td>${escapeHtml(x[1])}</td><td>${escapeHtml(x[2])}</td></tr>`).join('');return `<div class="card"><div class="card-header"><h3>Workflow Data Quality</h3></div><div class="card-body"><p class="small-mute"><strong>${issues.length}</strong> potential consistency issue(s). Review before official reporting.</p><div class="table-wrap"><table><thead><tr><th>#</th><th>Area</th><th>Issue</th><th>Record</th></tr></thead><tbody>${rows||'<tr><td colspan="4" style="text-align:center;color:#059669">No listed consistency issues found</td></tr>'}</tbody></table></div></div></div>`;}
 function getWorkforceSummaryData(){
+  const DATA = projectVisibilityData(window.DATA);
   const ctx=getReportFilterContext();
   const joins=getMonthlyReportRows('newJoins').rows;
   const exits=getMonthlyReportRows('exits').rows;
@@ -13556,6 +13600,7 @@ function workforceSummaryHtml(data,printMode){
 let currentReport = 'workforceSummary';
 function renderReportSelected(){ showReport(currentReport); }
 function showReport(kind){
+  const DATA = projectVisibilityData(window.DATA);
   currentReport = kind;
   if(kind!=='exitSettlement') ExitReports.clear();
   document.querySelectorAll('#page-reports .qa[data-report]').forEach(card=>card.classList.toggle('report-selected',card.dataset.report===kind));
@@ -13820,6 +13865,7 @@ function showReport(kind){
   document.getElementById('reportOutput').innerHTML = out;
 }
 function exportReport(kind){
+  const DATA = projectVisibilityData(window.DATA);
   if(kind==='exitSettlement') return ExitReports.exportCSV();
   const result=getMonthlyReportRows(kind), rows=result.rows, ctx=result.ctx;
   const specs={
@@ -14037,6 +14083,7 @@ function mgEmpPrintNormalize(opts){
 }
 
 function mgEmpPrintMatch(e, o){
+  if (!projectRecordVisible(e)) return false;
   if (!e) return false;
   if (o.projects.length && o.projects.indexOf(e.ProjectName) === -1) return false;
   if (o.desigs.length   && o.desigs.indexOf(e.Designation) === -1) return false;
@@ -16757,7 +16804,7 @@ function mtAttendanceDate(row) {
 function mtHistoricalProjects(iso, eligible, day) {
   return Array.from(new Set([...Object.keys(eligible), ...Object.keys(day.present || {}),
     ...Object.keys(day.absent || {}), ...(DATA.meetingAttendance || []).filter(r =>
-      !r.deleted_at && mtAttendanceDate(r) === iso).map(r => r.project_name)].filter(Boolean)));
+      !r.deleted_at && mtAttendanceDate(r) === iso).map(r => r.project_name)].filter(name=>name && isProjectNameActive(name))));
 }
 function mtRenderSummaryView(today, rec, projNames, isEmbedded) {
   const d = rec || {};
@@ -17720,6 +17767,7 @@ function printProjMeetingHistory(proj, ymo){
 }
 
 function printMeetingReport(){
+  const DATA = projectVisibilityData(window.DATA);
   const y = MT_MONTH.getFullYear();
   const m = MT_MONTH.getMonth();
   const mStr = String(m + 1).padStart(2, '0');
@@ -18303,7 +18351,7 @@ function metric(label,value,icon,tone){const symbols={refresh:'↻','alert-trian
 function orderRow(o){const a=unifAcct(o.id),s=ub('uniformSuppliers',o.supplier_id),b=unifBills(o.id),total=b.reduce((n,x)=>n+(+x.bill_amount||0),0),paid=b.filter(x=>x.paid).reduce((n,x)=>n+(+x.bill_amount||0),0);return `<tr onclick="openUniformOrder(${o.id})"><td data-label="Order"><strong>${ue(o.order_number)}</strong><small>${ud(o.created_at)}</small></td><td data-label="Project"><strong>${ue(o.project_name_snapshot)}</strong></td><td data-label="Allocation"><div class="uo-allocation"><span><b>${o.approved_sets==null?'—':o.approved_sets}</b> approved</span><span><b>${a.assigned}</b> assigned</span><span><b>${a.postponed}</b> postponed</span></div></td><td data-label="Supplier">${ue(s&&s.supplier_name||'Not assigned')}</td><td data-label="Status"><span class="uo-status ${statusTone(o.status)}">${ue(o.status)}</span></td><td data-label="Billing"><strong>৳ ${um(paid)}</strong><small>of ৳ ${um(total)}</small></td><td><button class="uo-open" onclick="event.stopPropagation();openUniformOrder(${o.id})">Open →</button></td></tr>`;}
 function emptyOrders(){return `<div class="uo-empty"><div>${ico('inbox')}</div><h3>No orders found</h3><p>${UNIF_FILTER.q||UNIF_FILTER.status?'Clear the current filters to see other orders.':'Create the first order to start the uniform workflow.'}</p><button class="btn primary" onclick="openUniformCreate()">New Order</button></div>`;}
 
-function openUniformCreate(){const ps=ur('projects').filter(p=>p.is_active!==false&&(p.Status||p.status||'Active')!=='Inactive').sort((a,b)=>projectNameAZ(projectName(a),projectName(b)));modalForm('Create Uniform Order',`<div class="uo-form-grid"><label><span>Project *</span><select id="uoProject"><option value="">Select project</option>${ps.map(p=>`<option value="${p.id}">${ue(projectName(p))}</option>`).join('')}</select></label><label><span>Requested Sets *</span><input id="uoRequested" type="number" min="1" step="1" placeholder="Enter quantity"></label><label class="wide"><span>Remarks</span><textarea id="uoRemarks" placeholder="Optional notes"></textarea></label></div>`,'Create Draft','saveUniformCreate()');}
+function openUniformCreate(){const ps=ur('projects').filter(isProjectActive).sort((a,b)=>projectNameAZ(projectName(a),projectName(b)));modalForm('Create Uniform Order',`<div class="uo-form-grid"><label><span>Project *</span><select id="uoProject"><option value="">Select project</option>${ps.map(p=>`<option value="${p.id}">${ue(projectName(p))}</option>`).join('')}</select></label><label><span>Requested Sets *</span><input id="uoRequested" type="number" min="1" step="1" placeholder="Enter quantity"></label><label class="wide"><span>Remarks</span><textarea id="uoRemarks" placeholder="Optional notes"></textarea></label></div>`,'Create Draft','saveUniformCreate()');}
 async function saveUniformCreate(force){force=force||window.__uoForce===true;window.__uoForce=false;const pid=document.getElementById('uoProject').value,q=+document.getElementById('uoRequested').value,p=ub('projects',pid);if(!p)return formError('Please select a project.','uoProject');if(q<1)return formError('Requested sets must be greater than zero.','uoRequested');const ex=ur('uniformSupplyOrders').find(o=>String(o.project_id)===String(pid)&&!UNIF_TERMINAL.includes(o.status));if(ex&&!force)return openDuplicateOrderWarning(pid,q,ex);try{setBusy(true,'Creating...');await uiInsert('uniformSupplyOrders',{project_id:+pid,project_name_snapshot:projectName(p),requested_sets:q,status:'Draft',remarks:document.getElementById('uoRemarks')?document.getElementById('uoRemarks').value||null:null});closeModal();toast('Draft order created.','success');await unifReload();}catch(e){setBusy(false);formError(e.message||'Unable to create the order.');}}
 function openDuplicateOrderWarning(pid,q,ex){openModal('Active Order Found',`<div class="uo-warning-card"><strong>${ue(ex.order_number)}</strong><span>${ue(ex.project_name_snapshot)}</span><span class="uo-status info">${ue(ex.status)}</span></div><p class="uo-help">This project already has an active order. A separate order is allowed if this is a different requirement.</p>`,`<button class="btn" onclick="closeModal();openUniformOrder(${ex.id})">View Existing</button><button class="btn primary" onclick="closeModal();setTimeout(()=>{openUniformCreate();document.getElementById('uoProject').value='${pid}';document.getElementById('uoRequested').value='${q}';window.__uoForce=true;},0)">Continue</button>`);window.__uoForce=true;}
 
@@ -18519,7 +18567,7 @@ async function saveUniformReplacement(orderId){
   }catch(e){setBusy(false);formError(e.message||'Could not replace the employee.');}
 }
 function openUniformDeliveryProject(orderId){
-  const allocations=unifAcct(orderId).allocations,projects=ur('projects').filter(p=>p.is_active!==false).sort((a,b)=>projectNameAZ(projectName(a),projectName(b)));
+  const allocations=unifAcct(orderId).allocations,projects=ur('projects').filter(isProjectActive).sort((a,b)=>projectNameAZ(projectName(a),projectName(b)));
   modalForm('Change Delivery Project',`<div class="uo-help">Use this when an employee was transferred after the order was placed.</div><div class="uo-form-grid"><label><span>Employee *</span><select id="uoDeliveryEmployee"><option value="">Select employee</option>${allocations.map(a=>`<option value="${a.id}">${ue(a.employee_name_snapshot)}</option>`).join('')}</select></label><label><span>Delivery Project *</span><select id="uoDeliveryProject"><option value="">Select project</option>${projects.map(p=>`<option value="${p.id}">${ue(projectName(p))}</option>`).join('')}</select></label><label class="wide"><span>Reason *</span><textarea id="uoDeliveryProjectReason" placeholder="Transfer or delivery instruction"></textarea></label></div>`,'Update Destination',`saveUniformDeliveryProject(${orderId})`);
 }
 async function saveUniformDeliveryProject(orderId){const aid=document.getElementById('uoDeliveryEmployee').value,pid=document.getElementById('uoDeliveryProject').value,reason=document.getElementById('uoDeliveryProjectReason').value.trim();if(!aid)return formError('Select an employee.','uoDeliveryEmployee');if(!pid)return formError('Select the delivery project.','uoDeliveryProject');if(!reason)return formError('Enter a reason.','uoDeliveryProjectReason');try{setBusy(true);await uiUpdate('uniformOrderEmployees',aid,{delivery_project_id:+pid,remarks:reason});await unifReload();const order=ub('uniformSupplyOrders',orderId);if(unifNeedsReportRevision(order))await createUniformMainRevision(orderId,`Delivery destination changed for ${ub('uniformOrderEmployees',aid).employee_name_snapshot}. ${reason}`);closeModal();toast('Delivery project updated.','success');await unifReload();openUniformOrder(orderId);}catch(e){setBusy(false);formError(e.message);}}

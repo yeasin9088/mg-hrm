@@ -6,7 +6,7 @@ const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
 const begin=html.indexOf('function projectNameAZ(');
 const end=html.indexOf('\n\nconst DESIG_RANK',begin);
 assert(begin>=0&&end>begin,'project alphabetical helper exists');
-const {projectNameAZ,projectNamesAZ,usageSortedProjects}=new Function(html.slice(begin,end)+'\nreturn {projectNameAZ,projectNamesAZ,usageSortedProjects};')();
+const {projectNameAZ,projectNamesAZ,usageSortedProjects}=new Function('isProjectNameActive',html.slice(begin,end)+'\nreturn {projectNameAZ,projectNamesAZ,usageSortedProjects};')(()=>true);
 
 test('projects sort A–Z irrespective of capitalization or staff popularity',()=>{
   const names=['Zenith','beta','Alpha','M/S Shoinik','apex','Biswas','zebra'];
@@ -29,11 +29,11 @@ test('project names support numeric suffixes and do not modify identifiers',()=>
 test('employee, transfer, reactivation, reports, To-Do and uniform pickers use A–Z',()=>{
   for(const marker of [
     'projectNamesAZ(projectChoices).map(',
-    'function usageSortedProjects(values, counts){ return projectNamesAZ(values); }',
-    'DATA.projects.slice().sort((a,b)=>projectNameAZ(a.ProjectName,b.ProjectName)).map(',
+    'function usageSortedProjects(values, counts){ return projectNamesAZ(values.filter(isProjectNameActive)); }',
+    'activeProjects().slice().sort((a,b)=>projectNameAZ(a.ProjectName,b.ProjectName)).map(',
     'const activeProjs = activeProjects().sort((a,b)=>projectNameAZ(',
-    "return Array.from(set).sort(projectNameAZ);",
-    "(DATA.projects||[]).slice().sort((a,b)=>projectNameAZ(",
+    "return Array.from(set).filter(isProjectNameActive).sort(projectNameAZ);",
+    "activeProjects().slice().sort((a,b)=>projectNameAZ(",
     "sort((a,b)=>projectNameAZ(projectName(a),projectName(b)))",
     "sort(function(a, b){ return projectNameAZ(a && a.ProjectName,b && b.ProjectName); })"
   ])assert(html.includes(marker), 'missing alphabetical picker: '+marker);

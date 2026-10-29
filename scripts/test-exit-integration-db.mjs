@@ -18,6 +18,25 @@ try{
  for(const name of ['20261023173930_exit_confidential_settlement.sql','20261023181336_exit_mandatory_deduction_decision.sql','20261023183543_exit_reason_unified_compact_form.sql'])await db.exec(await read('supabase/migrations/'+name));
  const migration=process.argv[2]||new URL('../supabase/migrations/'+(await fs.readdir(new URL('../supabase/migrations/',import.meta.url))).find(n=>n.endsWith('_exit_record_control.sql')),import.meta.url);
  await db.exec(await fs.readFile(migration,'utf8'));
+
+ // Install the actual production clock guard with isolated policy/queue fixtures.
+ await db.exec(`ALTER TABLE public.todos ADD COLUMN reminder_due_at timestamptz;ALTER TABLE public.todos ADD COLUMN reminder_timezone text NOT NULL DEFAULT 'Asia/Dhaka';
+ CREATE SCHEMA notification_private;
+ CREATE FUNCTION public.notification_reminder_mode() RETURNS boolean LANGUAGE sql AS $$SELECT true$$;
+ CREATE FUNCTION notification_private.todo_actionable(t public.todos) RETURNS boolean LANGUAGE sql AS $$SELECT t.deleted_at IS NULL AND t.solved_at IS NULL AND t.status NOT IN ('solved','done')$$;
+ CREATE FUNCTION notification_private.todo_next(t public.todos,p_after timestamptz) RETURNS timestamptz LANGUAGE sql AS $$SELECT coalesce(t.next_reminder_at,p_after)$$;
+ CREATE FUNCTION notification_private.reminder_window(p_due timestamptz) RETURNS timestamptz LANGUAGE sql AS $$SELECT p_due+coalesce(nullif(current_setting('test.window_minutes',true),''),'0')::int*interval '1 minute'$$;
+ CREATE FUNCTION public.notification_effective_preference(p_user_id uuid,p_category text) RETURNS jsonb LANGUAGE sql AS $$SELECT '{"notification_enabled":true}'::jsonb$$;
+ CREATE TABLE public.notifications(id uuid PRIMARY KEY,entity_type text,entity_id text,category text,status text,recipient_user_id uuid,read_at timestamptz,snoozed_until timestamptz);
+ CREATE TABLE public.notification_events(id uuid PRIMARY KEY,entity_type text,entity_id text,event_type text,processing_status text,processing_error text);
+ CREATE TABLE public.notification_deliveries(notification_id uuid,channel text,delivery_status text,provider_status text);
+ CREATE TABLE public.notification_jobs(notification_id uuid,event_id uuid,job_status text,locked_by text,locked_at timestamptz);
+ CREATE FUNCTION notification_private.todo_followup_allowed(t public.todos,p_recipient uuid,p_now timestamptz) RETURNS boolean LANGUAGE sql AS $$SELECT NOT EXISTS(SELECT 1 FROM public.notifications WHERE entity_type='todo' AND entity_id=t.id::text AND status IN ('Scheduled','Ready','Delivered','Read','Actioned','Snoozed','Failed') AND (read_at IS NULL OR snoozed_until>p_now))$$;`);
+ const authority=await read('supabase/migrations/20261024201313_authoritative_reminder_timing.sql');
+ for(const name of ['effective_reminder_due','guard_reminder_clock']){const a=authority.indexOf('CREATE FUNCTION notification_private.'+name+'('),b=authority.indexOf('END $$;',a);await db.exec(authority.slice(a,b+7));}
+ await db.exec('CREATE TRIGGER notification_server_clock BEFORE INSERT OR UPDATE ON public.todos FOR EACH ROW EXECUTE FUNCTION notification_private.guard_reminder_clock();');
+ const clockMigration=process.argv[3]||new URL('../supabase/migrations/'+(await fs.readdir(new URL('../supabase/migrations/',import.meta.url))).find(n=>n.endsWith('_exit_followup_clock.sql')),import.meta.url);
+ await db.exec(await fs.readFile(clockMigration,'utf8'));
  await db.exec("INSERT INTO public.employees(id,employee_id,full_name,designation,status,project_name,join_date) VALUES(1,'SYN-1','Synthetic only','Guard','Active','Original','2026/1/22');");
  const future=(await q("select (current_date+15)::text as day"))[0].day;
  let id,version=1,todo;
@@ -41,9 +60,24 @@ try{
   assert.equal((await q('select exit_reason from public.exits where id=$1',[id]))[0].exit_reason,fields.exit_reason);
  });
  await check('full deduction with deposit pending keeps reminder; time update reuses task',async()=>{
+  await q("INSERT INTO public.notifications VALUES('cccccccc-cccc-4ccc-8ccc-cccccccccccc','todo',$1,'ToDo','Delivered',$2,null,null)",[String(todo),uid]);
+  await db.exec("INSERT INTO public.notification_deliveries VALUES('cccccccc-cccc-4ccc-8ccc-cccccccccccc','WebPush','Pending',null);");
   settlement={...settlement,outcome:'collected',deducted:3000,deposited:0,reason:'',deducted_on:'2026-10-20',follow_up_time:'16:15'};
   const r=(await edit(fields))[0].r;version=r.settlement.version;
   const t=(await q('select * from public.todos where id=$1',[todo]))[0];assert.equal(t.next_reminder_at.toISOString(),future+'T10:15:00.000Z');assert.equal(t.reminder_enabled,true);assert.equal((await q('select count(*) as n from public.todos'))[0].n,1);
+  assert.equal(t.reminder_due_at.toISOString(),future+'T10:15:00.000Z');
+  assert.equal((await q('select status from public.notifications'))[0].status,'Cancelled');assert.equal((await q('select delivery_status from public.notification_deliveries'))[0].delivery_status,'Cancelled');
+  assert.notEqual((await q("select current_setting('mghrm.scheduler_write',true) as flag"))[0].flag,'on');
+ });
+
+ await check('ordinary writes cannot alter clocks; source edits still respect office windows',async()=>{
+  const before=(await q('select next_reminder_at from public.todos where id=$1',[todo]))[0].next_reminder_at.toISOString();
+  await q("update public.todos set next_reminder_at=now()+interval '1 minute' where id=$1",[todo]);
+  assert.equal((await q('select next_reminder_at from public.todos where id=$1',[todo]))[0].next_reminder_at.toISOString(),before);
+  await db.exec("select set_config('test.window_minutes','30',false)");
+  settlement={...settlement,follow_up_time:'17:15'};version=(await edit(fields))[0].r.settlement.version;
+  const t=(await q('select * from public.todos where id=$1',[todo]))[0];assert.equal(t.reminder_due_at.toISOString(),future+'T11:15:00.000Z');assert.equal(t.next_reminder_at.toISOString(),future+'T11:45:00.000Z');
+  await db.exec("select set_config('test.window_minutes','0',false)");
  });
  await check('invalid settlement after exit edit cannot partially update dates',async()=>{
   await assert.rejects(edit({...fields,exit_date:'2026-09-23'},{...settlement,deposited:4000}));assert.equal((await q('select exit_date from public.exits where id=$1',[id]))[0].exit_date,fields.exit_date);

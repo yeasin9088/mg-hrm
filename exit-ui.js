@@ -228,6 +228,8 @@
   });
  }
  function reset(clearValues=false){
+  // Background page refreshes must not reset an open editor or its save lock.
+  if(editing&&document.getElementById('xe_scope'))return;
   requestId=null;requestFingerprint='';editing=null;busy=false;
   bindShortcuts();
   if(clearValues){textFields.forEach(k=>{const el=$('xs_'+k);if(el)el.value=({expected:'3000',deducted:'0',deposited:'0',follow_up_time:'09:00'})[k]||'';});if($('xs_deposit_now'))$('xs_deposit_now').checked=false;}

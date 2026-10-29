@@ -172,6 +172,7 @@ test('editor has unique fields, hydrates saved money and never changes create fo
  assert.equal(h.get('xe_expected').value,2500);assert.equal(h.get('xe_deposited').value,500);assert.equal(h.get('xe_follow_up_time').value,'14:30');
  assert.equal(h.get('xs_expected').value,'3000');assert.equal(h.get('xs_notes').value,'Unsaved create draft');
  assert(!h.warning().body.includes('id="xs_'));
+ h.g.ExitUI.reset(); // Simulate an ordinary background page refresh with editor open.
  let saved,todoRendered=false;h.g.ExitService.update=async(...args)=>{saved=args;};h.g.renderExitTable=()=>{};
  h.g.MGHRM.reloadTodos=async()=>[{id:77,source:'exit_settlement'}];h.g.renderTodo=()=>{todoRendered=true;};
  h.get('xe_exit_reason').value='Corrected reason';await h.g.ExitUI.saveEdit();

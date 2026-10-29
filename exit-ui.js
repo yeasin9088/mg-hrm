@@ -4,7 +4,11 @@
  const M=g.ExitModel,$=id=>document.getElementById(id),esc=v=>g.escapeHtml(String(v??''));
  let requestId=null,requestFingerprint='',busy=false,editing=null;
  const textFields=['override_reason','expected','deducted','deposited','outcome','reason','deducted_on','deposited_on','receipt_no','deposited_to','approved_by','notes','follow_up_on'];
- const stamp=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Dhaka',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+ const stamp=()=>{
+  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Dhaka',year:'numeric',month:'2-digit',day:'2-digit',calendar:'gregory',numberingSystem:'latn'}).formatToParts(new Date());
+  const get=type=>parts.find(p=>p.type===type).value;
+  return `${get('year')}-${get('month')}-${get('day')}`;
+ };
  // Shared professional exit-reason catalogue; a single public exit_reason is persisted.
  const exitReasons=Object.freeze([
   ['Formal Resignation','Voluntary / formal resignation'],
@@ -84,9 +88,23 @@
   <p class="exit-form-feedback" id="xs_feedback" role="status" aria-live="polite"></p>
   <p class="exit-muted">A deduction decision records the settlement; it does not debit payroll. Financial details stay out of the ordinary Monthly Exit Report.</p>
  </div>`;}
+ // Legacy employee imports contain YYYY/M/D and DD/MM/YYYY text dates.
+ // Normalize only at this exit-form boundary; keep model validation strict.
+ function joiningDate(raw){
+  const value=String(raw??'').trim();
+  if(!value)throw Error('Employee joining date is missing. Add it in the employee profile before processing the exit.');
+  let match=value.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/),iso=value;
+  if(match)iso=`${match[1]}-${match[2].padStart(2,'0')}-${match[3].padStart(2,'0')}`;
+  else {
+   match=value.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+   if(match)iso=`${match[3]}-${match[2].padStart(2,'0')}-${match[1].padStart(2,'0')}`;
+  }
+  try{M.date(iso);}catch(_){throw Error('Employee joining date is invalid. Correct it in the employee profile before processing the exit.');}
+  return iso;
+ }
  function dates(){
-  if(editing)return {join:editing.join_date,exit:editing.exit_date};
-  const e=g.findEmp($('exEmp')?.value);return {join:e?.JoinDate||e?.join_date||'',exit:$('exDate')?.value||''};
+  const e=editing||g.findEmp($('exEmp')?.value);
+  return {join:joiningDate(e?.JoinDate||e?.join_date),exit:editing?editing.exit_date:($('exDate')?.value||'')};
  }
  const visible=(id,show)=>{const el=$(id);if(el)el.hidden=!show;};
  const value=id=>$(id)?.value||'';
@@ -136,7 +154,7 @@
    if($('xs_deposited'))$('xs_deposited').value='0';
    requestId=null;requestFingerprint='';
   }
-  const hasExit=!!dates().exit;
+  const hasExit=!!(editing?editing.exit_date:value('exDate'));
   visible('xs_scope',hasExit);if(!hasExit){syncButton('Choose an Exit Date first.');return;}
   visible('xs_optional',!!tenure&&!tenure.defaultEnabled);
   visible('xs_required',!!tenure&&tenure.defaultEnabled);

@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const M=require('../exit-model.js');
-function harness(join='2026-01-01'){
+function harness(join='2026-01-01',intl=Intl){
  const elements=new Map();
  const node=(id,value='')=>({id,value,checked:false,disabled:false,hidden:false,readOnly:false,dataset:{},textContent:'',title:'',innerHTML:'',style:{},
   addEventListener(){},querySelector(){return {textContent:''};}});
@@ -14,7 +14,7 @@ function harness(join='2026-01-01'){
   findEmp:()=>employee,guardEdit:()=>true,toast:(message,type)=>errors.push([message,type]),
   mtCustomConfirm:(a,b,c,callback)=>{confirmed=callback;},openModal:(title,body,actions)=>{warningDialog={title,body,actions};},ExitService:{submit:async()=>{called++;return {exit_id:12}}},
   DATA:{exits:[]},MGHRM:{reloadExits:async()=>[]},closeModal(){},renderExit(){},renderEmpTable(){}};
- const sandbox={window:g,document:{getElementById:id=>elements.get(id)||null,addEventListener(){}},console,Intl,Date,Error,Number,JSON,crypto:require('node:crypto').webcrypto};
+ const sandbox={window:g,document:{getElementById:id=>elements.get(id)||null,addEventListener(){}},console,Intl:intl,Date,Error,Number,JSON,crypto:require('node:crypto').webcrypto};
  vm.runInNewContext(fs.readFileSync(require.resolve('../exit-ui.js'),'utf8'),sandbox);
  const html=g.ExitUI.html();
  for(const match of html.matchAll(/<([a-z]+)\b([^>]*?)\bid="([^"]+)"([^>]*)>/gi)){
@@ -120,4 +120,41 @@ test('reason selector defaults to formal resignation and Other requires detail',
  assert.equal(h.g.ExitUI.reasonText(),'Other: Transfer not joined; employee unreachable');
  h.get('exReason').value='Formal Resignation';h.g.ExitUI.reasonChanged();
  assert.equal(h.get('exReasonOtherWrap').hidden,true);
+});
+
+test('legacy joining dates allow September departure issued in October without changing employee data',()=>{
+ for(const join of ['2026/1/22','2026-1-22','22/01/2026','22-01-2026','2026-01-22']){
+  const h=harness(join);h.get('exDate').value='2026-09-21';h.get('exIssue').value='2026-10-29';
+  h.g.ExitUI.update(true);
+  assert.equal(h.get('xs_decision_area').hidden,false);
+  assert.match(h.get('xs_tenure').textContent,/2027-01-22/);
+  h.get('xs_outcome').value='pending';h.g.ExitUI.choose();h.get('xs_reason').value='no_salary_due';
+  assert.equal(h.g.ExitUI.collect().outcome,'pending');h.g.ExitUI.submit();
+  assert.equal(h.hasConfirm(),true);assert.equal(h.calls(),0);
+  assert.equal(h.employee.JoinDate,join);assert.equal(h.employee.Status,'Active');
+ }
+});
+test('tenure uses exit date rather than later certificate issue date',()=>{
+ const h=harness('2025/10/01');h.get('exDate').value='2026-09-21';h.get('exIssue').value='2026-10-29';h.g.ExitUI.update(true);
+ assert.equal(h.get('xs_required').hidden,false);assert.equal(h.get('xs_optional').hidden,true);
+ assert.throws(()=>h.g.ExitUI.collect(),/deduction decision/);
+});
+test('missing or invalid joining dates identify the employee profile and block submission',()=>{
+ for(const join of ['', '2026/02/30','31/04/2026','not a date']){
+  const h=harness(join);h.get('exDate').value='2026-09-21';
+  assert.doesNotThrow(()=>h.g.ExitUI.update(true));h.g.ExitUI.submit();
+  assert.equal(h.hasConfirm(),false);assert.equal(h.calls(),0);
+  assert.match(h.warning().body,/Employee joining date is (missing|invalid)/);
+ }
+});
+test('Dhaka today stays ISO even when locale format uses slashes',()=>{
+ const intl={DateTimeFormat:function(locale,options){
+  assert.equal(options.timeZone,'Asia/Dhaka');
+  return {format:()=> '29/10/2026',formatToParts:()=>[
+   {type:'day',value:'29'},{type:'literal',value:'/'},{type:'month',value:'10'},
+   {type:'literal',value:'/'},{type:'year',value:'2026'}]};
+ }};
+ const h=harness('2024/1/22',intl);h.get('exDate').value='2026-09-21';h.g.ExitUI.update(true);
+ assert.equal(h.g.ExitUI.collect().outcome,'not_applicable');
+ h.get('exDate').value='2026-10-30';assert.throws(()=>h.g.ExitUI.collect(),/future exit/);
 });

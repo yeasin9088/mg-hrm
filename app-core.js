@@ -2533,6 +2533,7 @@
     reactivateEmployee: reactivateEmployee,
     reloadTransfers: function () { return reloadBucket('transfers'); },
     reloadExits: function () { return reloadBucket('exits'); },
+    reloadTodos: function () { return reloadBucket('todos'); },
     saveUniformDelivery: saveUniformDelivery,
     fetchEmployeeById: fetchEmployeeById,
     fetchEmployeeByRecordId: fetchEmployeeByRecordId,

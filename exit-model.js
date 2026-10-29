@@ -48,14 +48,15 @@
   if(s.outcome==='waived'&&(!s.approved_by||!s.notes||s.reason!=='special_waiver')) throw Error('Waiver requires special waiver reason, authority and decision notes.');
   if(s.outcome!=='waived'&&s.reason==='special_waiver') throw Error('Select approved waiver for this reason.');
   if(s.outcome==='collected')s.reason='';
-  if(['collected','waived'].includes(s.outcome))s.follow_up_on='';
+  if(s.outcome==='waived'||(s.deducted===s.expected&&s.deposited===s.deducted))s.follow_up_on='';
   if(s.deducted>0){date(s.deducted_on);if(s.deducted_on>today)throw Error('Deduction date cannot be in the future.');}else s.deducted_on='';
   if(s.deposited>0){
    date(s.deposited_on);
    if(!s.receipt_no||!s.deposited_to)throw Error('Deposit receipt and recipient are required.');
    if(s.deposited_on>today||s.deposited_on<s.deducted_on)throw Error('Check deposit date.');
   }else Object.assign(s,{deposited_on:'',receipt_no:'',deposited_to:''});
-  if(s.follow_up_on)date(s.follow_up_on);
+  if(s.follow_up_on){date(s.follow_up_on);if(!/^([01][0-9]|2[0-3]):[0-5][0-9](?::00)?$/.test(s.follow_up_time||'09:00'))throw Error('Choose a valid reminder time.');}
+  s.follow_up_time=s.follow_up_time||'09:00';
   return s;
  }
  const api=Object.freeze({reasons,outcomes,date,anniversary,tenure,money,balances,validate});

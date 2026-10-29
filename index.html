@@ -4283,6 +4283,7 @@ function formatTransferDocTitle(empName, newProject, transferDate, empId) {
 window.formatTransferDocTitle = formatTransferDocTitle;
 
 function closeModal(id='modal'){
+  if(id==='modal'&&window.ExitUI)window.ExitUI.onModalClose();
   if(id === 'modal' && window.__naSaving && document.getElementById('naTabs')) return;
   const el = document.getElementById(id);
   if(el) el.classList.remove('open');
@@ -4580,6 +4581,7 @@ document.querySelectorAll('.nav-item').forEach(el=>{
   });
 });
 function navigate(p){
+  if(p!=='exit'&&window.ExitUI)window.ExitUI.leavePage();
   if(p!=='reports' && window.ExitReports) ExitReports.clear();
   if (typeof window.mtCloseSidebarMobile === 'function') {
     window.mtCloseSidebarMobile();
@@ -12925,7 +12927,7 @@ function renderExitTable(){
     if (!rows.length){
       const F = window.EX_F;
       const hasFilter = !!(F.q || F.id || F.reason || F.project || F.from || F.to);
-      tbody.innerHTML = tblEmptyRow(7, hasFilter
+      tbody.innerHTML = tblEmptyRow(12, hasFilter
         ? 'No exit records match the current filters.'
         : 'No exit records');
     } else {
@@ -12933,7 +12935,7 @@ function renderExitTable(){
         const e = findEmpByAction(x);
         const empKey = e ? (e.id || e.EmployeeID || '') : (x.employee_sys_id || x.EmployeeID || '');
         const empId  = e ? (e.id || e.EmployeeID || '') : (x.EmployeeID || '—');
-        return `<tr class="row-click clickable" onclick="openEmpDetail(${jsQ(empKey)})" style="cursor:pointer">
+        return `<tr class="row-click clickable" tabindex="0" onkeydown="if(event.key==='Enter'){event.preventDefault();ExitUI.edit(${Number(x.ExitID||x.id)})}" onclick="ExitUI.edit(${Number(x.ExitID||x.id)})" style="cursor:pointer">
           <td>${rows.length - i}</td>
           <td><span class="chip" style="font-size:11px;font-weight:600">${escapeHtml(num(empId))}</span></td>
           <td><strong>${escapeHtml(x.FullName || '')}</strong></td>
@@ -12941,6 +12943,8 @@ function renderExitTable(){
           <td>${escapeHtml(projName(x.CurrentProject || x.ProjectName || ''))}</td>
           <td>${escapeHtml(fmtDate(x.ExitDate))}</td>
           <td class="small-mute" style="max-width:280px">${escapeHtml((x.ExitReason || '').slice(0, 120))}</td>
+          ${ExitUI.tableCells(x.ExitID||x.id)}
+          <td><button type="button" class="btn sm" onclick="event.stopPropagation();ExitUI.edit(${Number(x.ExitID||x.id)})">Details / Edit</button></td>
         </tr>`;
       }).join('');
     }
@@ -12954,9 +12958,10 @@ window.exClearFilters = exClearFilters;
 window.renderExitTable = renderExitTable;
 
 function renderExit(){
+  ExitUI.clearPrivate();
   document.getElementById('page-exit').innerHTML = `
     <div class="card exit-main-card">
-      <div class="card-header exit-card-header"><h3>Employee Exit Process</h3><span class="exit-header-meta">Single reason · Guided deduction</span></div>
+      <div class="card-header exit-card-header"><h3>Employee Exit Process</h3></div>
       <div class="card-body exit-card-body">
         <div class="form-grid exit-main-grid">
           <div class="field"><label for="exEmp">Employee *</label><select id="exEmp" onchange="exFillEmp()" title="Alt+1"></select><div id="exEmpBadge"></div></div>
@@ -12976,7 +12981,7 @@ function renderExit(){
       </div>
     </div>
     <div class="card" style="padding:0;overflow:hidden">
-      <div class="card-header" style="padding:14px 16px 0;border-bottom:0"><h3>${'Recent Exits'}</h3></div>
+      <div class="card-header" style="padding:14px 16px 0;border-bottom:0"><h3>${'Recent Exits'}</h3><button type="button" class="btn sm" id="exitPrivateToggle" aria-pressed="false" onclick="ExitUI.togglePrivate()">Show confidential details</button></div>
 
       <div class="tbl-toolbar">
         <span class="tt-who">${RTE_SVG.search}
@@ -13007,9 +13012,9 @@ function renderExit(){
 
       <div class="table-wrap">
         <table>
-          <thead><tr>
+          <thead id="exitPrivateHeaders"><tr>
             <th style="width:56px">${'#'}</th><th>ID</th><th>${'Name'}</th><th>${'Designation'}</th>
-            <th>${'Project'}</th><th>${'Exit Date'}</th><th>${'Reason'}</th>
+            <th>${'Project'}</th><th>${'Exit Date'}</th><th>${'Reason'}</th><th>Action</th>
           </tr></thead>
           <tbody id="exTableBody"></tbody>
         </table>
@@ -19364,6 +19369,7 @@ window.mtSetTodoStatus = async function(id, newStatus) {
   DATA.todos = Array.isArray(DATA.todos) ? DATA.todos : [];
   const t = DATA.todos.find(function(x){ return String(x.id) === String(id); });
   if (!t) return false;
+  if(t.source==='exit_settlement'&&['solved_approved','solved_rejected','solved','done'].includes(newStatus)&&window.ExitUI)return window.ExitUI.openFollowup(t.id);
   window.MG_TD_STATUS_WRITES = window.MG_TD_STATUS_WRITES || new Set();
   if (window.MG_TD_STATUS_WRITES.has(String(id))) return false;
   window.MG_TD_STATUS_WRITES.add(String(id));
@@ -20184,6 +20190,8 @@ window.mtRemOff = async function(){
 /* NOTIFICATION ACTIONS (TASK 3) */
 window.mgTodoNotifOpen = function(ref){
   var t = window.mgTdFindTodo(ref);
+  if(t&&t.source==='exit_settlement'&&window.ExitUI)return window.ExitUI.openFollowup(t.id);
+  if(!t&&window.ExitUI)return window.ExitUI.openFollowup(ref,true).then(function(opened){if(!opened&&typeof navigate==='function')navigate('todo');});
   if (typeof navigate === 'function') navigate('todo');
   if (!t){ if (typeof renderTodo === 'function') renderTodo(); return; }
   var cat = (typeof tdCatOf === 'function') ? tdCatOf(t) : (t.category || 'note');

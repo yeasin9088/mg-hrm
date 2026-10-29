@@ -17,7 +17,7 @@
  function filtered(){return records.filter(matches);}
  const headers=['Employee / Project','Joining / Exit / Service','Outcome','Expected ৳','Deducted ৳','Outstanding ৳','Deposited ৳','Deposit pending ৳','Dates / Receipt / Recipient','Reason / Authority / Notes','Override / Follow-up'];
  function cells(r){
-  const s=r.settlement,b=M.balances(s);let service='Invalid / missing joining date';try{const t=M.tenure(r.join_date,r.exit_date);service=`${t.days} days / ${t.years} completed year(s)`;}catch(_){}
+  const s=r.settlement,b=M.balances(s);let service='Invalid / missing joining date';try{const t=M.tenure(g.ExitUI?.joiningDate?g.ExitUI.joiningDate(r.join_date):r.join_date,r.exit_date);service=`${t.days} days / ${t.years} completed year(s)`;}catch(_){}
   return [
    `${r.employee_id||'—'} · ${r.full_name||''}\n${r.designation||''}\n${r.current_project||''}`,
    `Joined: ${r.join_date||'—'}\nExit: ${r.exit_date||'—'}\n${service}`,

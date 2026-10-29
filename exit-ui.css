@@ -64,3 +64,13 @@
 @media(max-width:1240px){#page-exit .exit-main-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:780px){#page-exit .exit-main-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#page-exit .exit-confidential .exit-conditional-details .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#page-exit .exit-confidential .exit-conditional-details .exit-deposit-group .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#page-exit .exit-action-hint{display:none}}
 @media(max-width:520px){#page-exit .exit-main-grid{grid-template-columns:minmax(0,1fr);gap:12px}#page-exit .exit-card-body{padding:14px 13px}#page-exit .exit-card-header{padding:12px 14px}#page-exit .exit-confidential .exit-conditional-details{padding:10px}#page-exit .exit-confidential .exit-conditional-details .form-grid,#page-exit .exit-confidential .exit-conditional-details .exit-deposit-group .form-grid{grid-template-columns:minmax(0,1fr)}#page-exit .exit-action-bar .btn{flex:1 1 auto}}
+/* Exit editor has its own fields and compact mobile layout. */
+.exit-editor{max-width:900px;margin:auto}.exit-editor-person{display:flex;flex-direction:column;gap:3px;margin-bottom:16px}.exit-editor-person span{font-size:12px;color:var(--text-muted)}
+.exit-editor .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.exit-editor .wide{grid-column:1/-1}.exit-editor label{display:block;font-size:12px;margin-bottom:5px}
+.exit-editor input,.exit-editor select,.exit-editor textarea{box-sizing:border-box;width:100%;min-height:40px;border:1px solid var(--border);border-radius:7px;padding:8px;background:var(--card);color:var(--text)}
+.exit-editor .exit-confidential{margin-bottom:16px}.exit-editor .exit-conditional-details{padding:12px;border:1px solid var(--border);border-radius:9px}.exit-editor .exit-decision-field{max-width:none}.exit-editor .exit-section-heading{font-size:13px}
+#exTableBody small{display:block;color:var(--text-muted);white-space:nowrap;margin-top:3px}#exTableBody .btn{min-height:36px;white-space:nowrap}
+@media(max-width:640px){.exit-editor .form-grid{grid-template-columns:minmax(0,1fr)}#exitPrivateToggle{white-space:normal;font-size:11px}.exit-editor .exit-conditional-details{padding:10px}}
+@media print{#exitPrivateToggle,#exTableBody .btn{display:none!important}#page-exit #exitPrivateHeaders th:nth-child(n+8):not(:last-child),#page-exit #exTableBody td:nth-child(n+8):not(:last-child){display:none!important}}
+.exit-editor .exit-switch-label{display:flex;align-items:center;gap:8px}
+.exit-editor+div{position:sticky;bottom:0;background:var(--card);padding:12px 0 4px;z-index:2}

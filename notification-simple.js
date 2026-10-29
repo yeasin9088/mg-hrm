@@ -97,6 +97,9 @@
   }catch(e){output.textContent='Test not sent: '+e.message;}finally{button.disabled=false;}
  };
  async function act(id,action){
+  const notification=(window.NOTIFICATIONS||[]).find(n=>String(n.id)===String(id));
+  const linked=(window.DATA?.todos||[]).find(t=>String(t.id)===String(notification?.ref));
+  if(action==='complete'&&linked?.source==='exit_settlement'&&window.ExitUI)return window.ExitUI.openFollowup(linked.id);
   if(busy.has(String(id)))return false;busy.add(String(id));
   try{
    const result=await rpc('notification_todo_action',{p_notification_id:id,p_action:action});

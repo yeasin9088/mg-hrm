@@ -10,6 +10,8 @@
   submit:(payload,settlement,requestId)=>rpc('submit_exit_settlement',{p_exit:payload,p_settlement:settlement,p_request_id:requestId}),
   save:(id,data,version,note)=>rpc('save_exit_settlement',{p_exit_id:Number(id),p_data:data,p_version:version,p_change_note:note}),
   report:(from,to,id=null)=>rpc('get_exit_settlement_report',{p_from:from,p_to:to,p_exit_id:id==null?null:Number(id)}),
+  update:(id,payload,settlement,version,original,note)=>rpc('update_exit_record',{p_exit_id:Number(id),p_exit:payload,p_settlement:settlement,p_version:version,p_original:original,p_change_note:note||''}),
+  followup:id=>rpc('get_exit_for_followup',{p_todo_id:Number(id)}),
   history:id=>rpc('get_exit_settlement_history',{p_exit_id:Number(id)})
  });
 })(window);

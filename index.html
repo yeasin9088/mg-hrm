@@ -21134,7 +21134,138 @@ async function generateSelectedAddressBangla(type, btn){
   }
 }
 function copyBanglaDigits(srcId,dstId,btn){const src=document.getElementById(srcId),dst=document.getElementById(dstId);if(!src||!dst||!src.value.trim()){toast('Enter the number first.','error');return;}dst.value=toBnDigits(src.value.trim());}
-async function translateEmployeeFieldAI(srcId,dstId,fieldType,btn){const src=document.getElementById(srcId),dst=document.getElementById(dstId);if(!src||!dst||!src.value.trim()){toast('Enter the English value first.','error');return;}const cfg=window.__mgAiCfg||(()=>{try{return JSON.parse(localStorage.getItem('mghrm_ai')||'{}')}catch(e){return {}}})();const key=String(cfg.key||'').trim(),model=String(cfg.model||'gemini-2.5-flash-lite').trim();if(!key){toast('Configure the Gemini API key in AI Settings.','error');return;}btn.disabled=true;const old=btn.innerHTML;btn.innerHTML='…';try{const prompt=`Translate this ${fieldType} into concise, professional Bangla for a formal Bangladesh employment document. Preserve proper names accurately. Output only the translated text.\n\n${src.value.trim()}`;const url='https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent?key='+encodeURIComponent(key);const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:.15,maxOutputTokens:300}})});if(!response.ok)throw new Error('Gemini request failed');const data=await response.json();const output=data?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('').trim();if(!output)throw new Error('No translation returned');dst.value=output.replace(/^```[a-z]*\s*|```$/gi,'').trim();dst.dispatchEvent(new Event('input',{bubbles:true}));}catch(error){toast('AI translation failed.','error');}finally{btn.disabled=false;btn.innerHTML=old;}}
+// Employee-name transliteration only; other AI translation flows stay independent.
+const employeeNameAIRequests = new WeakMap();
+function employeeNameAIPlan(value){
+  let name = value.trim().replace(/\s+/g, ' '), prefix = '';
+  // Require a boundary: never consume the beginning of Mdali/Mstara/Muhammad.
+  const abbreviation = name.match(/^(m\s*\.?\s*s\s*\.?\s*t|m\s*\.?\s*d)(?:\s*\.\s*|\s+|$)/i);
+  if(abbreviation){
+    prefix = /s/i.test(abbreviation[1]) ? 'মোছাঃ' : 'মোঃ';
+    name = name.slice(abbreviation[0].length);
+  }
+  const parts = [], separators = [];
+  let end = 0;
+  for(const match of name.matchAll(/[a-z]+|[\u0980-\u09ff]+/gi)){
+    separators.push(name.slice(end, match.index));
+    parts.push(match[0]); end = match.index + match[0].length;
+  }
+  separators.push(name.slice(end));
+  if(!parts.length && !prefix) throw new Error('No name');
+  if(separators.some(s => /[^\s.,'’()\-]/u.test(s))) throw new Error('Unsupported name punctuation');
+  return {parts, separators, prefix};
+}
+function employeeNameAIVariants(output, plan, multiple){
+  const rows = JSON.parse(output.trim().replace(/^```(?:json)?\s*|\s*```$/gi, ''));
+  if(!Array.isArray(rows) || !rows.length || rows.length > (multiple ? 4 : 1)) throw new Error('Invalid variants');
+  const names = [];
+  for(const row of rows){
+    if(!Array.isArray(row) || row.length !== plan.parts.length) throw new Error('Name parts changed');
+    const words = row.map((word, i) => {
+      if(typeof word !== 'string') throw new Error('Invalid name part');
+      // Enforce fixed spellings before validating AI-rendered text.
+      if(/^muhammad$/i.test(plan.parts[i])) word = 'মুহাম্মদ';
+      if(/^[\u0980-\u09ff]+$/u.test(plan.parts[i])) word = plan.parts[i];
+      word = word.normalize('NFC').trim();
+      if(!/^[\u0980-\u09ff\u200c\u200d]+$/u.test(word) || !/^[\p{L}\p{M}\u200c\u200d]+$/u.test(word) || !/[\u0985-\u09b9\u09ce\u09dc-\u09df\u09f0-\u09f1]/u.test(word)) throw new Error('Invalid Bengali name');
+      return word;
+    });
+    const body = words.map((word, i) => plan.separators[i] + word).join('') + plan.separators[words.length];
+    const name = (plan.prefix + (plan.prefix && body && !/^[.,'’()\-]/u.test(body) ? ' ' : '') + body).trim();
+    if(!names.includes(name)) names.push(name);
+  }
+  return names;
+}
+function employeeNameAIClearChoices(dst){
+  if(dst._employeeNameChoicesCleanup) dst._employeeNameChoicesCleanup();
+}
+function employeeNameAIChoices(src, dst, names, sourceValue){
+  employeeNameAIClearChoices(dst);
+  if(names.length < 2) return;
+  const select = document.createElement('select');
+  select.className = 'na-name-spellings';
+  select.setAttribute('aria-label', 'Choose Bengali name spelling');
+  select.style.marginTop = '4px';
+  for(const name of names){
+    const option = document.createElement('option');
+    option.value = name; option.textContent = name; select.appendChild(option);
+  }
+  let selectedValue = dst.value;
+  const clear = () => {
+    select.remove();
+    src.removeEventListener('input', clear); dst.removeEventListener('input', clear);
+    delete dst._employeeNameChoicesCleanup;
+  };
+  select.addEventListener('change', () => {
+    if(document.getElementById(src.id) !== src || document.getElementById(dst.id) !== dst || src.value !== sourceValue || dst.value !== selectedValue){clear();return;}
+    dst.removeEventListener('input', clear);
+    dst.value = select.value; selectedValue = dst.value;
+    dst.dispatchEvent(new Event('input', {bubbles:true}));
+    dst.addEventListener('input', clear);
+  });
+  dst.closest('.na-translatable').appendChild(select);
+  src.addEventListener('input', clear); dst.addEventListener('input', clear);
+  dst._employeeNameChoicesCleanup = clear;
+}
+async function translateEmployeeFieldAI(srcId, dstId, fieldType, btn){
+  const src = document.getElementById(srcId), dst = document.getElementById(dstId);
+  if(!src || !dst || !src.value.trim()){toast('Enter the English value first.', 'error');return;}
+  const isName = ['employee name', 'father name', 'mother name'].includes(fieldType);
+  const multiple = fieldType === 'employee name';
+  if(isName && dst.value.trim() && !window.confirm('Replace the existing Bengali name with AI suggestions?')) return;
+  const cfg = window.__mgAiCfg || (()=>{try{return JSON.parse(localStorage.getItem('mghrm_ai') || '{}')}catch(e){return {}}})();
+  const key = String(cfg.key || '').trim(), model = String(cfg.model || 'gemini-2.5-flash-lite').trim();
+  if(!key){toast('Configure the Gemini API key in AI Settings.', 'error');return;}
+  const previous = employeeNameAIRequests.get(dst);
+  if(previous) previous.cancel();
+  employeeNameAIClearChoices(dst);
+  const sourceValue = src.value, targetValue = dst.value, old = btn?.innerHTML;
+  const controller = new AbortController();
+  let invalid = false, finished = false, timedOut = false;
+  const invalidate = () => {invalid = true; controller.abort();};
+  const finish = () => {
+    if(finished) return; finished = true;
+    src.removeEventListener('input', invalidate); dst.removeEventListener('input', invalidate);
+    if(btn){btn.disabled = false; btn.innerHTML = old;}
+  };
+  const request = {cancel(){invalidate();finish();}};
+  employeeNameAIRequests.set(dst, request);
+  const current = () => !invalid && employeeNameAIRequests.get(dst) === request &&
+    document.getElementById(srcId) === src && document.getElementById(dstId) === dst &&
+    src.value === sourceValue && dst.value === targetValue;
+  src.addEventListener('input', invalidate); dst.addEventListener('input', invalidate);
+  if(btn){btn.disabled = true;btn.innerHTML = '…';}
+  const timeout = setTimeout(() => {timedOut = true; controller.abort();}, 20000);
+  try{
+    const plan = isName ? employeeNameAIPlan(sourceValue) : null;
+    const prompt = isName
+      ? `Transliterate Bangladesh person-name parts to Bengali, same order, one word per part. Never add/drop parts. Muhammad=মুহাম্মদ. Return compact JSON: array of ${multiple ? '1–4 genuinely plausible distinct spelling arrays, best first; no forced variants' : 'one best spelling array'}. No prose. Parts: ${JSON.stringify(plan.parts)}`
+      : `Translate this ${fieldType} into concise, professional Bangla for a formal Bangladesh employment document. Preserve proper names accurately. Output only the translated text.\n\n${sourceValue.trim()}`;
+    // Prefix-only names need no AI. Otherwise there is exactly one request, no retries.
+    let names;
+    if(isName && !plan.parts.length) names = [plan.prefix];
+    else {
+      const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(key);
+      const response = await fetch(url, {method:'POST', signal:controller.signal, headers:{'Content-Type':'application/json'}, body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:.15,maxOutputTokens:isName ? (multiple ? 256 : 96) : 300}})});
+      if(!response.ok) throw new Error('Gemini request failed');
+      const data = await response.json(), candidate = data?.candidates?.[0];
+      if(candidate?.finishReason && candidate.finishReason !== 'STOP') throw new Error('Incomplete translation');
+      const output = candidate?.content?.parts?.filter(p => !p.thought).map(p => p.text || '').join('').trim();
+      if(!output) throw new Error('No translation returned');
+      names = isName ? employeeNameAIVariants(output, plan, multiple) : [output.replace(/^```[a-z]*\s*|```$/gi, '').trim()];
+    }
+    if(timedOut) throw new Error('Timeout');
+    if(!current()) return;
+    finish(); // Remove request listeners before emitting our own input event.
+    dst.value = names[0]; dst.dispatchEvent(new Event('input', {bubbles:true}));
+    if(multiple) employeeNameAIChoices(src, dst, names, sourceValue);
+  }catch(error){
+    if(current()) toast(timedOut ? 'AI translation timed out. Please try again.' : 'AI translation failed. Please enter the Bengali name manually.', 'error');
+  }finally{
+    clearTimeout(timeout); finish();
+    if(employeeNameAIRequests.get(dst) === request) employeeNameAIRequests.delete(dst);
+  }
+}
 async function translateField(srcId, dstId, btn){
   const src = document.getElementById(srcId), dst = document.getElementById(dstId);
   if(!src || !src.value.trim()){ toast('Type the English name first','error'); return; }

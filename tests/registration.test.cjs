@@ -57,7 +57,7 @@ async function setup({records=[],fail=null,zero=false,gate=null}={}){
   await ctx.MGHRM.connect({url:'https://synthetic.invalid',anonKey:'synthetic-test-key'});
   Object.assign(ctx,{
     toast:(m,type)=>messages.push({m,type}),guardEdit:()=>true,
-    normalizeDateOnly:x=>x||'',todayISO:()=>new Date().toISOString().slice(0,10),
+    todayISO:()=>new Date().toISOString().slice(0,10),
     findEmp:id=>ctx.DATA.employees.find(e=>String(e.id)===String(id)||(e.EmployeeID&&String(e.EmployeeID)===String(id))),
     renderEmpTable(){},renderPendingRecruitment(){},renderRecruitment(){},syncRecruitmentFromEmployees(){},
     confirmSensitiveJoinDateChange:async()=>true,
@@ -83,6 +83,7 @@ async function setup({records=[],fail=null,zero=false,gate=null}={}){
   for(const id of ['naPrimaryBtn','btnSaveBasicInfo','btnSaveJobComplete','btnSaveEmergency','btnSaveReferences'])node(id,'','BUTTON');
   for(const id of ['naAddr','naEc','naRef','naJob'])node('natab-'+id);
   for(const id of ['ec1n','ec1r','ec1m','ec2n','ec2r','ec2m','rfn','rfd','rfo','rfm'])node('na_'+id);
+  vm.runInContext(segment('function normalizeDateOnly(val){','function refNo('),ctx);
   vm.runInContext(segment('function normEmployee(row) {','window.normEmployee = normEmployee;'),ctx);
   vm.runInContext(segment('function cleanEmployeePayload(payload) {','window.cleanEmployeePayload = cleanEmployeePayload;'),ctx);
   vm.runInContext(segment('function naRegistrationError(err){','function resetApplicantForm(){'),ctx);
@@ -275,4 +276,50 @@ test('all inline scripts and data layer compile without loading credentials or e
   for (const m of html.matchAll(/<script\b[^>]*src="\.\/([^"]+)"[^>]*>/gi)) {
     if (m[1] !== 'config.js') new vm.Script(fs.readFileSync(m[1], 'utf8'));
   }
+});
+
+test('shared date normalization accepts legacy Bangladesh formats and validates exact calendar dates',async()=>{
+  const {ctx}=await setup();
+  for(const value of ['2021/7/27','2021/07/27','2021-7-27','2021-07-27','27/7/2021','27-07-2021','২০২১/৭/২৭','2021-07-27T00:00:00.000Z','2021-07-27T23:30:00-06:00'])assert.equal(ctx.normalizeDateOnly(value),'2021-07-27');
+  for(const value of ['',null,undefined,'not-a-date','2021/2/29','2026-02-30','31/04/2026','2021-13-01','0000-01-01','2021-07-27 garbage',42])assert.equal(ctx.normalizeDateOnly(value),'');
+  assert.equal(ctx.normalizeDateOnly('2000/2/29'),'2000-02-29');
+  assert.equal(ctx.normalizeDateOnly('1900/2/29'),'');
+  assert.equal(ctx.normalizeDateOnly(new Date(2021,6,27)),'2021-07-27');
+});
+test('all existing employee date formats prefill ISO and salary-only updates never rewrite joining date',async()=>{
+  for(const status of ['Active','Inactive'])for(const join of ['2021/7/27','2021/07/27','27/07/2021','27-7-2021','2021-07-27']){
+    const h=await setup({records:[{id:38,full_name:'Synthetic Employee',status,join_date:join,designation:'Security Supervisor',project_name:'Synthetic Project',salary:17500,remarks:'{}'}]});
+    // This is the normalized employee field used by the real profile input template.
+    h.nodes.na_joinDate.value=h.ctx.DATA.employees[0].JoinDate;
+    assert.equal(h.nodes.na_joinDate.value,'2021-07-27');
+    h.nodes.na_desig.value='Security Supervisor';h.nodes.na_project.value='Synthetic Project';h.nodes.na_gross.value='19080';
+    let prompts=0;h.ctx.confirmSensitiveJoinDateChange=async()=>{prompts++;return false;};
+    await h.ctx.saveJobAndComplete();
+    assert.equal(prompts,0);assert.equal(writes(h).length,1);assert.equal(h.db[0].salary,19080);
+    assert.equal(h.db[0].join_date,join);assert.equal(h.db[0].status,status);assert.equal(h.db[0].project_name,'Synthetic Project');
+    assert.equal(Object.hasOwn(writes(h)[0].payload,'join_date'),false);
+    assert.equal(Object.hasOwn(writes(h)[0].payload,'status'),false);assert.equal(h.closed,true);
+  }
+});
+test('section update suppresses equivalent joining-date writes even with a stale legacy-format cache',async()=>{
+  const h=await setup({records:[{id:1,status:'Active',join_date:'2021/7/27',project_name:'Same',remarks:'{}'}]});
+  h.ctx.DATA.employees[0].JoinDate='2021/7/27';
+  h.ctx.confirmSensitiveJoinDateChange=async()=>{throw Error('Equivalent date must not request confirmation');};
+  await h.ctx.executeRecruitUpdate({salary:19080,join_date:'2021-07-27'},1);
+  assert.equal(h.db[0].salary,19080);assert.equal(h.db[0].join_date,'2021/7/27');
+  assert.equal(Object.hasOwn(writes(h)[0].payload,'join_date'),false);
+});
+test('genuine joining-date change still requires approval and cancellation keeps salary and date unchanged',async()=>{
+  const h=await setup({records:[{id:1,status:'Active',join_date:'2021/7/27',salary:17500,project_name:'Same',remarks:'{}'}]});
+  let prompt;h.ctx.confirmSensitiveJoinDateChange=async(oldDate,newDate)=>{prompt=[oldDate,newDate];return false;};
+  await assert.rejects(h.ctx.executeRecruitUpdate({salary:19080,join_date:'2021/7/28'},1),/বাতিল/);
+  assert.deepEqual(prompt,['2021-07-27','2021-07-28']);assert.equal(writes(h).length,0);assert.equal(h.db[0].salary,17500);
+  h.ctx.confirmSensitiveJoinDateChange=async()=>true;
+  await h.ctx.executeRecruitUpdate({salary:19080,join_date:'2021/7/28'},1);
+  assert.equal(h.db[0].join_date,'2021-07-28');assert.equal(h.db[0].salary,19080);
+});
+test('sensitive-change dialog itself bypasses format-only differences for every caller',async()=>{
+  const h=await setup();
+  vm.runInContext(segment('function confirmSensitiveJoinDateChange(', 'async function executeRecruitUpdate('),h.ctx);
+  for(const value of ['2021/7/27','2021-07-27','27/07/2021'])assert.equal(await h.ctx.confirmSensitiveJoinDateChange(value,'2021-07-27',{}),true);
 });

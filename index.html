@@ -4126,26 +4126,26 @@ function transferCompletedDate(t){
   return isNaN(d.getTime()) ? '' : transferDhakaDate(d);
 }
 function normalizeDateOnly(val){
-  if (!val) return '';
-  if (typeof val === 'string') {
-    const s = val.trim();
-    const match = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-    if (match) {
-      return `${match[1]}-${String(match[2]).padStart(2, '0')}-${String(match[3]).padStart(2, '0')}`;
-    }
-    const dMatch = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
-    if (dMatch) {
-      return `${dMatch[3]}-${String(dMatch[2]).padStart(2, '0')}-${String(dMatch[1]).padStart(2, '0')}`;
-    }
-    return s.slice(0, 10);
-  }
-  if (val instanceof Date && !isNaN(val.getTime())) {
-    const y = val.getFullYear();
-    const m = String(val.getMonth() + 1).padStart(2, '0');
-    const day = String(val.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  }
-  return String(val).trim().slice(0, 10);
+  if (val == null || val === '') return '';
+  let year, month, day;
+  if (val instanceof Date) {
+    if (!Number.isFinite(val.getTime())) return '';
+    year = String(val.getFullYear()).padStart(4, '0');
+    month = String(val.getMonth() + 1); day = String(val.getDate());
+  } else if (typeof val === 'string') {
+    const value = val.trim().replace(/[০-৯]/g, digit => String('০১২৩৪৫৬৭৮৯'.indexOf(digit)));
+    // Legacy imports use both YYYY/M/D and Bangladesh's D/M/YYYY.
+    const ymd = value.match(/^(\d{4})([-/])(\d{1,2})\2(\d{1,2})$/) ||
+      value.match(/^(\d{4})(-)(\d{2})-(\d{2})[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?$/);
+    const dmy = !ymd && value.match(/^(\d{1,2})([-/])(\d{1,2})\2(\d{4})$/);
+    if (ymd) [year, month, day] = [ymd[1], ymd[3], ymd[4]];
+    else if (dmy) [year, month, day] = [dmy[4], dmy[3], dmy[1]];
+    else return '';
+  } else return '';
+  const iso = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(iso) || Number(year) < 1) return '';
+  const date = new Date(iso + 'T00:00:00Z');
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === iso ? iso : '';
 }
 window.normalizeDateOnly = normalizeDateOnly;
 function refNo(prefix='MG/SEC'){
@@ -7908,9 +7908,15 @@ async function executeRecruitUpdate(dbPayload, recruitId){
   delete clean.status; // Section saves never perform lifecycle transitions.
   const oldJoin = normalizeDateOnly(currentEmp && (currentEmp.JoinDate || currentEmp.join_date));
   if(clean.join_date){
-    if(MGHRM.registration.date(clean.join_date) == null) throw new Error('সঠিক যোগদানের তারিখ লিখুন।');
-    if(currentEmp && currentEmp.Status !== 'Candidate' && oldJoin && oldJoin !== clean.join_date){
-      if(!await confirmSensitiveJoinDateChange(oldJoin, clean.join_date, currentEmp)) throw new Error('যোগদানের তারিখ পরিবর্তন বাতিল হয়েছে।');
+    const proposedJoin = normalizeDateOnly(clean.join_date);
+    if(!proposedJoin || MGHRM.registration.date(proposedJoin) == null) throw new Error('সঠিক যোগদানের তারিখ লিখুন।');
+    // Equivalent dates are not edits: omit the column and preserve the stored value.
+    if(oldJoin && oldJoin === proposedJoin) delete clean.join_date;
+    else {
+      clean.join_date = proposedJoin;
+      if(currentEmp && currentEmp.Status !== 'Candidate' && oldJoin){
+        if(!await confirmSensitiveJoinDateChange(oldJoin, proposedJoin, currentEmp)) throw new Error('যোগদানের তারিখ পরিবর্তন বাতিল হয়েছে।');
+      }
     }
   }
   if(currentEmp && currentEmp.Status === 'Active' && clean.project_name !== undefined &&

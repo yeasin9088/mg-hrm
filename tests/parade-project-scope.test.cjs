@@ -13,9 +13,9 @@ test('project name aliases and IDs aggregate employees into one canonical row wi
 test('assistant supervisor substitution retains existing demand total',()=>{
  const [r]=compute({projects:[{project_name:'A'}],demand:[{project_name:'A',demand_supervisor:2,demand_assst_sup:1}],employees:[{project_name:'A',designation:'Asst Security Supervisor',status:'Active'}]});assert.equal(r.demand.Supervisor,1);assert.equal(r.demand.AsstSup,2);assert.equal(r.demandTotal,3);
 });
-test('presentation scope excludes closed project aliases and report records without mutating stored history',()=>{
+test('presentation scope keeps historical transfers while excluding closed operational projects',()=>{
  const c={DATA:{projects:[{id:1,ProjectName:'Active',is_active:true},{id:2,ProjectName:'Closed',ProjectNameBangla:'বন্ধ',status:'Closed'}],employees:[{ProjectName:'Active'},{ProjectName:'বন্ধ'}],transfers:[{CurrentProject:'Active',NewProject:'Closed'}]}};c.window=c;vm.createContext(c);
  vm.runInContext(html.slice(html.indexOf('function isProjectNameActive('),html.indexOf('function computeParade(')),c);
  vm.runInContext(html.slice(html.indexOf('function isProjectActive(p)'),html.indexOf('/* Central resolver for Meeting Attendance Project Scope */')),c);
- const view=c.projectVisibilityData(c.DATA);assert.equal(view.projects.length,1);assert.equal(view.employees.length,1);assert.equal(view.transfers.length,0);assert.equal(c.DATA.employees.length,2);assert.equal(c.DATA.projects.length,2);assert.equal(c.isProjectNameActive('বন্ধ'),false);assert.equal(c.projectRecordVisible({current_project:'Closed'}),false);
+ const view=c.projectVisibilityData(c.DATA);assert.equal(view.projects.length,1);assert.equal(view.employees.length,1);assert.equal(view.transfers.length,1);assert.equal(c.DATA.employees.length,2);assert.equal(c.DATA.projects.length,2);assert.equal(c.isProjectNameActive('বন্ধ'),false);assert.equal(c.projectRecordVisible({current_project:'Closed'}),false);
 });

@@ -41,3 +41,29 @@ test('picker search selects only visible results, Clear removes hidden selection
  f.c.searchTransferReportProjects('from','বিশ্বাস');f.c.selectTransferReportProjects('from',true);assert.deepEqual(rows.map(r=>r.input.checked),[true,true,false]);
  f.c.searchTransferReportProjects('from','Other');f.c.selectTransferReportProjects('from',false);assert(rows.every(r=>!r.input.checked));
 });
+test('closing an endpoint preserves transfer history in list, October report, print and export',async()=>{
+ const f=fixture(),c=f.c;
+ c.DATA.projects=[{ProjectName:'Amira',is_active:true},{ProjectName:'Nabaron',is_active:false,Status:'Closed'},{ProjectName:'Sattar',is_active:true}];
+ c.DATA.transfers=[{id:198,CurrentProject:'Amira',NewProject:'Nabaron',FullName:'Historical Guard',effective_date:'2026-10-04',Status:'Completed'},{id:209,CurrentProject:'Nabaron',NewProject:'Sattar',FullName:'Historical Guard',effective_date:'2026-10-28',Status:'Completed'},{id:210,CurrentProject:'Amira',NewProject:'Nabaron',effective_date:'2026-10-04',deleted_at:'2026-10-05'}];
+ c.isProjectActive=p=>p.is_active!==false;c.projectRecordVisible=r=>r.CurrentProject!=='Nabaron'&&r.NewProject!=='Nabaron';
+ c.projectNameAZ=(a,b)=>a.localeCompare(b);c.activeProjects=()=>c.DATA.projects.filter(c.isProjectActive);c.TR_F={};c.findEmpByAction=()=>null;
+ vm.runInContext(['projectVisibilityData','trFilteredRows','trProjectOptions','transferReportProjectPicker'].map(fn).join('\n'),c);
+ f.elements.reportMonth.value='2026-10';f.elements.reportProjectScope.value='active';
+ assert.deepEqual(Array.from(c.trFilteredRows(),r=>r.id),[209,198]);assert.deepEqual(f.ids(),[198,209]);
+ assert.match(c.transferReportProjectPicker('from'),/value="Nabaron"/);assert(c.trProjectOptions().includes('Nabaron'));
+ f.selections.from=['Amira'];f.selections.to=['Nabaron'];c.showReport('transfers');c.printReport();c.exportReport('transfers');
+ assert.match(f.elements.reportOutput.innerHTML,/Historical Guard/);assert.match(c.printed,/2026-10-04/);assert.match(await c.exported.text(),/Historical Guard/);assert.deepEqual(f.ids(),[198]);
+ c.DATA.projects[1].is_active=true;c.DATA.projects[1].Status='Active';assert.deepEqual(f.ids(),[198]);
+ assert.equal(c.DATA.transfers.length,3);
+});
+test('all order statuses remain in history; employee-status selector cannot hide orders',()=>{
+ const f=fixture(),c=f.c;const statuses=['Draft','Scheduled','Joining Pending','Not Joined','Completed','Cancelled','Legacy status',''];
+ c.DATA.transfers=statuses.map((Status,i)=>({id:i+1,CurrentProject:'Closed',NewProject:'Other',effective_date:'2026-11-02',Status}));
+ c.projectRecordVisible=()=>false;c.projectNameAZ=(a,b)=>a.localeCompare(b);c.findEmpByAction=()=>null;c.TR_F={};
+ f.elements.reportEmployeeStatus={value:'Active'};
+ vm.runInContext(['trFilteredRows','trStatusOptions'].map(fn).join('\n'),c);
+ assert.equal(c.trFilteredRows().length,statuses.length);assert.equal(f.ids().length,statuses.length);
+ c.showReport('transfers');assert.equal(f.elements.reportEmployeeStatus.hidden,true);
+ for(const status of statuses.filter(Boolean)){c.TR_F.status=status;assert.equal(c.trFilteredRows().length,1);}
+ c.TR_F.status='';assert.equal(c.trFilteredRows().length,statuses.length);
+});

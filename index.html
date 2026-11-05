@@ -9997,7 +9997,8 @@ function projectVisibilityData(source){
   const view = Object.assign({}, source);
   Object.keys(view).forEach(key=>{
     if (!Array.isArray(view[key])) return;
-    view[key] = key === 'projects' ? view[key].filter(p=>!p.deleted_at && isProjectActive(p)) : view[key].filter(projectRecordVisible);
+    // Transfer orders are historical records: closing a project must never hide them.
+    view[key] = key === 'transfers' ? view[key].filter(t=>!t.deleted_at) : key === 'projects' ? view[key].filter(p=>!p.deleted_at && isProjectActive(p)) : view[key].filter(projectRecordVisible);
   });
   return view;
 }
@@ -10721,7 +10722,7 @@ function trProjectOptions(){
   DATA.transfers.forEach(function(t){
     if (t.NewProject) set.add(String(t.NewProject));
   });
-  return Array.from(set).filter(isProjectNameActive).sort(projectNameAZ);
+  return Array.from(set).sort(projectNameAZ);
 }
 function transferSummaryCounts(transfers, today){
   const rows = (transfers || []).filter(t=>!t.deleted_at);
@@ -10749,7 +10750,7 @@ function trFilteredRows(){
   const idq = (F.id || '').toLowerCase();
 
   return DATA.transfers.filter(function(t){
-    if (!projectRecordVisible(t)) return false;
+    if (t.deleted_at) return false;
     const e = findEmpByAction(t);
     const empId = e ? (e.id || e.EmployeeID || '') : (t.EmployeeID || '');
 
@@ -13454,7 +13455,8 @@ function renderSalary(){
 /* Transfer report filters are independent of the shared single-project filter. */
 function transferReportProjectPicker(side){
   const title=side==='from'?'From':'To';
-  const names=Array.from(new Set(activeProjects().map(p=>p.ProjectName||p.project_name).filter(Boolean))).sort(projectNameAZ);
+  const historical=(window.DATA.transfers||[]).filter(t=>!t.deleted_at).flatMap(t=>[t.CurrentProject||t.current_project,t.NewProject||t.new_project]);
+  const names=Array.from(new Set([...activeProjects().map(p=>p.ProjectName||p.project_name),...historical].filter(Boolean))).sort(projectNameAZ);
   return `<details id="transferReport-${side}" class="transfer-report-picker" ontoggle="if(this.open) document.getElementById('transferReport-${side==='from'?'to':'from'}').open=false">
     <summary><span id="transferReport-${side}-label">${title}: All Projects</span></summary>
     <div class="transfer-report-panel">
@@ -13549,7 +13551,7 @@ function renderReports(){
       </div>
       <div id="transferReportFilters" hidden>
         ${transferReportProjectPicker('from')}${transferReportProjectPicker('to')}
-        <span class="small-mute">Multiple projects allowed. Leave a side empty for all projects.</span>
+        <span class="small-mute">Multiple projects allowed. Leave a side empty for all projects. Historical transfers include closed projects.</span>
       </div>
       <div class="card-body">
         <div class="quick-actions">
@@ -13623,11 +13625,11 @@ function getReportFilterContext(){
 }
 function reportInRange(value,ctx){ const x=parseDate(value)?.getTime(); return !!x&&x>=ctx.start&&x<ctx.end; }
 function reportMatches(record,ctx,projectFields,designationFields){
-  if (!projectRecordVisible(record)) return false;
+  if (record?.deleted_at || (!ctx.transferHistory && !projectRecordVisible(record))) return false;
   if(ctx.project){ const v=projectFields.map(k=>record?.[k]).find(Boolean)||''; if(String(v)!==String(ctx.project)) return false; }
   if(ctx.designation){ const v=designationFields.map(k=>record?.[k]).find(Boolean)||''; if(String(v)!==String(ctx.designation)) return false; }
-  if(ctx.employeeStatus){ const st=String(record?.Status||record?.status||''); if(ctx.employeeStatus==='Inactive' ? !['Inactive','Exited'].includes(st) : st!==ctx.employeeStatus) return false; }
-  if(ctx.projectScope!=='all'){
+  if(ctx.employeeStatus && !ctx.transferHistory){ const st=String(record?.Status||record?.status||''); if(ctx.employeeStatus==='Inactive' ? !['Inactive','Exited'].includes(st) : st!==ctx.employeeStatus) return false; }
+  if(!ctx.transferHistory && ctx.projectScope!=='all'){
     const projectName=projectFields.map(k=>record?.[k]).find(Boolean)||'';
     const project=(DATA.projects||[]).find(p=>String(p.ProjectName||p.project_name||'')===String(projectName));
     const active=!project || (typeof isProjectActive==='function'?isProjectActive(project):true);
@@ -13638,7 +13640,7 @@ function reportMatches(record,ctx,projectFields,designationFields){
 }
 function getMonthlyReportRows(kind){
   const DATA = projectVisibilityData(window.DATA);
-  const ctx=getReportFilterContext(); let rows=[];
+  const ctx={...getReportFilterContext(),transferHistory:kind==='transfers'}; let rows=[];
   if(kind==='newJoins') rows=(DATA.employees||[]).filter(r=>reportInRange(r.JoinDate||r.join_date,ctx)&&reportMatches(r,ctx,['ProjectName','project_name'],['Designation','designation']));
   else if(kind==='exits') rows=(DATA.exits||[]).filter(r=>reportInRange(r.ExitDate||r.exit_date,ctx)&&reportMatches(r,ctx,['CurrentProject','current_project'],['Designation','designation']));
   else if(kind==='transfers') rows=(DATA.transfers||[]).filter(r=>reportInRange(transferScheduledDate(r),ctx)&&reportMatches(r,ctx,['CurrentProject','current_project','NewProject','new_project'],['Designation','designation'])&&transferReportMatches(r,ctx));
@@ -13717,6 +13719,10 @@ function showReport(kind){
   if(transferFilters) transferFilters.hidden=kind!=='transfers';
   const sharedProject=document.getElementById('reportProject');
   if(sharedProject) sharedProject.hidden=kind==='transfers';
+  const projectScope=document.getElementById('reportProjectScope');
+  if(projectScope) projectScope.hidden=kind==='transfers';
+  const employeeStatus=document.getElementById('reportEmployeeStatus');
+  if(employeeStatus) employeeStatus.hidden=kind==='transfers';
   if(kind!=='exitSettlement') ExitReports.clear();
   document.querySelectorAll('#page-reports .qa[data-report]').forEach(card=>card.classList.toggle('report-selected',card.dataset.report===kind));
   const reportFilter = getReportFilterContext();

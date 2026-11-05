@@ -13451,6 +13451,44 @@ function renderSalary(){
 }
 
 /* ============ REPORTS ============ */
+/* Transfer report filters are independent of the shared single-project filter. */
+function transferReportProjectPicker(side){
+  const title=side==='from'?'From':'To';
+  const names=Array.from(new Set(activeProjects().map(p=>p.ProjectName||p.project_name).filter(Boolean))).sort(projectNameAZ);
+  return `<details id="transferReport-${side}" class="transfer-report-picker" ontoggle="if(this.open) document.getElementById('transferReport-${side==='from'?'to':'from'}').open=false">
+    <summary><span id="transferReport-${side}-label">${title}: All Projects</span></summary>
+    <div class="transfer-report-panel">
+      <input type="search" aria-label="Search ${title} projects" placeholder="Search projects…" oninput="searchTransferReportProjects('${side}',this.value)">
+      <div class="btn-row" style="margin:8px 0"><button type="button" class="btn sm" onclick="selectTransferReportProjects('${side}',true)">Select search results</button><button type="button" class="btn sm" onclick="selectTransferReportProjects('${side}',false)">Clear</button></div>
+      <div class="transfer-report-options">${names.map(name=>`<label><input type="checkbox" value="${escapeHtml(name)}" onchange="updateTransferReportProjects('${side}')"><span>${escapeHtml(name)}</span></label>`).join('')}</div>
+      <button type="button" class="btn sm" style="margin-top:8px" onclick="document.getElementById('transferReport-${side}').open=false">Done</button>
+    </div>
+  </details>`;
+}
+function selectedTransferReportProjects(side){
+  return Array.from(document.querySelectorAll(`#transferReport-${side} input[type="checkbox"]:checked`),el=>el.value);
+}
+function searchTransferReportProjects(side,term){
+  document.querySelectorAll(`#transferReport-${side} .transfer-report-options label`).forEach(row=>{row.hidden=!row.textContent.toLocaleLowerCase().includes(term.trim().toLocaleLowerCase());});
+}
+function updateTransferReportProjects(side){
+  const count=selectedTransferReportProjects(side).length;
+  document.getElementById(`transferReport-${side}-label`).textContent=(side==='from'?'From':'To')+': '+(count?count+' selected':'All Projects');
+  renderReportSelected();
+}
+function selectTransferReportProjects(side,checked){
+  document.querySelectorAll(`#transferReport-${side} .transfer-report-options label`).forEach(row=>{if(!checked||!row.hidden) row.querySelector('input').checked=checked;});
+  updateTransferReportProjects(side);
+}
+function transferReportMatches(record,ctx){
+  const from=record.CurrentProject||record.current_project||'';
+  const to=record.NewProject||record.new_project||'';
+  return (!ctx.fromProjects?.length||ctx.fromProjects.includes(from))&&(!ctx.toProjects?.length||ctx.toProjects.includes(to));
+}
+function transferReportFilterSummary(ctx){
+  return `From: ${escapeHtml(ctx.fromProjects?.length?ctx.fromProjects.join(', '):'All Projects')} · To: ${escapeHtml(ctx.toProjects?.length?ctx.toProjects.join(', '):'All Projects')}`;
+}
+
 function renderReports(){
   const reports = [
     {key:'workforceSummary', icon:'trend', color:'p', title:'Workforce Movement Summary', desc:'Executive workforce movement and transfer performance'},
@@ -13472,7 +13510,22 @@ function renderReports(){
     {key:'activityLog', icon:'file',     color:'b', title:'Activity Log',           desc:'Last 500 audit trail events'},
   ];
   document.getElementById('page-reports').innerHTML = `
-    <div class="card">
+    <style>
+      #page-reports .report-controls{overflow:visible}
+      #transferReportFilters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:0 20px 16px}
+      #transferReportFilters[hidden]{display:none}
+      .transfer-report-picker{position:relative;min-width:200px;font-size:13px}
+      .transfer-report-picker[open]{z-index:20}
+      .transfer-report-picker summary{cursor:pointer;padding:8px 12px;border:1px solid var(--border-strong);border-radius:6px;background:var(--card,#fff)}
+      .transfer-report-panel{position:absolute;top:calc(100% + 5px);left:0;width:min(360px,calc(100vw - 64px));padding:12px;background:var(--card,#fff);border:1px solid var(--border-strong);border-radius:8px;box-shadow:0 8px 24px #0002}
+      .transfer-report-panel>input{box-sizing:border-box;width:100%;padding:8px;border:1px solid var(--border-strong);border-radius:6px;font:inherit}
+      .transfer-report-options{max-height:240px;overflow-y:auto}
+      .transfer-report-options label{display:flex;gap:8px;align-items:center;padding:8px 4px;cursor:pointer}
+      .transfer-report-options label[hidden]{display:none}
+      .transfer-report-options input{flex-shrink:0}
+      @media(max-width:640px){.transfer-report-picker{width:100%;min-width:0}}
+    </style>
+    <div class="card report-controls">
       <div class="card-header">
         <h3>${'Reports Center'}</h3>
         <div class="btn-row">
@@ -13493,6 +13546,10 @@ function renderReports(){
           <select id="reportEmployeeStatus" onchange="renderReportSelected()" style="padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit"><option value="">All Employee Statuses</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
           <select id="reportProjectScope" onchange="renderReportSelected()" style="padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;font-family:inherit"><option value="active">Active Projects</option></select>
         </div>
+      </div>
+      <div id="transferReportFilters" hidden>
+        ${transferReportProjectPicker('from')}${transferReportProjectPicker('to')}
+        <span class="small-mute">Multiple projects allowed. Leave a side empty for all projects.</span>
       </div>
       <div class="card-body">
         <div class="quick-actions">
@@ -13562,7 +13619,7 @@ function getReportFilterContext(){
       label=new Date(parts[0],month-1,1).toLocaleString('en-US',{month:'long',year:'numeric'});
     }
   }
-  return {mode,start,end,label,project:document.getElementById('reportProject')?.value||'',designation:document.getElementById('reportDesignation')?.value||'',employeeStatus:document.getElementById('reportEmployeeStatus')?.value||'',projectScope:document.getElementById('reportProjectScope')?.value||'all'};
+  return {mode,start,end,label,project:currentReport==='transfers'?'':(document.getElementById('reportProject')?.value||''),fromProjects:currentReport==='transfers'?selectedTransferReportProjects('from'):[],toProjects:currentReport==='transfers'?selectedTransferReportProjects('to'):[],designation:document.getElementById('reportDesignation')?.value||'',employeeStatus:document.getElementById('reportEmployeeStatus')?.value||'',projectScope:document.getElementById('reportProjectScope')?.value||'all'};
 }
 function reportInRange(value,ctx){ const x=parseDate(value)?.getTime(); return !!x&&x>=ctx.start&&x<ctx.end; }
 function reportMatches(record,ctx,projectFields,designationFields){
@@ -13584,7 +13641,7 @@ function getMonthlyReportRows(kind){
   const ctx=getReportFilterContext(); let rows=[];
   if(kind==='newJoins') rows=(DATA.employees||[]).filter(r=>reportInRange(r.JoinDate||r.join_date,ctx)&&reportMatches(r,ctx,['ProjectName','project_name'],['Designation','designation']));
   else if(kind==='exits') rows=(DATA.exits||[]).filter(r=>reportInRange(r.ExitDate||r.exit_date,ctx)&&reportMatches(r,ctx,['CurrentProject','current_project'],['Designation','designation']));
-  else if(kind==='transfers') rows=(DATA.transfers||[]).filter(r=>reportInRange(transferScheduledDate(r),ctx)&&reportMatches(r,ctx,['CurrentProject','current_project','NewProject','new_project'],['Designation','designation']));
+  else if(kind==='transfers') rows=(DATA.transfers||[]).filter(r=>reportInRange(transferScheduledDate(r),ctx)&&reportMatches(r,ctx,['CurrentProject','current_project','NewProject','new_project'],['Designation','designation'])&&transferReportMatches(r,ctx));
   else if(kind==='disciplinary') rows=(DATA.disciplinary||[]).filter(r=>reportInRange(r.IssueDate||r.issue_date,ctx)&&reportMatches(r,ctx,['ProjectName','project_name'],['Designation','designation']));
   return {rows,ctx};
 }
@@ -13656,6 +13713,10 @@ function renderReportSelected(){ showReport(currentReport); }
 function showReport(kind){
   const DATA = projectVisibilityData(window.DATA);
   currentReport = kind;
+  const transferFilters=document.getElementById('transferReportFilters');
+  if(transferFilters) transferFilters.hidden=kind!=='transfers';
+  const sharedProject=document.getElementById('reportProject');
+  if(sharedProject) sharedProject.hidden=kind==='transfers';
   if(kind!=='exitSettlement') ExitReports.clear();
   document.querySelectorAll('#page-reports .qa[data-report]').forEach(card=>card.classList.toggle('report-selected',card.dataset.report===kind));
   const reportFilter = getReportFilterContext();
@@ -13693,8 +13754,9 @@ function showReport(kind){
       <div class="btn-row"><button class="btn success sm" onclick="exportReport('transfers')">${ico('excel')} Excel</button><button class="btn sm" onclick="printReport()">${ico('print')} Print</button></div></div>
       <div class="card-body" id="reportPrintable">
         <p class="small-mute" style="margin-bottom:12px">${'Orders scheduled in period'}: <strong>${num(list.length)}</strong>. Status shows whether joining was confirmed.</p>
+        <p class="small-mute" style="margin-bottom:12px">${escapeHtml(reportFilter.label)} · ${transferReportFilterSummary(reportFilter)}</p>
         <div class="table-wrap"><table><thead><tr><th>#</th><th>${'Scheduled date'}</th><th>${'Name'}</th><th>${'From'}</th><th>${'To'}</th><th>Status</th></tr></thead><tbody>
-          ${list.map((t,i)=>`<tr><td>${num(i+1)}</td><td>${fmtDate(transferScheduledDate(t))}</td><td>${escapeHtml(t.FullName)}</td><td>${escapeHtml(projName(t.CurrentProject))}</td><td>${escapeHtml(projName(t.NewProject))}</td><td>${escapeHtml(t.status||t.Status||'')}</td></tr>`).join('')}
+          ${list.map((t,i)=>`<tr><td>${num(i+1)}</td><td>${fmtDate(transferScheduledDate(t))}</td><td>${escapeHtml(t.FullName||t.full_name||'')}</td><td>${escapeHtml(projName(t.CurrentProject||t.current_project||''))}</td><td>${escapeHtml(projName(t.NewProject||t.new_project||''))}</td><td>${escapeHtml(t.status||t.Status||'')}</td></tr>`).join('')||'<tr><td colspan="6" class="small-mute" style="text-align:center;padding:20px">No transfers match these filters</td></tr>'}
         </tbody></table></div></div></div>`;
   } else if(kind==='disciplinary'){
     const list = getMonthlyReportRows('disciplinary').rows.sort((a,b)=> (parseDate(a.IssueDate)?.getTime()||0) - (parseDate(b.IssueDate)?.getTime()||0));
@@ -13925,7 +13987,7 @@ function exportReport(kind){
   const specs={
     newJoins:{headers:['Employee ID','Name','Designation','Project','Join Date'],map:r=>[r.EmployeeID||r.employee_id||'',r.FullName||r.full_name||'',r.Designation||r.designation||'',r.ProjectName||r.project_name||'',r.JoinDate||r.join_date||'']},
     exits:{headers:['Employee ID','Name','Designation','Project','Exit Date','Exit Reason'],map:r=>[r.EmployeeID||r.employee_id||'',r.FullName||r.full_name||'',r.Designation||r.designation||'',r.CurrentProject||r.current_project||'',r.ExitDate||r.exit_date||'',r.ExitReason||r.exit_reason||'']},
-    transfers:{headers:['Employee ID','Name','Designation','From','To','Effective Date','Status'],map:r=>[r.EmployeeID||r.employee_id||'',r.FullName||r.full_name||'',r.Designation||r.designation||'',r.CurrentProject||r.current_project||'',r.NewProject||r.new_project||'',r.TransferDate||r.transfer_date||r.effective_date||'',r.status||r.Status||'']},
+    transfers:{headers:['Employee ID','Name','Designation','From','To','Effective Date','Status'],map:r=>[r.EmployeeID||r.employee_id||'',r.FullName||r.full_name||'',r.Designation||r.designation||'',r.CurrentProject||r.current_project||'',r.NewProject||r.new_project||'',transferScheduledDate(r),r.status||r.Status||'']},
     disciplinary:{headers:['Reference','Employee ID','Name','Designation','Project','Action Type','Issue Date'],map:r=>[r.RefNo||r.ref_no||'',r.EmployeeID||r.employee_id||'',r.FullName||r.full_name||'',r.Designation||r.designation||'',r.ProjectName||r.project_name||'',r.ActionType||r.action_type||'',r.IssueDate||r.issue_date||'']}
   };
   const spec=specs[kind]; if(!spec) return toast('CSV export is not available for this report.','warning');
@@ -14057,11 +14119,11 @@ function printReport(){
       meta:`<b>${list.length}</b> Exits <i>·</i> ${mLabel}`,
       body:`<table><thead><tr><th>#</th><th>ID</th><th>Name</th><th>Designation</th><th>Project</th><th>Exit Date</th><th>Reason</th></tr></thead><tbody>${rows||'<tr><td colspan="7" style="text-align:center;color:#94a3b8">No exits this month</td></tr>'}</tbody></table>` });
   } else if(currentReport==='transfers'){
-    const list = getMonthlyReportRows('transfers').rows.sort((a,b)=> (parseDate(a.TransferDate)?.getTime()||0) - (parseDate(b.TransferDate)?.getTime()||0));
-    const rows = list.map((t,i)=>`<tr><td class="num">${i+1}</td><td>${fmtDate(t.TransferDate)}</td><td><strong>${t.FullName}</strong></td><td>${t.Designation||''}</td><td>${t.CurrentProject||''}</td><td>${t.NewProject||''}</td></tr>`).join('');
-    html = mrepShell2({ title:'Monthly Transfers Report', subtitle:`${mLabel} · all transfer orders effective in the month`,
-      meta:`<b>${list.length}</b> Transfers <i>·</i> ${mLabel}`,
-      body:`<table><thead><tr><th>#</th><th>Date</th><th>Name</th><th>Designation</th><th>From</th><th>To</th></tr></thead><tbody>${rows||'<tr><td colspan="6" style="text-align:center;color:#94a3b8">No transfers this month</td></tr>'}</tbody></table>` });
+    const list = getMonthlyReportRows('transfers').rows.sort((a,b)=> (parseDate(transferScheduledDate(a))?.getTime()||0) - (parseDate(transferScheduledDate(b))?.getTime()||0));
+    const rows = list.map((t,i)=>`<tr><td class="num">${i+1}</td><td>${fmtDate(transferScheduledDate(t))}</td><td><strong>${escapeHtml(t.FullName||t.full_name||'')}</strong></td><td>${escapeHtml(t.Designation||t.designation||'')}</td><td>${escapeHtml(t.CurrentProject||t.current_project||'')}</td><td>${escapeHtml(t.NewProject||t.new_project||'')}</td><td>${escapeHtml(t.status||t.Status||'')}</td></tr>`).join('');
+    html = mrepShell2({ title:'Monthly Transfers Report', subtitle:`${escapeHtml(mLabel)} · transfer orders by scheduled date`,
+      meta:`<b>${list.length}</b> Transfers <i>·</i> ${transferReportFilterSummary(reportFilter)}`,
+      body:`<table><thead><tr><th>#</th><th>Scheduled date</th><th>Name</th><th>Designation</th><th>From</th><th>To</th><th>Status</th></tr></thead><tbody>${rows||'<tr><td colspan="7" style="text-align:center;color:#94a3b8">No transfers match these filters</td></tr>'}</tbody></table>` });
   } else if(currentReport==='disciplinary'){
     const list = getMonthlyReportRows('disciplinary').rows.sort((a,b)=> (parseDate(a.IssueDate)?.getTime()||0) - (parseDate(b.IssueDate)?.getTime()||0));
     const rows = list.map((d,i)=>`<tr><td class="num">${i+1}</td><td>${d.RefNo||''}</td><td><strong>${d.FullName}</strong></td><td>${d.Designation||''}</td><td>${d.ProjectName||''}</td><td>${d.ActionType||''}</td><td>${fmtDate(d.IssueDate)}</td></tr>`).join('');
